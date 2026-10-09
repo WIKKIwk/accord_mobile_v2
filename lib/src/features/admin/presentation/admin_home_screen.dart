@@ -311,6 +311,11 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminSettings,
     ),
     _AdminHomeAction(
+      title: l10n.productionText('paddon.management.settings.title'),
+      icon: Icons.tune_rounded,
+      routeName: AppRoutes.adminAdditionalSettings,
+    ),
+    _AdminHomeAction(
       title: l10n.adminText('emergency_reset.title'),
       icon: Icons.delete_sweep_outlined,
       routeName: AppRoutes.adminEmergencyReset,

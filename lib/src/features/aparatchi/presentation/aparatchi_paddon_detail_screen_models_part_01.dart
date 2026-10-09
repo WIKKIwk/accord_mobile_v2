@@ -73,6 +73,8 @@ class _PaddonDetailHeader extends StatelessWidget {
     required this.printingQr,
     required this.selectedBobinaWeightUnits,
     required this.onBobinaWeightSelected,
+    this.pendingScanCount,
+    this.onReviewScans,
   });
 
   final AdminPaddonSnapshot snapshot;
@@ -81,6 +83,8 @@ class _PaddonDetailHeader extends StatelessWidget {
   final bool printingQr;
   final int? selectedBobinaWeightUnits;
   final ValueChanged<int> onBobinaWeightSelected;
+  final int? pendingScanCount;
+  final VoidCallback? onReviewScans;
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +185,9 @@ class _PaddonDetailHeader extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (paddon.isLocked)
+                  Chip(avatar: const Icon(Icons.lock_outline, size: 18),
+                    label: Text(context.l10n.productionText('worker.paddon.locked'))),
                 _PaddonDetailMetric(
                   label: 'WIP',
                   value: '${snapshot.items.length}',
@@ -193,6 +200,18 @@ class _PaddonDetailHeader extends StatelessWidget {
                   ),
               ],
             ),
+            if (pendingScanCount != null) ...[
+              const SizedBox(height: 10),
+              ActionChip(
+                key: const ValueKey('paddon-pending-scans'),
+                avatar: const Icon(Icons.playlist_add_rounded, size: 18),
+                label: Text(context.l10n.productionText(
+                  'worker.paddon.scan.pending',
+                  values: {'count': pendingScanCount!},
+                )),
+                onPressed: onReviewScans,
+              ),
+            ],
             if (snapshot.items.isNotEmpty) ...[
               const SizedBox(height: 16),
               Divider(

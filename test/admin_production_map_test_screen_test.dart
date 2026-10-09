@@ -10,6 +10,8 @@ import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
+import 'package:accord_mobile_v2/src/core/printing/session_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_edit_policy.dart';
@@ -28,6 +30,7 @@ import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_m
 import 'package:accord_mobile_v2/src/features/boyoqchi/state/returned_paint_draft_store.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -57,6 +60,7 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_17.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_18.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_19.dart';
 part 'admin_production_map_rezka_recorded_rolls_test_part.dart';
+part 'admin_production_map_rezka_print_optimization_test_part.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_20.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_21.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_22.dart';
@@ -191,6 +195,7 @@ void main() {
 
   _registeradmin_production_map_test_screen_testCases19();
   _registerRezkaRecordedRollTests();
+  _registerRezkaPrintOptimizationTests();
 
   _registeradmin_production_map_test_screen_testCases20();
 

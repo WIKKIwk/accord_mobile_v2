@@ -271,6 +271,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
     case AppRoutes.adminSettings:
       return AppRouter._buildAdminSettingsRoute(
           settings, const AdminSettingsScreen());
+    case AppRoutes.adminAdditionalSettings:
+      return AppRouter._buildRoute(settings, const AdminAdditionalSettingsScreen());
     case AppRoutes.adminTraining:
       return AppRouter._buildRoute(settings, const AdminTrainingScreen());
     case AppRoutes.adminEmergencyReset:

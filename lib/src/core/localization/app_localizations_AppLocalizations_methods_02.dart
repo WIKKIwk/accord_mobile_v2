@@ -105,6 +105,9 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       'paddon_item_remove' => 'worker.paddon.remove_failed',
       'paddon_items_remove' => 'worker.paddon.remove_failed',
       'paddon_qr_print' => 'worker.paddon.print_failed',
+      'paddon_locked' => 'worker.paddon.locked_error',
+      'active_paddon_required' => 'worker.paddon.active.required',
+      'paddon_print_confirm' => 'worker.paddon.print_confirm_failed',
       _ => '',
     };
     if (key.isEmpty) return fallback;

@@ -13,6 +13,7 @@ class AdminPaddon {
     required this.itemCount,
     this.totalGrossKg,
     this.totalNetKg,
+    this.lockedAtUnix,
   });
 
   final String id;
@@ -26,6 +27,8 @@ class AdminPaddon {
   final int itemCount;
   final double? totalGrossKg;
   final double? totalNetKg;
+  final int? lockedAtUnix;
+  bool get isLocked => lockedAtUnix != null;
 
   factory AdminPaddon.fromJson(Map<String, dynamic> json) {
     return AdminPaddon(
@@ -40,6 +43,7 @@ class AdminPaddon {
       itemCount: (json['item_count'] as num?)?.toInt() ?? 0,
       totalGrossKg: _paddonWeight(json['total_gross_kg']),
       totalNetKg: _paddonWeight(json['total_net_kg']),
+      lockedAtUnix: (json['locked_at_unix'] as num?)?.toInt(),
     );
   }
 }
@@ -58,11 +62,16 @@ class AdminPaddonSnapshot {
     required this.paddon,
     required this.items,
     this.availableItems = const [],
-  });
+    this.freeMovementEnabled = false,
+    bool? canManageItems,
+  }) : _canManageItems = canManageItems;
 
   final AdminPaddon paddon;
   final List<AdminProgressBatch> items;
   final List<AdminProgressBatch> availableItems;
+  final bool freeMovementEnabled;
+  final bool? _canManageItems;
+  bool get canManageItems => _canManageItems ?? !paddon.isLocked;
 
   factory AdminPaddonSnapshot.fromJson(Map<String, dynamic> json) {
     final rawPaddon = json['paddon'];
@@ -100,6 +109,8 @@ class AdminPaddonSnapshot {
       ),
       items: items,
       availableItems: availableItems,
+      freeMovementEnabled: json['free_movement_enabled'] == true,
+      canManageItems: json['can_manage_items'] as bool?,
     );
   }
 }
@@ -111,6 +122,7 @@ class AdminPaddonQrPrintResult {
     required this.qrPayload,
     this.printJob,
     this.printStatus = '',
+    this.canCloseAfterPrint = false,
   });
 
   final bool ok;
@@ -118,9 +130,114 @@ class AdminPaddonQrPrintResult {
   final String qrPayload;
   final UsbRpsPrintRequest? printJob;
   final String printStatus;
+  final bool canCloseAfterPrint;
+}
+
+class PaddonPrintConfirmation {
+  const PaddonPrintConfirmation(
+      {required this.paddon,
+      required this.newlyLocked,
+      required this.apparatusOptions,
+      this.apparatus});
+  final AdminPaddon paddon;
+  final bool newlyLocked;
+  final String? apparatus;
+  final Map<String, String> apparatusOptions;
 }
 
 extension MobileApiPaddons on MobileApi {
+  Future<bool> paddonFreeMovementEnabled() async {
+    final response = await _sendAuthorized(() => _get(
+      Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/management-settings'),
+      headers: _headers(requireToken()),
+    ));
+    return _paddonManagementResponse(response);
+  }
+
+  Future<bool> setPaddonFreeMovementEnabled(bool enabled) async {
+    final response = await _sendAuthorized(() => _put(
+      Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/management-settings'),
+      headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+      body: jsonEncode({'free_movement_enabled': enabled}),
+    ));
+    return _paddonManagementResponse(response);
+  }
+
+  bool _paddonManagementResponse(http.Response response) {
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_management_settings');
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is! Map || payload['ok'] != true ||
+        payload['settings'] is! Map ||
+        payload['settings']['free_movement_enabled'] is! bool) {
+      throw const MobileApiException(code: 'paddon_management_settings', message: 'Paddon sozlamalari tasdiqlanmadi');
+    }
+    return payload['settings']['free_movement_enabled'] as bool;
+  }
+
+  Future<PaddonPrintConfirmation> confirmPaddonPrint(String code) async {
+    final response = await _sendAuthorized(() => _post(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/qr/confirm'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode({'code': code.trim()}),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_print_confirm');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final paddon = AdminPaddon.fromJson(
+        (payload['paddon'] as Map).cast<String, dynamic>());
+    if (payload['ok'] != true ||
+        paddon.code != code.trim() ||
+        !paddon.isLocked) {
+      throw const MobileApiException(
+          code: 'paddon_print_confirm', message: 'Paddon qulfi tasdiqlanmadi');
+    }
+    return PaddonPrintConfirmation(
+      paddon: paddon,
+      newlyLocked: payload['newly_locked'] == true,
+      apparatus: payload['apparatus'] as String?,
+      apparatusOptions: {
+        if (payload['apparatus_options'] case final List options)
+          for (final option in options)
+            if (option is Map &&
+                option['id'] is String &&
+                option['name'] is String)
+              option['id'] as String: option['name'] as String,
+      },
+    );
+  }
+
+  Future<AdminPaddon> createActivePaddonSuccessor(
+      {required String code, required String apparatus}) async {
+    final response = await _sendAuthorized(() => _post(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/active/next'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body:
+              jsonEncode({'code': code.trim(), 'apparatus': apparatus.trim()}),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_create');
+    }
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final paddon = AdminPaddon.fromJson(
+        (payload['paddon'] as Map).cast<String, dynamic>());
+    if (payload['ok'] != true ||
+        payload['apparatus'] != apparatus.trim() ||
+        payload['code'] != paddon.code ||
+        paddon.code.isEmpty ||
+        paddon.isLocked) {
+      throw const MobileApiException(
+          code: 'paddon_create', message: 'Yangi paddon tasdiqlanmadi');
+    }
+    return paddon;
+  }
+
   Future<String?> activeRezkaPaddon(String apparatus) async {
     final response = await _sendAuthorized(() => _get(
           Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/active')
@@ -154,14 +271,18 @@ extension MobileApiPaddons on MobileApi {
     return payload['code'] as String?;
   }
 
-  Future<List<AdminPaddon>> adminPaddons({int limit = 100}) async {
+  Future<List<AdminPaddon>> adminPaddons(
+      {int limit = 100, bool selectableOnly = false}) async {
     final boundedLimit = limit.clamp(1, 200).toInt();
     final response = await _sendAuthorized(
       () => _get(
         Uri.parse(
           '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons',
         ).replace(
-          queryParameters: {'limit': boundedLimit.toString()},
+          queryParameters: {
+            'limit': boundedLimit.toString(),
+            if (selectableOnly) 'selectable_only': 'true'
+          },
         ),
         headers: _headers(requireToken()),
       ),
@@ -297,6 +418,7 @@ extension MobileApiPaddons on MobileApi {
                   : const [],
             ),
       printStatus: printMap['status']?.toString() ?? '',
+      canCloseAfterPrint: payload['can_close_after_print'] == true,
     );
   }
 

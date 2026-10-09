@@ -18,7 +18,8 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/print_service.dart';
-import '../../admin/presentation/admin_progress_qr_scan_screen.dart';
+import '../../../core/production/active_rezka_paddon_store.dart';
+import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
@@ -35,6 +36,8 @@ part 'aparatchi_paddon_detail_screen_models_part_01.dart';
 part 'aparatchi_paddon_detail_screen_bobina_summary.dart';
 part 'aparatchi_paddon_detail_screen_swipe_remove.dart';
 part 'aparatchi_paddon_detail_screen_order_header.dart';
+part 'aparatchi_paddon_print_workflow.dart';
+part 'aparatchi_paddon_qr_addition.dart';
 
 class _AparatchiPaddonDetailScreenState
     extends State<AparatchiPaddonDetailScreen> {
@@ -48,6 +51,22 @@ class _AparatchiPaddonDetailScreenState
   bool _selectionMode = false;
   _PaddonEditMode _editMode = _PaddonEditMode.add;
   int? _bobinaFilterUnits;
+  final _qrScannerKey = GlobalKey();
+  final Map<String, AdminProgressBatch> _scannedWips = {};
+  final Map<String, String> _scannedBatchIdsByQr = {};
+  final Set<String> _queuedQrValues = {};
+  Future<void> _qrScanQueue = Future<void>.value();
+  Object? _qrScanScope;
+  int _qrScanGeneration = 0;
+  int _qrLookupsPending = 0;
+  bool _qrScanMode = false;
+  bool _qrReviewOpen = false;
+  String _qrScanStatus = '';
+  ProductionQuickScanFeedback? _qrScanFeedback;
+  Timer? _qrScanFeedbackTimer;
+
+  void _setPrintingQr(bool value) => setState(() => _printingQr = value);
+  void _updateQrScan(VoidCallback update) => setState(update);
 
   @override
   void initState() {
@@ -56,6 +75,12 @@ class _AparatchiPaddonDetailScreenState
         widget.snapshot ?? widget.initialSnapshot?.takeForCode(widget.code);
     _future = initial == null ? _load() : Future.value(initial);
     if (widget.apparatus == null) unawaited(_loadApparatus());
+  }
+
+  @override
+  void dispose() {
+    _qrScanFeedbackTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadApparatus() async {
@@ -72,11 +97,7 @@ class _AparatchiPaddonDetailScreenState
       ? _selectedAvailableBatchIds
       : _selectedAssignedBatchIds;
 
-  IconData get _editModeActionIcon => _editMode == _PaddonEditMode.add
-      ? Icons.playlist_add_rounded
-      : Icons.playlist_remove_rounded;
-
-  void _exitAddSelection() {
+  void _exitSelection() {
     if (_busy || !mounted) return;
     setState(() {
       _selectionMode = false;
@@ -98,23 +119,32 @@ class _AparatchiPaddonDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    return AppShell(
-      title: widget.code,
-      subtitle: context.l10n.productionText('worker.paddon.detail.subtitle'),
-      nativeTopBar: true,
-      drawer: widget.manageItems
-          ? AparatchiNavigationDrawer(
-              selectedIndex: 2,
-              selectedRouteName: AppRoutes.apparatusPaddons,
-              onNavigate: (routeName) =>
-                  AdminDrawerNavigation.openRoute(context, routeName),
-            )
-          : null,
-      bottom: widget.bottom ?? _buildDock(context),
-      contentPadding: EdgeInsets.zero,
-      child: ColoredBox(
-        color: AppTheme.shellStart(context),
-        child: _buildBody(context),
+    return PopScope(
+      canPop: !_qrScanMode ||
+          (!_busy && _scannedWips.isEmpty && _qrLookupsPending == 0),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_busy && !_qrReviewOpen) {
+          unawaited(_leaveQrScanPage());
+        }
+      },
+      child: AppShell(
+        title: widget.code,
+        subtitle: context.l10n.productionText('worker.paddon.detail.subtitle'),
+        nativeTopBar: true,
+        drawer: widget.manageItems
+            ? AparatchiNavigationDrawer(
+                selectedIndex: 2,
+                selectedRouteName: AppRoutes.apparatusPaddons,
+                onNavigate: (routeName) =>
+                    AdminDrawerNavigation.openRoute(context, routeName),
+              )
+            : null,
+        bottom: widget.bottom ?? _buildDock(context),
+        contentPadding: EdgeInsets.zero,
+        child: ColoredBox(
+          color: AppTheme.shellStart(context),
+          child: _buildBody(context),
+        ),
       ),
     );
   }

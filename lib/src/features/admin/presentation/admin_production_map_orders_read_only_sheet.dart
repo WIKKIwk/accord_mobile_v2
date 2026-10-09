@@ -18,6 +18,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   late Map<String, String> _stageStates;
 
   AdminApparatusQueueOrderActionControl? _queueActionControl;
+  AdminRezkaOutputReport? _lastRezkaOutputReport;
   late AdminOrderControlState _orderControlState;
   late Map<String, AdminOrderControlState> _orderControls;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
@@ -53,6 +54,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   int _actionControlLoads = 0;
   int _scanBootstrapGeneration = 0;
   bool _scanBootstrapUnsupported = false;
+  bool _rezkaOutputReportUnsupported = false;
   late final String _detailReadScope;
   late String _observedDetailReadScope;
   int? _scanBootstrapRevision;
@@ -2417,6 +2419,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
     final rezkaOutputKadrCounts =
         _queueActionControl?.rezkaOutputKadrCounts ?? const <int>[];
+    final currentRezkaOutputReport = _queueActionControl?.rezkaOutputReport;
+    final cachedRezkaOutputReport = _lastRezkaOutputReport;
     final requiresRezkaOutputs = widget.apparatus?.operation.trim() == 'cut' &&
         !workerHandoff &&
         !removeRollFromApparatus &&
@@ -2443,9 +2447,51 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       removeRollFromApparatus: removeRollFromApparatus,
       freezeRequestSafeStop: freezeRequestSafeStop,
       rezkaOutputKadrCounts: rezkaOutputKadrCounts,
-      rezkaOutputReport: _queueActionControl?.rezkaOutputReport,
+      // Saved slots are immutable within a cycle. Keep commits made by this
+      // dialog when the parent's control snapshot has not caught up yet.
+      rezkaOutputReport: cachedRezkaOutputReport != null &&
+              currentRezkaOutputReport != null &&
+              cachedRezkaOutputReport.cycleId ==
+                  currentRezkaOutputReport.cycleId &&
+              cachedRezkaOutputReport.frames.length >
+                  currentRezkaOutputReport.frames.length
+          ? cachedRezkaOutputReport
+          : currentRezkaOutputReport,
+      onRezkaOutputReportChanged: (report) => _lastRezkaOutputReport = report,
       progressDriverUrlPicker: widget.progressDriverUrlPicker,
       reloadRezkaOutputReport: () async {
+        if (!_rezkaOutputReportUnsupported &&
+            !_isTrainingOrder &&
+            !await TestModeController.instance.isEnabled()) {
+          final generation = _actionControlGeneration;
+          final latest = await MobileApi.instance
+              .adminRezkaOutputReport(
+                apparatus: widget.apparatus!.id,
+                orderId: widget.order.map.id,
+              )
+              .timeout(_queueActionControlRefreshTimeout);
+          if (!mounted ||
+              generation != _actionControlGeneration ||
+              _detailReadScope != currentSessionReadScope()) {
+            return null;
+          }
+          if (latest != null) {
+            final live = widget.currentQueueSnapshot?.call();
+            if (!listEquals(latest.kadrCounts, rezkaOutputKadrCounts) ||
+                (live != null &&
+                    live.epoch.isNotEmpty &&
+                    live.epoch != latest.epoch) ||
+                (_pendingDetailRevision != null &&
+                    latest.epoch == _pendingDetailEpoch &&
+                    latest.revision < _pendingDetailRevision!)) {
+              throw const MobileApiException(
+                code: 'rezka_output_cycle_conflict', message: '',
+              );
+            }
+            return latest.report;
+          }
+          _rezkaOutputReportUnsupported = true;
+        }
         final latest = await _loadCurrentQueueActionControl();
         if (mounted) _queueActionControl = latest;
         return latest?.rezkaOutputReport;

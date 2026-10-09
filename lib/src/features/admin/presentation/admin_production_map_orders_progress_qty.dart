@@ -117,6 +117,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   bool freezeRequestSafeStop = false,
   List<int> rezkaOutputKadrCounts = const [],
   AdminRezkaOutputReport? rezkaOutputReport,
+  ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged,
   Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport,
   Future<String?> Function(BuildContext)? progressDriverUrlPicker,
 }) async {
@@ -151,6 +152,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       freezeRequestSafeStop: freezeRequestSafeStop,
       rezkaOutputKadrCounts: rezkaOutputKadrCounts,
       rezkaOutputReport: rezkaOutputReport,
+      onRezkaOutputReportChanged: onRezkaOutputReportChanged,
       reloadRezkaOutputReport: reloadRezkaOutputReport,
       progressDriverUrlPicker: progressDriverUrlPicker,
     ),
@@ -172,6 +174,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   bool freezeRequestSafeStop = false,
   List<int> rezkaOutputKadrCounts = const [],
   AdminRezkaOutputReport? rezkaOutputReport,
+  ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged,
   Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport,
   Future<String?> Function(BuildContext)? progressDriverUrlPicker,
 }) {
@@ -196,6 +199,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     freezeRequestSafeStop: freezeRequestSafeStop,
     rezkaOutputKadrCounts: rezkaOutputKadrCounts,
     rezkaOutputReport: rezkaOutputReport,
+    onRezkaOutputReportChanged: onRezkaOutputReportChanged,
     reloadRezkaOutputReport: reloadRezkaOutputReport,
     progressDriverUrlPicker: progressDriverUrlPicker,
   );
@@ -235,6 +239,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.freezeRequestSafeStop,
     required this.rezkaOutputKadrCounts,
     this.rezkaOutputReport,
+    this.onRezkaOutputReportChanged,
     this.reloadRezkaOutputReport,
     this.progressDriverUrlPicker,
   });
@@ -254,6 +259,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool freezeRequestSafeStop;
   final List<int> rezkaOutputKadrCounts;
   final AdminRezkaOutputReport? rezkaOutputReport;
+  final ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged;
   final Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport;
   final Future<String?> Function(BuildContext)? progressDriverUrlPicker;
 

@@ -124,6 +124,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
     'role.capability.manage',
   },
   AppRoutes.adminSettings: {'admin.settings.read'},
+  AppRoutes.adminAdditionalSettings: {'admin.access'},
   AppRoutes.adminPushConfig: {'admin.settings.read'},
   AppRoutes.adminTraining: {'admin.access', 'production.map.manage'},
   AppRoutes.adminEmergencyReset: {'admin.access'},

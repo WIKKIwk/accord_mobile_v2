@@ -32,6 +32,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
   );
   Timer? _timer;
   Future<void>? _refreshing;
+  Future<List<AdminPaddon>>? _pickerPaddons;
   bool _busy = false;
   bool _saving = false;
   ModalRoute<dynamic>? _route;
@@ -65,6 +66,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     WidgetsBinding.instance.addObserver(this);
     _observedScope = _scope;
     AppSession.instance.revision.addListener(_sessionChanged);
+    ActiveRezkaPaddonStore.revision.addListener(_paddonChanged);
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_canPoll) {
         unawaited(_refresh());
@@ -87,6 +89,14 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.apparatusId != widget.apparatusId) _resetScope();
   }
+
+  void _paddonChanged() {
+    if (_canPoll) unawaited(_refresh());
+  }
+
+  Future<List<AdminPaddon>> _loadPaddons() =>
+      widget.loader?.call() ??
+      MobileApi.instance.adminPaddons(limit: 200, selectableOnly: true);
 
   void _sessionChanged() {
     if (_observedScope != _scope) _resetScope();
@@ -128,6 +138,9 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     final generation = _generation;
     try {
       final code = await ActiveRezkaPaddonStore.load(widget.apparatusId);
+      if (_isCurrent(scope, generation) && (_pickerRoute?.isCurrent ?? false)) {
+        _pickerPaddons = _loadPaddons();
+      }
       if (_isCurrent(scope, generation)) {
         _selection.value = AsyncSnapshot.withData(ConnectionState.done, code);
       }
@@ -144,6 +157,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     AppSession.instance.revision.removeListener(_sessionChanged);
+    ActiveRezkaPaddonStore.revision.removeListener(_paddonChanged);
     _selection.dispose();
     super.dispose();
   }
@@ -157,8 +171,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     try {
       await _refresh();
       if (!mounted || !_isCurrent(scope, generation)) return;
-      final paddons =
-          widget.loader?.call() ?? MobileApi.instance.adminPaddons(limit: 200);
+      _pickerPaddons = _loadPaddons();
       final selected = await showModalBottomSheet<String>(
         context: context,
         useSafeArea: true,
@@ -170,74 +183,63 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
           }
           return SizedBox(
             height: MediaQuery.sizeOf(context).height * 0.65,
-            child: FutureBuilder<List<AdminPaddon>>(
-              future: paddons,
-              builder: (context, list) =>
-                  ValueListenableBuilder<AsyncSnapshot<String?>>(
-                valueListenable: _selection,
-                builder: (context, selection, _) => Column(
-                  children: [
+            child: ValueListenableBuilder<AsyncSnapshot<String?>>(
+              valueListenable: _selection,
+              builder: (context, selection, _) =>
+                  FutureBuilder<List<AdminPaddon>>(
+                future: _pickerPaddons,
+                builder: (context, list) {
+                  final available = (list.data ?? const <AdminPaddon>[])
+                      .where((paddon) => !paddon.isLocked)
+                      .toList();
+                  return Column(children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text(
-                        _text('choose'),
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Text(_text('choose'),
+                            style: Theme.of(context).textTheme.titleLarge)),
                     if (!_isCurrent(scope, generation) ||
                         selection.hasError ||
                         list.hasError)
-                      Expanded(
-                        child: Center(child: Text(_text('load_failed'))),
-                      )
+                      Expanded(child: Center(child: Text(_text('load_failed'))))
                     else if (selection.connectionState !=
                             ConnectionState.done ||
                         list.connectionState != ConnectionState.done)
                       const Expanded(
-                        child: Center(child: AppLoadingIndicator()),
-                      )
+                          child: Center(child: AppLoadingIndicator()))
                     else ...[
                       ListTile(
-                        key: const ValueKey('rezka-paddon-none'),
-                        leading: const Icon(Icons.link_off_outlined),
-                        title: Text(_text('none')),
-                        trailing: selection.data == null
-                            ? const Icon(Icons.check)
-                            : null,
-                        onTap: () => Navigator.of(context).pop(''),
-                      ),
+                          key: const ValueKey('rezka-paddon-none'),
+                          leading: const Icon(Icons.link_off_outlined),
+                          title: Text(_text('none')),
+                          trailing: selection.data == null
+                              ? const Icon(Icons.check)
+                              : null,
+                          onTap: () => Navigator.of(context).pop('')),
                       Expanded(
-                        child: (list.data ?? []).isEmpty
-                            ? Center(child: Text(_text('empty')))
-                            : ListView.builder(
-                                itemCount: list.data!.length,
-                                itemBuilder: (context, index) {
-                                  final paddon = list.data![index];
-                                  return ListTile(
-                                    key: ValueKey(
-                                      'rezka-paddon-${paddon.code}',
-                                    ),
-                                    leading: const Icon(Icons.pallet),
-                                    title: Text(paddon.code),
-                                    subtitle: Text(
-                                      _text(
-                                        'rolls',
-                                        values: {'count': paddon.itemCount},
-                                      ),
-                                    ),
-                                    trailing: selection.data == paddon.code
-                                        ? const Icon(Icons.check)
-                                        : null,
-                                    onTap: () => Navigator.of(
-                                      context,
-                                    ).pop(paddon.code),
-                                  );
-                                },
-                              ),
-                      ),
+                          child: available.isEmpty
+                              ? Center(child: Text(_text('empty')))
+                              : ListView.builder(
+                                  itemCount: available.length,
+                                  itemBuilder: (context, index) {
+                                    final paddon = available[index];
+                                    return ListTile(
+                                        key: ValueKey(
+                                            'rezka-paddon-${paddon.code}'),
+                                        leading: const Icon(Icons.pallet),
+                                        title: Text(paddon.code),
+                                        subtitle: Text(_text('rolls', values: {
+                                          'count': paddon.itemCount
+                                        })),
+                                        trailing: selection.data == paddon.code
+                                            ? const Icon(Icons.check)
+                                            : null,
+                                        onTap: () => Navigator.of(context)
+                                            .pop(paddon.code));
+                                  },
+                                )),
                     ],
-                  ],
-                ),
+                  ]);
+                },
               ),
             ),
           );

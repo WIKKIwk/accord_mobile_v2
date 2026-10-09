@@ -109,6 +109,12 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       routeName: AppRoutes.adminTraining,
     ),
     RoleNavigationDrawerDestination(
+      icon: Icons.tune_outlined,
+      selectedIcon: Icons.tune_rounded,
+      label: l10n.productionText('paddon.management.settings.title'),
+      routeName: AppRoutes.adminAdditionalSettings,
+    ),
+    RoleNavigationDrawerDestination(
       icon: Icons.delete_sweep_outlined,
       selectedIcon: Icons.delete_sweep_rounded,
       label: l10n.adminText('emergency_reset.title'),

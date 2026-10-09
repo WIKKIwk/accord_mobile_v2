@@ -34,6 +34,7 @@ import '../features/admin/presentation/admin_item_detail_screen.dart';
 import '../features/admin/presentation/admin_item_group_create_screen.dart';
 import '../features/admin/presentation/admin_notifications_screen.dart';
 import '../features/admin/presentation/admin_settings_screen.dart';
+import '../features/admin/presentation/admin_additional_settings_screen.dart';
 import '../features/admin/presentation/admin_push_config_screen.dart';
 import '../features/admin/presentation/admin_roles_screen.dart';
 import '../features/admin/presentation/admin_training_screen.dart';

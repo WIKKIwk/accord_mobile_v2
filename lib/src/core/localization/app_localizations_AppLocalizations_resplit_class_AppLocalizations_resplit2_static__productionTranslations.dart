@@ -4,6 +4,9 @@ part of 'app_localizations.dart';
 const _app_localizations_AppLocalizations_resplit_class_AppLocalizations__productionTranslations_resplit2Value =
     {
   ..._qrHistoryTranslations,
+  ..._paddonPrintTranslations,
+  ..._paddonManagementTranslations,
+  ..._paddonScanningTranslations,
   ..._qolipProductTransferTranslations,
   ..._app_localizations_declarations__productionTranslations_resplitPart01,
   ..._app_localizations_declarations__productionTranslations_resplitPart02,

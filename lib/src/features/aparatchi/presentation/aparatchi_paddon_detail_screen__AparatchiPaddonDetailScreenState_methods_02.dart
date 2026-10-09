@@ -8,32 +8,53 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
     return FutureBuilder<AdminPaddonSnapshot>(
       future: _future,
       builder: (context, snapshot) {
-        final actionsEnabled = snapshot.hasData && !_busy && !_printingQr;
-        final confirmingAdd = _selectionMode &&
-            _editMode == _PaddonEditMode.add &&
-            _selectedAvailableBatchIds.isNotEmpty;
+        final actionsEnabled = snapshot.hasData && snapshot.data!.canManageItems && !_busy && !_printingQr;
+        if (_qrScanMode) {
+          return AparatchiDock(
+            activeTab: null,
+            primaryActions: [
+              AdminFabMenuAction(
+                title: _qrConfirmLabel(context),
+                icon: Icons.check_rounded,
+                enabled: actionsEnabled && !widget.busy &&
+                    _qrLookupsPending == 0 && _scannedWips.isNotEmpty,
+                onTap: () => unawaited(_confirmScannedWips()),
+              ),
+              AdminFabMenuAction(
+                title: context.l10n.productionText('worker.paddon.scan.close'),
+                icon: Icons.close_rounded,
+                enabled: !_busy && !widget.busy,
+                onTap: () => unawaited(_cancelQrScanning()),
+              ),
+            ],
+          );
+        }
+        final hasSelection = _selectionMode && _selectedBatchIds.isNotEmpty;
         return AparatchiDock(
           activeTab: null,
           primaryActions: [
-            if (!confirmingAdd)
+            if (!hasSelection)
               AdminFabMenuAction(
                 title: context.l10n.productionText('worker.paddon.add_wip'),
                 icon: Icons.qr_code_scanner_rounded,
                 enabled: actionsEnabled,
-                onTap: () => unawaited(_scanAndAdd()),
+                onTap: () => _startQrScanning(snapshot.data!),
               ),
-            AdminFabMenuAction(
-              title: _editModeActionLabel(context),
-              icon: _editModeActionIcon,
-              enabled: actionsEnabled,
-              onTap: () => unawaited(_handleEditModeAction()),
-            ),
-            if (confirmingAdd)
+            for (final mode in _PaddonEditMode.values)
+              AdminFabMenuAction(
+                title: _editModeActionLabel(context, mode),
+                icon: mode == _PaddonEditMode.add
+                    ? Icons.playlist_add_rounded
+                    : Icons.playlist_remove_rounded,
+                enabled: actionsEnabled && (!hasSelection || _editMode == mode),
+                onTap: () => unawaited(_handleEditModeAction(mode)),
+              ),
+            if (hasSelection)
               AdminFabMenuAction(
                 title: context.l10n.productionText('worker.action.cancel'),
                 icon: Icons.close_rounded,
                 enabled: actionsEnabled,
-                onTap: () => unawaited(_cancelAddSelection()),
+                onTap: () => unawaited(_cancelSelection()),
               ),
           ],
         );
@@ -62,6 +83,11 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
       child: Column(
         children: [
           const SizedBox(height: 8),
+          if (data.freeMovementEnabled && data.canManageItems)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(context.l10n.productionText('paddon.management.free_movement.hint')),
+            ),
           Row(
             children: [
               Expanded(
@@ -117,15 +143,15 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                     selected: selectedBatchIds.contains(
                       items[index].batchId.trim(),
                     ),
-                    onSelect: showingAvailableItems && !_busy
+                    onSelect: showingAvailableItems && data.canManageItems && !_busy
                         ? () => _toggleAvailableWip(items[index])
-                        : !showingAvailableItems && _selectionMode && !_busy
+                        : !showingAvailableItems && data.canManageItems && _selectionMode && !_busy
                             ? () => _toggleAssignedWip(items[index])
                             : null,
                     onLongPress: _busy || widget.busy
                         ? null
                         : () => _showPaddonWipReprint(items[index]),
-                    onRemove: widget.manageItems && !_selectionMode &&
+                    onRemove: widget.manageItems && data.canManageItems && !_selectionMode && !_qrScanMode &&
                             !_busy && !widget.busy && !_printingQr &&
                             items[index].batchId.trim().isNotEmpty
                         ? () => unawaited(_removeWip(items[index]))
@@ -310,13 +336,23 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
               _PaddonDetailHeader(
                 snapshot: data,
                 apparatus: widget.apparatus ?? _apparatus,
-                onPrintQr: _busy || widget.busy || _printingQr
+                onPrintQr: _busy || widget.busy || _printingQr || _qrScanMode
                     ? null : _printPaddonQr,
                 printingQr: _printingQr,
                 selectedBobinaWeightUnits: _bobinaFilterUnits,
                 onBobinaWeightSelected: _toggleBobinaFilter,
+                pendingScanCount: _qrScanMode ? _scannedWips.length : null,
+                onReviewScans: !_busy && _qrLookupsPending == 0 &&
+                        _scannedWips.isNotEmpty && !_qrReviewOpen
+                    ? () => unawaited(_reviewScannedWips(
+                        canConfirm: data.canManageItems,
+                      )) : null,
               ),
               const SizedBox(height: 12),
+              if (_qrScanMode) ...[
+                _buildQrScanSection(context, data),
+                const SizedBox(height: 12),
+              ],
               _buildPaddonItemsSection(context, data),
               if (widget.footerBuilder != null) ...[
                 const SizedBox(height: 16),

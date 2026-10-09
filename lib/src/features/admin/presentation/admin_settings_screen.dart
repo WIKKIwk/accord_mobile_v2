@@ -137,6 +137,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
               physics: const ClampingScrollPhysics(),
               padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPadding),
               children: [
+                if (AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings))
+                  ListTile(
+                    leading: const Icon(Icons.tune_outlined),
+                    title: Text(context.l10n.productionText('paddon.management.settings.title')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.adminAdditionalSettings),
+                  ),
                 if (AppRouter.canOpenRoute(AppRoutes.adminPushConfig))
                   ListTile(
                     leading: const Icon(Icons.notifications_active_outlined),

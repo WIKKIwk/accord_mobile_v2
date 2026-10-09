@@ -25,115 +25,6 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     }
   }
 
-  Future<void> _scanAndAdd() async {
-    if (_busy) {
-      return;
-    }
-    try {
-      final value = await Navigator.of(context).push<String>(
-        MaterialPageRoute<String>(
-          settings: const RouteSettings(
-            name: AppRoutes.adminProgressQrScan,
-          ),
-          builder: (_) => const AdminProgressQrScanScreen(scanOnly: true),
-        ),
-      );
-      final qrPayload = value?.trim() ?? '';
-      if (qrPayload.isEmpty || !mounted) {
-        return;
-      }
-      await _runMutation(() {
-        return MobileApi.instance.adminPaddonAddWip(
-          paddonCode: widget.code,
-          qrPayload: qrPayload,
-        );
-      }, confirmsApplied: (snapshot) {
-        final normalizedQrPayload = qrPayload.toLowerCase();
-        return snapshot.items.any(
-          (batch) =>
-              batch.qrPayload.trim().toLowerCase() == normalizedQrPayload,
-        );
-      });
-    } catch (error) {
-      if (mounted) {
-        _showMessage(
-          error is MobileApiException
-              ? context.l10n.productionErrorMessage(
-                  error.code,
-                  fallback: context.l10n.productionText(
-                    'worker.paddon.camera_failed',
-                  ),
-                )
-              : context.l10n.productionText('worker.paddon.camera_failed'),
-        );
-      }
-    }
-  }
-
-  Future<void> _printPaddonQr() async {
-    if (_busy || _printingQr) {
-      return;
-    }
-    setState(() => _printingQr = true);
-    try {
-      final printer = await pickProgressPrinter(context);
-      if (printer == null || !mounted) {
-        return;
-      }
-      final result = await MobileApi.instance.adminPaddonPrintQr(
-        code: widget.code,
-        driverUrl: printer.driverUrl,
-        printer: printer.printer,
-        printMode: printer.printMode,
-        printTransport: printer.transport,
-      );
-      if (printer.transport.isLocal) {
-        final printJob = result.printJob;
-        if (printJob == null) {
-          throw StateError(
-            context.l10n.productionText('worker.paddon.print_data_failed'),
-          );
-        }
-        final printResult = await PrintService.printRps(
-          printJob,
-          printerProfile: printer.offlinePrinter,
-          bluetoothPrinter: printer.bluetoothPrinter,
-          transport: printer.transport,
-        );
-        if (!printResult.ok) {
-          throw StateError(
-            context.l10n.productionText('worker.paddon.print_send_failed'),
-          );
-        }
-      }
-      if (mounted) {
-        _showMessage(
-          context.l10n.productionText(
-            'worker.paddon.printed',
-            values: {'qr': result.qrPayload},
-          ),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        _showMessage(
-          error is MobileApiException
-              ? context.l10n.productionErrorMessage(
-                  error.code,
-                  fallback: context.l10n.productionText(
-                    'worker.paddon.print_failed',
-                  ),
-                )
-              : context.l10n.productionText('worker.paddon.print_failed'),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _printingQr = false);
-      }
-    }
-  }
-
   void _toggleAvailableWip(AdminProgressBatch batch) {
     if (_busy) {
       return;
@@ -203,12 +94,12 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       ),
     );
     if (applied && mounted) {
-      _exitAddSelection();
+      _exitSelection();
     }
   }
 
-  Future<void> _cancelAddSelection() async {
-    if (_busy || !_selectionMode || _selectedAvailableBatchIds.isEmpty) return;
+  Future<void> _cancelSelection() async {
+    if (_busy || !_selectionMode || _selectedBatchIds.isEmpty) return;
     final confirmed = await showM3ConfirmDialog(
       context: context,
       title: context.l10n.productionText('worker.paddon.confirm.cancel.title'),
@@ -219,7 +110,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       cancelButtonKey: const ValueKey('paddon-cancel-selection-cancel'),
     );
     if (confirmed != true || !mounted) return;
-    _exitAddSelection();
+    _exitSelection();
   }
 
   Future<void> _removeWip(AdminProgressBatch batch) async {
@@ -305,7 +196,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       ),
     );
     if (applied && mounted) {
-      setState(() => _selectedAssignedBatchIds.clear());
+      _exitSelection();
     }
   }
 
@@ -313,11 +204,14 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     Future<AdminPaddonSnapshot> Function() mutation, {
     bool Function(AdminPaddonSnapshot snapshot)? confirmsApplied,
     String? fallbackMessage,
+    Object? expectedReadScope,
   }) async {
     setState(() => _busy = true);
     try {
       final snapshot = await mutation();
-      if (!mounted) {
+      if (!mounted ||
+          (expectedReadScope != null &&
+              expectedReadScope != currentSessionReadScope())) {
         return false;
       }
       _clearMessages();
@@ -327,10 +221,16 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       });
       return true;
     } catch (error) {
+      if (expectedReadScope != null &&
+          expectedReadScope != currentSessionReadScope()) {
+        return false;
+      }
       if (mounted && confirmsApplied != null) {
         try {
           final refreshed = await _load();
-          if (!mounted) {
+          if (!mounted ||
+              (expectedReadScope != null &&
+                  expectedReadScope != currentSessionReadScope())) {
             return false;
           }
           final applied = confirmsApplied(refreshed);
@@ -367,23 +267,25 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     }
   }
 
-  String _editModeActionLabel(BuildContext context) {
-    final label = _editMode == _PaddonEditMode.add
+  String _editModeActionLabel(BuildContext context, _PaddonEditMode mode) {
+    final label = mode == _PaddonEditMode.add
         ? context.l10n.productionText('worker.paddon.add')
         : context.l10n.productionText('worker.paddon.remove');
-    final selectedCount = _selectedBatchIds.length;
+    final selectedCount = _selectionMode && _editMode == mode
+        ? _selectedBatchIds.length
+        : 0;
     return selectedCount == 0 ? label : '$label ($selectedCount)';
   }
 
-  Future<void> _handleEditModeAction() async {
-    if (_busy) {
+  Future<void> _handleEditModeAction(_PaddonEditMode mode) async {
+    if (_busy || _qrScanMode) {
       return;
     }
-    if (!_selectionMode) {
+    if (!_selectionMode || _editMode != mode) {
       setState(() {
         _selectionMode = true;
         _bobinaFilterUnits = null;
-        _editMode = _PaddonEditMode.add;
+        _editMode = mode;
         _selectedAvailableBatchIds.clear();
         _selectedAssignedBatchIds.clear();
       });
@@ -397,18 +299,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       } else {
         await _removeSelectedWips();
       }
-      return;
     }
-
-    setState(() {
-      _editMode = _editMode == _PaddonEditMode.add
-          ? _PaddonEditMode.remove
-          : _PaddonEditMode.add;
-      _bobinaFilterUnits = null;
-      _selectedAvailableBatchIds.clear();
-      _selectedAssignedBatchIds.clear();
-    });
-    _scrollToSelectionList();
   }
 
   void _scrollToSelectionList() {

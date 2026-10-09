@@ -11,6 +11,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
   void _restoreRezkaOutputReport(AdminRezkaOutputReport? report) {
     if (report == null) return;
     _rezkaReport = report;
+    widget.onRezkaOutputReportChanged?.call(report);
     for (var index = 0; index < _rezkaFrameControllers.length; index++) {
       final saved = report.frameAt(index);
       if (saved == null) continue;
@@ -336,6 +337,8 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
       if (!mounted) return;
       if (_rezkaPrinter == null) throw const _RezkaPrinterNotSelected();
+      final printer = _rezkaPrinter!;
+      UsbRpsPrintRequest? committedPrintJob;
       var saved = _rezkaReport!.frameAt(index);
       if (saved != null &&
           request.input != null &&
@@ -356,48 +359,60 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           rezkaOutputCycle: _rezkaReport!.cycleId,
           rezkaFrames: [input.toJson()],
           uom: 'm',
+          driverUrl: printer.driverUrl,
+          printer: printer.printer,
+          printMode: printer.printMode,
+          printTransport: printer.transport,
         );
         if (!mounted) return;
         final report = result.rezkaOutputReport;
         if (report == null ||
             report.cycleId != _rezkaReport!.cycleId ||
-            report.frameAt(index) == null) {
+            report.frames.any((slot) => slot.index > _rezkaFrameCount) ||
+            report.frameAt(index) == null ||
+            report.frameAt(index)!.isIssue) {
           throw const MobileApiException(
               code: 'rezka_output_cycle_conflict', message: '');
+        }
+        saved = report.frameAt(index)!;
+        if (!_rezkaSavedFrameMatchesRequest(saved, input)) {
+          throw const _RezkaFrameInputConflict();
         }
         _updateRezkaPrint(() {
           _restoreRezkaOutputReport(report);
           _rezkaPrintStatus[index] = _rezkaText('saved');
         });
-        saved = report.frameAt(index)!;
-        final confirmed = await widget.reloadRezkaOutputReport?.call();
-        if (confirmed == null ||
-            confirmed.cycleId != _rezkaReport!.cycleId ||
-            confirmed.frameAt(index) == null) {
-          _rezkaSyncRequired = true;
-          throw const MobileApiException(
-              code: 'rezka_output_cycle_conflict', message: '');
+        // The save response is authoritative for this cycle and slot. Local
+        // labels can be prepared by that request without another API roundtrip.
+        final prepared = result.printJob;
+        if (printer.transport.isLocal &&
+            prepared != null &&
+            prepared.epc == saved.qrPayload &&
+            prepared.isProgressLabel &&
+            prepared.printCount == 1) {
+          committedPrintJob = prepared;
         }
-        _updateRezkaPrint(() => _restoreRezkaOutputReport(confirmed));
-        saved = confirmed.frameAt(index)!;
       }
-      final printer = _rezkaPrinter!;
-      final result = await MobileApi.instance.adminProgressQrReprint(
-        qrPayload: saved.qrPayload,
-        progressBatchId: saved.batchId,
-        driverUrl: printer.driverUrl,
-        printer: printer.printer,
-        printMode: printer.printMode,
-        printTransport: printer.transport,
-        printCount: 1,
-      );
-      if (!result.ok ||
-          (printer.transport.isLocal && result.printJob == null)) {
-        throw StateError('print_failed');
+      if (committedPrintJob == null) {
+        // Reprints and older servers still prepare the already committed QR.
+        final result = await MobileApi.instance.adminProgressQrReprint(
+          qrPayload: saved.qrPayload,
+          progressBatchId: saved.batchId,
+          driverUrl: printer.driverUrl,
+          printer: printer.printer,
+          printMode: printer.printMode,
+          printTransport: printer.transport,
+          printCount: 1,
+        );
+        if (!result.ok ||
+            (printer.transport.isLocal && result.printJob == null)) {
+          throw StateError('print_failed');
+        }
+        committedPrintJob = result.printJob;
       }
       if (printer.transport.isLocal) {
         final printed = await PrintService.printRps(
-          result.printJob!,
+          committedPrintJob!,
           printerProfile: printer.offlinePrinter,
           bluetoothPrinter: printer.bluetoothPrinter,
           transport: printer.transport,
@@ -423,7 +438,11 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         } else {
           _rezkaSyncRequired = true;
         }
-        _rezkaPrintStatus[index] = _rezkaSyncRequired
+        final paddonRequired = error is MobileApiException &&
+            const {'active_paddon_required', 'paddon_locked'}.contains(error.code);
+        _rezkaPrintStatus[index] = paddonRequired
+            ? context.l10n.productionErrorMessage(error.code)
+            : _rezkaSyncRequired
             ? _rezkaText('sync_failed')
             : error is _RezkaPrinterNotSelected
                 ? _rezkaText('printer_not_selected')
