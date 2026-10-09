@@ -1,6 +1,36 @@
 part of 'app_localizations.dart';
 
 const _paddonPrintTranslations = {
+  'worker.paddon.unlock.title': {
+    'uz': 'Qulfdan chiqarasizmi?',
+    'en': 'Unlock this paddon?',
+    'ru': 'Разблокировать паллет?',
+    'ur': 'یہ پیلیٹ کھولیں؟',
+  },
+  'worker.paddon.unlock.body': {
+    'uz': '{code} paddoni qulfdan chiqariladi. Unga yana rulon qo‘shish mumkin bo‘ladi.',
+    'en': 'Paddon {code} will be unlocked so rolls can be added again.',
+    'ru': 'Паллет {code} будет разблокирован. В него снова можно будет добавлять рулоны.',
+    'ur': 'پیلیٹ {code} کھول دیا جائے گا تاکہ دوبارہ رول شامل کیے جا سکیں۔',
+  },
+  'worker.paddon.unlock.success': {
+    'uz': 'Paddon qulfdan chiqarildi.',
+    'en': 'Paddon unlocked.',
+    'ru': 'Паллет разблокирован.',
+    'ur': 'پیلیٹ کھول دیا گیا۔',
+  },
+  'worker.paddon.unlock.failed': {
+    'uz': 'Paddon qulfdan chiqarilmadi. Qayta urinib ko‘ring.',
+    'en': 'Could not unlock the paddon. Please retry.',
+    'ru': 'Не удалось разблокировать паллет. Повторите попытку.',
+    'ur': 'پیلیٹ نہیں کھولا جا سکا۔ دوبارہ کوشش کریں۔',
+  },
+  'worker.paddon.unlock.forbidden': {
+    'uz': 'Boshqa ishchining qulfini ochish uchun admin erkin boshqarish sozlamasini yoqishi kerak.',
+    'en': 'An admin must enable free management before you can unlock another worker’s paddon.',
+    'ru': 'Для разблокировки паллета другого работника администратор должен включить свободное управление.',
+    'ur': 'دوسرے کارکن کا پیلیٹ کھولنے کے لیے منتظم کو آزاد انتظام فعال کرنا ہوگا۔',
+  },
   'worker.paddon.locked': {
     'uz': 'Qulflangan',
     'en': 'Locked',

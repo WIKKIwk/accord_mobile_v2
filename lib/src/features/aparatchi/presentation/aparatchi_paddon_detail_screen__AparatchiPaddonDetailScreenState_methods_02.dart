@@ -316,7 +316,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
             message: context.l10n.productionText('worker.paddon.load_failed'),
           );
         }
-        final data = widget.snapshot ?? snapshot.data;
+        final data = snapshot.data ?? widget.snapshot;
         if (data == null) {
           return AppRetryState(
             onRetry: _retry,
@@ -339,6 +339,8 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                 onPrintQr: _busy || widget.busy || _printingQr || _qrScanMode
                     ? null : _printPaddonQr,
                 printingQr: _printingQr,
+                onUnlock: data.canUnlock && !_busy && !widget.busy && !_printingQr && !_qrScanMode
+                    ? () => unawaited(_unlockPaddon()) : null,
                 selectedBobinaWeightUnits: _bobinaFilterUnits,
                 onBobinaWeightSelected: _toggleBobinaFilter,
                 pendingScanCount: _qrScanMode ? _scannedWips.length : null,

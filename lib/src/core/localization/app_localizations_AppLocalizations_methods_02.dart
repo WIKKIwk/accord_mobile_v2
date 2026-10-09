@@ -108,6 +108,8 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       'paddon_locked' => 'worker.paddon.locked_error',
       'active_paddon_required' => 'worker.paddon.active.required',
       'paddon_print_confirm' => 'worker.paddon.print_confirm_failed',
+      'paddon_unlock' => 'worker.paddon.unlock.failed',
+      'paddon_unlock_forbidden' => 'worker.paddon.unlock.forbidden',
       _ => '',
     };
     if (key.isEmpty) return fallback;

@@ -1,6 +1,32 @@
 part of 'aparatchi_paddon_detail_screen.dart';
 
 extension _PaddonPrintWorkflow on _AparatchiPaddonDetailScreenState {
+  Future<void> _unlockPaddon() async {
+    if (_busy || _printingQr || widget.busy || _qrScanMode) return;
+    final scope = currentSessionReadScope();
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: context.l10n.productionText('worker.paddon.unlock.title'),
+      message: context.l10n.productionText('worker.paddon.unlock.body',
+          values: {'code': widget.code}),
+      cancelLabel: context.l10n.no,
+      confirmLabel: context.l10n.yes,
+      confirmButtonKey: const ValueKey('paddon-unlock-confirm'),
+      cancelButtonKey: const ValueKey('paddon-unlock-cancel'),
+    );
+    if (confirmed != true || !mounted || scope != currentSessionReadScope()) return;
+    final applied = await _runMutation(
+      () => MobileApi.instance.unlockPaddon(widget.code),
+      confirmsApplied: (snapshot) => !snapshot.paddon.isLocked,
+      fallbackMessage: context.l10n.productionText('worker.paddon.unlock.failed'),
+      expectedReadScope: scope,
+    );
+    if (!applied || !mounted || scope != currentSessionReadScope()) return;
+    _exitSelection();
+    ActiveRezkaPaddonStore.notifyChanged();
+    _showMessage(context.l10n.productionText('worker.paddon.unlock.success'));
+  }
+
   Future<void> _printPaddonQr() async {
     if (_busy || _printingQr) return;
     final scope = currentSessionReadScope();

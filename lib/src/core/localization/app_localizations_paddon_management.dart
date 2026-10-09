@@ -15,13 +15,13 @@ const _paddonManagementTranslations = {
   },
   'paddon.management.free_movement.description': {
     'uz':
-        'Yoqilganda barcha ishchilar bir-birining rulonlarini paddonlar orasida ko‘chira oladi. Chop etilgan paddonlarni ham tahrirlash mumkin. Omborga qabul qilingan mahsulotlar ko‘chirilmaydi.',
+        'Yoqilganda barcha ishchilar bir-birining rulonlarini paddonlar orasida ko‘chira oladi va bir-birining paddonlarini qulfdan chiqara oladi. Chop etilgan paddonlarni ham tahrirlash mumkin. Omborga qabul qilingan mahsulotlar ko‘chirilmaydi.',
     'en':
-        'When enabled, workers can move each other’s rolls between paddons, including printed paddons. Goods already received into a warehouse cannot be moved.',
+        'When enabled, workers can move each other’s rolls between paddons and unlock each other’s paddons, including printed paddons. Goods already received into a warehouse cannot be moved.',
     'ru':
-        'Все работники смогут перемещать рулоны друг друга между паллетами, включая паллеты с напечатанным QR. Принятые на склад товары перемещать нельзя.',
+        'Все работники смогут перемещать рулоны друг друга между паллетами и разблокировать паллеты друг друга, включая паллеты с напечатанным QR. Принятые на склад товары перемещать нельзя.',
     'ur':
-        'فعال ہونے پر کارکن ایک دوسرے کے رول پیلیٹس کے درمیان منتقل کر سکتے ہیں، پرنٹ شدہ پیلیٹس سمیت۔ گودام میں وصول شدہ مال منتقل نہیں ہوگا۔',
+        'فعال ہونے پر کارکن ایک دوسرے کے رول پیلیٹس کے درمیان منتقل اور ایک دوسرے کے پیلیٹس کھول سکتے ہیں، پرنٹ شدہ پیلیٹس سمیت۔ گودام میں وصول شدہ مال منتقل نہیں ہوگا۔',
   },
   'paddon.management.free_movement.confirm': {
     'uz': 'Erkin ko‘chirish yoqilsinmi?',

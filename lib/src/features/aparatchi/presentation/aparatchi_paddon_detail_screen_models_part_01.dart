@@ -75,6 +75,7 @@ class _PaddonDetailHeader extends StatelessWidget {
     required this.onBobinaWeightSelected,
     this.pendingScanCount,
     this.onReviewScans,
+    this.onUnlock,
   });
 
   final AdminPaddonSnapshot snapshot;
@@ -85,6 +86,7 @@ class _PaddonDetailHeader extends StatelessWidget {
   final ValueChanged<int> onBobinaWeightSelected;
   final int? pendingScanCount;
   final VoidCallback? onReviewScans;
+  final VoidCallback? onUnlock;
 
   @override
   Widget build(BuildContext context) {
@@ -186,8 +188,12 @@ class _PaddonDetailHeader extends StatelessWidget {
               runSpacing: 8,
               children: [
                 if (paddon.isLocked)
-                  Chip(avatar: const Icon(Icons.lock_outline, size: 18),
-                    label: Text(context.l10n.productionText('worker.paddon.locked'))),
+                  ActionChip(
+                    key: const ValueKey('paddon-unlock'),
+                    avatar: const Icon(Icons.lock_outline, size: 18),
+                    label: Text(context.l10n.productionText('worker.paddon.locked')),
+                    onPressed: onUnlock,
+                  ),
                 _PaddonDetailMetric(
                   label: 'WIP',
                   value: '${snapshot.items.length}',

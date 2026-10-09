@@ -63,6 +63,7 @@ class AdminPaddonSnapshot {
     required this.items,
     this.availableItems = const [],
     this.freeMovementEnabled = false,
+    this.canUnlock = false,
     bool? canManageItems,
   }) : _canManageItems = canManageItems;
 
@@ -70,6 +71,7 @@ class AdminPaddonSnapshot {
   final List<AdminProgressBatch> items;
   final List<AdminProgressBatch> availableItems;
   final bool freeMovementEnabled;
+  final bool canUnlock;
   final bool? _canManageItems;
   bool get canManageItems => _canManageItems ?? !paddon.isLocked;
 
@@ -110,6 +112,7 @@ class AdminPaddonSnapshot {
       items: items,
       availableItems: availableItems,
       freeMovementEnabled: json['free_movement_enabled'] == true,
+      canUnlock: json['can_unlock'] == true,
       canManageItems: json['can_manage_items'] as bool?,
     );
   }
@@ -146,6 +149,27 @@ class PaddonPrintConfirmation {
 }
 
 extension MobileApiPaddons on MobileApi {
+  Future<AdminPaddonSnapshot> unlockPaddon(String code) async {
+    final normalizedCode = code.trim();
+    final response = await _sendAuthorized(() => _post(
+      Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/unlock'),
+      headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+      body: jsonEncode({'code': normalizedCode}),
+    ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'paddon_unlock');
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is! Map || payload['ok'] != true || payload['paddon'] is! Map) {
+      throw const MobileApiException(code: 'paddon_unlock', message: 'Paddon holati tasdiqlanmadi');
+    }
+    final snapshot = AdminPaddonSnapshot.fromJson(payload.cast<String, dynamic>());
+    if (snapshot.paddon.code != normalizedCode) {
+      throw const MobileApiException(code: 'paddon_unlock', message: 'Paddon holati tasdiqlanmadi');
+    }
+    return snapshot;
+  }
+
   Future<bool> paddonFreeMovementEnabled() async {
     final response = await _sendAuthorized(() => _get(
       Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/management-settings'),
