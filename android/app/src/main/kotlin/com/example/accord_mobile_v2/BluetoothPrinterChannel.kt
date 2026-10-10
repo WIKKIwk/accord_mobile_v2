@@ -812,7 +812,7 @@ class BluetoothPrinterChannel(
         val rawProduct = cleanLabelText(
             label.itemName.ifBlank { label.itemCode }.ifBlank { "-" },
         )
-        val product = progressProductName(rawProduct, label.itemCode)
+        val product = "$customer - ${progressProductName(rawProduct, label.itemCode)}"
         val apparatus = progressApparatusName(
             label.apparatusDisplayName,
             label.apparatus,
@@ -820,8 +820,7 @@ class BluetoothPrinterChannel(
         )
         val status = progressStatusLabel(rawProduct)
         var y = PROGRESS_TEXT_TOP_Y
-        y = printProgressField(printer, y, "MIJOZ", customer, maxLines = 2)
-        y = printProgressField(printer, y, "MAHSULOT NOMI", product, maxLines = 3)
+        y = printProgressField(printer, y, "MAHSULOT NOMI", product, maxLines = 5)
         y = printProgressField(printer, y, "APARAT", apparatus, maxLines = 2)
         y += PROGRESS_FIELD_GAP_DOTS * 2
         y = printProgressField(
@@ -1050,12 +1049,12 @@ class BluetoothPrinterChannel(
     private fun progressStatusLabel(itemName: String): String {
         return when {
             itemName.contains("YARIM TAYYOR", ignoreCase = true) ->
-                "YARIM TAYYOR MAHSULOT"
+                "YARIM TAYYOR"
             itemName.contains("TAYYOR MAHSULOT", ignoreCase = true) ->
                 "TAYYOR MAHSULOT"
             itemName.contains("TAYYOR", ignoreCase = true) ->
                 "TAYYOR MAHSULOT"
-            else -> "YARIM TAYYOR MAHSULOT"
+            else -> "YARIM TAYYOR"
         }
     }
 
@@ -1066,11 +1065,11 @@ class BluetoothPrinterChannel(
     ): String {
         val explicit = cleanLabelText(displayName).trim()
         if (explicit.isNotEmpty()) {
-            return explicit
+            return shortProgressApparatusName(explicit)
         }
         val canonical = cleanLabelText(canonicalApparatus).trim()
         if (canonical.isNotEmpty()) {
-            return canonical
+            return shortProgressApparatusName(canonical)
         }
         val marker = ", APPARAT:"
         val markerStart = itemName.indexOf(marker, ignoreCase = true)
@@ -1078,10 +1077,21 @@ class BluetoothPrinterChannel(
             return "-"
         }
         val valueStart = markerStart + marker.length
-        return itemName.substring(valueStart)
-            .substringBefore(',')
-            .trim()
-            .ifBlank { "-" }
+        return shortProgressApparatusName(
+            itemName.substring(valueStart)
+                .substringBefore(',')
+                .trim()
+                .ifBlank { "-" },
+        )
+    }
+
+    private fun shortProgressApparatusName(value: String): String {
+        return when (value) {
+            "7 TA RANGLI BOSMA", "7 TA RANGLI BOSMA APARAT" -> "7TALIK BOSMA"
+            "8 TA RANGLI BOSMA", "8 TA RANGLI BOSMA APARAT" -> "8TALIK BOSMA"
+            "9 TA RANGLI BOSMA", "9 TA RANGLI BOSMA APARAT" -> "9TALIK BOSMA"
+            else -> value
+        }
     }
 
     private fun sdkText(

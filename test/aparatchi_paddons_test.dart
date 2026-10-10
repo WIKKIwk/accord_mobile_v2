@@ -22,14 +22,19 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-AdminPaddon _paddon({int itemCount = 2, double? totalGrossKg = 24.375, double? totalNetKg = 23.125}) {
+AdminPaddon _paddon({
+  int itemCount = 2,
+  double? totalGrossKg = 24.375,
+  double? totalNetKg = 23.125,
+  String createdByDisplayName = 'Rezka operatori',
+}) {
   return AdminPaddon(
     id: 'paddon-1',
     code: '00001',
     location: 'Rezka yonidagi 2-qator',
     note: 'Bugungi ishlab chiqarish',
     createdByRef: 'worker-1',
-    createdByDisplayName: 'Rezka operatori',
+    createdByDisplayName: createdByDisplayName,
     createdAtUnix: 1,
     updatedAtUnix: 2,
     itemCount: itemCount,
@@ -313,6 +318,62 @@ void main() {
       expect(sheet.onReprint, isNotNull);
     }, () => MockClient((request) async =>
         http.Response('{"error":"not_found"}', 404)));
+  });
+
+  for (final language in [
+    ('uz', 'Paddonni ochgan'),
+    ('en', 'Created by'),
+    ('ru', 'Создал паллету'),
+    ('ur', 'پیلیٹ بنانے والا'),
+  ]) {
+    testWidgets('paddon details show the creator in ${language.$1}',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      _setSession();
+      await tester.pumpWidget(_app(
+        AparatchiPaddonDetailScreen(
+          code: '00001',
+          snapshot: AdminPaddonSnapshot(
+            paddon: _paddon(createdByDisplayName: '  Qobil  '),
+            items: const [],
+          ),
+          apparatus: const [],
+        ),
+        locale: Locale(language.$1),
+      ));
+      await tester.pumpAndSettle();
+      final creator = find.byKey(const ValueKey('paddon-created-by'));
+      expect(creator, findsOneWidget);
+      expect(find.descendant(of: creator, matching: find.text(language.$2)),
+          findsOneWidget);
+      expect(find.descendant(of: creator, matching: find.text('Qobil')),
+          findsOneWidget);
+      expect(find.descendant(
+          of: creator, matching: find.text('Rezka operatori')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('paddon details retain the creator row when the name is missing',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession();
+    await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+      code: '00001',
+      snapshot: AdminPaddonSnapshot(
+        paddon: _paddon(createdByDisplayName: '  '),
+        items: const [],
+      ),
+      apparatus: const [],
+    )));
+    await tester.pumpAndSettle();
+    final creator = find.byKey(const ValueKey('paddon-created-by'));
+    expect(find.descendant(of: creator, matching: find.text('Paddonni ochgan')),
+        findsOneWidget);
+    expect(find.descendant(of: creator, matching: find.text('Belgilanmagan')),
+        findsOneWidget);
+    expect(find.text('worker-1'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('paddon header has 4px inset and edit actions live only in FAB',

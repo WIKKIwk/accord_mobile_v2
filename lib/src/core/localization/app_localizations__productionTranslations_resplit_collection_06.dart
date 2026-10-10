@@ -72,6 +72,26 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'Semi-finished products produced for this order:',
     'ru': 'Полуфабрикаты, произведенные по этому заказу:',
   },
+  'worker.wip.history.search_qr': {
+    'uz': 'QR orqali WIP qidirish',
+    'en': 'Find WIP by QR',
+    'ru': 'Найти WIP по QR',
+  },
+  'worker.wip.history.enter_qr': {
+    'uz': 'WIP QR kodini kiriting',
+    'en': 'Enter the WIP QR code',
+    'ru': 'Введите QR-код WIP',
+  },
+  'worker.wip.history.qr_not_found': {
+    'uz': 'Bu ro‘yxatda ushbu QR bilan WIP topilmadi',
+    'en': 'No WIP with this QR was found in this list',
+    'ru': 'В этом списке не найден WIP с таким QR-кодом',
+  },
+  'worker.wip.history.show_all': {
+    'uz': 'Barchasini ko‘rsatish',
+    'en': 'Show all',
+    'ru': 'Показать все',
+  },
   'worker.wip.status.free': {
     'uz': 'Erkin WIP',
     'en': 'Available WIP',

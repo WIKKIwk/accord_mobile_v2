@@ -159,6 +159,7 @@ class _AdminProductionMapOrdersScreenState
   String? _workflowAuditError;
   bool _workflowAuditLoading = false;
   final Set<String> _queueActionsInFlight = {};
+  final _sheetQueueActionsInFlight = ValueNotifier<Set<String>>({});
   final Set<String> _orderControlActionsInFlight = {};
   Map<String, double> _baseMetrajByMapId = const {};
   Map<String, double> _orderKgByMapId = const {};
@@ -198,6 +199,7 @@ class _AdminProductionMapOrdersScreenState
   void dispose() {
     _queueActionReconcileTimer?.cancel();
     _sheetQueueSnapshot.dispose();
+    _sheetQueueActionsInFlight.dispose();
     for (final timer in _sequenceRetryTimers.values) {
       timer.cancel();
     }
@@ -630,8 +632,9 @@ class _AdminProductionMapOrdersScreenState
   void _updateScreenState(VoidCallback callback) {
     setState(callback);
     if (_pendingQueueActionRevision != null &&
-        _snapshotCoversAction(_pendingQueueActionRevision!,
-            _pendingQueueActionEpoch)) {
+        (_retiredSnapshotEpochs.contains(_pendingQueueActionEpoch) ||
+            _snapshotCoversAction(_pendingQueueActionRevision!,
+                _pendingQueueActionEpoch))) {
       _queueActionReconcileTimer?.cancel();
       _queueActionReconcileTimer = null;
       _pendingQueueActionRevision = null;
@@ -694,16 +697,26 @@ class _AdminProductionMapOrdersScreenState
     );
   }
 
+  bool _beginQueueAction(String actionKey) {
+    if (!mounted || !_queueActionsInFlight.add(actionKey)) return false;
+    _sheetQueueActionsInFlight.value = Set.unmodifiable(_queueActionsInFlight);
+    setState(() {});
+    return true;
+  }
+
+  void _endQueueAction(String actionKey) {
+    if (!_queueActionsInFlight.remove(actionKey) || !mounted) return;
+    _sheetQueueActionsInFlight.value = Set.unmodifiable(_queueActionsInFlight);
+    setState(() {});
+  }
+
   Future<AdminApparatusQueueActionResult?> _handleQueueAction(
     _ReadOnlyQueueActionRequest request,
   ) async {
     final apparatusKey = request.apparatus.id.trim();
     final actionKey = '$apparatusKey|${request.order.map.id.trim()}';
-    if (!_queueActionsInFlight.add(actionKey)) {
+    if (!_beginQueueAction(actionKey)) {
       return null;
-    }
-    if (mounted) {
-      setState(() {});
     }
     final actionReadScope = currentSessionReadScope();
     try {
@@ -735,10 +748,7 @@ class _AdminProductionMapOrdersScreenState
       }
       rethrow;
     } finally {
-      _queueActionsInFlight.remove(actionKey);
-      if (mounted) {
-        setState(() {});
-      }
+      _endQueueAction(actionKey);
     }
   }
 
@@ -752,6 +762,7 @@ class _AdminProductionMapOrdersScreenState
     final usesDelta = widget.workerMode &&
         result.hasSnapshotCursor &&
         !orderId.startsWith('training-');
+    if (usesDelta && _retiredSnapshotEpochs.contains(result.epoch)) return;
     final alreadyApplied = usesDelta &&
         _snapshotCoversAction(result.revision!, result.epoch);
     setState(() {
@@ -901,6 +912,9 @@ class _AdminProductionMapOrdersScreenState
         workerMode: widget.workerMode,
         currentQueueSnapshot: () => _canonicalQueueSnapshot,
         queueSnapshotListenable: _sheetQueueSnapshot,
+        queueActionsInFlight: _sheetQueueActionsInFlight,
+        beginPrintPreflight: () => _beginQueueAction('${apparatus.id.trim()}|$mapId'),
+        endPrintPreflight: () => _endQueueAction('${apparatus.id.trim()}|$mapId'),
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         canManageQueue: widget.workerMode &&
             _isAssignedWatchApparatus(

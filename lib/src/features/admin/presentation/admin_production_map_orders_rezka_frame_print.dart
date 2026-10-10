@@ -76,6 +76,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
 
   Future<void> _reportRezkaFrameIssue(int index) async {
     if (_rezkaPrintBusy ||
+        _rezkaConfirmationBusy ||
         _rezkaPrintQueue.isNotEmpty ||
         _rezkaSyncRequired ||
         !_canPrintRezkaFrames ||
@@ -231,7 +232,10 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
   }
 
   void _printRezkaFrame(int index) {
-    if (!_canPrintRezkaFrames || _rezkaSyncRequired || _rezkaIssueBusy) {
+    if (!_canPrintRezkaFrames ||
+        _rezkaSyncRequired ||
+        _rezkaIssueBusy ||
+        _rezkaConfirmationBusy) {
       return;
     }
     if (_rezkaPrintQueuePaused) {

@@ -9,10 +9,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   Timer? _detailRecoveryTimer;
   int _detailRecoveryAttempt = 0;
   bool _detailForeground = true;
-  bool _detailRefreshInFlight = false;
+  int? _detailRefreshGeneration;
   bool _detailSectionsNeedReload = false;
   int? _pendingDetailRevision;
   String _pendingDetailEpoch = '';
+  AdminPrintPreflightControlState? _acceptedDetailControl;
+  final Set<String> _retiredDetailEpochs = {};
   final GlobalKey _noticeAnchorKey = GlobalKey();
   late Map<String, String> _queueStates;
   late Map<String, String> _stageStates;
@@ -50,6 +52,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   AdminOpeningWipBatch? _startInputOpeningWipBatch;
   bool _actionInFlight = false;
+  int _queueActionOperation = 0;
+  bool _sharedQueueActionInFlight = false;
+  bool _ownsPrintPreflight = false;
   int _actionControlGeneration = 0;
   int _actionControlLoads = 0;
   int _scanBootstrapGeneration = 0;
@@ -62,7 +67,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   bool _lastQueueActionPrintFailed = false;
   bool _materialIntakeMode = false;
   bool _materialDeliveryPending = false;
-  bool _autoStartAfterMaterialDelivery = false;
   bool _mergeScanMode = false;
   bool _mergeConfirmationPending = false;
   bool _materialsLoading = true;
@@ -88,7 +92,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   Uint8List? _orderImageBytes;
   bool _orderImageLoading = false;
   bool get _quickScanInFlight => _quickScanActiveCount > 0;
+  bool get _detailRefreshInFlight => _detailRefreshGeneration != null;
   bool get _materialIntakeInFlight => _materialIntakeActiveCount > 0;
+  bool get _queueActionBusy => _actionInFlight || _sharedQueueActionInFlight;
+  bool get _sharedQueueActionPending =>
+      widget.queueActionsInFlight?.value.contains(
+        '${widget.apparatus?.id.trim() ?? ''}|${widget.order.map.id.trim()}',
+      ) == true;
   bool get _isTrainingOrder =>
       widget.order.map.id.trim().startsWith('training-');
   bool get _queueActionContractSynchronized =>
@@ -109,6 +119,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     AppSession.instance.revision.addListener(_onDetailSessionChanged);
     WidgetsBinding.instance.addObserver(this);
     widget.queueSnapshotListenable?.addListener(_onCanonicalDetailSnapshot);
+    _sharedQueueActionInFlight = _sharedQueueActionPending;
+    widget.queueActionsInFlight?.addListener(_onSharedQueueActionChanged);
     if (AppSession.instance.profile?.role == UserRole.tayyorlovMasteri) {
       // Tayyorlov masteri ko'rsatkichlarni darhol ko'radi (bosmasdan).
       _summaryExpanded = true;
@@ -124,6 +136,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _orderControls,
       widget.order.map.id.trim(),
     );
+    final canonicalControl = _canonicalDetailControl();
+    if (canonicalControl != null && _sameDetailControl(canonicalControl)) {
+      _applyDetailControl(canonicalControl);
+    }
     _initialQrScanPending = widget.initialScanQrPayload.trim().isNotEmpty;
     unawaited(_loadInitialInteractionAndScan());
     unawaited(_loadOrderImage());
@@ -175,6 +191,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     _detailRecoveryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.queueSnapshotListenable?.removeListener(_onCanonicalDetailSnapshot);
+    widget.queueActionsInFlight?.removeListener(_onSharedQueueActionChanged);
     AppSession.instance.revision.removeListener(_onDetailSessionChanged);
     _quickScanFeedbackColorTimer?.cancel();
     dismissAdminTopNotice();
@@ -182,6 +199,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   void _setScanBootstrapState(VoidCallback update) => setState(update);
+
+  void _onSharedQueueActionChanged() {
+    if (!mounted) return;
+    final wasPending = _sharedQueueActionInFlight;
+    setState(() => _sharedQueueActionInFlight = _sharedQueueActionPending);
+    if (wasPending && !_sharedQueueActionInFlight && !_actionInFlight &&
+        !_ownsPrintPreflight && _detailReadScope == currentSessionReadScope()) {
+      // This sheet was reopened during another sheet's write. Invalidate its
+      // pre-write reads and load the committed controls as soon as it finishes.
+      setState(() {
+        _actionControlGeneration++;
+        _queueActionControl = null;
+      });
+      unawaited(_refreshQueueActionControlAfterWrite());
+    }
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -205,6 +238,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (!mounted) return;
     setState(() {
       _queueActionControl = null;
+      _acceptedDetailControl = null;
+      _pendingDetailRevision = null;
+      _retiredDetailEpochs.clear();
       _materialStartRequirements = null;
       _materialAssignments = const [];
       _startAssignments = const [];
@@ -216,7 +252,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _qolipRequirementsLoading = false;
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
-      _autoStartAfterMaterialDelivery = false;
     });
   }
 
@@ -227,16 +262,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       oldWidget.queueSnapshotListenable?.removeListener(_onCanonicalDetailSnapshot);
       widget.queueSnapshotListenable?.addListener(_onCanonicalDetailSnapshot);
     }
+    if (oldWidget.queueActionsInFlight != widget.queueActionsInFlight) {
+      oldWidget.queueActionsInFlight?.removeListener(_onSharedQueueActionChanged);
+      widget.queueActionsInFlight?.addListener(_onSharedQueueActionChanged);
+      _sharedQueueActionInFlight = _sharedQueueActionPending;
+    }
     final oldStation = oldWidget.apparatus?.id.trim() ?? '';
     final station = widget.apparatus?.id.trim() ?? '';
-    if (!_actionInFlight) {
+    final contextChanged =
+        oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
+        oldStation != station;
+    if (!_actionInFlight && (_acceptedDetailControl == null || contextChanged)) {
       _queueActionControl = widget.queueActionControl;
     }
-    _stageStates = Map<String, String>.from(
-      widget.stageStatesByOrderId[widget.order.map.id.trim()] ?? const {},
-    );
-    if (oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
-        oldStation != station) {
+    if (_acceptedDetailControl == null || contextChanged) {
+      _stageStates = Map<String, String>.from(
+        widget.stageStatesByOrderId[widget.order.map.id.trim()] ?? const {},
+      );
+    }
+    if (contextChanged) {
+      _acceptedDetailControl = null;
+      _pendingDetailRevision = null;
+      _retiredDetailEpochs.clear();
+      _actionControlGeneration++;
       _scanBootstrapUnsupported = false;
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
@@ -254,7 +302,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _attachedQolipsError = '';
       _attachedQolipsLoadGeneration++;
       _materialIntakeMode = false;
-      _autoStartAfterMaterialDelivery = false;
       _mergeScanMode = false;
       _seenQuickScanValues.clear();
       _quickScanFeedbackColorTimer?.cancel();
@@ -279,7 +326,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       unawaited(_loadInteractionContractAndSections());
       unawaited(_loadOrderImage());
     }
-    if (_actionInFlight) {
+    if (_actionInFlight || _acceptedDetailControl != null) {
       return;
     }
     if (station.isEmpty) {
@@ -480,7 +527,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         uiState: uiState,
         showContractWarning: widget.workerMode &&
             widget.canManageQueue &&
-            !_actionInFlight &&
+            !_queueActionBusy &&
             _pendingDetailRevision == null &&
             _actionControlLoads == 0,
         pauseLabel: widget.workerMode
@@ -510,7 +557,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         materialStartReady: materialStartReady,
         materialStartBlockingText: materialStartBlockingText,
         blockingBusyDetailText: _apparatusBusyDetailText(),
-        actionInFlight: _actionInFlight || _initialQrScanPending,
+        actionInFlight: _queueActionBusy || _initialQrScanPending,
         materialIntakeInFlight: _materialIntakeInFlight,
         materialIntakeMode: _materialIntakeMode,
         intakeCandidatesExpanded: _intakeCandidatesExpanded,
@@ -537,7 +584,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         qolipCodes: _scannedQolipCodes.values.toList(growable: false),
         requiredQolips: _visibleRequiredQolips,
         onResetQolips: () {
-          if (_actionInFlight || _quickScanInFlight) return;
+          if (_queueActionBusy || _quickScanInFlight) return;
           setState(() {
             for (final qolip in _requiredQolips.values) {
               _seenQuickScanValues.remove(qolip.qolipCode.trim().toUpperCase());
@@ -557,7 +604,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         materialsExpanded: _materialsExpanded,
         onToggleMaterialsExpanded: () {
           setState(() => _materialsExpanded = !_materialsExpanded);
-          if (_materialsExpanded && !_actionInFlight) {
+          if (_materialsExpanded && !_queueActionBusy) {
             unawaited(_loadMaterialAssignments(showLoading: false));
           }
         },
@@ -1141,13 +1188,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final nextOrderControl = snapshot.orderControlFor(orderId);
     if (!mounted || generation != _actionControlGeneration) return null;
     if (_detailReadScope != currentSessionReadScope()) return null;
-    if (control != null && snapshot.revision != null && snapshot.epoch.isNotEmpty &&
-        !_liveAllowsDetailControl(AdminPrintPreflightControlState(
+    final detailControl = control != null && snapshot.revision != null &&
+            snapshot.epoch.isNotEmpty
+        ? AdminPrintPreflightControlState(
           apparatus: apparatus, orderId: orderId, revision: snapshot.revision!,
           epoch: snapshot.epoch, control: control,
           queueState: nextQueueStates?[orderId] ?? '',
           stageStates: nextStageStates ?? const {}, orderControl: nextOrderControl,
-        ))) {
+        )
+        : null;
+    if ((detailControl != null && !_liveAllowsDetailControl(detailControl)) ||
+        (detailControl == null && _pendingDetailRevision != null)) {
       throw const MobileApiException(
         code: 'order_scan_bootstrap_stale', message: 'Order control changed',
       );
@@ -1160,6 +1211,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           snapshot.orderControls,
         );
         _orderControlState = nextOrderControl;
+        if (detailControl != null) _applyDetailControl(detailControl);
       });
     }
     if (control?.isConsistentWith(
@@ -1255,8 +1307,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final currentHold = _queueActionControl?.printPreflight;
     if (apparatus.isEmpty ||
         orderId.isEmpty ||
-        _actionInFlight ||
-        _actionControlLoads > 0 ||
+        _queueActionBusy ||
         !_queueActionContractSynchronized) {
       return null;
     }
@@ -1265,6 +1316,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         ? 'print-preflight:$orderId:$apparatus:$stamp'
         : currentHold?.holdId ?? '';
     final idempotencyKey = action == 'hold' ? requestHoldId : '';
+    if (widget.beginPrintPreflight?.call() == false) return null;
+    _ownsPrintPreflight = true;
     setState(() {
       _actionControlGeneration++;
       _actionInFlight = true;
@@ -1280,27 +1333,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             idempotencyKey: idempotencyKey,
           )
           .timeout(_queueActionUiTimeout);
-      if (!mounted) return null;
+      if (!_materialContextIsCurrent(orderId, apparatus) ||
+          _detailReadScope != currentSessionReadScope()) return null;
       final controlState = response.controlState;
-      final hasControl = controlState != null &&
-          controlState.apparatus == apparatus && controlState.orderId == orderId;
       setState(() {
         _actionControlGeneration++;
         _actionInFlight = false;
-        _queueActionControl = hasControl ? controlState?.control : null;
-        if (hasControl && controlState != null) {
-          _queueStates = Map<String, String>.from(_queueStates)
-            ..[orderId] = controlState.queueState;
-          _stageStates = Map<String, String>.from(controlState.stageStates);
-          _orderControls = Map<String, AdminOrderControlState>.from(_orderControls)
-            ..[orderId] = controlState.orderControl;
-          _orderControlState = controlState.orderControl;
-        }
       });
-      if (!hasControl) unawaited(_refreshQueueActionControlAfterWrite());
+      if (!_installDetailControl(controlState)) {
+        setState(() => _queueActionControl = null);
+        unawaited(_refreshQueueActionControlAfterWrite());
+      }
       return response.hold;
     } catch (error) {
-      if (!mounted) return null;
+      if (!_materialContextIsCurrent(orderId, apparatus) ||
+          _detailReadScope != currentSessionReadScope()) return null;
       setState(() {
         _actionControlGeneration++;
         _actionInFlight = false;
@@ -1311,6 +1358,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           ? context.l10n.productionText('worker.notice.action_sent')
           : _sheetActionErrorText(error), tone: error is TimeoutException ? AdminTopNoticeTone.success : AdminTopNoticeTone.error);
       return null;
+    } finally {
+      widget.endPrintPreflight?.call();
+      _ownsPrintPreflight = false;
+      if (mounted && _actionInFlight) setState(() => _actionInFlight = false);
     }
   }
 
@@ -1335,7 +1386,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     String preflightHoldId = '',
   }) async {
     final l10n = context.l10n;
-    if (_actionInFlight ||
+    final actionOrderId = widget.order.map.id.trim();
+    final actionApparatus = widget.apparatus?.id.trim() ?? '';
+    if (_queueActionBusy ||
         _initialQrScanPending ||
         !_queueActionContractSynchronized ||
         _queueActionControl?.allows(action) != true) {
@@ -1358,7 +1411,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       orderWidthMm: widget.order.map.widthMm,
       apparatus: widget.apparatus,
       onQueueAction: widget.onQueueAction,
-      actionInFlight: _actionInFlight,
+      actionInFlight: _queueActionBusy,
       materialAssignments: _startMaterialAssignments(),
       materialRequirements: _materialStartRequirements,
       materialsLoading: _materialsLoading,
@@ -1381,6 +1434,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (!mounted || qolipCodes == null) {
       return false;
     }
+    final operation = ++_queueActionOperation;
     setState(() {
       _actionControlGeneration++;
       _actionInFlight = true;
@@ -1415,7 +1469,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             ),
           )
           .timeout(_queueActionUiTimeout);
-      if (!mounted) {
+      if (!_materialContextIsCurrent(actionOrderId, actionApparatus) ||
+          _detailReadScope != currentSessionReadScope()) {
         return false;
       }
       setState(() {
@@ -1446,15 +1501,28 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       });
       if (states != null) {
         if (widget.workerMode && states.hasSnapshotCursor && !_isTrainingOrder) {
-          _pendingDetailRevision = states.revision;
-          _pendingDetailEpoch = states.epoch;
-          if (!_installCanonicalDetailSnapshot()) {
-            setState(() => _queueActionControl = null);
-            _scheduleDetailRecovery(delay: const Duration(seconds: 2));
+          if (_retiredDetailEpochs.contains(states.epoch)) {
+            _pendingDetailRevision = null;
           } else {
-            _refreshDetailSections();
+            _pendingDetailRevision = states.revision;
+            _pendingDetailEpoch = states.epoch;
           }
+        }
+        final responseControl = states.controlState;
+        final responseCoversWrite = !states.hasSnapshotCursor ||
+            (responseControl?.epoch == states.epoch &&
+                (responseControl?.revision ?? -1) >= states.revision!);
+        final installed =
+            (responseCoversWrite && _installDetailControl(responseControl)) ||
+            (widget.workerMode && states.hasSnapshotCursor && !_isTrainingOrder &&
+                (_installCanonicalDetailSnapshot() ||
+                    _installDetailControl(_acceptedDetailControl)));
+        if (installed) {
+          _refreshDetailSections();
         } else {
+          // The write is acknowledged. Read its controls immediately when
+          // neither the response nor live state covers it; no timer is needed.
+          setState(() => _queueActionControl = null);
           unawaited(_refreshQueueActionControlAfterWrite());
         }
       }
@@ -1491,6 +1559,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       }
       return states != null;
     } catch (error) {
+      if (!_materialContextIsCurrent(actionOrderId, actionApparatus) ||
+          _detailReadScope != currentSessionReadScope()) return false;
       if (error is TimeoutException && action == 'merge') {
         AdminApparatusQueueOrderActionControl? reconciledControl;
         try {
@@ -1558,18 +1628,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       );
       return false;
     } finally {
-      if (mounted && _actionInFlight) {
+      if (mounted && operation == _queueActionOperation && _actionInFlight) {
         setState(() => _actionInFlight = false);
       }
     }
   }
 
   Future<void> _refreshQueueActionControlAfterWrite() async {
-    if (_detailRefreshInFlight) return;
+    if (_detailRefreshGeneration == _actionControlGeneration) return;
     _detailRecoveryTimer?.cancel();
     _detailRecoveryTimer = null;
-    _detailRefreshInFlight = true;
     final generation = ++_actionControlGeneration;
+    _detailRefreshGeneration = generation;
     try {
       final control = await _loadCurrentQueueActionControl();
       if (!mounted || generation != _actionControlGeneration) return;
@@ -1581,14 +1651,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _pendingDetailRevision = null;
       _detailRecoveryAttempt = 0;
       // Requirements depend on the new interaction, not the preceding action.
-      unawaited(_loadMaterialAssignments());
-      unawaited(_loadInputProgressBatches());
+      _refreshDetailSections();
     } catch (error) {
-      _scheduleDetailRecovery(error: error);
+      if (!_queueActionContractSynchronized) {
+        _scheduleDetailRecovery(error: error);
+      }
       // The write already has its own result. A refresh failure must not be
       // reported as a failed write or hold the action's spinner open.
     } finally {
-      _detailRefreshInFlight = false;
+      if (_detailRefreshGeneration == generation) _detailRefreshGeneration = null;
     }
   }
 
@@ -1648,7 +1719,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     // A camera callback can arrive after the scan task has ended.
     final scanTasks = _quickScanTasks(_detailUiState);
     if (!scanTasks.visible) return;
-    if (_quickScanInFlight || _actionInFlight || _materialDeliveryPending) return;
+    if (_quickScanInFlight || _queueActionBusy || _materialDeliveryPending) return;
     final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
     final scanKey = normalized.toUpperCase();
     if (normalized.isEmpty || !_seenQuickScanValues.add(scanKey)) {
@@ -1780,7 +1851,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
               ? ProductionQuickScanFeedback.accepted
               : ProductionQuickScanFeedback.rejected,
         );
-        if (accepted) await _maybeAutoStartAfterMaterialDelivery();
         return;
       }
       final assignments = _materialStartRequirements == null
@@ -1841,7 +1911,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           ProductionQuickScanFeedback.accepted,
           highlight: ProductionQuickScanHighlight.materials,
         );
-        await _maybeAutoStartAfterMaterialDelivery();
         return;
       }
 
@@ -1887,7 +1956,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             ProductionQuickScanFeedback.accepted,
             highlight: ProductionQuickScanHighlight.qolips,
           );
-          await _maybeAutoStartAfterMaterialDelivery();
           return;
         }
         scanError = MobileApiException(
@@ -1917,7 +1985,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         });
         if (_acceptProgressBatch(batch)) {
           _showQuickScanFeedback(ProductionQuickScanFeedback.accepted);
-          await _maybeAutoStartAfterMaterialDelivery();
           return;
         }
         scanError ??= MobileApiException(
@@ -2005,7 +2072,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   void _toggleMergeScanMode() {
-    if (_actionInFlight ||
+    if (_queueActionBusy ||
         _quickScanInFlight ||
         _mergeConfirmationPending ||
         !_queueActionContractSynchronized ||
@@ -2357,6 +2424,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
   }) async {
+    if (_queueActionBusy) return _ProgressActionOutcome.failed;
     if (action == 'complete' &&
         widget.apparatus?.operation.trim() == 'print' &&
         !_queueActionContractSynchronized) {
@@ -3075,6 +3143,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.workerMode = false,
     this.currentQueueSnapshot,
     this.queueSnapshotListenable,
+    this.queueActionsInFlight,
+    this.beginPrintPreflight,
+    this.endPrintPreflight,
     this.initialQueueStates = const {},
     this.queueStatesByApparatus = const {},
     this.queueActionControlsByApparatus = const {},
@@ -3108,6 +3179,9 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool workerMode;
   final AdminApparatusQueueSnapshot? Function()? currentQueueSnapshot;
   final ValueListenable<AdminApparatusQueueSnapshot?>? queueSnapshotListenable;
+  final ValueListenable<Set<String>>? queueActionsInFlight;
+  final bool Function()? beginPrintPreflight;
+  final VoidCallback? endPrintPreflight;
   final Map<String, String> initialQueueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>

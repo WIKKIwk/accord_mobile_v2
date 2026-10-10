@@ -43,10 +43,12 @@ void main() {
         expect(result.orderControl, AdminOrderControlState.active);
         expect(result.hasSnapshotCursor, valid);
         expect(result.hasOrderStatus, isFalse);
+        expect(result.controlState, isNull);
         expect(writes, 1);
       },
           () => MockClient((request) async {
                 expect(request.method, 'POST');
+                expect(jsonDecode(request.body).containsKey('include_control'), isFalse);
                 writes++;
                 return http.Response(
                     jsonEncode({
@@ -57,6 +59,38 @@ void main() {
                     }),
                     200);
               }));
+    });
+  }
+
+  for (final entry in <Object?>[
+    scanBootstrap()['control_state'],
+    null,
+    {'rev': 8, 'control': 'invalid'},
+    {
+      ...scanBootstrap()['control_state'] as Map<String, dynamic>,
+      'queue_state': 'frozen',
+    },
+  ].indexed) {
+    final control = entry.$2;
+    test('queue ACK opt-in control tolerates legacy/malformed presentation: ${entry.$1}',
+        () async {
+      var writes = 0;
+      await http.runWithClient(() async {
+        final result = await MobileApi.instance.adminApparatusQueueActionResult(
+            apparatus: scanApparatus, orderId: scanOrder, action: 'start',
+            includeControl: true);
+        expect(result.states[scanOrder], 'in_progress');
+        expect(result.controlState != null,
+            control is Map && control['queue_state'] == 'pending');
+        expect(writes, 1);
+      }, () => MockClient((request) async {
+        writes++;
+        expect(jsonDecode(request.body)['include_control'], isTrue);
+        return http.Response(jsonEncode({
+          'ok': true, 'rev': 8, 'epoch': 'scan-server',
+          'states': {scanOrder: 'in_progress'}, 'control_state': control,
+        }), 200);
+      }));
     });
   }
 

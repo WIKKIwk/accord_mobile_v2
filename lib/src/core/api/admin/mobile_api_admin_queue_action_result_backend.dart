@@ -6,6 +6,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     required String apparatus,
     required String orderId,
     required String action,
+    bool includeControl = false,
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
     String qolipCode = '',
@@ -77,6 +78,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
           'apparatus': apparatus,
           'order_id': orderId,
           'action': action,
+          if (includeControl) 'include_control': true,
           if (outputPaddonCode.trim().isNotEmpty)
             'output_paddon_code': outputPaddonCode.trim(),
           if (printPreflightHoldId.trim().isNotEmpty)
@@ -209,6 +211,9 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
       states: Map<String, String>.unmodifiable(parsedStates),
       revision: revision,
       epoch: epoch,
+      controlState: AdminPrintPreflightControlState.tryFromJson(
+        payload['control_state'],
+      ),
       workActivity: AdminQueueWorkActivity.tryFromJson(payload['work_activity']),
       hasWorkActivity: payload.containsKey('work_activity'),
       orderStatus: orderStatus,

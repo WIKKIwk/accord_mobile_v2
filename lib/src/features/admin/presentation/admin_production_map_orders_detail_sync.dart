@@ -13,10 +13,22 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
   }
 
   bool _liveAllowsDetailControl(AdminPrintPreflightControlState incoming) {
+    if (incoming.apparatus != widget.apparatus?.id.trim() ||
+        incoming.orderId != widget.order.map.id.trim() ||
+        incoming.revision < 0 || incoming.epoch.isEmpty ||
+        _retiredDetailEpochs.contains(incoming.epoch) ||
+        !incoming.control.isConsistentWith(incoming.orderControl,
+            queueState: incoming.queueState)) return false;
+    final accepted = _acceptedDetailControl;
+    if (accepted != null && accepted.epoch == incoming.epoch &&
+        incoming.revision < accepted.revision &&
+        !_sameDetailControl(incoming)) return false;
     final live = widget.currentQueueSnapshot?.call();
+    if (accepted != null && accepted.epoch != incoming.epoch &&
+        live?.epoch != incoming.epoch) return false;
     if (_pendingDetailRevision != null &&
-        incoming.epoch == _pendingDetailEpoch &&
-        incoming.revision < _pendingDetailRevision!) return false;
+        (incoming.epoch != _pendingDetailEpoch ||
+            incoming.revision < _pendingDetailRevision!)) return false;
     if (live == null || live.epoch.isEmpty) return true;
     if (live.epoch != incoming.epoch) return false;
     if ((live.revision ?? -1) <= incoming.revision) return true;
@@ -43,6 +55,9 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
         (_pendingDetailRevision != null &&
             (snapshot.epoch != _pendingDetailEpoch ||
                 snapshot.revision! < _pendingDetailRevision!))) return null;
+    final accepted = _acceptedDetailControl;
+    if (accepted != null && accepted.epoch == snapshot.epoch &&
+        snapshot.revision! < accepted.revision) return null;
     final control = snapshot.queueActionControls[apparatus]?[orderId];
     final queueState = snapshot.queueStates[apparatus]?[orderId];
     final orderControl = snapshot.orderControlFor(orderId);
@@ -63,6 +78,14 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
   }
 
   void _applyDetailControl(AdminPrintPreflightControlState control) {
+    final accepted = _acceptedDetailControl;
+    if (accepted != null && accepted.epoch == control.epoch &&
+        accepted.revision > control.revision && _sameDetailControl(control)) {
+      // Identical controls can validate an older section read, but must never
+      // move this sheet's revision back behind an acknowledged mutation.
+      control = accepted;
+    }
+    _acceptedDetailControl = control;
     _queueActionControl = control.control;
     _queueStates = Map<String, String>.from(_queueStates)
       ..[control.orderId] = control.queueState;
@@ -75,9 +98,12 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
   }
 
   bool _installCanonicalDetailSnapshot() {
+    return _installDetailControl(_canonicalDetailControl());
+  }
+
+  bool _installDetailControl(AdminPrintPreflightControlState? control) {
     if (!mounted || _detailReadScope != currentSessionReadScope()) return false;
-    final control = _canonicalDetailControl();
-    if (control == null) return false;
+    if (control == null || !_liveAllowsDetailControl(control)) return false;
     setState(() => _applyDetailControl(control));
     _pendingDetailRevision = null;
     _detailRecoveryAttempt = 0;
@@ -93,17 +119,39 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
         !widget.workerMode ||
         _isTrainingOrder ||
         _detailReadScope != currentSessionReadScope()) return;
+    final snapshot = widget.queueSnapshotListenable?.value;
+    final accepted = _acceptedDetailControl;
+    if (snapshot != null && accepted != null &&
+        snapshot.epoch != accepted.epoch) {
+      // Only a canonical snapshot can establish a new server epoch.
+      _retiredDetailEpochs.add(accepted.epoch);
+      _acceptedDetailControl = null;
+      _pendingDetailRevision = null;
+      _actionControlGeneration++;
+      _scanBootstrapGeneration++;
+    }
     final control = _canonicalDetailControl();
     if (control == null) {
+      final live = widget.currentQueueSnapshot?.call();
+      if (_pendingDetailRevision == null && accepted != null &&
+          _queueActionContractSynchronized && live?.epoch == accepted.epoch &&
+          (live?.revision ?? -1) < accepted.revision) {
+        // A scoped ACK/read is ahead of the global stream. Do not discard it
+        // while the parent recovers missing delta history in the background.
+        return;
+      }
       setState(() => _queueActionControl = null);
       _scheduleDetailRecovery();
       return;
     }
     final changed = !_sameDetailControl(control);
     final waitingForAction = _pendingDetailRevision != null;
-    if (!_installCanonicalDetailSnapshot() || !changed || _actionInFlight)
+    if (!_installCanonicalDetailSnapshot() || !changed || _queueActionBusy)
       return;
-    if (_actionControlLoads > 0) {
+    if (_detailRefreshInFlight) {
+      _actionControlGeneration++;
+      _refreshDetailSections();
+    } else if (_actionControlLoads > 0) {
       // A read for the preceding interaction must not replace the new one.
       _scanBootstrapGeneration++;
       _materialLoadGeneration++;
@@ -128,7 +176,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     if (!mounted ||
         !widget.workerMode ||
         !_detailForeground ||
-        _actionInFlight ||
+        _queueActionBusy ||
         widget.apparatus == null ||
         _detailReadScope != currentSessionReadScope() ||
         _detailRecoveryTimer != null) return;
@@ -147,7 +195,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       _detailRecoveryTimer = null;
       if (!mounted ||
           !_detailForeground ||
-          _actionInFlight ||
+          _queueActionBusy ||
           _detailReadScope != currentSessionReadScope()) return;
       if (_actionControlLoads > 0 || _detailRefreshInFlight) {
         _scheduleDetailRecovery();

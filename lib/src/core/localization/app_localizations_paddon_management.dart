@@ -29,6 +29,22 @@ const _paddonManagementTranslations = {
     'ru': 'Включить свободное перемещение?',
     'ur': 'آزاد منتقلی فعال کریں؟',
   },
+  'paddon.management.worker_visibility.title': {
+    'uz': 'Ishchilar bir-birining paddonlarini ko‘rishi',
+    'en': 'Workers can see each other’s paddons',
+    'ru': 'Работники видят паллеты друг друга',
+    'ur': 'کارکن ایک دوسرے کے پیلیٹس دیکھ سکتے ہیں',
+  },
+  'paddon.management.worker_visibility.description': {
+    'uz':
+        'Yoqilganda rezka ishchilari boshqa ishchilar ochgan paddonlarni ham ko‘radi. O‘chirilganda har bir ishchi faqat o‘zi ochgan paddonlarni ko‘radi.',
+    'en':
+        'When enabled, cutting workers also see paddons created by other workers. When disabled, each worker sees only their own paddons.',
+    'ru':
+        'При включении работники резки видят паллеты других работников. При выключении каждый работник видит только созданные им паллеты.',
+    'ur':
+        'فعال ہونے پر کٹنگ کارکن دوسرے کارکنوں کے بنائے ہوئے پیلیٹس بھی دیکھ سکتے ہیں۔ بند ہونے پر ہر کارکن صرف اپنے بنائے ہوئے پیلیٹس دیکھتا ہے۔',
+  },
   'paddon.management.free_movement.hint': {
     'uz':
         'Erkin ko‘chirish yoqilgan. Rulon QR’ini qo‘shsangiz, u eski paddondan shu paddonga ko‘chadi.',

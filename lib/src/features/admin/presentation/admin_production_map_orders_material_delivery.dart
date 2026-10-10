@@ -63,7 +63,6 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
         message: context.l10n.productionText('worker.delivery.unconfirmed'),
       );
     }
-    _autoStartAfterMaterialDelivery = true;
     return true;
   }
 
@@ -126,38 +125,5 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
         ),
       ),
     );
-  }
-
-  Future<void> _maybeAutoStartAfterMaterialDelivery() async {
-    if (!mounted ||
-        !_autoStartAfterMaterialDelivery ||
-        _actionInFlight ||
-        _materialDeliveryPending) return;
-    final ui = _detailUiState;
-    if (!ui.showStart ||
-        ui.showPrintPreflightHold ||
-        (ui.qolipScanRequired &&
-            (!_qolipRequirementsLoaded || !_allRequiredQolipsScanned)) ||
-        (ui.previousProgressRequired && !ui.previousProgressReady) ||
-        (ui.showStartMaterials &&
-            (_materialsLoading ||
-                _materialsError.isNotEmpty ||
-                _materialStartRequirements?.scanSatisfied != true ||
-                _materialStartUnavailableReason(
-                      orderWidthMm: widget.order.map.widthMm,
-                      materialRequirements: _materialStartRequirements,
-                      materialsLoading: _materialsLoading,
-                      materialsError: _materialsError,
-                      materialScanRequired: true,
-                      l10n: context.l10n,
-                    ) !=
-                    null))) return;
-    // Consume the trigger before sending: callbacks and retries must never
-    // replay an uncertain production start automatically.
-    _autoStartAfterMaterialDelivery = false;
-    await _runQueueAction('start',
-        preflightHoldId: ui.printPreflight?.isPassed == true
-            ? ui.printPreflight!.holdId
-            : '');
   }
 }

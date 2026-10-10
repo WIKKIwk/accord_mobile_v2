@@ -34,10 +34,12 @@ Map<String, dynamic> _syncBootstrap(int revision, String state) {
 }
 
 AdminProductionMapLiveSnapshot _syncLive(
-        ProductionMapSaved order, int revision, String state) =>
+        ProductionMapSaved order, int revision, String state,
+        {String epoch = 'scan-server'}) =>
     AdminProductionMapLiveSnapshot.fromJson({
       ...scanSequence(),
       'rev': revision,
+      'epoch': epoch,
       'scope': 'worker-live-scope',
       'maps': [
         {'map': order.map.toJson(), 'program': <String, dynamic>{}}
@@ -61,7 +63,15 @@ void _registerWorkerSyncOptimizationTests() {
     'missing live',
     'history-only delta',
     'lost ACK',
-    'account change'
+    'account change',
+    'ACK control without live',
+    'ACK control before older live',
+    'newer freeze before old ACK control',
+    'mismatched ACK control',
+    'ACK control below cursor',
+    'reopen during write',
+    'ACK control with account change',
+    'new server epoch before old ACK',
   ]) {
     testWidgets('worker sync optimization: $ordering', (tester) async {
       final fixture = await _prepareScanBootstrapFixture(tester);
@@ -111,18 +121,42 @@ void _registerWorkerSyncOptimizationTests() {
         await tester.pump();
         expect(requests.where((r) => r.url.path.endsWith('/queue-action')),
             hasLength(1));
-        state = ordering == 'newer freeze before ACK'
+        final frozen = ordering.startsWith('newer freeze before');
+        final accountChanged = ordering.contains('account change');
+        final hasAckControl = ordering.contains('ACK control') ||
+            ordering == 'reopen during write' ||
+            ordering == 'new server epoch before old ACK';
+        state = frozen
             ? 'frozen'
             : ordering == 'history-only delta'
                 ? 'pending'
                 : 'in_progress';
-        revision = ordering == 'newer freeze before ACK' ? 9 : 8;
+        revision = frozen || ordering == 'ACK control before older live' ? 9 : 8;
         if (ordering == 'live before ACK' ||
-            ordering == 'newer freeze before ACK') {
+            frozen) {
           events.add(_syncLive(fixture.order, revision, state));
           await tester.pump();
         }
-        if (ordering == 'account change') {
+        if (ordering == 'new server epoch before old ACK') {
+          events.add(_syncLive(fixture.order, 1, state, epoch: 'restarted-server'));
+          await tester.pump();
+        }
+        if (ordering == 'reopen during write') {
+          final dynamic open = tester.widget(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+          open.onClose();
+          await tester.pumpAndSettle();
+          await tester.tap(find.textContaining('scan-bootstrap').first);
+          await tester.pumpAndSettle();
+          final dynamic reopened = tester.widget(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+          expect(reopened.actionInFlight, isTrue);
+          reopened.onComplete();
+          await tester.pump();
+          expect(requests.where((r) => r.url.path.endsWith('/queue-action')),
+              hasLength(1));
+        }
+        if (accountChanged) {
           await AppSession.instance.setSession(
               token: 'other-token',
               profile: const SessionProfile(
@@ -135,20 +169,44 @@ void _registerWorkerSyncOptimizationTests() {
                   capabilities: ['apparatus.queue.read'],
                   assignedApparatus: [scanApparatus]));
         }
+        final ackRevision = ordering == 'ACK control before older live' ? 9 : 8;
+        final ackControl = _syncBootstrap(
+            ordering == 'ACK control below cursor' ? 7 : ackRevision,
+            'in_progress')['control_state'];
+        if (ordering == 'mismatched ACK control') {
+          ackControl['order_id'] = 'another-order';
+        }
         post.complete(http.Response(
             jsonEncode({
               'ok': true,
-              'rev': 8,
+              'rev': ackRevision,
               'epoch': 'scan-server',
               'states': {
                 scanOrder:
                     ordering == 'history-only delta' ? 'pending' : 'in_progress'
               },
               'order_control': {'state': 'active'},
+              if (hasAckControl) 'control_state': ackControl,
             }),
             ordering == 'lost ACK' ? 503 : 200));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
+        if (ordering == 'missing live' || (hasAckControl && !accountChanged)) {
+          final dynamic fast = tester.widget(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+          expect(fast.queueStates[scanOrder], state);
+          expect(fast.uiState.contractSynchronized, isTrue,
+              reason: 'confirmed controls must not wait for a recovery timer');
+          expect(fast.actionInFlight, isFalse);
+        }
+        if (ordering == 'ACK control before older live') {
+          events.add(_syncLive(fixture.order, 8, 'pending'));
+          await tester.pump();
+          final dynamic newer = tester.widget(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+          expect(newer.queueStates[scanOrder], 'in_progress');
+          expect(newer.uiState.contractSynchronized, isTrue);
+        }
         if (ordering == 'live after ACK') {
           events.add(_syncLive(fixture.order, 8, 'in_progress'));
           await tester.pump();
@@ -168,7 +226,11 @@ void _registerWorkerSyncOptimizationTests() {
         expect(
             snapshotReads,
             baselineReads +
-                (ordering == 'missing live' || ordering == 'lost ACK' ? 1 : 0));
+                (!accountChanged && ordering != 'history-only delta' &&
+                        ordering != 'live before ACK' &&
+                        ordering != 'live after ACK' &&
+                        ordering != 'new server epoch before old ACK' &&
+                        !frozen ? 1 : 0));
         expect(requests.where((r) => r.url.path.endsWith('/queue-action')),
             hasLength(1));
         expect(
@@ -180,11 +242,18 @@ void _registerWorkerSyncOptimizationTests() {
         if (ordering == 'live before ACK' ||
             ordering == 'live after ACK' ||
             ordering == 'newer freeze before ACK') {
-          expect(requests.where((r) => r.method == 'GET'), hasLength(1));
+          expect(requests.where((r) => r.method == 'GET'),
+              hasLength(ordering == 'live after ACK' ? 2 : 1));
+        }
+        if (ordering == 'ACK control without live' ||
+            ordering == 'ACK control before older live' ||
+            ordering == 'newer freeze before old ACK control') {
+          expect(requests.where((r) => r.url.path.endsWith('/order-scan-bootstrap')),
+              isEmpty, reason: 'the ACK or newer live control is already authoritative');
         }
         final dynamic content = tester.widget(find.byWidgetPredicate(
             (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
-        if (ordering == 'account change') {
+        if (accountChanged) {
           expect(content.uiState.contractSynchronized, isFalse);
         } else {
           expect(content.queueStates[scanOrder], state);

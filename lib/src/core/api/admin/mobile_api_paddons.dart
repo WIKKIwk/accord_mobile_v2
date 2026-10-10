@@ -136,6 +136,16 @@ class AdminPaddonQrPrintResult {
   final bool canCloseAfterPrint;
 }
 
+class PaddonManagementSettings {
+  const PaddonManagementSettings({
+    required this.freeMovementEnabled,
+    required this.workerVisibilityEnabled,
+  });
+
+  final bool freeMovementEnabled;
+  final bool workerVisibilityEnabled;
+}
+
 class PaddonPrintConfirmation {
   const PaddonPrintConfirmation(
       {required this.paddon,
@@ -170,7 +180,7 @@ extension MobileApiPaddons on MobileApi {
     return snapshot;
   }
 
-  Future<bool> paddonFreeMovementEnabled() async {
+  Future<PaddonManagementSettings> paddonManagementSettings() async {
     final response = await _sendAuthorized(() => _get(
       Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/management-settings'),
       headers: _headers(requireToken()),
@@ -178,26 +188,54 @@ extension MobileApiPaddons on MobileApi {
     return _paddonManagementResponse(response);
   }
 
-  Future<bool> setPaddonFreeMovementEnabled(bool enabled) async {
+  Future<bool> paddonFreeMovementEnabled() async =>
+      (await paddonManagementSettings()).freeMovementEnabled;
+
+  Future<bool> setPaddonFreeMovementEnabled(bool enabled) async =>
+      (await updatePaddonManagementSettings(freeMovementEnabled: enabled))
+          .freeMovementEnabled;
+
+  Future<PaddonManagementSettings> updatePaddonManagementSettings({
+    bool? freeMovementEnabled,
+    bool? workerVisibilityEnabled,
+  }) async {
     final response = await _sendAuthorized(() => _put(
       Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/paddons/management-settings'),
       headers: _headers(requireToken())..['Content-Type'] = 'application/json',
-      body: jsonEncode({'free_movement_enabled': enabled}),
+      body: jsonEncode({
+        if (freeMovementEnabled != null)
+          'free_movement_enabled': freeMovementEnabled,
+        if (workerVisibilityEnabled != null)
+          'worker_visibility_enabled': workerVisibilityEnabled,
+      }),
     ));
-    return _paddonManagementResponse(response);
+    final settings = _paddonManagementResponse(response);
+    if ((freeMovementEnabled != null &&
+            settings.freeMovementEnabled != freeMovementEnabled) ||
+        (workerVisibilityEnabled != null &&
+            settings.workerVisibilityEnabled != workerVisibilityEnabled)) {
+      throw const MobileApiException(code: 'paddon_management_settings', message: 'Paddon sozlamalari tasdiqlanmadi');
+    }
+    return settings;
   }
 
-  bool _paddonManagementResponse(http.Response response) {
+  PaddonManagementSettings _paddonManagementResponse(http.Response response) {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'paddon_management_settings');
     }
     final payload = jsonDecode(response.body);
     if (payload is! Map || payload['ok'] != true ||
         payload['settings'] is! Map ||
-        payload['settings']['free_movement_enabled'] is! bool) {
+        payload['settings']['free_movement_enabled'] is! bool ||
+        (payload['settings']['worker_visibility_enabled'] != null &&
+            payload['settings']['worker_visibility_enabled'] is! bool)) {
       throw const MobileApiException(code: 'paddon_management_settings', message: 'Paddon sozlamalari tasdiqlanmadi');
     }
-    return payload['settings']['free_movement_enabled'] as bool;
+    return PaddonManagementSettings(
+      freeMovementEnabled: payload['settings']['free_movement_enabled'] as bool,
+      workerVisibilityEnabled:
+          payload['settings']['worker_visibility_enabled'] == true,
+    );
   }
 
   Future<PaddonPrintConfirmation> confirmPaddonPrint(String code) async {

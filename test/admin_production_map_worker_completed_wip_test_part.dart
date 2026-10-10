@@ -107,18 +107,27 @@ void _registerWorkerCompletedWipTests() {
     await TestModeController.instance.setEnabled(false);
   }
 
-  for (final scenario in ['success', 'empty', 'retry']) {
+  for (final scenario in ['success', 'empty', 'retry', 'qr-search']) {
     testWidgets(
         'worker completed WIP uses own history without admin access: $scenario',
         (tester) async {
+      if (scenario == 'qr-search') {
+        final scannerPlatform = MobileScannerPlatform.instance;
+        MobileScannerPlatform.instance = _WorkerWipQrScannerPlatform();
+        addTearDown(() {
+          MobileScannerPlatform.instance = scannerPlatform;
+        });
+      }
       final requests = <http.Request>[];
       var historyAttempts = 0;
       await http.runWithClient(() async {
         await openCompletedTab(tester);
-        await tester.tap(find.ancestor(
-          of: find.textContaining('Worker completed WIP'),
-          matching: find.byType(InkWell),
-        ).first);
+        await tester.tap(find
+            .ancestor(
+              of: find.textContaining('Worker completed WIP'),
+              matching: find.byType(InkWell),
+            )
+            .first);
         await tester.pumpAndSettle();
 
         final error =
@@ -135,18 +144,77 @@ void _registerWorkerCompletedWipTests() {
           await tester.pumpAndSettle();
         }
         expect(error, findsNothing);
+        final searchButton = find.byKey(const ValueKey('worker-wip-search-qr'));
+        expect(searchButton, findsOneWidget);
         if (scenario == 'empty') {
           expect(empty, findsOneWidget);
+          expect(tester.widget<FilledButton>(searchButton).onPressed, isNull);
         } else {
           expect(empty, findsNothing);
-          expect(find.text('1 ta WIP yaratilgan'), findsOneWidget);
+          expect(
+              find.text('${scenario == 'qr-search' ? 2 : 1} ta WIP yaratilgan'),
+              findsOneWidget);
           expect(find.text('12 m'), findsOneWidget);
           expect(find.text('999 m'), findsNothing);
           expect(find.text('Qayta chop etish'), findsNothing);
-          await tester.longPress(find.byKey(const ValueKey('worker-wip-item-0')));
+          if (scenario == 'qr-search') {
+            Future<void> scan(String qr) async {
+              await tester.tap(searchButton);
+              await tester.pumpAndSettle();
+              expect(find.byType(RawMaterialScanDialog), findsOneWidget);
+              final scanner =
+                  tester.widget<MobileScanner>(find.byType(MobileScanner));
+              scanner.onDetect!(BarcodeCapture(
+                barcodes: [Barcode(rawValue: qr, format: BarcodeFormat.qrCode)],
+              ));
+              await tester.pumpAndSettle();
+              expect(find.byType(RawMaterialScanDialog), findsNothing);
+            }
+
+            expect(find.text('34 m'), findsOneWidget);
+            await scan('https://accord.test/wip?qr=40000000000000000000000a');
+            expect(find.text('34 m'), findsOneWidget);
+            expect(find.text('12 m'), findsNothing);
+            expect(find.byKey(const ValueKey('worker-wip-item-1')),
+                findsOneWidget);
+            await tester.tap(find.byKey(const ValueKey('worker-wip-show-all')));
+            await tester.pumpAndSettle();
+            expect(find.text('12 m'), findsOneWidget);
+            expect(find.text('34 m'), findsOneWidget);
+
+            // A QR for another order must never escape this sheet's scope.
+            await scan('400000000000000000000003');
+            expect(
+                find.text(
+                    l10n.productionText('worker.wip.history.qr_not_found')),
+                findsOneWidget);
+            expect(find.text('12 m'), findsOneWidget);
+            expect(find.text('34 m'), findsOneWidget);
+            expect(find.byKey(const ValueKey('worker-wip-show-all')),
+                findsNothing);
+
+            await tester.tap(searchButton);
+            await tester.pumpAndSettle();
+            Navigator.of(tester.element(find.byType(RawMaterialScanDialog)))
+                .pop();
+            await tester.pumpAndSettle();
+            expect(find.text('12 m'), findsOneWidget);
+            expect(find.text('34 m'), findsOneWidget);
+            expect(
+                tester.widget<FilledButton>(searchButton).onPressed, isNotNull);
+          }
+          await tester
+              .longPress(find.byKey(const ValueKey('worker-wip-item-0')));
           await tester.pumpAndSettle();
-          expect(find.byKey(ValueKey('worker-wip-history-reprint-output-$orderId')), findsOneWidget);
-          expect(find.descendant(of: find.byType(BottomSheet).last, matching: find.text('WIP ID')), findsNothing);
+          expect(
+              find.byKey(
+                  ValueKey('worker-wip-history-reprint-output-$orderId')),
+              findsOneWidget);
+          expect(
+              find.descendant(
+                  of: find.byType(BottomSheet).last,
+                  matching: find.text('WIP ID')),
+              findsNothing);
         }
         expect(historyAttempts, scenario == 'retry' ? 2 : 1);
         expect(
@@ -194,12 +262,34 @@ void _registerWorkerCompletedWipTests() {
                               'produced_qty': id == orderId ? 12 : 999,
                               'uom': 'm',
                               'completed_at_unix': 100,
-                              'qr_payload': '400000000000000000000001',
+                              'qr_payload': id == orderId
+                                  ? '400000000000000000000001'
+                                  : '400000000000000000000003',
                             },
+                        if (scenario == 'qr-search')
+                          {
+                            'batch_id': 'second-output-$orderId',
+                            'order_id': orderId,
+                            'apparatus': _lamination1Id,
+                            'current_apparatus': _lamination1Id,
+                            'worker_ref': workerRef,
+                            'action': 'complete',
+                            'status': 'completed',
+                            'wip_status': 'waiting',
+                            'produced_qty': 34,
+                            'uom': 'm',
+                            'completed_at_unix': 90,
+                            'qr_payload': '40000000000000000000000A',
+                          },
                       ],
                     }),
                     200);
               }));
     });
   }
+}
+
+class _WorkerWipQrScannerPlatform extends _TestMobileScannerPlatform {
+  @override
+  Future<void> updateScanWindow(Rect? window) async {}
 }

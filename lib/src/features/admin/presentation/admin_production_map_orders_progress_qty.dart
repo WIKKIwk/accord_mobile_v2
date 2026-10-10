@@ -296,16 +296,23 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final List<_RezkaPrintRequest> _rezkaPrintQueue = <_RezkaPrintRequest>[];
   final Set<int> _rezkaQueuedFrameIndexes = <int>{};
   bool _rezkaSyncRequired = false;
+  bool _rezkaConfirmationBusy = false;
   final Map<int, String> _rezkaPrintStatus = {};
 
   _ProgressPrinterOption? _rezkaPrinter;
+
+  bool get _progressQtyBusy =>
+      _rezkaPrintBusy ||
+      _rezkaIssueBusy ||
+      _rezkaPrintQueueProcessing ||
+      _rezkaConfirmationBusy;
 
   void _updateRezkaPrint(VoidCallback update) {
     if (mounted) setState(update);
   }
 
   Future<void> _cancelProgressQtyDialog() async {
-    if (_rezkaPrintBusy) return;
+    if (_progressQtyBusy) return;
     if (_rezkaPrintQueue.isNotEmpty) {
       final discardQueue = await showDialog<bool>(
         context: context,
@@ -609,9 +616,55 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     return frames;
   }
 
+  Future<void> _confirmProgressQty() async {
+    if (_progressQtyBusy) return;
+    if (_showRezkaFrameInputs &&
+        (_rezkaSyncRequired || _rezkaPrintQueue.isNotEmpty)) {
+      _updateRezkaPrint(() => _rezkaConfirmationBusy = true);
+      try {
+        final latest = await widget.reloadRezkaOutputReport?.call();
+        if (!mounted) return;
+        if (latest == null ||
+            latest.cycleId != _rezkaReport?.cycleId ||
+            latest.frames.any((slot) => slot.index > _rezkaFrameCount)) {
+          throw const MobileApiException(
+            code: 'rezka_output_cycle_conflict',
+            message: '',
+          );
+        }
+        _updateRezkaPrint(() {
+          _restoreRezkaOutputReport(latest);
+          _rezkaSyncRequired = false;
+          // Transfer paused print drafts to the validated production action.
+          // Saved slots retain their QR; unsaved controller values stay intact.
+          for (final request in _rezkaPrintQueue) {
+            if (latest.frameAt(request.index) == null) {
+              _rezkaPrintStatus.remove(request.index);
+            }
+          }
+          _rezkaPrintQueue.clear();
+          _rezkaQueuedFrameIndexes.clear();
+          _rezkaPrintQueuePaused = false;
+        });
+      } catch (_) {
+        if (mounted) {
+          _rezkaSyncRequired = true;
+          _setCompletionError(context.l10n.productionText('worker.error.sync'));
+        }
+        return;
+      } finally {
+        if (mounted) {
+          _updateRezkaPrint(() => _rezkaConfirmationBusy = false);
+        }
+      }
+    }
+    if (mounted) _submit();
+  }
+
   void _submit() {
-    if (_rezkaPrintBusy || _rezkaPrintQueue.isNotEmpty || _rezkaSyncRequired)
+    if (_progressQtyBusy || _rezkaPrintQueue.isNotEmpty || _rezkaSyncRequired) {
       return;
+    }
     setState(() => _completionError = '');
     final description = _descriptionController.text.trim();
     final hasRawOutput = <TextEditingController>[
@@ -1020,19 +1073,22 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final savedIssue = record?.isIssue == true;
     final fieldsEnabled = !saved &&
         !_rezkaQueuedFrameIndexes.contains(index) &&
-        !_rezkaSyncRequired;
+        !_rezkaSyncRequired &&
+        !_rezkaConfirmationBusy;
     final issueAllowed = !saved && _rezkaFrameIssueAllowed(index, frame);
     final frameStatus = _rezkaFramePrintStatus(index);
     final isQueueRetry = _rezkaPrintQueuePaused &&
         _rezkaPrintQueue.isNotEmpty &&
         _rezkaPrintQueue.first.index == index;
     final canQueuePrint = !_rezkaIssueBusy &&
+        !_rezkaConfirmationBusy &&
         !_rezkaSyncRequired &&
         !_rezkaPrintQueuePaused &&
         (!_rezkaPrintBusy || _rezkaPrintQueueProcessing) &&
         !_rezkaQueuedFrameIndexes.contains(index);
     final canRetryPrint = isQueueRetry &&
         !_rezkaIssueBusy &&
+        !_rezkaConfirmationBusy &&
         !_rezkaSyncRequired &&
         !_rezkaPrintBusy;
     return Container(
@@ -1810,7 +1866,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             ),
                           ),
                         ],
-                        if (_descriptionFieldRelevant)
+                        if (_descriptionFieldRelevant ||
+                            _completionError.isNotEmpty)
                           AnimatedSize(
                             duration: AppMotion.fast,
                             curve: AppMotion.easeOut,
@@ -1913,7 +1970,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed:
-                          _rezkaPrintBusy ? null : _cancelProgressQtyDialog,
+                          _progressQtyBusy ? null : _cancelProgressQtyDialog,
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
@@ -1928,11 +1985,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _rezkaPrintBusy ||
-                              _rezkaPrintQueue.isNotEmpty ||
-                              _rezkaSyncRequired
-                          ? null
-                          : _submit,
+                      onPressed: _progressQtyBusy ? null : _confirmProgressQty,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(

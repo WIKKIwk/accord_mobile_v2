@@ -5,6 +5,7 @@ Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     required String apparatus,
     required String orderId,
     required String action,
+    bool includeControl = false,
     String materialBarcode = '',
     List<String> materialBarcodes = const [],
     String qolipCode = '',
@@ -135,6 +136,7 @@ final normalizedApparatusId = apparatus.trim();
       );
     }
     return _adminApparatusQueueActionResultBackend(
+      includeControl: includeControl,
       outputPaddonCode: outputPaddonCode,
       printPreflightHoldId: printPreflightHoldId,
       completeWithoutOutput: completeWithoutOutput,

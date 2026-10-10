@@ -150,6 +150,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     apparatus: apparatusKey,
     orderId: request.order.map.id,
     action: request.action,
+    includeControl: true,
     materialBarcodes: request.materialBarcodes,
     qolipCodes: request.qolipCodes,
     producedQty: request.producedQty,

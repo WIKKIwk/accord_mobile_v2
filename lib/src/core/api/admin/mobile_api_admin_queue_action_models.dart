@@ -86,6 +86,7 @@ class AdminApparatusQueueActionResult {
     required this.states,
     this.revision,
     this.epoch = '',
+    this.controlState,
     this.workActivity,
     this.hasWorkActivity = false,
     this.orderStatus = const AdminProductionOrderStatusDetail(),
@@ -102,6 +103,7 @@ class AdminApparatusQueueActionResult {
   final Map<String, String> states;
   final int? revision;
   final String epoch;
+  final AdminPrintPreflightControlState? controlState;
 
   bool get hasSnapshotCursor =>
       revision != null && revision! >= 0 && epoch.isNotEmpty;

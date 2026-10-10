@@ -129,6 +129,9 @@ class _WorkerWipHistorySheet extends StatefulWidget {
 
 class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   late Future<List<AdminProgressBatch>> _future;
+  String _searchBatchId = '';
+  bool _searchingQr = false;
+  bool _searchNotFound = false;
 
   @override
   void initState() {
@@ -182,7 +185,35 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
     final future = _load();
     setState(() {
       _future = future;
+      _searchBatchId = '';
+      _searchNotFound = false;
     });
+  }
+
+  Future<void> _searchWipQr(List<AdminProgressBatch> batches) async {
+    if (_searchingQr) return;
+    setState(() {
+      _searchingQr = true;
+      _searchNotFound = false;
+    });
+    try {
+      final scanned = await showRawMaterialScanDialog(
+        context,
+        title: context.l10n.productionText('worker.wip.history.search_qr'),
+        manualLabel: context.l10n.productionText('worker.wip.history.enter_qr'),
+      );
+      if (!mounted || scanned == null) return;
+      final qr = scanned.trim().toUpperCase();
+      final matches = batches.where(
+        (batch) => batch.qrPayload.trim().toUpperCase() == qr,
+      );
+      setState(() {
+        _searchBatchId = matches.isEmpty ? '' : matches.first.batchId;
+        _searchNotFound = matches.isEmpty;
+      });
+    } finally {
+      if (mounted) setState(() => _searchingQr = false);
+    }
   }
 
   bool _canReprintWip(AdminProgressBatch batch) {
@@ -430,12 +461,60 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                     }
                     return _WorkerWipHistoryList(
                       batches: batches,
+                      searchBatchId: _searchBatchId,
                       apparatusCatalog: widget.apparatusCatalog,
                       onLongPress: (batch) => unawaited(_showWipDetails(batch)),
                     );
                   },
                 ),
               ),
+              if (widget.workerMode) ...[
+                if (_searchNotFound) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.productionText(
+                      'worker.wip.history.qr_not_found',
+                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.error,
+                    ),
+                  ),
+                ],
+                if (_searchBatchId.isNotEmpty)
+                  TextButton.icon(
+                    key: const ValueKey('worker-wip-show-all'),
+                    onPressed: () => setState(() {
+                      _searchBatchId = '';
+                      _searchNotFound = false;
+                    }),
+                    icon: const Icon(Icons.list_rounded),
+                    label: Text(context.l10n.productionText(
+                      'worker.wip.history.show_all',
+                    )),
+                  ),
+                const SizedBox(height: 12),
+                FutureBuilder<List<AdminProgressBatch>>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    final batches = snapshot.data;
+                    return FilledButton.icon(
+                      key: const ValueKey('worker-wip-search-qr'),
+                      onPressed: !_searchingQr &&
+                              !snapshot.hasError &&
+                              snapshot.connectionState ==
+                                  ConnectionState.done &&
+                              batches != null &&
+                              batches.isNotEmpty
+                          ? () => _searchWipQr(batches)
+                          : null,
+                      icon: const Icon(Icons.qr_code_scanner_rounded),
+                      label: Text(context.l10n.productionText(
+                        'worker.wip.history.search_qr',
+                      )),
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -675,10 +754,12 @@ List<AdminProgressBatch> _wipBatchesProducedByApparatus(
 class _WorkerWipHistoryList extends StatelessWidget {
   const _WorkerWipHistoryList({
     required this.batches,
+    this.searchBatchId = '',
     required this.apparatusCatalog,
     required this.onLongPress,
   });
   final List<AdminProgressBatch> batches;
+  final String searchBatchId;
   final List<AdminApparatus> apparatusCatalog;
   final void Function(AdminProgressBatch batch)? onLongPress;
 
@@ -706,18 +787,19 @@ class _WorkerWipHistoryList extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         for (var index = 0; index < batches.length; index++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _WorkerWipHistoryCard(
-              key: ValueKey('worker-wip-item-$index'),
-              batch: batches[index],
-              index: index,
-              apparatusCatalog: apparatusCatalog,
-              onLongPress: onLongPress == null
-                  ? null
-                  : () => onLongPress!(batches[index]),
+          if (searchBatchId.isEmpty || batches[index].batchId == searchBatchId)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _WorkerWipHistoryCard(
+                key: ValueKey('worker-wip-item-$index'),
+                batch: batches[index],
+                index: index,
+                apparatusCatalog: apparatusCatalog,
+                onLongPress: onLongPress == null
+                    ? null
+                    : () => onLongPress!(batches[index]),
+              ),
             ),
-          ),
       ],
     );
   }

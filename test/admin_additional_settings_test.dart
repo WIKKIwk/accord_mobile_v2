@@ -35,6 +35,7 @@ Widget _app() => const MaterialApp(
 
 void main() {
   late bool enabled;
+  late bool workerVisibility;
   late bool failWrite;
   late int writes;
   late MockClient client;
@@ -42,6 +43,7 @@ void main() {
     AppSession.instance.token = 'token';
     AppSession.instance.profile = _profile(UserRole.admin);
     enabled = false;
+    workerVisibility = false;
     failWrite = false;
     writes = 0;
     client = MockClient((request) async {
@@ -50,13 +52,21 @@ void main() {
       if (request.method == 'PUT') {
         writes++;
         if (failWrite) return http.Response('{"error":"store_failed"}', 500);
-        enabled =
-            (jsonDecode(request.body) as Map)['free_movement_enabled'] as bool;
+        final input = jsonDecode(request.body) as Map;
+        if (input.containsKey('free_movement_enabled')) {
+          enabled = input['free_movement_enabled'] as bool;
+        }
+        if (input.containsKey('worker_visibility_enabled')) {
+          workerVisibility = input['worker_visibility_enabled'] as bool;
+        }
       }
       return http.Response(
           jsonEncode({
             'ok': true,
-            'settings': {'free_movement_enabled': enabled}
+            'settings': {
+              'free_movement_enabled': enabled,
+              'worker_visibility_enabled': workerVisibility,
+            }
           }),
           200);
     });
@@ -76,6 +86,7 @@ void main() {
 
   testWidgets('admin confirms enable and can disable the shared server setting',
       (tester) async {
+    workerVisibility = true;
     await http.runWithClient(() async {
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
@@ -105,6 +116,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(enabled, isFalse);
       expect(writes, 2);
+      expect(workerVisibility, isTrue);
     }, () => client);
   });
 
@@ -121,6 +133,60 @@ void main() {
       expect(writes, 0);
       expect(enabled, isFalse);
     }, () => client);
+  });
+
+  testWidgets('admin can enable and disable worker visibility independently',
+      (tester) async {
+    enabled = true;
+    const key = ValueKey('paddon-worker-visibility-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(workerVisibility, isTrue);
+      expect(enabled, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(workerVisibility, isFalse);
+      expect(enabled, isTrue);
+      expect(writes, 2);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
+    }, () => client);
+  });
+
+  testWidgets('failed visibility save restores the server setting',
+      (tester) async {
+    workerVisibility = true;
+    failWrite = true;
+    const key = ValueKey('paddon-worker-visibility-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(workerVisibility, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      expect(find.text('Sozlama saqlanmadi. Qayta urinib ko‘ring.'),
+          findsOneWidget);
+    }, () => client);
+  });
+
+  testWidgets('worker with admin capability cannot access either setting',
+      (tester) async {
+    AppSession.instance.profile = _profile(UserRole.aparatchi);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      expect(find.byType(SwitchListTile), findsNothing);
+      expect(writes, 0);
+    }, () => MockClient((_) async =>
+        throw StateError('worker must not load admin settings')));
   });
 
   testWidgets('failed save keeps the authoritative server value',

@@ -91,6 +91,7 @@ class _PaddonDetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final paddon = snapshot.paddon;
+    final creatorName = paddon.createdByDisplayName.trim();
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     return Card.filled(
@@ -180,6 +181,37 @@ class _PaddonDetailHeader extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
+            Row(
+              key: const ValueKey('paddon-created-by'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.person_outline, size: 20, color: scheme.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.productionText('worker.paddon.created_by'),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        creatorName.isEmpty
+                            ? context.l10n.adminText('wip.unspecified')
+                            : creatorName,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             PaddonWeightTotals(
                 key: const ValueKey('paddon-detail-weights'), paddon: paddon),
             const SizedBox(height: 14),
@@ -198,12 +230,6 @@ class _PaddonDetailHeader extends StatelessWidget {
                   label: 'WIP',
                   value: '${snapshot.items.length}',
                 ),
-                if (paddon.createdByDisplayName.trim().isNotEmpty)
-                  _PaddonDetailMetric(
-                    label:
-                        context.l10n.productionText('worker.paddon.created_by'),
-                    value: paddon.createdByDisplayName,
-                  ),
               ],
             ),
             if (pendingScanCount != null) ...[

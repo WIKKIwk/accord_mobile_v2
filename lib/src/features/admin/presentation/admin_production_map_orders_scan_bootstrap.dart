@@ -77,16 +77,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       }
       acceptedControl = control;
       _setScanBootstrapState(() {
-        _queueActionControl = control.control;
-        _queueStates = Map<String, String>.from(_queueStates)
-          ..[orderId] = control.queueState;
-        _stageStates = Map<String, String>.from(control.stageStates);
-        _orderControls = Map<String, AdminOrderControlState>.from(
-          _orderControls,
-        )..[orderId] = control.orderControl;
-        _orderControlState = control.orderControl;
-        _scanBootstrapRevision = control.revision;
-        _scanBootstrapEpoch = control.epoch;
+        _applyDetailControl(control);
         _qolipRequirementsLoading = false;
       });
       final needsMaterials = control.control.interaction?.startMaterialsMode ==

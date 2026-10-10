@@ -29,6 +29,8 @@ Map<String, dynamic> _preview() => {
         'id': 'p2',
         'code': '00002',
         'location': 'Rezka',
+        'created_by_ref': 'worker-2',
+        'created_by_display_name': 'Anis',
         'item_count': 2
       },
       'items': [
@@ -120,6 +122,11 @@ void main() {
       expectSync(routes.map((r) => r.name), [AppRoutes.werkaQrPreview]);
       expectSync((routes.single.arguments as WerkaQrPreview).code, '00002');
       expectSync(find.byType(WerkaPaddonReceiveScreen), findsOneWidget);
+      final creator = find.byKey(const ValueKey('paddon-created-by'));
+      expectSync(find.descendant(
+          of: creator, matching: find.text('Paddonni ochgan')), findsOneWidget);
+      expectSync(find.descendant(of: creator, matching: find.text('Anis')),
+          findsOneWidget);
       for (var i = 0; i < 2; i++) {
         expectSync(
             find.byKey(ValueKey('paddon-wip-card-roll-$i')), findsOneWidget);

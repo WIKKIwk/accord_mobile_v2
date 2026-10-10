@@ -954,7 +954,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         ? (label.itemCode.isEmpty ? "-" : label.itemCode)
         : label.itemName
     )
-    let product = progressProductName(rawProduct, fallback: label.itemCode)
+    let product = "\(customer) - \(progressProductName(rawProduct, fallback: label.itemCode))"
     let apparatus = progressApparatusName(
       label.apparatusDisplayName,
       canonicalApparatus: label.apparatus,
@@ -964,11 +964,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
     var result = command
     var y = Self.progressTextTopY
-    let customerLines = progressFieldLines("MIJOZ", value: customer, maxLines: 2)
-    result = appendProgressLines(result, lines: customerLines, y: y)
-    y += customerLines.count * Self.progressTextLineHeightDots + Self.progressFieldGapDots
-
-    let productLines = progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 3)
+    let productLines = progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 5)
     result = appendProgressLines(result, lines: productLines, y: y)
     y += productLines.count * Self.progressTextLineHeightDots +
       Self.progressFieldGapDots * 3
@@ -1220,7 +1216,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
   private func progressStatusLabel(_ itemName: String) -> String {
     if itemName.range(of: "YARIM TAYYOR", options: [.caseInsensitive]) != nil {
-      return "YARIM TAYYOR MAHSULOT"
+      return "YARIM TAYYOR"
     }
     if itemName.range(of: "TAYYOR MAHSULOT", options: [.caseInsensitive]) != nil {
       return "TAYYOR MAHSULOT"
@@ -1228,7 +1224,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     if itemName.range(of: "TAYYOR", options: [.caseInsensitive]) != nil {
       return "TAYYOR MAHSULOT"
     }
-    return "YARIM TAYYOR MAHSULOT"
+    return "YARIM TAYYOR"
   }
 
   private func progressApparatusName(
@@ -1238,12 +1234,12 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   ) -> String {
     let explicit = cleanLabelText(displayName).trimmingCharacters(in: .whitespacesAndNewlines)
     if !explicit.isEmpty {
-      return explicit
+      return shortProgressApparatusName(explicit)
     }
     let canonical = cleanLabelText(canonicalApparatus)
       .trimmingCharacters(in: .whitespacesAndNewlines)
     if !canonical.isEmpty {
-      return canonical
+      return shortProgressApparatusName(canonical)
     }
     guard let marker = itemName.range(of: ", APPARAT:", options: [.caseInsensitive]) else {
       return "-"
@@ -1253,7 +1249,20 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       .first
       .map(String.init)?
       .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return value.isEmpty ? "-" : value
+    return shortProgressApparatusName(value.isEmpty ? "-" : value)
+  }
+
+  private func shortProgressApparatusName(_ value: String) -> String {
+    switch value {
+    case "7 TA RANGLI BOSMA", "7 TA RANGLI BOSMA APARAT":
+      return "7TALIK BOSMA"
+    case "8 TA RANGLI BOSMA", "8 TA RANGLI BOSMA APARAT":
+      return "8TALIK BOSMA"
+    case "9 TA RANGLI BOSMA", "9 TA RANGLI BOSMA APARAT":
+      return "9TALIK BOSMA"
+    default:
+      return value
+    }
   }
 
   private func text(

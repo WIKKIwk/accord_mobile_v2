@@ -21,7 +21,7 @@ void _registerMaterialDeliveryTests() {
     (cancel: true, qolipFirst: false),
   ]) {
     testWidgets(
-        'material delivery: ${scenario.cancel ? "cancel leaves material and order unchanged" : scenario.qolipFirst ? "final material receipt starts automatically" : "receive then final qolip scan starts automatically"}',
+        'material delivery: ${scenario.cancel ? "cancel leaves material and order unchanged" : scenario.qolipFirst ? "final material receipt waits for Start" : "receive then final qolip scan waits for Start"}',
         (tester) async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-material-delivery';
@@ -186,6 +186,21 @@ void _registerMaterialDeliveryTests() {
           expect(beforeQolip.single.stockStatus, 'available');
           await scan(qolip);
         }
+        final readyMaterials = await MobileApi.instance
+            .adminRawMaterialAssignments(orderId: orderId, apparatus: _godexId);
+        expect(readyMaterials.single.stockStatus, 'available',
+            reason: 'Receiving and scanning must not start production');
+        final beforeStart = await MobileApi.instance
+            .adminProductionMapQueueSnapshot(
+                apparatus: _godexId, orderId: orderId);
+        expect(beforeStart.queueStates[_godexId]?[orderId] ?? 'pending',
+            'pending');
+        final startButton =
+            find.byKey(const ValueKey('production-order-start-action'));
+        expect(tester.widget<FilledButton>(startButton).onPressed, isNotNull);
+        await tester.ensureVisible(startButton);
+        await tester.tap(startButton);
+        await tester.pumpAndSettle();
         final startedMaterials = await MobileApi.instance
             .adminRawMaterialAssignments(orderId: orderId, apparatus: _godexId);
         expect(startedMaterials.single.stockStatus, 'in_use');

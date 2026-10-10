@@ -6,6 +6,9 @@ void _registerRezkaPrintOptimizationTests() {
     'local older backend',
     'local mismatched label',
     'local printer failure',
+    'confirmation after printer failure',
+    'confirmation retries temporary sync failure',
+    'confirmation rejects changed cycle',
     'save response lost',
     'wifi',
     'committed input conflict',
@@ -16,6 +19,7 @@ void _registerRezkaPrintOptimizationTests() {
     'report domain conflict',
   ]) {
     testWidgets('Rezka optimized print: $scenario', (tester) async {
+      final confirmRecovery = scenario.startsWith('confirmation ');
       await TestModeController.instance.setEnabled(true);
       AppSession.instance.profile = const SessionProfile(
         role: UserRole.aparatchi,
@@ -67,6 +71,11 @@ void _registerRezkaPrintOptimizationTests() {
       final events = <String>[];
       final frames = <Map<String, dynamic>>[];
       var nativeAttempts = 0;
+      var confirming = false;
+      var rejectConfirmationRead = false;
+      Map<String, dynamic>? submittedFrames;
+      final confirmationReadStarted = Completer<void>();
+      final releaseConfirmationRead = Completer<void>();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(nativeChannel, (call) async {
         if (call.method == 'pairedPrinters') {
@@ -79,7 +88,8 @@ void _registerRezkaPrintOptimizationTests() {
         expect(call.arguments, containsPair('print_count', 1));
         events.add('native');
         return {
-          'ok': scenario != 'local printer failure' || nativeAttempts++ > 0,
+          'ok': (scenario != 'local printer failure' && !confirmRecovery) ||
+              nativeAttempts++ > 0,
         };
       });
       addTearDown(() {
@@ -106,6 +116,19 @@ void _registerRezkaPrintOptimizationTests() {
             return http.Response('', 404);
           }
           events.add('read');
+          if (confirmRecovery && frames.isNotEmpty) {
+            if ((!confirming &&
+                    scenario != 'confirmation after printer failure') ||
+                rejectConfirmationRead) {
+              return http.Response('{"error":"store_failed"}', 500);
+            }
+            if (confirming) {
+              if (!confirmationReadStarted.isCompleted) {
+                confirmationReadStarted.complete();
+              }
+              await releaseConfirmationRead.future;
+            }
+          }
           if (scenario == 'report domain conflict') {
             return http.Response(
                 '{"error":"rezka_output_cycle_conflict"}', 409);
@@ -116,8 +139,11 @@ void _registerRezkaPrintOptimizationTests() {
                 'apparatus': _rezkaId,
                 'order_id': order,
                 'rezka_output_report': {
-                  'cycle_id':
-                      scenario == 'stale cycle' ? 'another-cycle' : cycle,
+                  'cycle_id': scenario == 'stale cycle' ||
+                          (confirming &&
+                              scenario == 'confirmation rejects changed cycle')
+                      ? 'another-cycle'
+                      : cycle,
                   'frames': frames,
                 },
                 'kadr_counts': scenario == 'changed frame layout'
@@ -163,6 +189,10 @@ void _registerRezkaPrintOptimizationTests() {
         }
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         if (request.url.path.endsWith('/queue-action')) {
+          if (confirmRecovery && body['rezka_record_frame_index'] == null) {
+            submittedFrames = body;
+            return http.Response('{"error":"store_failed"}', 500);
+          }
           events.add('save');
           expect(body['rezka_output_cycle'], cycle);
           expect(body['rezka_record_frame_index'], 1);
@@ -276,6 +306,87 @@ void _registerRezkaPrintOptimizationTests() {
         await tester.tap(printButton);
         await tester.pumpAndSettle();
 
+        if (confirmRecovery) {
+          final confirm = find.widgetWithText(FilledButton, 'Tasdiqlash');
+          void expectFilledRolls() {
+            for (var index = 0; index < 4; index++) {
+              for (final field in ['meter', 'kg', 'bobina', 'diameter']) {
+                expect(
+                  tester
+                      .widget<TextFormField>(find.byKey(
+                        ValueKey('rezka-frame-$index-$field'),
+                      ))
+                      .controller!
+                      .text,
+                  isNotEmpty,
+                );
+              }
+            }
+          }
+
+          expectFilledRolls();
+          expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+          confirming = true;
+          if (scenario == 'confirmation retries temporary sync failure') {
+            rejectConfirmationRead = true;
+            await tester.tap(confirm);
+            await tester.pumpAndSettle();
+            expect(submittedFrames, isNull);
+            expectFilledRolls();
+            expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+            expect(
+                find.text(AppLocalizations.of(tester.element(confirm))
+                    .productionText('worker.error.sync')),
+                findsOneWidget);
+            rejectConfirmationRead = false;
+          }
+          await tester.tap(confirm);
+          for (var attempt = 0;
+              attempt < 50 && !confirmationReadStarted.isCompleted;
+              attempt++) {
+            await tester.pump(const Duration(milliseconds: 25));
+          }
+          expect(confirmationReadStarted.isCompleted, isTrue);
+          await tester.pump();
+          expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+          expect(tester.widget<IconButton>(printButton).onPressed, isNull);
+          expect(
+              tester
+                  .widget<OutlinedButton>(find.widgetWithText(
+                    OutlinedButton,
+                    'Bekor qilish',
+                  ))
+                  .onPressed,
+              isNull);
+          releaseConfirmationRead.complete();
+          await tester.pumpAndSettle();
+          if (scenario == 'confirmation rejects changed cycle') {
+            expect(submittedFrames, isNull);
+            expectFilledRolls();
+            expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+          } else {
+            expect(submittedFrames, isNotNull);
+            expect(submittedFrames!['rezka_output_cycle'], cycle);
+            expect(submittedFrames!['rezka_record_frame_index'], isNull);
+            final inputs = submittedFrames!['rezka_frames'] as List;
+            expect(inputs, hasLength(4));
+            for (final input in inputs) {
+              expect(input, containsPair('produced_qty', 1000));
+              expect(input, containsPair('gross_qty', 20));
+              expect(input, containsPair('bobina_kg', 0.5));
+              expect(input, containsPair('diameter', 45));
+            }
+            expect(
+                find.byKey(const ValueKey('rezka-frame-1-kg')), findsNothing);
+          }
+          expect(frames, hasLength(1),
+              reason: 'The saved roll must not duplicate');
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          return;
+        }
+
         if (scenario == 'local prepared label') {
           expect(events, ['read', 'save', 'native']);
         } else if (scenario == 'legacy report endpoint') {
@@ -301,6 +412,29 @@ void _registerRezkaPrintOptimizationTests() {
               find.text(
                   'Saqlandi. Chop etish tasdiqlanmadi — qayta chop etishingiz mumkin.'),
               findsOneWidget);
+          for (var index = 0; index < 4; index++) {
+            for (final field in ['meter', 'kg', 'bobina', 'diameter']) {
+              expect(
+                tester
+                    .widget<TextFormField>(find.byKey(
+                      ValueKey('rezka-frame-$index-$field'),
+                    ))
+                    .controller!
+                    .text,
+                isNotEmpty,
+              );
+            }
+          }
+          expect(
+            tester
+                .widget<FilledButton>(find.widgetWithText(
+                  FilledButton,
+                  'Tasdiqlash',
+                ))
+                .onPressed,
+            isNotNull,
+            reason: 'Filled rolls must be confirmable without reopening',
+          );
           events.clear();
           await tester.tap(printButton);
           await tester.pumpAndSettle();

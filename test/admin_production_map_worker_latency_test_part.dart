@@ -175,7 +175,8 @@ void _registerWorkerLatencyTests() {
 
 void _registerWorkerColourLatencyTests() {
   for (final action in ['hold', 'passed']) {
-    for (final outcome in ['controls', 'legacy', 'timeout']) {
+    for (final outcome in ['controls', 'legacy', 'timeout', 'reopened', 'live during recovery']) {
+      if (action != 'hold' && outcome == 'live during recovery') continue;
       testWidgets('worker colour $action releases UI after one POST: $outcome', (tester) async {
         await TestModeController.instance.setEnabled(true);
         const orderId = 'zakaz-worker-colour';
@@ -209,6 +210,8 @@ void _registerWorkerColourLatencyTests() {
           },
         };
         final initialStatus = action == 'hold' ? 'pending' : 'running';
+        var serverStatus = initialStatus;
+        var serverRevision = 1;
         setMobileApiTestModeQueueActionControlFixture(apparatus: _print7Id,
           orderId: orderId, control: AdminApparatusQueueOrderActionControl.fromJson(control(initialStatus)));
         await MobileApi.instance.adminSaveProductionMapSequence(
@@ -224,7 +227,36 @@ void _registerWorkerColourLatencyTests() {
         );
         final requests = <http.Request>[];
         final post = Completer<http.Response>();
+        final nextPost = Completer<http.Response>();
         final refresh = Completer<http.Response>();
+        final live = StreamController<Object>.broadcast();
+        addTearDown(live.close);
+        var thinReads = 0;
+        Map<String, dynamic> bootstrap(String status, int revision) => {
+          'ok': true,
+          'control_state': {
+            'apparatus': _print7Id, 'order_id': orderId,
+            'epoch': 'colour-server', 'rev': revision,
+            'scope': 'colour-worker-scope', 'control': control(status),
+            'queue_state': status == 'pending' ? 'pending' : 'print_preflight',
+            'stage_states': {}, 'order_control': 'active',
+          },
+          'sections': {
+            'materials': {'status': 'not_required'},
+            'qolips': {'status': 'not_required'},
+          },
+        };
+        AdminProductionMapLiveSnapshot snapshot(String status, int revision) =>
+            AdminProductionMapLiveSnapshot.fromJson({
+              ...scanSequence(),
+              'rev': revision, 'epoch': 'colour-server', 'scope': 'colour-worker-live',
+              'maps': [{'map': saved.map.toJson(), 'program': <String, dynamic>{}}],
+              'sequences': {_print7Id: [orderId]},
+              'visible_order_ids': {_print7Id: [orderId]},
+              'queue_states': {_print7Id: {orderId: status == 'pending' ? 'pending' : 'print_preflight'}},
+              'queue_action_controls': {_print7Id: {orderId: control(status)}},
+              'stage_states': {}, 'order_controls': {}, 'queue_policies': [],
+            });
         await _usePhoneViewport(tester);
         await http.runWithClient(() async {
           await tester.pumpWidget(MaterialApp(
@@ -234,7 +266,10 @@ void _registerWorkerColourLatencyTests() {
               GlobalWidgetsLocalizations.delegate],
             supportedLocales: AppLocalizations.supportedLocales,
             home: AdminProductionMapOrdersScreen(readOnly: true, workerMode: true,
-              queueSnapshotLoader: () async => initial, apparatusLoader: () async => apparatus),
+              queueSnapshotLoader: () async => outcome == 'live during recovery'
+                  ? snapshot(initialStatus, 1) : initial,
+              liveEventsLoader: outcome == 'live during recovery' ? () => live.stream : null,
+              apparatusLoader: () async => apparatus),
           ));
           await tester.pumpAndSettle();
           await tester.tap(find.text('7 ta rangli bosma aparat'));
@@ -253,13 +288,27 @@ void _registerWorkerColourLatencyTests() {
           expect(requests.single.method, 'POST');
           expect(requests.single.url.path, endsWith('/print-preflight'));
           expect(jsonDecode(requests.single.body)['action'], action);
+          if (outcome == 'reopened') {
+            final dynamic open = tester.widget(find.byWidgetPredicate(
+                (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+            open.onClose();
+            await tester.pumpAndSettle();
+            await tester.tap(find.textContaining('worker-colour').first);
+            await tester.pumpAndSettle();
+            final dynamic reopened = tester.widget(find.byWidgetPredicate(
+                (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+            expect(reopened.actionInFlight, isTrue);
+            expect(tester.widget<FilledButton>(button).onPressed, isNull);
+          }
           if (outcome == 'timeout') {
             await tester.pump(const Duration(seconds: 21));
           } else {
             final status = action == 'hold' ? 'running' : 'passed';
+            serverStatus = status;
+            serverRevision = 2;
             post.complete(http.Response(jsonEncode({
               'ok': true, 'hold': hold(status),
-              if (outcome == 'controls') 'control_state': {
+              if (outcome == 'controls' || outcome == 'reopened') 'control_state': {
                 'apparatus': _print7Id, 'order_id': orderId, 'epoch': 'colour-server',
                 'rev': 2, 'control': control(status), 'queue_state': 'print_preflight',
                 'stage_states': {}, 'order_control': 'active',
@@ -269,8 +318,14 @@ void _registerWorkerColourLatencyTests() {
             await tester.pump(const Duration(milliseconds: 100));
           }
           expect(requests.where((r) => r.method == 'POST'), hasLength(1));
-          if (outcome == 'controls') {
-            expect(requests.where((r) => r.method == 'GET'), isEmpty);
+          if (outcome == 'controls' || outcome == 'reopened') {
+            if (outcome == 'controls') {
+              expect(requests.where((r) => r.method == 'GET'), isEmpty);
+            }
+            final dynamic content = tester.widget(find.byWidgetPredicate(
+                (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+            expect(content.actionInFlight, isFalse);
+            expect(content.uiState.contractSynchronized, isTrue);
             if (action == 'hold') {
               final passed = find.widgetWithText(FilledButton,
                 AppLocalizations(const Locale('uz')).productionText('worker.action.print_preflight_passed'));
@@ -282,6 +337,35 @@ void _registerWorkerColourLatencyTests() {
             expect(find.byKey(const ValueKey('production-order-print-preflight-outcome')), findsNothing,
               reason: 'uncertain or missing controls cannot reuse old colour permissions');
           }
+          if (outcome == 'live during recovery') {
+            expect(thinReads, 1);
+            live.add(snapshot('running', 2));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 100));
+            final passed = find.widgetWithText(FilledButton,
+                AppLocalizations(const Locale('uz')).productionText('worker.action.print_preflight_passed'));
+            final callback = tester.widget<FilledButton>(passed).onPressed!;
+            callback(); callback();
+            await tester.pump();
+            expect(requests.where((r) => r.method == 'POST'), hasLength(2));
+            serverStatus = 'passed';
+            serverRevision = 3;
+            nextPost.complete(http.Response(jsonEncode({'ok': true, 'hold': hold('passed')}), 200));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 100));
+            final dynamic content = tester.widget(find.byWidgetPredicate(
+                (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+            expect(thinReads, 2, reason: 'a new ACK must bypass an obsolete pending read');
+            expect(refresh.isCompleted, isFalse);
+            expect(content.uiState.contractSynchronized, isTrue);
+            expect(content.uiState.printPreflight.isPassed, isTrue);
+            refresh.complete(http.Response(jsonEncode(bootstrap('running', 2)), 200));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 100));
+            final dynamic settled = tester.widget(find.byWidgetPredicate(
+                (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+            expect(settled.uiState.printPreflight.isPassed, isTrue);
+          }
           await tester.pumpWidget(const SizedBox.shrink());
           if (!post.isCompleted) post.complete(http.Response('{"error":"store_failed"}', 503));
           if (!refresh.isCompleted) refresh.complete(http.Response('{"error":"store_failed"}', 503));
@@ -290,6 +374,21 @@ void _registerWorkerColourLatencyTests() {
           expect(tester.takeException(), isNull);
         }, () => MockClient((request) {
           requests.add(request);
+          if (outcome == 'live during recovery') {
+            if (request.method == 'POST' && requests.where((r) => r.method == 'POST').length > 1) {
+              return nextPost.future;
+            }
+            if (request.url.path.endsWith('/order-scan-bootstrap')) {
+              thinReads++;
+              return thinReads == 1 ? refresh.future : Future.value(
+                  http.Response(jsonEncode(bootstrap(serverStatus, serverRevision)), 200));
+            }
+          }
+          if (outcome == 'reopened' && request.method == 'GET') {
+            return Future.value(http.Response(jsonEncode(
+                request.url.path.endsWith('/order-scan-bootstrap')
+                    ? bootstrap(serverStatus, serverRevision) : {}), 200));
+          }
           return request.method == 'POST' ? post.future : refresh.future;
         }));
       });

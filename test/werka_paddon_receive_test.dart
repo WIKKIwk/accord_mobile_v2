@@ -27,6 +27,8 @@ WerkaPaddonPreview preview(
         'id': 'p1',
         'code': '00001',
         'location': location,
+        'created_by_ref': 'worker-1',
+        'created_by_display_name': 'Qobil',
         'total_gross_kg': 21,
         'total_net_kg': 19.875,
         'item_count': 2
@@ -126,8 +128,13 @@ void main() {
           return receipt;
         });
     expect(find.byType(AparatchiPaddonDetailScreen), findsOneWidget);
+    final creator = find.byKey(const ValueKey('paddon-created-by'));
+    expect(find.descendant(of: creator, matching: find.text('Paddonni ochgan')),
+        findsOneWidget);
+    expect(find.descendant(of: creator, matching: find.text('Qobil')),
+        findsOneWidget);
     expect(find.text('Rezka 1'), findsOneWidget);
-    expect(find.text('Order: order-1'), findsNWidgets(2));
+    expect(find.text('Buyurtma: — - Avella 120 sht'), findsNWidgets(2));
     expect(find.textContaining('apparatus:'), findsNothing);
     expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
     expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
@@ -136,6 +143,8 @@ void main() {
     expect(calls, 1);
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(find.text('Ombor: WH-1'), findsOneWidget);
+    expect(find.descendant(of: creator, matching: find.text('Qobil')),
+        findsOneWidget);
     expect(accept, findsNothing);
   });
 
@@ -258,6 +267,9 @@ void main() {
     await scanner.onCodeDetected('00001');
     await tester.pumpAndSettle();
     expect(scans, 2);
+    expect(find.descendant(
+        of: find.byKey(const ValueKey('paddon-created-by')),
+        matching: find.text('Qobil')), findsOneWidget);
     expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
     expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
     expect(accept, findsOneWidget);

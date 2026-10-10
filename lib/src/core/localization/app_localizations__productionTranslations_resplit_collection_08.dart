@@ -530,9 +530,10 @@ const _app_localizations_declarations__productionTranslations_resplitPart08 = {
     'ru': 'Данные паддона не найдены',
   },
   'worker.paddon.created_by': {
-    'uz': 'Yig‘gan',
+    'uz': 'Paddonni ochgan',
     'en': 'Created by',
-    'ru': 'Создал',
+    'ru': 'Создал паллету',
+    'ur': 'پیلیٹ بنانے والا',
   },
   'worker.order.fallback': {
     'uz': 'Zakaz',

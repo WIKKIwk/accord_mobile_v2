@@ -206,6 +206,20 @@ void _registeradmin_production_map_test_screen_testCases23() {
           expect(
               tester.widget<FilledButton>(resumeButton()).onPressed, isNotNull);
           expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+        } else {
+          expect(
+            tester
+                .widget<FilledButton>(
+                  find.widgetWithText(FilledButton, 'Davom ettirish'),
+                )
+                .onPressed,
+            isNotNull,
+          );
+          expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+          expect(
+            find.byKey(const ValueKey('production-qolips-expansion')),
+            findsNothing,
+          );
         }
         await tester.ensureVisible(find.text('Davom ettirish'));
         await tester.tap(find.text('Davom ettirish'));
