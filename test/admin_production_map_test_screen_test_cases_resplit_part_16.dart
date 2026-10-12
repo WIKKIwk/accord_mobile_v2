@@ -550,6 +550,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           _productionOrderMap(
             id: orderId,
             title: 'Worker material intake',
+            orderNumber: '0054',
             productCode: 'WMI-A',
             apparatusId: apparatus,
             product: 'worker material product',
@@ -599,7 +600,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
 
         await tester.tap(find.text('Laminatsiya 1'));
         await tester.pumpAndSettle();
-        await tester.tap(find.textContaining('worker-material-intake').first);
+        await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
         await tester.pumpAndSettle();
         expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
         expect(
@@ -617,7 +618,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           ),
           findsOneWidget,
         );
-        expect(find.text(candidateBarcode), findsNothing);
+        expect(find.textContaining(candidateBarcode), findsNothing);
         expect(
           find.byKey(const ValueKey('receive-additional-raw-material')),
           findsOneWidget,
@@ -627,7 +628,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           find.byKey(const ValueKey('receive-additional-raw-material')),
         );
         await tester.pumpAndSettle();
-        expect(find.text(candidateBarcode), findsOneWidget);
+        expect(find.textContaining(candidateBarcode), findsOneWidget);
         if (receiptScenario != 'sequential') {
           final scan = tester
               .widget<ProductionQuickScannerPanel>(
@@ -724,9 +725,9 @@ void _registeradmin_production_map_test_screen_testCases16() {
         );
         await tester.tap(find.byTooltip('Qabul qilish'));
         await tester.pumpAndSettle();
-        expect(find.text('Homashyo biriktirilmagan'), findsWidgets);
+        expect(find.textContaining('hech qaysi orderga ulanmagan'), findsWidgets);
         expect(find.text('ROLL-WORKER-1000'), findsNothing);
-        expect(find.text(candidateBarcode), findsOneWidget);
+        expect(find.textContaining(candidateBarcode), findsOneWidget);
 
         await tester.enterText(
           find.byKey(const ValueKey('production-quick-scanner-manual')),
@@ -761,7 +762,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
         expect(find.byType(ProductionQuickScannerPanel), findsNothing);
         expect(
           find.byKey(const ValueKey('receive-additional-raw-material')),
-          findsNothing,
+          findsOneWidget,
         );
         expect(
           find.descendant(

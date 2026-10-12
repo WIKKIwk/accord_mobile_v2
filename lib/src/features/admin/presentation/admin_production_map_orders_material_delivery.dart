@@ -71,11 +71,6 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
       await _showWipScanGuidance(lines.join('\n\n'));
       return true;
     }
-    if (mergeMode) {
-      lines.add(context.l10n.productionText('worker.qr.material.merge_scan'));
-      await _showWipScanGuidance(lines.join('\n\n'));
-      return true;
-    }
     final control = await _loadCurrentQueueActionControl();
     if (!current()) return true;
     if (control == null || !_queueActionContractSynchronized) {
@@ -116,6 +111,13 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
               barcode: barcode,
             ) !=
             null) {
+      if (mergeMode) {
+        setState(() {
+          _mergeScanMode = false;
+          _materialIntakeMode = true;
+          _intakeCandidatesExpanded = true;
+        });
+      }
       final received = await _receiveAdditionalMaterialFromQuickScan(barcode);
       if (current())
         _showQuickScanFeedback(
@@ -163,7 +165,7 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
           !_scannedMaterialBarcodes
               .contains(_materialBarcodeKey(material.barcode)));
 
-  Future<bool> _receiveScannedMaterialForStart(
+  Future<bool> _receiveScannedMaterialAtApparatus(
     AdminRawMaterialAssignment material,
   ) async {
     final station = widget.apparatus?.id.trim() ?? '';
@@ -198,6 +200,15 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
       if (!mounted || !_materialContextIsCurrent(orderId, station))
         return false;
     }
+    return true;
+  }
+
+  Future<bool> _receiveScannedMaterialForStart(
+    AdminRawMaterialAssignment material,
+  ) async {
+    final station = widget.apparatus?.id.trim() ?? '';
+    final orderId = widget.order.map.id.trim();
+    if (!await _receiveScannedMaterialAtApparatus(material)) return false;
     await _loadMaterialAssignments(showLoading: false);
     if (!mounted || !_materialContextIsCurrent(orderId, station)) return false;
     final key = _materialBarcodeKey(material.barcode);

@@ -275,18 +275,25 @@ extension MobileApiAdminRawMaterialsAstPart02 on MobileApi {
               !_testModeRawMaterialMatchesRule(assignment, rule)) {
             return false;
           }
-          final asset = _testModeRawMaterialAssetAtApparatus(
-            barcode: assignment.barcode,
-            apparatus: normalizedApparatus,
-          );
-          if (asset == null ||
-              asset.status.trim().toLowerCase() != 'available') {
+          final asset = _testModeInventoryAssets
+              .where((asset) =>
+                  asset.kind == InventoryAssetKind.rawMaterial &&
+                  asset.identifier.trim().toUpperCase() ==
+                      assignment.barcode.trim().toUpperCase())
+              .firstOrNull;
+          if (asset == null || !asset.isAvailable || asset.qty <= 0) {
             return false;
           }
           final status = assignment.stockStatus.trim().toLowerCase();
           return (status.isEmpty || status == 'available') &&
               assignment.reservedOrderId.trim().isEmpty;
-        }),
+        }).map((assignment) => assignment.copyWith(
+            executionStatus: _testModeRawMaterialAssetAtApparatus(
+                        barcode: assignment.barcode,
+                        apparatus: normalizedApparatus) ==
+                    null
+                ? 'awaiting_delivery'
+                : 'ready')),
       );
     }
     final response = await _sendAuthorized(

@@ -249,9 +249,9 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Закрыть сканер',
   },
   'worker.action.receive_material': {
-    'uz': 'Yana homashyo olish',
-    'en': 'Receive more material',
-    'ru': 'Принять еще сырье',
+    'uz': 'Homashyo ulash',
+    'en': 'Attach raw material',
+    'ru': 'Подключить сырьё',
   },
   'worker.action.scan_material': {
     'uz': 'Homashyo QR scan',

@@ -202,8 +202,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     final showRezkaInputProgressScan = uiState.previousProgressRequired &&
         (uiState.showStart || uiState.showResume);
     final hasIntakeCandidates = uiState.intakeCandidateAssignments.isNotEmpty;
-    final showMaterialIntake =
-        uiState.materialIntakeAllowed && hasIntakeCandidates;
+    final showMaterialIntake = uiState.materialIntakeAllowed;
     final intakeCandidatesExpandable = materialsLoading ||
         materialsError.trim().isNotEmpty ||
         hasIntakeCandidates;

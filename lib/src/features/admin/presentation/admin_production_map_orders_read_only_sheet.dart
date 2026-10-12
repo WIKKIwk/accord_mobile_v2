@@ -1785,6 +1785,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         final knownMaterial = _materialAssignmentForScannedBarcode(
           assignments: _intakeCandidateAssignments, barcode: normalized);
         if (knownMaterial == null) {
+          if (await _handleRawMaterialContextScan(normalized, mergeMode: false)) {
+            return;
+          }
           final wip = await _identifyWorkerWip(rawValue.trim());
           if (wip != null) {
             await _checkWorkerWipScan(rawValue.trim(),
@@ -2858,6 +2861,33 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       });
     }
     try {
+      if (!mounted || !_materialContextIsCurrent(orderId, apparatus)) {
+        return false;
+      }
+      if (!_queueActionContractSynchronized ||
+          !_detailUiState.materialIntakeAllowed) {
+        throw const MobileApiException(
+          code: 'raw_material_order_not_active',
+          message: '',
+        );
+      }
+      final material = _materialAssignmentForScannedBarcode(
+        assignments: _intakeCandidateAssignments,
+        barcode: barcode,
+      );
+      if (material == null) {
+        throw MobileApiException(
+          code: 'raw_material_assignment_not_found',
+          message: context.l10n.productionText('worker.qr.material.unassigned'),
+        );
+      }
+      if (material.executionStatus == 'awaiting_delivery' &&
+          !await _receiveScannedMaterialAtApparatus(material)) {
+        return false;
+      }
+      if (!mounted || !_materialContextIsCurrent(orderId, apparatus)) {
+        return false;
+      }
       final assignment =
           await MobileApi.instance.adminReceiveRawMaterialForActiveOrder(
         orderId: orderId,

@@ -119,6 +119,7 @@ class AdminRawMaterialAssignment {
   }
 
   AdminRawMaterialAssignment copyWith({
+    String? executionStatus,
     String? stockStatus,
     String? reservedOrderId,
     String? stockWarehouse,
@@ -129,7 +130,7 @@ class AdminRawMaterialAssignment {
     double? remainingQty,
   }) {
     return AdminRawMaterialAssignment(
-      executionStatus: executionStatus,
+      executionStatus: executionStatus ?? this.executionStatus,
       rollWidthMm: rollWidthMm,
       orderId: orderId,
       apparatus: apparatus,
