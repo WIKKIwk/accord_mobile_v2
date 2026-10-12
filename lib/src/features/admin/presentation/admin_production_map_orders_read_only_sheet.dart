@@ -68,6 +68,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   bool _materialIntakeMode = false;
   bool _materialDeliveryPending = false;
   bool _mergeScanMode = false;
+  bool _wipGuidanceOpen = false;
+  bool _wipScanHandled = false;
+  bool _ignoreClosedQuickScanCallbacks = false;
   bool _mergeConfirmationPending = false;
   bool _materialsLoading = true;
   bool _openingMaterialReceipt = false;
@@ -448,7 +451,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _intakeCandidateAssignments.isNotEmpty;
     final merge = _mergeScanMode && uiState.showMerge;
     return (
-      visible: !_mergeConfirmationPending &&
+      visible: !_wipGuidanceOpen && !_mergeConfirmationPending &&
           (startMaterialScanPending ||
               _materialDeliveryScanPending ||
               qolipScanPending ||
@@ -726,12 +729,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final loadGeneration = _scanBootstrapGeneration + 1;
     try {
       await _loadInteractionContractAndSections();
-      if (!_materialContextIsCurrent(orderId, apparatus) ||
-          scope != currentSessionReadScope() ||
-          loadGeneration != _scanBootstrapGeneration ||
+      if (!mounted || !_materialContextIsCurrent(orderId, apparatus) ||
+          scope != currentSessionReadScope()) {
+        return;
+      }
+      if (loadGeneration != _scanBootstrapGeneration ||
           !_liveAllowsScanControl(_scanBootstrapRevision, _scanBootstrapEpoch) ||
           actionGeneration != _actionControlGeneration ||
           !_queueActionContractSynchronized) {
+        if (widget.initialScanQrPayload.trim().isNotEmpty ||
+            widget.initialOrderSwitchBatch != null) {
+          await _showWipScanGuidance(context.l10n.productionText('worker.qr.scan_state_changed'));
+        }
         return;
       }
       final qrPayload = widget.initialScanQrPayload.trim();
@@ -1619,6 +1628,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       // Never keep a stale, permissive contract after a rejected/uncertain
       // write. Refresh is read-only; no automatic replay of a mutation.
       setState(() => _queueActionControl = null);
+      if (action == 'merge') {
+        var message = _sheetActionErrorText(error);
+        try {
+          final changedState = await _currentWipScanGuidance();
+          if (error is MobileApiException && const {
+            'queue_action_not_allowed', 'apparatus_busy', 'order_frozen',
+            'order_freeze_requested', 'order_scan_bootstrap_stale',
+          }.contains(error.code)) {
+            message = changedState;
+          }
+        } catch (_) {
+          // Preserve the exact server rejection if its follow-up read fails.
+        }
+        if (!mounted) return false;
+        setState(() => _mergeScanMode = false);
+        await _showWipScanGuidance(message);
+        return false;
+      }
       unawaited(_refreshQueueActionControlAfterWrite());
       _showSheetNotice(
         error is TimeoutException
@@ -1714,17 +1741,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     });
   }
 
+  void _updateWipScanState(VoidCallback update) {
+    if (mounted) setState(update);
+  }
+
   Future<void> _handleQuickScan(String rawValue) async {
-    if (!mounted) return;
+    final scanReadScope = currentSessionReadScope();
+    if (!mounted || _detailReadScope != scanReadScope) return;
     // A camera callback can arrive after the scan task has ended.
     final scanTasks = _quickScanTasks(_detailUiState);
-    if (!scanTasks.visible) return;
+    if (_wipGuidanceOpen || _mergeConfirmationPending ||
+        (!scanTasks.visible && _ignoreClosedQuickScanCallbacks)) return;
     if (_quickScanInFlight || _queueActionBusy || _materialDeliveryPending) return;
     final normalized = rawMaterialBarcodeFromQr(rawValue).trim();
     final scanKey = normalized.toUpperCase();
     if (normalized.isEmpty || !_seenQuickScanValues.add(scanKey)) {
       return;
     }
+    _wipScanHandled = false;
     setState(() {
       _quickScanActiveCount += 1;
       _quickScanStatus = context.l10n.productionText(
@@ -1733,7 +1767,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     });
 
     try {
+      if (!scanTasks.visible) {
+        await _checkWorkerWipScan(rawValue.trim(), _WorkerWipScanPurpose.context);
+        return;
+      }
       if (scanTasks.materialIntake) {
+        final knownMaterial = _materialAssignmentForScannedBarcode(
+          assignments: _intakeCandidateAssignments, barcode: normalized);
+        if (knownMaterial == null) {
+          final wip = await _identifyWorkerWip(rawValue.trim());
+          if (wip != null) {
+            await _checkWorkerWipScan(rawValue.trim(),
+                _WorkerWipScanPurpose.materialIntake, identified: wip);
+            return;
+          }
+        }
         final received = await _receiveAdditionalMaterialFromQuickScan(
           normalized,
         );
@@ -1748,6 +1796,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         return;
       }
       if (scanTasks.merge) {
+        final wip = await _checkWorkerWipScan(
+            rawValue.trim(), _WorkerWipScanPurpose.merge);
+        if (wip == null || !mounted) return;
         final control = _queueActionControl!;
         final orderId = widget.order.map.id.trim();
         final station = widget.apparatus?.id.trim() ?? '';
@@ -1778,9 +1829,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             // Cancellation ends this scan task; camera callbacks must not
             // immediately reopen the confirmation for the same physical QR.
             _mergeScanMode = false;
+            _ignoreClosedQuickScanCallbacks = true;
             _seenQuickScanValues.clear();
             _quickScanStatus = _defaultQuickScanStatus();
           });
+          return;
+        }
+        final revalidated = await _checkWorkerWipScan(
+            rawValue.trim(), _WorkerWipScanPurpose.merge);
+        if (revalidated == null || !mounted) {
+          if (mounted) setState(() => _mergeScanMode = false);
           return;
         }
         if (!_materialContextIsCurrent(orderId, station) ||
@@ -1791,7 +1849,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             !_sameMergeInputLineage(
                 lineage, _queueActionControl?.rezkaInputLineage ?? const [])) {
           setState(() => _mergeScanMode = false);
-          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+          await _showWipScanGuidance(
+              context.l10n.productionText('worker.qr.merge_changed'));
           return;
         }
         final merged = await _runQueueAction(
@@ -1832,27 +1891,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       }
       final orderId = widget.order.map.id.trim();
       final station = widget.apparatus?.id.trim() ?? '';
-      if (_queueActionControl?.interaction?.openingWipMode ==
-              AdminQueuePreviousWipMode.scanRequired &&
-          (_matchingOpeningWipBatch(
-                    batches: _availableOpeningWipBatches,
-                    qrPayload: rawValue.trim(),
-                  ) !=
-                  null ||
-              _queueActionControl?.interaction?.previousWipMode !=
-                  AdminQueuePreviousWipMode.scanRequired)) {
-        final accepted = _acceptOpeningWipQr(
-          orderId: orderId,
-          apparatus: station,
-          qrPayload: rawValue.trim(),
-        );
-        _showQuickScanFeedback(
-          accepted
-              ? ProductionQuickScanFeedback.accepted
-              : ProductionQuickScanFeedback.rejected,
-        );
-        return;
-      }
       final assignments = _materialStartRequirements == null
           ? (_isTrainingOrder
               ? _materialAssignments
@@ -1965,15 +2003,21 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         // The same QR may be a progress QR on a later production stage.
       }
 
-      final previousStage = _queueActionControl?.previousStage.trim();
-      if (previousStage != null && previousStage.isNotEmpty) {
-        final batch = await MobileApi.instance.adminProgressQrLookup(
-          normalized,
-          apparatus: station,
-          orderId: orderId,
-          requireActiveOrder: true,
-        );
+      final wip = await _checkWorkerWipScan(rawValue.trim(), _WorkerWipScanPurpose.start);
+      if (wip == null && _wipScanHandled) return;
+      if (wip != null) {
         if (!mounted || !_materialContextIsCurrent(orderId, station)) return;
+        final opening = wip.opening;
+        if (opening != null) {
+          setState(() => _availableOpeningWipBatches = [opening,
+            ..._availableOpeningWipBatches.where((batch) => batch.batchId != opening.batchId)]);
+          final accepted = _acceptOpeningWipQr(orderId: orderId,
+              apparatus: station, qrPayload: rawValue.trim());
+          _showQuickScanFeedback(accepted ? ProductionQuickScanFeedback.accepted
+              : ProductionQuickScanFeedback.rejected);
+          return;
+        }
+        final batch = wip.progress!;
         // The server validated the exact QR against the current map. It may
         // have been produced after this sheet opened or outside its list page.
         setState(() {
@@ -2005,20 +2049,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       }
       _showQuickScanFeedback(ProductionQuickScanFeedback.rejected);
     } catch (error) {
+      if (!mounted || scanReadScope != currentSessionReadScope() ||
+          _detailReadScope != scanReadScope) {
+        return;
+      }
       // A rejected roll can become available after a peer releases it, and a
       // map can be corrected while the sheet is open. Allow another scan.
       _seenQuickScanValues.remove(scanKey);
       if (mounted) {
-        setState(() {
-          _quickScanStatus = _readOnlyQueueActionErrorText(
-            error,
-            context.l10n,
-            orderTitle: widget.order.map.title,
-          );
-        });
+        await _showWipScanGuidance(_workerWipScanErrorText(
+            error, context.l10n, orderTitle: widget.order.map.title));
       }
       _showQuickScanFeedback(ProductionQuickScanFeedback.rejected);
     } finally {
+      if (_wipScanHandled) _seenQuickScanValues.remove(scanKey);
       if (mounted) {
         setState(() {
           if (scanTasks.merge) _mergeConfirmationPending = false;
@@ -2081,6 +2125,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
     setState(() {
       _mergeScanMode = !_mergeScanMode;
+      _ignoreClosedQuickScanCallbacks = !_mergeScanMode;
       _materialIntakeMode = false;
       _seenQuickScanValues.clear();
       _quickScanStatus = _mergeScanMode
@@ -2158,7 +2203,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<bool> _confirmAndSwitchToScannedOrder({
-    required AdminProgressBatch batch,
+    required _ScannedWorkerWip batch,
     required String station,
   }) async {
     final targetOrderId = batch.orderId.trim();
@@ -2175,7 +2220,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     targetQueueState = snapshot.queueStates[station]?[targetOrderId];
     final targetOrderControl = snapshot.orderControlFor(targetOrderId);
     final canPrepareSwitch =
-        targetControl?.interaction?.blockingReasonCode == 'apparatus_busy' &&
+        targetControl?.interaction?.mode ==
+            AdminQueueInteractionMode.freshStartBlocked &&
+            targetControl?.interaction?.blockingReasonCode == 'apparatus_busy' &&
             _queueActionContractSynchronized &&
             _queueActionControl?.allows('complete') == true;
     if (targetControl?.isConsistentWith(
@@ -2184,13 +2231,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             ) !=
             true ||
         (targetControl?.allows('start') != true && !canPrepareSwitch)) {
-      _showSheetNotice(_queueActionUnavailableText(
+      _showSheetNotice(_workerQrExistingOrderText(
         l10n: context.l10n,
         control: targetControl,
         orderControlState: targetOrderControl,
         queueState: targetQueueState,
-        busyApparatusLabel: _unavailableBusyLabels().apparatus,
-        busyOrderLabel: _unavailableBusyLabels().order,
+        apparatusLabel:
+            canonicalApparatusDisplayLabel(station, widget.apparatusCatalog),
+        orderLabel: widget.busyOrderTitleLookup?.call(targetOrderId)?.trim() ??
+            targetOrderId,
+        usesRollJoining: (widget.apparatus?.usesLaminationWorkflow ?? false) ||
+            widget.apparatus?.operation == 'cut',
+        busyOrderLabel: _busyOrderDisplayLabel(widget.order, context.l10n),
       ));
       return false;
     }
@@ -2697,6 +2749,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (_materialIntakeMode) {
       setState(() {
         _materialIntakeMode = false;
+        _ignoreClosedQuickScanCallbacks = true;
         _quickScanStatus = context.l10n.productionText(
           'worker.scanner.prompt',
         );
@@ -2722,6 +2775,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
     setState(() {
       _materialIntakeMode = true;
+      _ignoreClosedQuickScanCallbacks = false;
       _mergeScanMode = false;
       _intakeCandidatesExpanded = true;
       _quickScanStatus = context.l10n.productionText(
@@ -2997,9 +3051,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       return null;
     }
     final currentId = _detailUiState.orderId.trim();
-    String? busyId;
+    String? busyId = _queueStates.entries.where((entry) =>
+        entry.key.trim().isNotEmpty && entry.key.trim() != currentId &&
+        apparatusQueueOrderStateFromRaw(entry.value) ==
+            ApparatusQueueOrderState.inProgress).firstOrNull?.key.trim();
     final controls = widget.queueActionControlsByApparatus[station] ?? const {};
     for (final entry in controls.entries) {
+      if (busyId != null) break;
       if (entry.key.trim().isEmpty || entry.key.trim() == currentId) {
         continue;
       }
@@ -3195,7 +3253,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final bool allowWipQrReprint;
   final Map<String, AdminOrderControlState> initialOrderControls;
-  final AdminProgressBatch? initialOrderSwitchBatch;
+  final _ScannedWorkerWip? initialOrderSwitchBatch;
   final String initialScanQrPayload;
   final String initialPauseRequestId;
   final bool startPauseOnOpen;

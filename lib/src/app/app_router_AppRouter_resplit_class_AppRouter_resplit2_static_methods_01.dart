@@ -396,11 +396,15 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
         ),
       );
     case AppRoutes.apparatusQueue:
+      final args = settings.arguments;
       return AppRouter._buildRoute(
         settings,
-        const AdminProductionMapOrdersScreen(
+        AdminProductionMapOrdersScreen(
           readOnly: true,
           workerMode: true,
+          initialWorkerQrPayload: args is AdminWorkerWipQrScanArgs
+              ? args.qrPayload
+              : '',
         ),
       );
     case AppRoutes.apparatusWorkInstructions:

@@ -44,18 +44,52 @@ extension __AdminProgressQrScanScreenStateAstPart01
   }
 
   String _errorText(AppLocalizations l10n) {
-    final code = _scanErrorCode;
-    if (code == 'progress_batch_not_found' ||
-        code == 'progress_batch_not_accepted') {
-      return l10n.productionErrorMessage(
-        code!,
-        fallback: l10n.productionText('worker.scanner.report_failed'),
-      );
+    final error = _scanError;
+    if (error is TimeoutException) {
+      return l10n.productionText('worker.error.network_timeout');
     }
-    return l10n.productionText('worker.scanner.report_failed');
+    if (error is http.ClientException) {
+      return l10n.productionText('worker.qr.connection');
+    }
+    if (error is FormatException || error is TypeError) {
+      return l10n.productionText('worker.qr.invalid_response');
+    }
+    if (error is MobileApiException) {
+      final code = error.code.trim().toLowerCase();
+      if (code == 'order_frozen' && error.orderTitle.trim().isNotEmpty) {
+        return l10n.productionText('worker.freeze.named',
+            values: {'order': error.orderTitle.trim()});
+      }
+      final key = switch (code) {
+        'unauthorized' => 'worker.qr.session_expired',
+        'forbidden' => 'worker.qr.forbidden',
+        'order_freeze_requested' => 'worker.qr.freeze_requested',
+        'progress_batch_in_use' => 'worker.error.wip_in_use',
+        'progress_batch_already_used' => 'worker.error.wip_used',
+        'progress_qr_invalid_response' ||
+        'progress_qr_validation_missing' ||
+        'progress_input_invalid' =>
+          'worker.qr.invalid_response',
+        'order_not_found' || 'map_not_found' => 'worker.qr.order_unavailable',
+        _ => '',
+      };
+      if (key.isNotEmpty) return l10n.productionText(key);
+      if (error.statusCode == 401) {
+        return l10n.productionText('worker.qr.session_expired');
+      }
+      if (error.statusCode == 403) {
+        return l10n.productionText('worker.qr.forbidden');
+      }
+      if ((error.statusCode ?? 0) >= 500) {
+        return l10n.productionText('worker.qr.server');
+      }
+      final specific = l10n.productionErrorMessage(code);
+      if (specific.isNotEmpty) return specific;
+    }
+    return l10n.productionText('worker.qr.lookup_failed');
   }
 
-  Future<void> _startScanner() async {
+  Future<void> _startScanner({bool preserveLookupError = false}) async {
     final session = _scannerSession;
     if (!mounted || session == null) {
       return;
@@ -66,12 +100,12 @@ extension __AdminProgressQrScanScreenStateAstPart01
     }
     setState(() {
       _processing = false;
-      _scanErrorCode = started || session.phase != ReliableScannerPhase.error
-          ? null
-          : 'camera_failed';
-      _scanStatus = started || session.phase != ReliableScannerPhase.error
-          ? _QrScanStatus.prompt
-          : _QrScanStatus.cameraFailed;
+      if (!started && session.phase == ReliableScannerPhase.error) {
+        _scanStatus = _QrScanStatus.cameraFailed;
+      } else if (!preserveLookupError) {
+        _scanError = null;
+        _scanStatus = _QrScanStatus.prompt;
+      }
     });
   }
 
@@ -132,12 +166,15 @@ extension __AdminProgressQrScanScreenStateAstPart01
     setState(() {
       _processing = true;
       _scanStatus = _QrScanStatus.loading;
-      _scanErrorCode = null;
+      _scanError = null;
     });
     await _stopScanner();
     try {
       final report = await MobileApi.instance.adminProgressQrReport(normalized);
       if (!mounted) {
+        return;
+      }
+      if (_openWorkerWipQueue(normalized)) {
         return;
       }
       setState(() {
@@ -146,6 +183,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
         _scanStatus = _QrScanStatus.reportReady;
       });
     } catch (error) {
+      Object lookupError = error;
       if (_shouldTryPaddonLookup(normalized)) {
         try {
           final paddonReport = await MobileApi.instance.adminPaddonQrReport(
@@ -160,8 +198,8 @@ extension __AdminProgressQrScanScreenStateAstPart01
             _scanStatus = _QrScanStatus.paddonReady;
           });
           return;
-        } catch (_) {
-          // This five-digit QR may still belong to another flow.
+        } catch (fallbackError) {
+          lookupError = _preferFallbackLookupError(lookupError, fallbackError);
         }
       }
       if (_shouldTryOpeningWipLookup(error)) {
@@ -171,14 +209,17 @@ extension __AdminProgressQrScanScreenStateAstPart01
           if (!mounted) {
             return;
           }
+          if (_openWorkerWipQueue(normalized)) {
+            return;
+          }
           setState(() {
             _openingWipReport = openingWipReport;
             _processing = false;
             _scanStatus = _QrScanStatus.openingWipReady;
           });
           return;
-        } catch (_) {
-          // Show the original QR error below or try the raw material flow.
+        } catch (fallbackError) {
+          lookupError = _preferFallbackLookupError(lookupError, fallbackError);
         }
       }
       if (_shouldTryRawMaterialLookup(error)) {
@@ -195,8 +236,8 @@ extension __AdminProgressQrScanScreenStateAstPart01
             _scanStatus = _QrScanStatus.materialReady;
           });
           return;
-        } catch (_) {
-          // Show the original QR error below.
+        } catch (fallbackError) {
+          lookupError = _preferFallbackLookupError(lookupError, fallbackError);
         }
       }
       if (!mounted) {
@@ -205,10 +246,21 @@ extension __AdminProgressQrScanScreenStateAstPart01
       setState(() {
         _processing = false;
         _scanStatus = _QrScanStatus.error;
-        _scanErrorCode = error is MobileApiException ? error.code : null;
+        _scanError = lookupError;
       });
-      await _startScanner();
+      await _startScanner(preserveLookupError: true);
     }
+  }
+
+  bool _openWorkerWipQueue(String qrPayload) {
+    if (AppSession.instance.profile?.role != UserRole.aparatchi) {
+      return false;
+    }
+    Navigator.of(context).pushReplacementNamed(
+      AppRoutes.apparatusQueue,
+      arguments: AdminWorkerWipQrScanArgs(qrPayload: qrPayload),
+    );
+    return true;
   }
 
   Future<void> _showManualQrDialog() async {
@@ -259,7 +311,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
       _paddonReport = null;
       _rawMaterialReport = null;
       _openingWipReport = null;
-      _scanErrorCode = null;
+      _scanError = null;
       _scanStatus = _QrScanStatus.prompt;
     });
     unawaited(_startScanner());
@@ -337,6 +389,27 @@ extension __AdminProgressQrScanScreenStateAstPart01
     }
     return error.code == 'progress_batch_not_found' ||
         error.code == 'progress_batch_not_accepted';
+  }
+
+  Object _preferFallbackLookupError(Object current, Object fallback) {
+    if (!_shouldTryOpeningWipLookup(current)) {
+      return current;
+    }
+    if (fallback is TimeoutException ||
+        fallback is http.ClientException ||
+        fallback is FormatException ||
+        fallback is TypeError) {
+      return fallback;
+    }
+    if (fallback is MobileApiException &&
+        (fallback.statusCode == 401 ||
+            fallback.statusCode == 403 ||
+            (fallback.statusCode ?? 0) >= 500 ||
+            fallback.code == 'unauthorized' ||
+            fallback.code == 'forbidden')) {
+      return fallback;
+    }
+    return current;
   }
 
   bool _shouldTryOpeningWipLookup(Object error) {

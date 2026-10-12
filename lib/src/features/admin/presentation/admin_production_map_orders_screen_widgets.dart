@@ -224,11 +224,17 @@ Future<bool> showProductionMapFreezePauseFlow(
   return result ?? false;
 }
 
+class AdminWorkerWipQrScanArgs {
+  const AdminWorkerWipQrScanArgs({required this.qrPayload});
+  final String qrPayload;
+}
+
 class AdminProductionMapOrdersScreen extends StatefulWidget {
   const AdminProductionMapOrdersScreen({
     super.key,
     this.readOnly = false,
     this.workerMode = false,
+    this.initialWorkerQrPayload = '',
     this.supplyViewerMode = false,
     this.qolipTasksMode = false,
     this.materialTasksMode = false,
@@ -241,6 +247,7 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
   }) : assert(!(workerMode && supplyViewerMode));
   final bool readOnly;
   final bool workerMode;
+  final String initialWorkerQrPayload;
   final bool supplyViewerMode;
   final bool qolipTasksMode;
   final bool materialTasksMode;

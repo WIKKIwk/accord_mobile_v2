@@ -50,9 +50,16 @@ class _ProductionQuickScannerPanelState
     final phase = _scannerSession?.phase;
     final cameraReady = phase == ReliableScannerPhase.running ||
         phase == ReliableScannerPhase.error;
-    if (mounted && _cameraReady != cameraReady) {
-      setState(() => _cameraReady = cameraReady);
+    if (!mounted || _cameraReady == cameraReady) return;
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      // Scanner lifecycle notifications can arrive while its child mounts or
+      // stops for a status dialog. Update the parent after that build ends.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncScannerPhase();
+      });
+      return;
     }
+    setState(() => _cameraReady = cameraReady);
   }
 
   Future<void> _handleDetect(BarcodeCapture capture) async {

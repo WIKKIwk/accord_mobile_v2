@@ -42,7 +42,15 @@ class _ReliableScannerLifecycleState extends State<ReliableScannerLifecycle>
         _observer.subscribe(this, route);
       }
     }
-    unawaited(widget.session.setRouteVisible(route?.isCurrent ?? true));
+    final session = widget.session;
+    // Route visibility changes can synchronously stop or start the controller,
+    // which notifies its camera view. Apply them after this build completes.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.session != session || _route != route) {
+        return;
+      }
+      unawaited(session.setRouteVisible(route?.isCurrent ?? true));
+    });
   }
 
   @override

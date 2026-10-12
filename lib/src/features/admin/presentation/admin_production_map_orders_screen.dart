@@ -86,6 +86,7 @@ import 'widgets/admin_top_notice.dart';
 import 'widgets/opened_order_edit_error_dialog.dart';
 import 'progress_printer_picker.dart';
 import 'pending_order_widgets.dart';
+
 import 'admin_progress_qr_scan_screen.dart';
 
 import 'package:flutter/foundation.dart';
@@ -94,6 +95,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/localization/urdu_aware_text.dart';
 
+part 'admin_production_map_orders_wip_scan.dart';
 part 'admin_production_map_orders_helpers.dart';
 part 'admin_production_map_orders_detail_widgets.dart';
 part 'admin_production_map_orders_read_only_sheet.dart';

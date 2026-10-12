@@ -286,7 +286,7 @@ void _registerWorkerActivityTests() {
     (_godexId, false), (_print7Id, true),
   ]) {
     testWidgets(
-        'worker activity: $apparatusId legacy=$legacy isolates owners and updates live',
+        'worker apparatus status: $apparatusId legacy=$legacy ignores owners and updates live',
         (tester) async {
       await TestModeController.instance.setEnabled(true);
       AppSession.instance.profile = SessionProfile(
@@ -321,6 +321,8 @@ void _registerWorkerActivityTests() {
         String globalState = 'in_progress',
         String? activityApparatus,
         bool includeActivity = true,
+        bool includeQueueState = true,
+        String? otherApparatusState,
       }) =>
           AdminProductionMapLiveSnapshot(
             maps: [saved],
@@ -331,7 +333,9 @@ void _registerWorkerActivityTests() {
               apparatusId: [orderId]
             },
             queueStates: {
-              apparatusId: {orderId: state}
+              apparatusId: {if (includeQueueState) orderId: state},
+              if (otherApparatusState != null)
+                'apparatus:test:other': {orderId: otherApparatusState},
             },
             queuePolicies: const {},
             orderControls: const {},
@@ -387,14 +391,13 @@ void _registerWorkerActivityTests() {
             .color!;
       }
 
-      final neutral = cardColor();
+      final neutral = theme.colorScheme.surfaceContainerLowest;
       Color tint(Color color) => Color.alphaBlend(color.withValues(alpha: .16),
           theme.colorScheme.surfaceContainerLowest);
       final green = tint(const Color(0xFF2E7D32));
       final yellow = tint(const Color(0xFFF9A825));
-      expect(neutral, isNot(green),
-          reason: 'another worker active must not be green');
-      expect(neutral, isNot(yellow));
+      expect(cardColor(), green,
+          reason: 'the previous shift is still working on this apparatus');
       Future<void> emit(
           AdminProductionMapLiveSnapshot next, Color expected) async {
         events.add(next);
@@ -403,32 +406,50 @@ void _registerWorkerActivityTests() {
         expect(cardColor(), expected);
       }
 
-      // Owner-only change; queue/global status stays in_progress.
+      // Owner-only changes cannot hide the selected apparatus status.
       await emit(snapshot(revision: 2, owner: 'worker-me'), green);
       await emit(
           snapshot(revision: 3, owner: 'worker-me', state: 'paused'), yellow);
-      await emit(snapshot(revision: 4, state: 'paused'), neutral);
+      await emit(snapshot(revision: 4, state: 'paused'), yellow);
       await emit(
           snapshot(revision: 5, owner: 'worker-me', globalState: 'paused'),
           green);
-      // Delayed and duplicate frames cannot restore old ownership/color.
+      // Delayed and duplicate frames cannot restore old machine status.
       if (!legacy) {
         await emit(snapshot(revision: 3, state: 'paused'), green);
         await emit(snapshot(revision: 5), green);
       }
       await emit(
-          snapshot(revision: 6, owner: 'worker-me', role: 'admin'), neutral);
+          snapshot(revision: 6, owner: 'worker-me', role: 'admin'), green);
       await emit(
           snapshot(
               revision: 7,
               owner: 'worker-me',
               activityApparatus: 'apparatus:test:other'),
+          green);
+      await emit(
+          snapshot(
+              revision: 8,
+              owner: 'worker-me',
+              state: 'paused',
+              includeActivity: false),
+          yellow);
+      await emit(
+          snapshot(
+              revision: 9,
+              state: 'pending',
+              activityApparatus: 'apparatus:test:other',
+              otherApparatusState: 'in_progress'),
           neutral);
       await emit(
-          snapshot(revision: 8, owner: 'worker-me', includeActivity: false),
+          snapshot(
+              revision: 10,
+              includeQueueState: false,
+              globalState: 'paused',
+              otherApparatusState: 'paused'),
           neutral);
       events.add(snapshot(
-          revision: 9,
+          revision: 11,
           owner: 'worker-me',
           state: 'completed',
           globalState: 'completed'));
@@ -436,12 +457,12 @@ void _registerWorkerActivityTests() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('worker-order-$orderId')), findsNothing,
           reason: 'completed apparatus work leaves the active queue');
-      events.add(snapshot(revision: 10, globalState: 'frozen'));
+      events.add(snapshot(revision: 12, globalState: 'frozen'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('worker-order-$orderId')), findsNothing,
           reason: 'a global freeze hides the order on every worker apparatus');
-      await emit(snapshot(revision: 11, globalState: 'completed_with_issue'),
+      await emit(snapshot(revision: 13, globalState: 'completed_with_issue'),
           tint(const Color(0xFFC62828)));
       // A restarted server can reset revisions; the retired epoch cannot return.
       await emit(

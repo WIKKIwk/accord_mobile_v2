@@ -46,6 +46,7 @@ void _registerWorkerWipAccuracyTests() {
               allowedActions: {'start'},
               hasOnlyKnownActions: true,
               previousStage: _print7Id,
+              stageNodeId: 'second-apparatus',
               previousStageReady: true,
               interaction: AdminQueueWorkerInteraction(
                 mode: AdminQueueInteractionMode.freshStart,
@@ -99,6 +100,7 @@ void _registerWorkerWipAccuracyTests() {
         'queue_action_controls': {station: {orderId: {
           'state': 'pending', 'allowed_actions': ['start'],
           'previous_stage': printer ? '' : _print7Id,
+          'stage_node_id': printer ? 'first-apparatus' : 'second-apparatus',
           'previous_stage_ready': true, 'complete_requires_full_report': false,
           'interaction': {
             'mode': 'fresh_start', 'start_materials_mode': 'hidden',
@@ -262,12 +264,24 @@ void _registerWorkerWipAccuracyTests() {
         await tester.pumpAndSettle();
         if (initiallyRejected) {
           expect(tester.widget<FilledButton>(start).onPressed, isNull);
+          final guidance = find.byKey(
+              const ValueKey('production-wip-guidance-dialog'));
+          expect(guidance, findsOneWidget);
+          await tester.tap(find.descendant(
+              of: guidance,
+              matching: find.widgetWithText(
+                  TextButton, l10n.productionText('worker.action.close'))));
+          await tester.pumpAndSettle();
           scan();
           await tester.pumpAndSettle();
         }
-        expect(lookups, initiallyRejected ? 2 : 1);
+        expect(lookups, initiallyRejected ? 4 : 2);
         expect(lookupBodies.first, {
-          'qr_payload': qr, 'apparatus': _lamination1Id, 'order_id': orderId,
+          'qr_payload': qr, 'require_active_order': true,
+        });
+        expect(lookupBodies.last, {
+          'qr_payload': qr, 'require_active_order': true,
+          'apparatus': _lamination1Id, 'order_id': orderId,
         });
         expect(tester.widget<FilledButton>(start).onPressed, isNotNull,
           reason: tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(' | '));
@@ -279,12 +293,23 @@ void _registerWorkerWipAccuracyTests() {
         }
         if (request.url.path.endsWith('/progress-qr/lookup')) {
           lookups++;
-          lookupBodies.add(jsonDecode(request.body));
-          if (initiallyRejected && lookups == 1) {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          lookupBodies.add(body);
+          if (initiallyRejected && lookups == 2) {
             return http.Response('{"error":"progress_batch_not_accepted"}', 400);
           }
           return http.Response(jsonEncode({
-            'validated_apparatus': _lamination1Id, 'validated_order_id': orderId,
+            'active_order_validated': true,
+            'validated_apparatus': body['apparatus'] ?? '',
+            'validated_order_id': body['order_id'] ?? '',
+            'input_route': {
+              'source_stage_node_id': 'first-apparatus',
+              'stage_node_id': 'second-apparatus',
+              'consumer_apparatus_ids': [_lamination1Id],
+              'map_fingerprint': 'current-wip-accuracy-map',
+              'remapped': true,
+            },
+            'input_route_error': null,
             'batch': {
               'batch_id': 'new-roll', 'order_id': orderId,
               'apparatus': _print7Id, 'current_apparatus': _print7Id,

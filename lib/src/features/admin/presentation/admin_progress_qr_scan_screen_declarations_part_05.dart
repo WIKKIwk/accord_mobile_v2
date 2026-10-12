@@ -118,15 +118,17 @@ class _UnsupportedScannerView extends StatelessWidget {
   const _UnsupportedScannerView({
     required this.onBack,
     required this.onManualEntry,
+    required this.errorText,
   });
 
   final VoidCallback onBack;
   final VoidCallback onManualEntry;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -137,6 +139,10 @@ class _UnsupportedScannerView extends StatelessWidget {
               context.l10n.productionText('worker.scanner.unsupported'),
               textAlign: TextAlign.center,
             ),
+            if (errorText != null) ...[
+              const SizedBox(height: 12),
+              _ScanStatusPill(text: errorText!, isBusy: false, isError: true),
+            ],
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onManualEntry,

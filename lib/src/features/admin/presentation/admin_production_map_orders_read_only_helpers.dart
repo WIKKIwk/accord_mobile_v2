@@ -714,6 +714,106 @@ String _queueActionUnavailableText({
   );
 }
 
+String _workerQrExistingOrderText({
+  required AppLocalizations l10n,
+  required AdminApparatusQueueOrderActionControl? control,
+  required AdminOrderControlState orderControlState,
+  required String? queueState,
+  required String apparatusLabel,
+  required String orderLabel,
+  required bool usesRollJoining,
+  String busyOrderLabel = '',
+}) {
+  if (control?.isConsistentWith(orderControlState, queueState: queueState) !=
+      true) {
+    return l10n.productionText('worker.error.sync');
+  }
+  final current = control!;
+  final values = {'apparatus': apparatusLabel, 'order': orderLabel};
+  final reason = current.interaction!.blockingReasonCode.trim();
+  final blocker = reason == 'apparatus_busy'
+      ? _queueActionUnavailableText(
+          l10n: l10n,
+          control: current,
+          orderControlState: orderControlState,
+          queueState: queueState,
+          busyApparatusLabel: apparatusLabel,
+          busyOrderLabel: busyOrderLabel,
+        )
+      : l10n.productionErrorMessage(
+          reason,
+          fallback: l10n.productionText('worker.qr.start_unavailable',
+              values: values),
+        );
+  String resumeText(String key) {
+    final text = l10n.productionText(key, values: {
+      ...values,
+      'action': l10n.productionText('worker.action.resume'),
+    });
+    return usesRollJoining
+        ? '$text ${l10n.productionText('worker.qr.join_after_resume', values: {
+                'action': l10n.productionText('worker.action.merge'),
+              })}'
+        : text;
+  }
+
+  switch (current.interaction!.mode) {
+    case AdminQueueInteractionMode.inProgress:
+      if (current.allows('merge')) {
+        return l10n.productionText('worker.qr.active_merge', values: {
+          ...values,
+          'action': l10n.productionText('worker.action.merge'),
+        });
+      }
+      if ((current.rezkaOutputReport?.frames.isNotEmpty ?? false) &&
+          (current.allows('roll_complete') || current.allows('complete'))) {
+        return l10n.productionText('worker.qr.finish_roll_first', values: {
+          ...values,
+          'action': l10n.productionText(current.allows('roll_complete')
+              ? 'worker.action.roll_complete'
+              : 'worker.action.complete'),
+        });
+      }
+      return l10n.productionText('worker.qr.active', values: values);
+    case AdminQueueInteractionMode.paused:
+      if (current.closingOutputBatchId.trim().isNotEmpty &&
+          current.allows('complete')) {
+        return l10n.productionText('worker.qr.closing_roll', values: {
+          ...values,
+          'action': l10n.productionText('worker.action.complete'),
+        });
+      }
+      if (current.allows('resume')) {
+        return resumeText('worker.qr.paused_resume');
+      }
+      final text =
+          l10n.productionText('worker.qr.paused_waiting', values: values);
+      return reason.isNotEmpty
+          ? '$text $blocker'
+          : '$text ${l10n.productionText('worker.qr.open_order_actions')}';
+    case AdminQueueInteractionMode.requeuedReady:
+      return resumeText('worker.qr.requeued_resume');
+    case AdminQueueInteractionMode.requeuedWaiting:
+      return '${l10n.productionText('worker.qr.requeued_waiting', values: values)} $blocker';
+    case AdminQueueInteractionMode.completed:
+      return l10n.productionText(
+        current.stageWork?.astatkaAvailable == true &&
+                current.stageWork?.astatkaRequired == true
+            ? 'worker.qr.completed_report'
+            : 'worker.qr.completed',
+        values: values,
+      );
+    case AdminQueueInteractionMode.frozen:
+      return l10n.productionText('worker.qr.apparatus_frozen', values: values);
+    case AdminQueueInteractionMode.freezeRequested:
+      return l10n.productionErrorMessage('order_freeze_requested');
+    case AdminQueueInteractionMode.freshStart:
+    case AdminQueueInteractionMode.freshStartBlocked:
+    case AdminQueueInteractionMode.waitingPreviousStage:
+      return blocker;
+  }
+}
+
 /// Band uskunada ishlayotgan buyurtmaning ko'rinadigan nomi
 /// (mahsulot nomi, bo'lmasa buyurtma kodi).
 String _busyOrderDisplayLabel(

@@ -143,6 +143,19 @@ void _registerMergeConfirmationTests() {
                   }),
                   200));
           await tester.pumpAndSettle();
+          if (outcome == 'rejected') {
+            final guidance =
+                find.byKey(const ValueKey('production-wip-guidance-dialog'));
+            expect(guidance, findsOneWidget);
+            expect(
+                find.descendant(
+                    of: guidance,
+                    matching: find.text(AppLocalizations(const Locale('uz'))
+                        .productionText(
+                            'worker.error.merge_input_already_used'))),
+                findsOneWidget);
+            await _closeInlineWipGuidance(tester);
+          }
           await pendingScan;
           expect(mutations, hasLength(1));
           expect(find.text('2-rulon 1-rulonning davomiga ulandi.'),
@@ -156,6 +169,95 @@ void _registerMergeConfirmationTests() {
                 if (request.url.path.endsWith('/queue-action')) {
                   mutations.add(request);
                   return response.future;
+                }
+                if (request.url.path.endsWith('/order-scan-bootstrap')) {
+                  return http.Response('', 404);
+                }
+                if (request.url.path.endsWith('/lookup')) {
+                  final payload = jsonDecode(request.body) as Map;
+                  return http.Response(
+                      jsonEncode({
+                        'active_order_validated': true,
+                        if (payload.containsKey('apparatus'))
+                          'validated_apparatus': payload['apparatus'],
+                        if (payload.containsKey('order_id'))
+                          'validated_order_id': payload['order_id'],
+                        'batch': {
+                          'batch_id': 'private-next-wip',
+                          'order_id': orderId,
+                          'apparatus': _print9Id,
+                          'action': 'detach_roll',
+                          'status': 'roll_detached',
+                          'qr_payload': payload['qr_payload'],
+                          'produced_qty': 100,
+                          'uom': 'm',
+                          'wip_status': 'waiting',
+                          'next_apparatus': _rezkaId,
+                          'payload_json': {'next_stage_node_id': 'apparatus'},
+                        },
+                      }),
+                      200);
+                }
+                if (request.url.path.endsWith('/sequence')) {
+                  return http.Response(
+                      jsonEncode({
+                        'sequences': {
+                          _rezkaId: [orderId]
+                        },
+                        'visible_order_ids': {
+                          _rezkaId: [orderId]
+                        },
+                        'queue_states': {
+                          _rezkaId: {orderId: 'in_progress'}
+                        },
+                        'queue_policies': [],
+                        'stage_states': {},
+                        'order_controls': {},
+                        'order_statuses': {},
+                        'frozen_orders_by_apparatus': {},
+                        'queue_action_controls': {
+                          _rezkaId: {
+                            orderId: {
+                              'state': 'in_progress',
+                              'allowed_actions': [
+                                'pause',
+                                'detach_roll',
+                                'merge',
+                                'complete',
+                                'freeze'
+                              ],
+                              'stage_node_id': 'apparatus',
+                              'previous_stage_ready': true,
+                              'complete_requires_full_report': false,
+                              'rezka_input_lineage': [
+                                {
+                                  'input_batch_id': 'private-current-wip',
+                                  'source_kind': 'progress_batch',
+                                  'sequence_no': 1,
+                                  'status': 'in_use'
+                                },
+                              ],
+                              'interaction': {
+                                'mode': 'in_progress',
+                                'start_materials_mode': 'hidden',
+                                'material_scan_required': false,
+                                'assigned_materials_display_only': true,
+                                'material_intake_allowed': false,
+                                'previous_wip_mode': 'not_required',
+                                'opening_wip_mode': 'not_required',
+                                'qolip_mode': 'not_required',
+                              },
+                            }
+                          }
+                        },
+                      }),
+                      200);
+                }
+                if (request.url.path.endsWith('/raw-material-assignments')) {
+                  return http.Response('[]', 200);
+                }
+                if (request.url.path.endsWith('/wip-batches')) {
+                  return http.Response('{"batches":[]}', 200);
                 }
                 return http.Response('{"error":"store_failed"}', 503);
               }));

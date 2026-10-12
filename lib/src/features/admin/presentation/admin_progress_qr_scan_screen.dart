@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../core/api/mobile_api.dart';
+import '../../../app/app_router.dart';
+import '../../../core/session/session.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
@@ -18,6 +21,7 @@ import '../models/production_map_models.dart';
 import 'admin_progress_qr_passport.dart';
 import 'admin_progress_qr_history_view.dart';
 import 'admin_progress_qr_scan_pdf.dart';
+import 'admin_production_map_orders_screen.dart' show AdminWorkerWipQrScanArgs;
 import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_progress_qr_scan_screen__AdminProgressQrScanScreenState_methods_01.dart';
@@ -34,7 +38,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
   ReliableScannerSession? _scannerSession;
   bool _processing = false;
   _QrScanStatus _scanStatus = _QrScanStatus.prompt;
-  String? _scanErrorCode;
+  Object? _scanError;
   AdminProgressQrReport? _report;
   AdminPaddonSnapshot? _paddonReport;
   AdminRawMaterialLookup? _rawMaterialReport;
@@ -155,6 +159,10 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
                             : _UnsupportedScannerView(
                                 onBack: Navigator.of(context).pop,
                                 onManualEntry: _showManualQrDialog,
+                                errorText: _scanStatus == _QrScanStatus.error ||
+                                        _scanStatus == _QrScanStatus.invalidQr
+                                    ? _statusText(context.l10n)
+                                    : null,
                               ),
       ),
     );

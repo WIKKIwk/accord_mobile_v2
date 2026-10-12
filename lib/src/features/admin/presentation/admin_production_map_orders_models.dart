@@ -293,35 +293,14 @@ _OrderCardTone _resolveWorkerOrderCardTone({
   ApparatusQueueOrderState? apparatusState,
   bool printPreflightPassed = false,
 }) {
-  // Order-wide safety warnings remain shared. Active/paused/completed on a
-  // different stage must not override this worker's own apparatus session.
-  final globalTone = _resolveOrderCardTone(
+  // The worker queue describes the selected apparatus, including work left by
+  // the previous shift. Session ownership does not change the machine status.
+  return _resolveApparatusOrderCardTone(
     orderStatus: orderStatus,
     orderControl: orderControl,
-    apparatusState: apparatusState,
+    apparatusState: apparatusState ?? ApparatusQueueOrderState.pending,
+    printPreflightPassed: printPreflightPassed,
   );
-  if (globalTone == _OrderCardTone.issue ||
-      globalTone == _OrderCardTone.frozen ||
-      apparatusState == ApparatusQueueOrderState.frozen) {
-    return globalTone == _OrderCardTone.issue
-        ? globalTone
-        : _OrderCardTone.frozen;
-  }
-  if (apparatusState == ApparatusQueueOrderState.printPreflight) {
-    return printPreflightPassed
-        ? _OrderCardTone.printPreflightPassed
-        : _OrderCardTone.printPreflight;
-  }
-  if (workActivity == null ||
-      !workActivity.belongsTo(role: workerRole, ref: workerRef)) {
-    return _OrderCardTone.neutral;
-  }
-  return switch ((workActivity.state, apparatusState)) {
-    ('in_progress', ApparatusQueueOrderState.inProgress) =>
-      _OrderCardTone.inProgress,
-    ('paused', ApparatusQueueOrderState.paused) => _OrderCardTone.paused,
-    _ => _OrderCardTone.neutral,
-  };
 }
 
 _OrderCardTone _resolveApparatusOrderCardTone({

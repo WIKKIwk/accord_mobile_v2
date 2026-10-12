@@ -380,6 +380,129 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'This roll is already in use and cannot be started again.',
     'ru': 'Этот рулон уже используется. Его нельзя запустить повторно.',
   },
+  'worker.qr.active_merge': {
+    'uz': '{apparatus} apparatida “{order}” ishi faol. Yangi rulonni ulash uchun buyurtmani ochib «{action}»ni tanlang va shu QRni skanerlang.',
+    'en': 'Work on “{order}” is active on {apparatus}. To attach this new roll, open the order, select “{action}” and scan this QR code.',
+    'ru': 'На аппарате {apparatus} выполняется заказ «{order}». Чтобы подключить новый рулон, откройте заказ, выберите «{action}» и отсканируйте этот QR-код.',
+  },
+  'worker.qr.guidance.title': {
+    'uz': 'Ish holati', 'en': 'Work status', 'ru': 'Состояние работы',
+  },
+  'worker.qr.wrong_order_context': {
+    'uz': 'Bu QR “{order}” buyurtmasiga tegishli. Hozir “{opened}” buyurtmasi ochilgan. QR tegishli buyurtmani oching.',
+    'en': 'This QR belongs to “{order}”. You currently have “{opened}” open. Open the order that owns this QR.',
+    'ru': 'Этот QR относится к заказу «{order}». Сейчас открыт заказ «{opened}». Откройте заказ, которому принадлежит QR.',
+  },
+  'worker.qr.material_mode': {
+    'uz': 'Bu ishlab chiqarilgan WIP ruloni. Uni «Xomashyo qabul qilish» orqali qabul qilib bo‘lmaydi.',
+    'en': 'This is a produced WIP roll. It cannot be received through raw material intake.',
+    'ru': 'Это произведённый рулон WIP. Его нельзя принять через приём сырья.',
+  },
+  'worker.qr.start_ready': {
+    'uz': '{apparatus} apparatida “{order}” ishini boshlash mumkin. Buyurtmani ochib, talab qilingan skanlarni bajaring va «Boshlash»ni tanlang.',
+    'en': 'Work on “{order}” can be started on {apparatus}. Open the order, complete the required scans and select “Start”.',
+    'ru': 'Заказ «{order}» можно запустить на аппарате {apparatus}. Откройте заказ, выполните обязательные сканирования и выберите «Начать».',
+  },
+  'worker.qr.roll_void': {
+    'uz': 'Bu rulon bekor qilingan. Uni ishga olish yoki ulash mumkin emas. Amaldagi rulon QRini skanerlang.',
+    'en': 'This roll has been voided. It cannot be started or joined. Scan a valid roll QR.',
+    'ru': 'Этот рулон аннулирован. Его нельзя запустить или подключить. Отсканируйте QR действующего рулона.',
+  },
+  'worker.qr.merge_changed': {
+    'uz': 'Joriy rulon yoki ish bosqichi o‘zgardi. Holatni tekshirib, «Rulon ulash»ni qayta tanlang va QRni yana skanerlang.',
+    'en': 'The current roll or work stage changed. Check the status, select “Join roll” again and rescan the QR.',
+    'ru': 'Текущий рулон или этап работы изменился. Проверьте состояние, снова выберите подключение рулона и повторите сканирование.',
+  },
+  'worker.qr.scan_state_changed': {
+    'uz': 'Skan vaqtida ish holati o‘zgardi. Buyurtmadagi yangi holat va mavjud amallarni tekshiring, keyin QRni qayta skanerlang.',
+    'en': 'The work status changed during scanning. Check the order’s new status and available actions, then scan the QR again.',
+    'ru': 'Во время сканирования состояние работы изменилось. Проверьте новое состояние заказа и доступные действия, затем повторите сканирование.',
+  },
+  'worker.qr.resume_molds': {
+    'uz': 'Davom ettirishdan oldin talab qilingan qolip QRlarini skanerlang.',
+    'en': 'Scan the required mold QR codes before resuming.',
+    'ru': 'Перед возобновлением отсканируйте QR-коды необходимых форм.',
+  },
+  'worker.qr.active': {
+    'uz': '{apparatus} apparatida “{order}” ishi faol. Uni qayta boshlash kerak emas. Buyurtmani oching; hozir yangi rulon ulash mavjud emas.',
+    'en': 'Work on “{order}” is active on {apparatus}. It does not need to be started again. Open the order; attaching a new roll is currently unavailable.',
+    'ru': 'На аппарате {apparatus} выполняется заказ «{order}». Повторный запуск не требуется. Откройте заказ; подключение нового рулона сейчас недоступно.',
+  },
+  'worker.qr.finish_roll_first': {
+    'uz': '{apparatus} apparatida “{order}” ishi faol va joriy rulon hisoboti boshlangan. Yangi rulonni ulashdan oldin buyurtmani ochib «{action}» orqali joriy rulonni yakunlang.',
+    'en': 'Work on “{order}” is active on {apparatus}, and reporting for the current roll has begun. Before attaching another roll, open the order and finish the current roll with “{action}”.',
+    'ru': 'На аппарате {apparatus} выполняется заказ «{order}», и отчёт по текущему рулону уже начат. Перед подключением нового рулона откройте заказ и завершите текущий рулон через «{action}».',
+  },
+  'worker.qr.paused_resume': {
+    'uz': '{apparatus} apparatida “{order}” ishi allaqachon boshlangan va hozir pauzada. Buyurtmani ochib «{action}»ni tanlang.',
+    'en': 'Work on “{order}” has already started on {apparatus} and is now paused. Open the order and select “{action}”.',
+    'ru': 'Заказ «{order}» уже запущен на аппарате {apparatus} и сейчас на паузе. Откройте заказ и выберите «{action}».',
+  },
+  'worker.qr.join_after_resume': {
+    'uz': 'Ish davom etgach, «{action}» mavjud bo‘lsa, yangi rulonni shu amal orqali ulang.',
+    'en': 'After resuming, attach the new roll using “{action}” when that action is available.',
+    'ru': 'После возобновления подключите новый рулон через «{action}», когда это действие станет доступно.',
+  },
+  'worker.qr.paused_waiting': {
+    'uz': '{apparatus} apparatida “{order}” ishi pauzada; hozir davom ettirish mumkin emas.',
+    'en': 'Work on “{order}” is paused on {apparatus}; it cannot be resumed right now.',
+    'ru': 'Заказ «{order}» на аппарате {apparatus} приостановлен; сейчас его нельзя продолжить.',
+  },
+  'worker.qr.open_order_actions': {
+    'uz': 'Buyurtmani ochib, uning holati va mavjud amallarni tekshiring.',
+    'en': 'Open the order to check its status and available actions.',
+    'ru': 'Откройте заказ и проверьте его состояние и доступные действия.',
+  },
+  'worker.qr.requeued_resume': {
+    'uz': '{apparatus} apparatida “{order}” ishi oldin boshlangan va qayta navbatga qo‘yilgan. Qayta boshlash o‘rniga buyurtmani ochib «{action}»ni tanlang.',
+    'en': 'Work on “{order}” was started earlier on {apparatus} and has been requeued. Open the order and select “{action}” to continue it.',
+    'ru': 'Заказ «{order}» ранее был запущен на аппарате {apparatus} и возвращён в очередь. Откройте заказ и выберите «{action}», чтобы продолжить работу.',
+  },
+  'worker.qr.requeued_waiting': {
+    'uz': '{apparatus} apparatida “{order}” ishi qayta navbatga qo‘yilgan va davom ettirishni kutmoqda.',
+    'en': 'Work on “{order}” has been requeued on {apparatus} and is waiting to resume.',
+    'ru': 'Заказ «{order}» возвращён в очередь аппарата {apparatus} и ожидает возобновления.',
+  },
+  'worker.qr.closing_roll': {
+    'uz': '{apparatus} apparatida “{order}” ruloni yakunlanmoqda. Buyurtmani ochib, kerakli hisobotni kiriting va «{action}»ni tanlang.',
+    'en': 'The current roll for “{order}” on {apparatus} is being closed. Open the order, enter the required report and select “{action}”.',
+    'ru': 'Текущий рулон заказа «{order}» на аппарате {apparatus} завершается. Откройте заказ, заполните необходимый отчёт и выберите «{action}».',
+  },
+  'worker.qr.completed_report': {
+    'uz': '{apparatus} apparatida “{order}” ishi yakunlangan, lekin «Astatka» hisoboti kerak. Buyurtmani ochib, shu hisobotni kiriting.',
+    'en': 'Work on “{order}” is finished on {apparatus}, but an “Astatka” report is required. Open the order and submit that report.',
+    'ru': 'Работа по заказу «{order}» на аппарате {apparatus} завершена, но требуется отчёт «Остатки». Откройте заказ и заполните этот отчёт.',
+  },
+  'worker.qr.completed': {
+    'uz': '{apparatus} apparatida “{order}” ishi allaqachon yakunlangan. Bu QR bilan ishni qayta boshlab bo‘lmaydi. Buyurtmani ochib, keyingi bosqichni tekshiring.',
+    'en': 'Work on “{order}” is already finished on {apparatus}. This QR code cannot restart it. Open the order and check the next stage.',
+    'ru': 'Работа по заказу «{order}» на аппарате {apparatus} уже завершена. Этот QR-код не запускает её повторно. Откройте заказ и проверьте следующий этап.',
+  },
+  'worker.qr.apparatus_frozen': {
+    'uz': '{apparatus} apparatida “{order}” ishi muzlatilgan. Davom ettirish uchun admin ishni muzdan chiqarishi kerak.',
+    'en': 'Work on “{order}” is frozen on {apparatus}. An admin must unfreeze it before work can continue.',
+    'ru': 'Заказ «{order}» на аппарате {apparatus} заморожен. Для продолжения администратор должен снять заморозку.',
+  },
+  'worker.qr.start_unavailable': {
+    'uz': '{apparatus} apparatida “{order}” uchun yangi ish boshlash hozir mumkin emas. Buyurtmani ochib, uning holati va mavjud amallarni tekshiring.',
+    'en': 'A new job for “{order}” cannot be started on {apparatus} right now. Open the order to check its status and available actions.',
+    'ru': 'Сейчас нельзя начать новую работу по заказу «{order}» на аппарате {apparatus}. Откройте заказ и проверьте его состояние и доступные действия.',
+  },
+  'worker.qr.roll_in_use': {
+    'uz': 'Bu rulon {apparatus} apparatida “{order}” ishiga allaqachon ulangan. Uni qayta boshlash yoki qayta ulash mumkin emas. Ish holatini buyurtmani ochib ko‘ring.',
+    'en': 'This roll is already attached to “{order}” on {apparatus}. It cannot be started or attached again. Open the order to see the current work status.',
+    'ru': 'Этот рулон уже подключён к заказу «{order}» на аппарате {apparatus}. Его нельзя запустить или подключить повторно. Откройте заказ, чтобы проверить состояние работы.',
+  },
+  'worker.qr.resume_loaded_roll': {
+    'uz': 'Ish pauzada. Uni davom ettirish uchun «{action}»ni tanlang.',
+    'en': 'Work is paused. Select “{action}” to continue it.',
+    'ru': 'Работа приостановлена. Выберите «{action}», чтобы продолжить её.',
+  },
+  'worker.qr.loaded_active': {
+    'uz': 'Ish shu apparatda faol.',
+    'en': 'Work is active on this machine.',
+    'ru': 'Работа на этом аппарате активна.',
+  },
   'worker.error.wip_used': {
     'uz': 'Bu rulon allaqachon ishlatilgan. Ishlatilmagan rulon QR sini skanerlang.',
     'en': 'This roll has already been consumed. Scan an unused roll QR code.',
