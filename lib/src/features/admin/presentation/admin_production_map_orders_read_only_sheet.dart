@@ -2523,7 +2523,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }) async {
     if (_queueActionBusy) return _ProgressActionOutcome.failed;
     if (action == 'complete' &&
-        widget.apparatus?.operation.trim() == 'print' &&
+        const {'print', 'laminate'}.contains(widget.apparatus?.operation.trim()) &&
         !_queueActionContractSynchronized) {
       try {
         final latest = await _loadCurrentQueueActionControl();
@@ -2556,6 +2556,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _orderControlState == AdminOrderControlState.freezeRequested;
     if (action == 'complete' &&
         widget.apparatus?.operation.trim() == 'laminate' &&
+        (fullCompletionReportRequired ?? _completionNeedsFullReport(action)) &&
         !freezeRequestSafeStop &&
         !workerHandoff &&
         !removeRollFromApparatus &&

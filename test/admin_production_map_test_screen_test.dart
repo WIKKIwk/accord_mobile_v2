@@ -95,6 +95,7 @@ part 'admin_production_map_order_alert_test_part.dart';
 part 'admin_production_map_scan_bootstrap_test_part.dart';
 part 'admin_production_map_worker_sync_optimization_test_part.dart';
 part 'admin_production_map_material_delivery_test_part.dart';
+part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
@@ -157,6 +158,7 @@ void main() {
   _registerScanBootstrapTests();
   _registerWorkerSyncOptimizationTests();
   _registerMaterialDeliveryTests();
+  _registerLaminationAstatkaScopeTests();
   _registerQolipAlternativeSetTests();
   _registerPrintMethodRoutingTests();
 

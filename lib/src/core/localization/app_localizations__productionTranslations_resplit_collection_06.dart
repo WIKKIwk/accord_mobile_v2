@@ -632,11 +632,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
   },
   'worker.lamination_complete.instruction': {
     'uz':
-        'Oxirgi tayyor rulon ma’lumotlarini va har bir kiruvchi qavatning sof qoldiq kg ni kiriting. Tugatish hisoboti va qoldiqlar birga saqlanadi; qoldiq metraji avtomatik hisoblanib, QR yorlig‘i chiqariladi.',
+        'Buyurtmani umumiy tugatish hisoboti. Tayyor mahsulot, chiqindi va qavatlarning sof qoldiq kg ini kiriting. Qoldiq metraji avtomatik hisoblanadi va QR yorlig‘i chiqariladi.',
     'en':
-        'Enter the final output roll and the remaining net kg of every input layer. Completion and remainders are saved together; remaining length is calculated automatically and QR labels are printed.',
+        'Order completion report. Enter output, waste and the remaining net kg of the input layers. Remaining length is calculated automatically and QR labels are printed.',
     'ru':
-        'Введите данные последнего готового рулона и остаток нетто каждого входного слоя. Завершение и остатки сохраняются вместе; метраж остатка рассчитывается автоматически, печатаются QR-этикетки.',
+        'Общий отчёт о завершении заказа. Укажите продукцию, отходы и остаток нетто входных слоёв. Метраж остатка рассчитывается автоматически, печатаются QR-этикетки.',
   },
   'worker.lamination_complete.pending': {
     'uz':
