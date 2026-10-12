@@ -87,6 +87,7 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
           action: completeStage ? 'complete' : 'astatka',
           apparatus: widget.apparatus,
           order: widget.order,
+          apparatusCatalog: widget.apparatusCatalog,
           astatkaReport: !completeStage,
           fullCompletionReportRequired: fullCompletionReportRequired,
           laminationAstatka: snapshot,

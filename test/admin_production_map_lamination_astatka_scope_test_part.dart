@@ -88,6 +88,10 @@ void _registerLaminationAstatkaScopeTests() {
           apparatus: _lamination1Id, orderId: id, control: control);
       final snapshot =
           await MobileApi.instance.adminProductionMapQueueSnapshot();
+      final apparatusCatalog =
+          await MobileApi.instance.adminApparatus(limit: 200);
+      final printedRollName = 'Bosmadan kelgan PET, apparat: '
+          '${apparatusCatalog.singleWhere((item) => item.id == _print8Id).name}, ish tugatildi';
       final pausedSnapshot = AdminApparatusQueueSnapshot(
         maps: [saved],
         sequences: {
@@ -157,17 +161,19 @@ void _registerLaminationAstatkaScopeTests() {
         expect(snapshotReads, hasLayers ? 1 : 0);
         expect(find.text('Qavat astatkasi'),
             hasLayers ? findsOneWidget : findsNothing);
-        expect(find.text('Bosmadan kelgan PET'),
+        expect(find.text(printedRollName),
             hasLayers ? findsOneWidget : findsNothing);
         expect(find.text('Ulangan CPP'),
             hasLayers ? findsOneWidget : findsNothing);
         expect(find.textContaining('Oxirgi tayyor rulon'), findsNothing);
+        expect(find.textContaining('Buyurtmani umumiy tugatish hisoboti'),
+            findsNothing);
+        expect(find.textContaining('apparatus:'), findsNothing);
         if (hasLayers) {
           expect(find.text('Qoldiqning sof og‘irligi'), findsNWidgets(2));
           final kg = find.descendant(
               of: find.ancestor(
-                  of: find.text('Bosmadan kelgan PET'),
-                  matching: find.byType(Card)),
+                  of: find.text(printedRollName), matching: find.byType(Card)),
               matching: find.byType(TextFormField));
           await tester.ensureVisible(kg);
           await tester.enterText(kg, '20');
@@ -201,7 +207,7 @@ void _registerLaminationAstatkaScopeTests() {
                               'qr_payload': '$kind-qr',
                               'item_code': kind,
                               'item_name': kind == 'progress_batch'
-                                  ? 'Bosmadan kelgan PET'
+                                  ? 'Bosmadan kelgan PET, apparat: $_print8Id, ish tugatildi'
                                   : 'Ulangan CPP',
                               'source_net_kg': 50,
                               'source_meter': 1500,

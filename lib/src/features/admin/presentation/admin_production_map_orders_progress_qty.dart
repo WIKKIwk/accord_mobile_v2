@@ -109,6 +109,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isBosma,
   required bool isLaminatsiya,
   required bool isRezka,
+  List<AdminApparatus> apparatusCatalog = const [],
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
   String closingOutputBatchId = '',
@@ -141,6 +142,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       action: action,
       order: order,
       apparatus: apparatus,
+      apparatusCatalog: apparatusCatalog,
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
@@ -168,6 +170,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required String action,
   required AdminApparatus? apparatus,
   required ProductionMapSaved order,
+  List<AdminApparatus> apparatusCatalog = const [],
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
   String closingOutputBatchId = '',
@@ -190,6 +193,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     action,
     order: order,
     apparatus: apparatusId,
+    apparatusCatalog: apparatusCatalog,
     isBosma: operation == 'print',
     isLaminatsiya: apparatus?.usesLaminationWorkflow ?? false,
     isRezka: operation == 'cut',
@@ -232,6 +236,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.action,
     required this.order,
     required this.apparatus,
+    this.apparatusCatalog = const [],
     required this.isBosma,
     required this.isLaminatsiya,
     required this.isRezka,
@@ -253,6 +258,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final String action;
   final ProductionMapSaved order;
   final String apparatus;
+  final List<AdminApparatus> apparatusCatalog;
   final bool isBosma;
   final bool isLaminatsiya;
   final bool isRezka;
@@ -1377,6 +1383,19 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           },
       ];
 
+  String _astatkaLayerDisplayName(AdminLayerRemainderSource source) {
+    final name = source.itemName.isEmpty ? source.itemCode : source.itemName;
+    if (source.sourceKind != 'progress_batch') return name;
+    return name.replaceAllMapped(
+      RegExp(r'\bapparatus:[\w:.-]+', caseSensitive: false),
+      (match) {
+        final id = match.group(0)!;
+        final label = canonicalApparatusDisplayLabel(id, widget.apparatusCatalog);
+        return label == id ? context.l10n.adminText('wip.unspecified') : label;
+      },
+    );
+  }
+
   List<Widget> _astatkaLayerFields() => [
         _progressQtySectionLabel(context,
             context.l10n.productionText('worker.layer_remainder.title')),
@@ -1390,10 +1409,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                      source.itemName.isEmpty
-                          ? source.itemCode
-                          : source.itemName,
+                  Text(_astatkaLayerDisplayName(source),
                       style: Theme.of(context).textTheme.titleSmall),
                   Text(context.l10n.productionText(
                       source.sourceKind == 'raw_material'
@@ -1535,7 +1551,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                       };
     final subtitle = _isComplete && _hasAstatkaLayers
-        ? context.l10n.productionText('worker.lamination_complete.instruction')
+        ? null
         : _integratedLaminationAstatka
             ? context.l10n.productionText(_astatkaOutputRequired
                 ? 'worker.lamination_astatka.active_instruction'
@@ -1609,14 +1625,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
