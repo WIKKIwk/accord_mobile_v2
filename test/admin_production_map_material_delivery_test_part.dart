@@ -226,8 +226,12 @@ void _registerMaterialDeliveryTests() {
               .adminProductionMapQueueSnapshot(
                   apparatus: _godexId, orderId: orderId);
           expect(snapshot.queueStates[_godexId]?[orderId], 'in_progress');
+          final pending = await MobileApi.instance
+              .adminRawMaterialIntakeCandidates(
+                  orderId: orderId, apparatus: _godexId);
+          expect(pending, isEmpty);
           expect(find.byKey(const ValueKey('receive-additional-raw-material')),
-              findsOneWidget);
+              findsNothing);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
@@ -264,4 +268,66 @@ void _registerMaterialDeliveryTests() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('material delivery: no pending material hides intake button',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    await AppSession.instance.setSession(
+      token: 'worker-no-pending-material',
+      profile: const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Laminator',
+        legalName: '',
+        ref: 'worker-no-pending-material',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_lamination1Id],
+      ),
+    );
+    const orderId = 'zakaz-no-pending-material';
+    await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+      id: orderId,
+      title: 'No pending material',
+      productCode: 'NO-PENDING',
+      product: 'No pending material',
+      apparatusId: _lamination1Id,
+    ));
+    await MobileApi.instance.adminSaveProductionMapSequence(
+        apparatus: _lamination1Id, orderIds: const [orderId]);
+    await MobileApi.instance.adminApparatusQueueActionResult(
+        apparatus: _lamination1Id, orderId: orderId, action: 'start');
+    setMobileApiTestModeQueueActionControlFixture(
+      apparatus: _lamination1Id,
+      orderId: orderId,
+      control: _inProgressQueueControl(
+          materialIntakeAllowed: true, allowMerge: true),
+    );
+    await _usePhoneViewport(tester);
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const AdminProductionMapOrdersScreen(readOnly: true, workerMode: true),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laminatsiya 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('receive-additional-raw-material')),
+        findsNothing);
+    expect(find.text('Tugatish'), findsOneWidget);
+    expect(find.byKey(const ValueKey('production-order-merge-action')),
+        findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }
