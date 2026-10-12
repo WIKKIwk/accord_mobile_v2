@@ -1601,7 +1601,7 @@ class _AdminProductionMapOrdersScreenState
     final stageWork = _queueActionControlForApparatus(
             apparatus: apparatus, orderId: order.map.id.trim())
         ?.stageWork;
-    if (stageWork?.astatkaAvailable == true) {
+    if (stageWork?.astatkaAvailable == true && operation != 'laminate') {
       _showWatchOrderDetail(
           apparatus: apparatus, order: order, startAstatkaOnOpen: true);
       return;
@@ -1650,7 +1650,8 @@ class _AdminProductionMapOrdersScreenState
           context: context,
           useSafeArea: true,
           showDragHandle: true,
-          builder: (_) => const _LaminatsiyaWorkerHandoffSheet(),
+          builder: (_) => _LaminatsiyaWorkerHandoffSheet(
+              showLayerRemainder: operation == 'laminate'),
         );
         if (!mounted) return;
         switch (choice) {
@@ -1666,6 +1667,8 @@ class _AdminProductionMapOrdersScreenState
               order: order,
               startRollRemovalOnOpen: true,
             );
+          case _LaminatsiyaWorkerLongPressChoice.layerRemainder:
+            await _showLayerRemainder(apparatus: apparatus, order: order);
           case _LaminatsiyaWorkerLongPressChoice.finishWork:
           case null:
             break;
@@ -1673,7 +1676,8 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
     }
-    if (state == ApparatusQueueOrderState.inProgress ||
+    if (stageWork?.astatkaAvailable == true ||
+        state == ApparatusQueueOrderState.inProgress ||
         state == ApparatusQueueOrderState.paused ||
         state == ApparatusQueueOrderState.completed) {
       final choice =
@@ -1681,12 +1685,17 @@ class _AdminProductionMapOrdersScreenState
         context: context,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (_) =>
-            _LaminatsiyaWorkerFinishSheet(isRezka: operation == 'cut'),
+        builder: (_) => _LaminatsiyaWorkerFinishSheet(
+          isRezka: operation == 'cut',
+          showLayerRemainder: operation == 'laminate',
+        ),
       );
-      if (!mounted || choice != _LaminatsiyaWorkerLongPressChoice.finishWork) {
+      if (!mounted || choice == null) return;
+      if (choice == _LaminatsiyaWorkerLongPressChoice.layerRemainder) {
+        await _showLayerRemainder(apparatus: apparatus, order: order);
         return;
       }
+      if (choice != _LaminatsiyaWorkerLongPressChoice.finishWork) return;
       _showWatchOrderDetail(
         apparatus: apparatus,
         order: order,
@@ -1694,6 +1703,24 @@ class _AdminProductionMapOrdersScreenState
       );
       return;
     }
+  }
+
+  Future<void> _showLayerRemainder({
+    required AdminApparatus apparatus,
+    required ProductionMapSaved order,
+  }) async {
+    await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => LaminationLayerRemainderSheet(
+        apparatus: apparatus.id,
+        orderId: order.map.id,
+        progressDriverUrlPicker: widget.progressDriverUrlPicker,
+      ),
+    );
+    if (mounted) await _refreshLive();
   }
 
   Future<void> _showSupplyRawMaterialAssignment(

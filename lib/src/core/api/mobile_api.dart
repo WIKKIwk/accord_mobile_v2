@@ -51,6 +51,7 @@ part 'admin/mobile_api_admin_production_queue_runtime.dart';
 part 'admin/mobile_api_admin_queue_models.dart';
 part 'admin/mobile_api_admin_order_lifecycle.dart';
 part 'admin/mobile_api_admin_bosma_astatka.dart';
+part 'admin/mobile_api_admin_layer_remainders.dart';
 part 'admin/mobile_api_admin_production_map.dart';
 part 'admin/mobile_api_pending_orders.dart';
 part 'admin/mobile_api_opened_order_edit.dart';

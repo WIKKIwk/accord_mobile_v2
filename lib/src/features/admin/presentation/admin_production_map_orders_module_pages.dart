@@ -991,6 +991,7 @@ enum _LaminatsiyaWorkerLongPressChoice {
   finishWork,
   continueRoll,
   removeRoll,
+  layerRemainder,
 }
 
 enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport }
@@ -1040,9 +1041,13 @@ class _BosmaWorkerFinishSheet extends StatelessWidget {
 }
 
 class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
-  const _LaminatsiyaWorkerFinishSheet({this.isRezka = false});
+  const _LaminatsiyaWorkerFinishSheet({
+    this.isRezka = false,
+    this.showLayerRemainder = false,
+  });
 
   final bool isRezka;
+  final bool showLayerRemainder;
 
   @override
   Widget build(BuildContext context) {
@@ -1082,6 +1087,20 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
               icon: const Icon(Icons.logout_rounded),
               label: Text(title),
             ),
+            if (showLayerRemainder) ...[
+              const SizedBox(height: 12),
+              Text(context.l10n
+                  .productionText('worker.layer_remainder.action_description')),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const ValueKey('lamination-layer-remainder-action'),
+                onPressed: () => Navigator.of(context)
+                    .pop(_LaminatsiyaWorkerLongPressChoice.layerRemainder),
+                icon: const Icon(Icons.layers_outlined),
+                label: Text(context.l10n
+                    .productionText('worker.layer_remainder.title')),
+              ),
+            ],
           ],
         ),
       ),
@@ -1090,7 +1109,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
 }
 
 class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
-  const _LaminatsiyaWorkerHandoffSheet();
+  const _LaminatsiyaWorkerHandoffSheet({this.showLayerRemainder = false});
+
+  final bool showLayerRemainder;
 
   @override
   Widget build(BuildContext context) {
@@ -1137,6 +1158,17 @@ class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
                 context.l10n.productionText('worker.handoff.detach'),
               ),
             ),
+            if (showLayerRemainder) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                key: const ValueKey('lamination-layer-remainder-action'),
+                onPressed: () => Navigator.of(context)
+                    .pop(_LaminatsiyaWorkerLongPressChoice.layerRemainder),
+                icon: const Icon(Icons.layers_outlined),
+                label: Text(context.l10n
+                    .productionText('worker.layer_remainder.title')),
+              ),
+            ],
           ],
         ),
       ),

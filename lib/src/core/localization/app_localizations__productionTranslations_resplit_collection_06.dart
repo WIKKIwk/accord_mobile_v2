@@ -404,4 +404,127 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'WIP note',
     'ru': 'Примечание WIP',
   },
+  'worker.layer_remainder.action_description': {
+    'uz': 'Alohida qavatdan ortgan rulonning sof vaznini qayd etib, unga yangi QR chiqarish.',
+    'en': 'Record the net weight of a remaining input layer and issue its new QR.',
+    'ru': 'Записать вес нетто оставшегося входного слоя и выдать новый QR.',
+  },
+  'worker.layer_remainder.title': {
+    'uz': 'Qavat astatkasi',
+    'en': 'Layer remainder',
+    'ru': 'Остаток слоя',
+  },
+  'worker.layer_remainder.description': {
+    'uz':
+        'Ortiqcha qolgan rulonni tanlang va sof og‘irligini kiriting. Metraj shu rulonning nisbatidan hisoblanadi. Yangi QR bilan keyinchalik ishni davom ettirish mumkin.',
+    'en':
+        'Select the remaining input roll and enter its net weight. Length is estimated using that roll’s ratio. Scan the new QR to continue later.',
+    'ru':
+        'Выберите оставшийся входной рулон и введите его вес нетто. Метраж рассчитывается по соотношению этого рулона. Новый QR позволяет продолжить работу позже.',
+  },
+  'worker.layer_remainder.net_weight': {
+    'uz': 'Qoldiqning sof og‘irligi',
+    'en': 'Remaining net weight',
+    'ru': 'Вес нетто остатка',
+  },
+  'worker.layer_remainder.max_weight': {
+    'uz': 'Eng ko‘pi: {kg} kg. Babina vaznini qo‘shmang.',
+    'en': 'Maximum: {kg} kg. Exclude the core weight.',
+    'ru': 'Максимум: {kg} кг. Вес втулки не включайте.',
+  },
+  'worker.layer_remainder.estimated_meter': {
+    'uz': 'Taxminiy metraj: ≈ {meter} m',
+    'en': 'Estimated length: ≈ {meter} m',
+    'ru': 'Расчётный метраж: ≈ {meter} м',
+  },
+  'worker.layer_remainder.invalid_weight': {
+    'uz':
+        'Sof og‘irlik 0 dan katta va asl rulon vaznidan oshmagan bo‘lishi kerak.',
+    'en': 'Net weight must be positive and no greater than the source roll.',
+    'ru':
+        'Вес нетто должен быть больше нуля и не превышать вес исходного рулона.',
+  },
+  'worker.layer_remainder.raw_material': {
+    'uz': 'Laminatsiya xomashyosi',
+    'en': 'Lamination raw material',
+    'ru': 'Сырьё для ламинации',
+  },
+  'worker.layer_remainder.printed_roll': {
+    'uz': 'Bosmadan kelgan rulon',
+    'en': 'Upstream WIP roll',
+    'ru': 'Входной рулон WIP',
+  },
+  'worker.layer_remainder.missing_basis': {
+    'uz': 'Sof vazn yoki metraj ma’lumoti yetishmaydi',
+    'en': 'Net weight or length is missing',
+    'ru': 'Нет данных о весе нетто или метраже',
+  },
+  'worker.layer_remainder.empty': {
+    'uz': 'Qoldiq qayd etiladigan qavat topilmadi. Xomashyo qoldig‘ini kiritishdan oldin ishni tugating.',
+    'en': 'No eligible input rolls for this order. Finish the job before returning raw material.',
+    'ru': 'Нет доступных входных рулонов для этой заявки. Перед возвратом сырья завершите работу.',
+  },
+  'worker.layer_remainder.failed': {
+    'uz': 'Qavat astatkasini saqlab bo‘lmadi. Qayta urining.',
+    'en': 'Could not save the layer remainder. Try again.',
+    'ru': 'Не удалось сохранить остаток слоя. Повторите попытку.',
+  },
+  'worker.layer_remainder.pending': {
+    'uz':
+        'Oldingi so‘rovning javobi kelmagan. Qayta urinish shu qaydni tekshiradi va takroriy qoldiq yaratmaydi.',
+    'en':
+        'The previous request is pending. Retry checks the same record without creating another remainder.',
+    'ru':
+        'Ответ на предыдущий запрос не получен. Повторная попытка проверит ту же запись без создания нового остатка.',
+  },
+  'worker.layer_remainder.save_print': {
+    'uz': 'Saqlash va QR chop etish',
+    'en': 'Save and print QR',
+    'ru': 'Сохранить и напечатать QR',
+  },
+  'worker.layer_remainder.retry': {
+    'uz': 'Qayta urinish',
+    'en': 'Retry',
+    'ru': 'Повторить',
+  },
+  'worker.layer_remainder.saved': {
+    'uz': 'Qavat astatkasi saqlandi',
+    'en': 'Layer remainder saved',
+    'ru': 'Остаток слоя сохранён',
+  },
+  'worker.layer_remainder.printed': {
+    'uz': 'QR chop etildi. Qoldiq rulonga yopishtiring.',
+    'en': 'QR printed. Attach it to the remaining roll.',
+    'ru': 'QR напечатан. Наклейте его на оставшийся рулон.',
+  },
+  'worker.layer_remainder.print_failed': {
+    'uz': 'Qoldiq saqlangan. QR chop etilmadi; qayta chop etishni bosing.',
+    'en': 'Remainder saved. QR printing failed; use Reprint QR.',
+    'ru': 'Остаток сохранён. QR не напечатан; нажмите повторную печать.',
+  },
+  'worker.layer_remainder.reprint': {
+    'uz': 'QR qayta chop etish',
+    'en': 'Reprint QR',
+    'ru': 'Повторная печать QR',
+  },
+  'worker.layer_remainder.producer': {
+    'uz': 'Asl egasi: {name}',
+    'en': 'Original owner: {name}',
+    'ru': 'Исходный владелец: {name}',
+  },
+  'worker.layer_remainder.recorded_by': {
+    'uz': 'Qayd qilgan: {name}',
+    'en': 'Recorded by: {name}',
+    'ru': 'Записал: {name}',
+  },
+  'worker.layer_remainder.history': {
+    'uz': 'Qayd etilgan qavat astatkalari',
+    'en': 'Recorded layer remainders',
+    'ru': 'Записанные остатки слоёв',
+  },
+  'worker.layer_remainder.close': {
+    'uz': 'Yopish',
+    'en': 'Close',
+    'ru': 'Закрыть',
+  },
 };
