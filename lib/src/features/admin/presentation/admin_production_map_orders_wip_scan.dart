@@ -116,6 +116,65 @@ List<String> _workerWipConsumerIds(
       .toList();
 }
 
+String _workerWipRouteGuidance({
+  required AppLocalizations l10n,
+  required _ScannedWorkerWip wip,
+  required ProductionMapDefinition? map,
+  required Iterable<AdminApparatus> apparatus,
+  required List<String> consumers,
+  String openedApparatus = '',
+  String expectedInputApparatus = '',
+}) {
+  if (consumers.isEmpty) {
+    return l10n.productionErrorMessage('wip_route_destination_unresolved');
+  }
+  String label(String id) {
+    if (id.trim().isEmpty) return '';
+    final node = map?.nodes
+        .where((node) => node.apparatusId.trim() == id.trim())
+        .firstOrNull;
+    final name = canonicalApparatusDisplayLabel(id, apparatus);
+    return name == id.trim() && node?.title.trim().isNotEmpty == true
+        ? node!.title.trim()
+        : name;
+  }
+
+  final destinations = <String>{};
+  for (final id in consumers) {
+    final node = map?.nodes
+        .where((node) => node.apparatusId.trim() == id.trim())
+        .firstOrNull;
+    final group = node?.alternativeGroupLabel.trim() ?? '';
+    destinations.add(node?.alternativeGroupId.trim().isNotEmpty == true &&
+            group.isNotEmpty
+        ? group
+        : label(id));
+  }
+  final destination = destinations.join(', ');
+  final source = wip.progress?.apparatus.trim() ??
+      wip.openingRecord?.intake.sourceApparatus.trim() ?? '';
+  final route = l10n.productionText(
+    source.isEmpty
+        ? 'worker.qr.route_destination'
+        : 'worker.qr.route_source_destination',
+    values: {'source': label(source), 'destination': destination},
+  );
+  if (openedApparatus.isEmpty) {
+    return '$route ${l10n.productionText('worker.qr.route_unassigned', values: {
+      'destination': destination,
+    })}';
+  }
+  return '$route ${l10n.productionText(
+    expectedInputApparatus.isEmpty
+        ? 'worker.qr.wrong_stage'
+        : 'worker.qr.wrong_stage_expected_input',
+    values: {
+      'current': label(openedApparatus),
+      'expected': label(expectedInputApparatus),
+    },
+  )}';
+}
+
 extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
   Future<void> _showWipScanGuidance(String message) async {
     if (!mounted || _wipGuidanceOpen) return;
@@ -281,6 +340,23 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
           : 'worker.error.wip_used');
     } else if ((progress?.inputRouteError ?? '').isNotEmpty) {
       throw MobileApiException(code: progress!.inputRouteError, message: '');
+    } else if (wip.status == 'waiting' &&
+        openedStation.isNotEmpty &&
+        candidates.isNotEmpty &&
+        !candidates.contains(openedStation)) {
+      guidance = _workerWipRouteGuidance(
+        l10n: context.l10n,
+        wip: wip,
+        map: targetMap?.map,
+        apparatus: widget.apparatusCatalog,
+        consumers: candidates,
+        openedApparatus: openedStation,
+        expectedInputApparatus: sameOrder &&
+                openedControl?.isConsistentWith(openedOrderControl,
+                        queueState: openedQueueState) == true
+            ? openedControl!.previousStage
+            : '',
+      );
     } else if (wip.status == 'in_use' &&
         station != null &&
         !_isAssignedWatchApparatus(station, assignedApparatus: assigned)) {
@@ -292,7 +368,16 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
           })} ${context.l10n.productionText('worker.error.assigned_machine')}';
     } else if (station == null ||
         !_isAssignedWatchApparatus(station, assignedApparatus: assigned)) {
-      guidance = context.l10n.productionText('worker.error.assigned_machine');
+      guidance = candidates.any((id) => !widget.apparatusCatalog
+              .any((apparatus) => apparatus.id.trim() == id.trim()))
+          ? context.l10n.productionText('worker.qr.catalog_missing')
+          : _workerWipRouteGuidance(
+              l10n: context.l10n,
+              wip: wip,
+              map: targetMap?.map,
+              apparatus: widget.apparatusCatalog,
+              consumers: candidates,
+            );
     } else if (control?.isConsistentWith(orderControl,
             queueState: queueState) !=
         true) {
@@ -360,7 +445,9 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
           stationId == openedStation &&
           wip.status == 'waiting' &&
           ((purpose == _WorkerWipScanPurpose.start &&
-                  control.allows('start')) ||
+                  (control.allows('start') ||
+                      (control.allows('resume') &&
+                          control.interaction?.resumeInputRequired == true))) ||
               (purpose == _WorkerWipScanPurpose.merge &&
                   control.allows('merge')))) {
         if (progress != null && progress.inputRouteError.isNotEmpty) {
@@ -401,8 +488,12 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
           return null;
         }
         _updateWipScanState(() => _queueActionControl = latest);
-        final action =
-            purpose == _WorkerWipScanPurpose.merge ? 'merge' : 'start';
+        final action = purpose == _WorkerWipScanPurpose.merge
+            ? 'merge'
+            : latest?.interaction?.resumeInputRequired == true &&
+                    latest?.allows('resume') == true
+                ? 'resume'
+                : 'start';
         if (_queueActionContractSynchronized &&
             latest?.allows(action) == true) {
           if (!_workerWipConsumerIds(validated, widget.order.map,

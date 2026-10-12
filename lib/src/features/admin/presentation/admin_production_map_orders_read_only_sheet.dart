@@ -416,27 +416,28 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (uiState.showPrintPreflightHold) {
       return (visible: false, materialIntake: false, merge: false);
     }
-    final startMaterialScanPending = uiState.showStart &&
-        uiState.showStartMaterials &&
-        !_materialsLoading &&
-        _materialsError.isEmpty &&
-        _materialStartUnavailableReason(
-              orderWidthMm: widget.order.map.widthMm,
-              materialRequirements: _materialStartRequirements,
-              materialsLoading: _materialsLoading,
-              materialsError: _materialsError,
-              materialScanRequired: uiState.showStartMaterials,
-              l10n: context.l10n,
-            ) ==
-            null &&
-        uiState.materialRequiredCount > uiState.materialScannedCount;
+    final startMaterialScanPending =
+        (uiState.showStart || uiState.showResume) &&
+            uiState.showStartMaterials &&
+            !_materialsLoading &&
+            _materialsError.isEmpty &&
+            _materialStartUnavailableReason(
+                  orderWidthMm: widget.order.map.widthMm,
+                  materialRequirements: _materialStartRequirements,
+                  materialsLoading: _materialsLoading,
+                  materialsError: _materialsError,
+                  materialScanRequired: uiState.showStartMaterials,
+                  l10n: context.l10n,
+                ) ==
+                null &&
+            uiState.materialRequiredCount > uiState.materialScannedCount;
     final qolipScanPending = (uiState.showStart || uiState.showResume) &&
         uiState.qolipScanRequired &&
         !_qolipRequirementsLoading &&
         _qolipRequirementsError.isEmpty &&
         _requiredQolips.isNotEmpty &&
         !_allRequiredQolipsScanned;
-    final inputWipScanPending = uiState.showStart &&
+    final inputWipScanPending = (uiState.showStart || uiState.showResume) &&
         uiState.previousProgressRequired &&
         !uiState.previousProgressReady &&
         !_inputProgressLoading &&
@@ -490,7 +491,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       materialScanRequired: uiState.showStartMaterials,
       l10n: context.l10n,
     );
-    final materialStartBlockingText = uiState.showStart &&
+    final materialStartBlockingText = (uiState.showStart || uiState.showResume) &&
             !_materialsLoading &&
             materialStartUnavailableReason != null
         ? materialStartUnavailableReason
@@ -654,7 +655,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         onMerge: _toggleMergeScanMode,
         onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
         onComplete: () => unawaited(_runProgressAction('complete')),
-        onResume: () => unawaited(_runQueueAction('resume')),
+        onResume: () => unawaited(_handleResumeAction()),
         orderControlState: _orderControlState,
         allowMaterialUnlink: _allowMaterialUnlink,
         onUnlinkMaterial: _unlinkMaterialAssignment,
@@ -1767,6 +1768,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     });
 
     try {
+      // A contextual or merge scan may be a raw-material QR. Resolve its
+      // actual assignment before entering the WIP-only lookup/dialog flow.
+      if ((!scanTasks.visible || scanTasks.merge) &&
+          await _handleRawMaterialContextScan(
+            normalized,
+            mergeMode: scanTasks.merge,
+          )) {
+        return;
+      }
       if (!scanTasks.visible) {
         await _checkWorkerWipScan(rawValue.trim(), _WorkerWipScanPurpose.context);
         return;
@@ -2344,6 +2354,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<_ProgressActionOutcome> _runAstatkaReport() async {
+    if (widget.apparatus?.operation.trim() == 'laminate') {
+      return _runIntegratedLaminationAstatka();
+    }
     if (!mounted) return _ProgressActionOutcome.cancelled;
     final input = await _showProgressQtyDialogForApparatus(
       context,
@@ -2437,6 +2450,25 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
   }
 
+  Future<bool> _handleResumeAction() async {
+    final requiresInput =
+        _queueActionControl?.interaction?.resumeInputRequired == true;
+    final batch = _startInputProgressBatch;
+    final opening = _startInputOpeningWipBatch;
+    if (requiresInput && batch == null && opening == null) {
+      _showSheetNotice(
+          context.l10n.productionText('worker.lamination_astatka.resume_scan'));
+      return false;
+    }
+    return _runQueueAction(
+      'resume',
+      qrPayload:
+          requiresInput ? (batch?.qrPayload ?? opening?.qrPayload ?? '') : '',
+      progressBatchId:
+          requiresInput ? (batch?.batchId ?? opening?.batchId ?? '') : '',
+    );
+  }
+
   Future<void> _runInitialResumeFlow() async {
     try {
       final control = await _loadCurrentQueueActionControl();
@@ -2446,7 +2478,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         await _loadQolipRequirements();
         return;
       }
-      final completed = await _runQueueAction('resume');
+      if (control?.interaction?.resumeInputRequired == true ||
+          control?.interaction?.materialScanRequired == true) {
+        await _loadInteractionContractAndSections();
+        if (mounted)
+          _showSheetNotice(
+              context.l10n
+                  .productionText('worker.lamination_astatka.resume_scan'),
+              tone: AdminTopNoticeTone.success);
+        return;
+      }
+      final completed = await _handleResumeAction();
       if (mounted) Navigator.of(context).pop(completed);
     } catch (error) {
       if (!mounted) return;
@@ -2509,6 +2551,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
     final freezeRequestSafeStop =
         _orderControlState == AdminOrderControlState.freezeRequested;
+    if (action == 'complete' &&
+        widget.apparatus?.operation.trim() == 'laminate' &&
+        !freezeRequestSafeStop &&
+        !workerHandoff &&
+        !removeRollFromApparatus &&
+        !_isTrainingOrder &&
+        !await TestModeController.instance.isEnabled()) {
+      if (!mounted) return _ProgressActionOutcome.cancelled;
+      return _runIntegratedLaminationAstatka(
+        completeStage: true,
+        fullCompletionReportRequired:
+            fullCompletionReportRequired ?? _completionNeedsFullReport(action),
+      );
+    }
     final freezeRequest =
         freezeRequestSafeStop ? await _loadAuthoritativeFreezeRequest() : null;
     if (freezeRequestSafeStop && freezeRequest == null) {

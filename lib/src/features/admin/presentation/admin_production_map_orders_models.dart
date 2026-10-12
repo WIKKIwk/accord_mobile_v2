@@ -237,6 +237,7 @@ class _PreparedReadOnlyQueueAction {
     required this.scannedMaterialBarcodes,
     required this.startInputBatchId,
     required this.startInputQrPayload,
+    this.resumeMaterialScanRequired = false,
     this.blockReason,
   });
   final AdminApparatus apparatus;
@@ -245,6 +246,7 @@ class _PreparedReadOnlyQueueAction {
   final Set<String> scannedMaterialBarcodes;
   final String startInputBatchId;
   final String startInputQrPayload;
+  final bool resumeMaterialScanRequired;
   final String? blockReason;
 }
 

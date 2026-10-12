@@ -275,6 +275,57 @@ const _app_localizations_declarations__productionTranslations_resplitPart03 = {
     'en': '{name} material was scanned.',
     'ru': 'Сырье «{name}» отсканировано.',
   },
+  'worker.qr.material.assigned_context': {
+    'uz':
+        'Bu xomashyo {order} buyurtmaning {apparatus} apparatiga biriktirilgan.',
+    'en': 'This material is assigned to order {order} on {apparatus}.',
+    'ru': 'Это сырьё назначено заказу {order} на аппарате {apparatus}.',
+  },
+  'worker.qr.material.wrong_context': {
+    'uz':
+        'Xomashyo ochilgan buyurtma yoki apparatga biriktirilmagan. Uni yuqorida ko‘rsatilgan buyurtma va apparatda skanerlang.',
+    'en':
+        'This material is not assigned to the open order and machine. Scan it on the order and machine shown above.',
+    'ru':
+        'Сырьё не назначено открытому заказу и аппарату. Сканируйте его в указанном выше заказе и аппарате.',
+  },
+  'worker.qr.material.awaiting_delivery': {
+    'uz':
+        'Xomashyo hali apparat oldiga qabul qilinmagan. Uni shu apparatga yetkazib, qabul qilganingizdan so‘ng qayta skanerlang.',
+    'en':
+        'The material has not yet been received at the machine. Deliver and receive it at this machine, then scan again.',
+    'ru':
+        'Сырьё ещё не принято у аппарата. Доставьте и примите его у этого аппарата, затем сканируйте снова.',
+  },
+  'worker.qr.material.unavailable': {
+    'uz':
+        'Xomashyo hozir qabul qilishga mavjud emas yoki boshqa buyurtma uchun band qilingan. Holatini ta’minotchi bilan tekshiring.',
+    'en':
+        'The material is unavailable for receipt or reserved for another order. Check its status with the material supplier.',
+    'ru':
+        'Сырьё недоступно для приёмки или зарезервировано для другого заказа. Уточните статус у снабженца.',
+  },
+  'worker.qr.material.merge_scan': {
+    'uz':
+        'Birlash jarayoni bosmadan yoki oldingi bosqichdan kelgan WIP rulonini kutmoqda. Xomashyoni qabul qilish uchun birlash skanerini yopib, xomashyo qabul qilishni oching.',
+    'en':
+        'Joining expects a WIP roll from printing or the previous stage. Close the joining scanner and open material receipt to receive this material.',
+    'ru':
+        'Объединение ожидает WIP-рулон из печати или предыдущего этапа. Закройте сканер объединения и откройте приёмку сырья.',
+  },
+  'worker.qr.material.scan_ready': {
+    'uz':
+        'Xomashyo aniqlandi. Uni qabul qilish yoki ish boshlash uchun buyurtmaning xomashyo skanerlash oynasidan foydalaning.',
+    'en':
+        'Material identified. Use the order’s material scanner to receive it or start work.',
+    'ru':
+        'Сырьё найдено. Используйте сканер сырья в заказе для приёмки или начала работы.',
+  },
+  'worker.qr.material.receipt_unavailable': {
+    'uz': 'Buyurtmaning shu apparatdagi joriy holatida xomashyo qabul qilish mumkin emas. Ish holatini tekshiring.',
+    'en': 'The order’s current state on this machine does not allow material receipt. Check the work status.',
+    'ru': 'Текущее состояние заказа на этом аппарате не позволяет принять сырьё. Проверьте состояние работы.',
+  },
   'worker.qr.material.recorded': {
     'uz': '{name} {quantity} miqdorda qayd qilingan.',
     'en': '{name} recorded quantity: {quantity}.',

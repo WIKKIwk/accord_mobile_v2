@@ -248,7 +248,9 @@ _ReadOnlyQueueActionRequest _readOnlyQueueActionRequest({
     order: order,
     action: action,
     materialBarcodes: _queueActionMaterialBarcodes(
-      action: action,
+      action: action == 'resume' && prepared.resumeMaterialScanRequired
+          ? 'start'
+          : action,
       assignments: prepared.materialAssignments,
       scannedBarcodes: prepared.scannedMaterialBarcodes,
     ),
@@ -508,8 +510,14 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
     scannedMaterialBarcodes: Set<String>.unmodifiable(scannedMaterialBarcodes),
     startInputBatchId: startInputBatchId,
     startInputQrPayload: startInputQrPayload,
+    resumeMaterialScanRequired:
+        action == 'resume' && interaction.materialScanRequired,
     blockReason: _queueActionStartBlockReason(
-      action: action,
+      action: action == 'resume' &&
+              (interaction.resumeInputRequired ||
+                  interaction.materialScanRequired)
+          ? 'start'
+          : action,
       orderWidthMm: orderWidthMm,
       materialRequirements: materialRequirements,
       materialsLoading: materialsLoading,

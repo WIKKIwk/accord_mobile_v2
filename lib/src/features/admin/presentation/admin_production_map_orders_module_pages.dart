@@ -991,7 +991,6 @@ enum _LaminatsiyaWorkerLongPressChoice {
   finishWork,
   continueRoll,
   removeRoll,
-  layerRemainder,
 }
 
 enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport }
@@ -1043,11 +1042,11 @@ class _BosmaWorkerFinishSheet extends StatelessWidget {
 class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
   const _LaminatsiyaWorkerFinishSheet({
     this.isRezka = false,
-    this.showLayerRemainder = false,
+    this.isLamination = false,
   });
 
   final bool isRezka;
-  final bool showLayerRemainder;
+  final bool isLamination;
 
   @override
   Widget build(BuildContext context) {
@@ -1073,7 +1072,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              context.l10n.productionText('worker.finish.description'),
+              context.l10n.productionText(isLamination
+                  ? 'worker.lamination_astatka.description'
+                  : 'worker.finish.description'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
                 height: 1.35,
@@ -1087,20 +1088,6 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
               icon: const Icon(Icons.logout_rounded),
               label: Text(title),
             ),
-            if (showLayerRemainder) ...[
-              const SizedBox(height: 12),
-              Text(context.l10n
-                  .productionText('worker.layer_remainder.action_description')),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                key: const ValueKey('lamination-layer-remainder-action'),
-                onPressed: () => Navigator.of(context)
-                    .pop(_LaminatsiyaWorkerLongPressChoice.layerRemainder),
-                icon: const Icon(Icons.layers_outlined),
-                label: Text(context.l10n
-                    .productionText('worker.layer_remainder.title')),
-              ),
-            ],
           ],
         ),
       ),
@@ -1109,9 +1096,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
 }
 
 class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
-  const _LaminatsiyaWorkerHandoffSheet({this.showLayerRemainder = false});
+  const _LaminatsiyaWorkerHandoffSheet({this.showAstatka = false});
 
-  final bool showLayerRemainder;
+  final bool showAstatka;
 
   @override
   Widget build(BuildContext context) {
@@ -1158,15 +1145,15 @@ class _LaminatsiyaWorkerHandoffSheet extends StatelessWidget {
                 context.l10n.productionText('worker.handoff.detach'),
               ),
             ),
-            if (showLayerRemainder) ...[
+            if (showAstatka) ...[
               const SizedBox(height: 10),
               OutlinedButton.icon(
-                key: const ValueKey('lamination-layer-remainder-action'),
+                key: const ValueKey('lamination-astatka-action'),
                 onPressed: () => Navigator.of(context)
-                    .pop(_LaminatsiyaWorkerLongPressChoice.layerRemainder),
+                    .pop(_LaminatsiyaWorkerLongPressChoice.finishWork),
                 icon: const Icon(Icons.layers_outlined),
                 label: Text(context.l10n
-                    .productionText('worker.layer_remainder.title')),
+                    .productionText('worker.laminatsiya.astatka.title')),
               ),
             ],
           ],

@@ -405,8 +405,10 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'ru': 'Примечание WIP',
   },
   'worker.layer_remainder.action_description': {
-    'uz': 'Alohida qavatdan ortgan rulonning sof vaznini qayd etib, unga yangi QR chiqarish.',
-    'en': 'Record the net weight of a remaining input layer and issue its new QR.',
+    'uz':
+        'Alohida qavatdan ortgan rulonning sof vaznini qayd etib, unga yangi QR chiqarish.',
+    'en':
+        'Record the net weight of a remaining input layer and issue its new QR.',
     'ru': 'Записать вес нетто оставшегося входного слоя и выдать новый QR.',
   },
   'worker.layer_remainder.title': {
@@ -460,9 +462,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'ru': 'Нет данных о весе нетто или метраже',
   },
   'worker.layer_remainder.empty': {
-    'uz': 'Qoldiq qayd etiladigan qavat topilmadi. Xomashyo qoldig‘ini kiritishdan oldin ishni tugating.',
-    'en': 'No eligible input rolls for this order. Finish the job before returning raw material.',
-    'ru': 'Нет доступных входных рулонов для этой заявки. Перед возвратом сырья завершите работу.',
+    'uz':
+        'Qoldiq qayd etiladigan qavat topilmadi. Xomashyo qoldig‘ini kiritishdan oldin ishni tugating.',
+    'en':
+        'No eligible input rolls for this order. Finish the job before returning raw material.',
+    'ru':
+        'Нет доступных входных рулонов для этой заявки. Перед возвратом сырья завершите работу.',
   },
   'worker.layer_remainder.failed': {
     'uz': 'Qavat astatkasini saqlab bo‘lmadi. Qayta urining.',
@@ -526,5 +531,127 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'uz': 'Yopish',
     'en': 'Close',
     'ru': 'Закрыть',
+  },
+  'worker.lamination_astatka.description': {
+    'uz':
+        'Smena natijasi va har bir qavat qoldig‘i birgalikda qayd etiladi. Ish pauzaga o‘tadi, buyurtmaning laminatsiya bosqichi ochiq qoladi.',
+    'en':
+        'Record the shift output and each layer’s remainder together. Work pauses and the order’s lamination stage stays open.',
+    'ru':
+        'Результат смены и остаток каждого слоя записываются вместе. Работа приостанавливается, этап ламинации заказа остаётся открытым.',
+  },
+  'worker.lamination_astatka.active_instruction': {
+    'uz':
+        'Shu smenada tayyorlangan rulonning metraji, umumiy vazni, babinasi va chiqindisini kiriting. Quyida barcha qavatlarning qoldig‘ini ko‘rsating.',
+    'en':
+        'Enter this shift’s output length, gross weight, core weight and waste. Report every input layer’s remainder below.',
+    'ru':
+        'Введите метраж, вес брутто, вес втулки и отходы продукции этой смены. Ниже укажите остаток каждого входного слоя.',
+  },
+  'worker.lamination_astatka.paused_instruction': {
+    'uz':
+        'Ish pauzada. Oldin topshirilgan mahsulot qayta hisoblanmaydi. Qavat qoldiqlari va chiqindini kiriting.',
+    'en':
+        'Work is paused. Previously recorded output is not counted again. Enter the layer remainders and waste.',
+    'ru':
+        'Работа приостановлена. Ранее сданная продукция повторно не учитывается. Укажите остатки слоёв и отходы.',
+  },
+  'worker.lamination_astatka.layers_instruction': {
+    'uz':
+        'Har bir qavat uchun sof qoldiq kg ni kiriting. Tugagan qavatga 0 kiriting. Bir nechta qavatda qoldiq qolishi mumkin; babina vaznini qo‘shmang.',
+    'en':
+        'Enter the remaining net kg for every layer. Enter 0 for an exhausted layer. Several layers may have remainders; exclude core weight.',
+    'ru':
+        'Введите вес нетто остатка каждого слоя. Для законченного слоя укажите 0. Остатки могут быть у нескольких слоёв; вес втулки не включайте.',
+  },
+  'worker.lamination_astatka.layer_required': {
+    'uz':
+        'Qoldiq kg ni kiriting: tugagan bo‘lsa 0, aks holda asl sof vazndan oshmagan qiymat.',
+    'en':
+        'Enter remaining kg: 0 if exhausted, otherwise no more than the source net weight.',
+    'ru':
+        'Введите остаток в кг: 0 для законченного слоя, иначе не больше исходного веса нетто.',
+  },
+  'worker.lamination_astatka.output_required': {
+    'uz':
+        'Tayyor mahsulot metraji, umumiy vazni va babinasini kiriting. Umumiy vazn babinadan katta bo‘lishi kerak.',
+    'en':
+        'Enter output length, gross weight and core weight. Gross weight must exceed core weight.',
+    'ru':
+        'Введите метраж, вес брутто и вес втулки продукции. Вес брутто должен превышать вес втулки.',
+  },
+  'worker.lamination_astatka.pending': {
+    'uz':
+        'Oldingi Astatka so‘rovining javobi olinmagan. Qayta urinish aynan shu hisobotni tekshiradi; mahsulot va qoldiq takroriy qo‘shilmaydi.',
+    'en':
+        'The previous Astatka response was not received. Retry submits the same report; output and remainders are not added twice.',
+    'ru':
+        'Ответ на предыдущий отчёт об остатках не получен. Повторная попытка отправит тот же отчёт без повторного учёта продукции и остатков.',
+  },
+  'worker.lamination_astatka.saved': {
+    'uz':
+        'Astatka saqlandi. Buyurtma bosqichi ochiq, ish pauzada. Davom ettirish uchun qoldiq yoki yangi kiruvchi rulon QR larini scan qiling.',
+    'en':
+        'Astatka saved. The order stage remains open and work is paused. Scan remaining or new input rolls to continue.',
+    'ru':
+        'Отчёт сохранён. Этап заказа открыт, работа приостановлена. Для продолжения сканируйте QR остатков или новых входных рулонов.',
+  },
+  'worker.lamination_astatka.history_empty': {
+    'uz': 'Qavat qoldig‘i hali qayd etilmagan.',
+    'en': 'No layer remainders have been recorded.',
+    'ru': 'Остатки слоёв ещё не записаны.',
+  },
+  'worker.lamination_astatka.resume_scan': {
+    'uz':
+        'Davom ettirish uchun kiruvchi rulon QR ini va kerakli laminatsiya xomashyosini scan qiling.',
+    'en':
+        'Scan the input roll QR and required lamination materials to continue.',
+    'ru':
+        'Для продолжения сканируйте QR входного рулона и необходимое сырьё для ламинации.',
+  },
+  'worker.lamination_astatka.completed_instruction': {
+    'uz':
+        'Bosqich tugallangan. Mahsulot qayta hisoblanmaydi. Qolgan qavatlar va chiqindi hisobotini kiriting.',
+    'en':
+        'The stage is completed. Output is not counted again. Enter the remaining layers and waste report.',
+    'ru':
+        'Этап завершён. Продукция повторно не учитывается. Укажите остатки слоёв и отчёт об отходах.',
+  },
+  'worker.lamination_astatka.saved_completed': {
+    'uz': 'Astatka saqlandi. Oldin topshirilgan mahsulot qayta qo‘shilmadi.',
+    'en': 'Astatka saved. Previously recorded output was not added again.',
+    'ru': 'Отчёт сохранён. Ранее сданная продукция повторно не добавлена.',
+  },
+  'worker.lamination_astatka.sources_missing': {
+    'uz':
+        'Apparatdagi qavatlar aniqlanmadi. Hisobotni yuborishdan oldin kiruvchi rulon va xomashyo ma’lumotlarini yangilang.',
+    'en':
+        'The mounted layers could not be identified. Refresh the input roll and material details before submitting the report.',
+    'ru':
+        'Не удалось определить слои на аппарате. Перед отправкой отчёта обновите данные входного рулона и сырья.',
+  },
+  'worker.lamination_complete.instruction': {
+    'uz':
+        'Oxirgi tayyor rulon ma’lumotlarini va har bir kiruvchi qavatning sof qoldiq kg ni kiriting. Tugatish hisoboti va qoldiqlar birga saqlanadi; qoldiq metraji avtomatik hisoblanib, QR yorlig‘i chiqariladi.',
+    'en':
+        'Enter the final output roll and the remaining net kg of every input layer. Completion and remainders are saved together; remaining length is calculated automatically and QR labels are printed.',
+    'ru':
+        'Введите данные последнего готового рулона и остаток нетто каждого входного слоя. Завершение и остатки сохраняются вместе; метраж остатка рассчитывается автоматически, печатаются QR-этикетки.',
+  },
+  'worker.lamination_complete.pending': {
+    'uz':
+        'Oldingi tugatish so‘rovining javobi olinmagan. Qayta urinish aynan shu hisobotni tekshiradi; mahsulot va qoldiq takroriy qo‘shilmaydi.',
+    'en':
+        'The previous completion response was not received. Retry checks the same report without adding output or remainders twice.',
+    'ru':
+        'Ответ на предыдущий запрос завершения не получен. Повторная попытка проверит тот же отчёт без повторного учёта продукции и остатков.',
+  },
+  'worker.lamination_complete.saved': {
+    'uz':
+        'Tugatish hisoboti va qavat qoldiqlari saqlandi. Qoldiqlar yangi ishlab chiqarilgan mahsulot sifatida hisoblanmadi.',
+    'en':
+        'Completion and layer remainders saved. Remainders were not counted as newly produced output.',
+    'ru':
+        'Завершение и остатки слоёв сохранены. Остатки не учитываются как новая произведённая продукция.',
   },
 };

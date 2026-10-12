@@ -1138,7 +1138,13 @@ class _AdminProductionMapOrdersScreenState
         }
         await _showWorkerQrGuidance(
           context,
-          context.l10n.productionText('worker.error.assigned_machine'),
+          _workerWipRouteGuidance(
+            l10n: context.l10n,
+            wip: wip,
+            map: targetOrder.map,
+            apparatus: _apparatus,
+            consumers: candidates,
+          ),
           icon: Icons.warning_amber_rounded,
           tone: AdminTopNoticeTone.error,
         );
@@ -1242,7 +1248,11 @@ class _AdminProductionMapOrdersScreenState
           targetControl?.interaction?.mode ==
               AdminQueueInteractionMode.freshStartBlocked &&
           targetControl?.interaction?.blockingReasonCode == 'apparatus_busy';
-      if (targetControl?.allows('start') != true && !canPrepareSwitch) {
+      final canResumeWithInput = targetControl?.allows('resume') == true &&
+          targetControl?.interaction?.resumeInputRequired == true;
+      if (targetControl?.allows('start') != true &&
+          !canResumeWithInput &&
+          !canPrepareSwitch) {
         final busyIsOther =
             currentOrder != null && currentOrder.map.id.trim() != targetOrderId;
         await _showWorkerQrGuidance(
@@ -1651,7 +1661,7 @@ class _AdminProductionMapOrdersScreenState
           useSafeArea: true,
           showDragHandle: true,
           builder: (_) => _LaminatsiyaWorkerHandoffSheet(
-              showLayerRemainder: operation == 'laminate'),
+              showAstatka: operation == 'laminate'),
         );
         if (!mounted) return;
         switch (choice) {
@@ -1667,9 +1677,12 @@ class _AdminProductionMapOrdersScreenState
               order: order,
               startRollRemovalOnOpen: true,
             );
-          case _LaminatsiyaWorkerLongPressChoice.layerRemainder:
-            await _showLayerRemainder(apparatus: apparatus, order: order);
           case _LaminatsiyaWorkerLongPressChoice.finishWork:
+            _showWatchOrderDetail(
+              apparatus: apparatus,
+              order: order,
+              startAstatkaOnOpen: true,
+            );
           case null:
             break;
         }
@@ -1687,14 +1700,10 @@ class _AdminProductionMapOrdersScreenState
         showDragHandle: true,
         builder: (_) => _LaminatsiyaWorkerFinishSheet(
           isRezka: operation == 'cut',
-          showLayerRemainder: operation == 'laminate',
+          isLamination: operation == 'laminate',
         ),
       );
       if (!mounted || choice == null) return;
-      if (choice == _LaminatsiyaWorkerLongPressChoice.layerRemainder) {
-        await _showLayerRemainder(apparatus: apparatus, order: order);
-        return;
-      }
       if (choice != _LaminatsiyaWorkerLongPressChoice.finishWork) return;
       _showWatchOrderDetail(
         apparatus: apparatus,
@@ -1703,24 +1712,6 @@ class _AdminProductionMapOrdersScreenState
       );
       return;
     }
-  }
-
-  Future<void> _showLayerRemainder({
-    required AdminApparatus apparatus,
-    required ProductionMapSaved order,
-  }) async {
-    await showModalBottomSheet<bool>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (_) => LaminationLayerRemainderSheet(
-        apparatus: apparatus.id,
-        orderId: order.map.id,
-        progressDriverUrlPicker: widget.progressDriverUrlPicker,
-      ),
-    );
-    if (mounted) await _refreshLive();
   }
 
   Future<void> _showSupplyRawMaterialAssignment(

@@ -199,8 +199,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 fallback: context.l10n
                     .productionText('worker.queue.action_unavailable'),
               );
-    final showRezkaInputProgressScan =
-        uiState.previousProgressRequired && uiState.showStart;
+    final showRezkaInputProgressScan = uiState.previousProgressRequired &&
+        (uiState.showStart || uiState.showResume);
     final hasIntakeCandidates = uiState.intakeCandidateAssignments.isNotEmpty;
     final showMaterialIntake =
         uiState.materialIntakeAllowed && hasIntakeCandidates;
@@ -996,8 +996,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                         const SizedBox(height: 10),
                         FilledButton.icon(
                           onPressed: actionInFlight ||
-                                  (requiresQolipScan && (!qolipScanned || !qolipRequirementsLoaded))
-                              ? null : onResume,
+                                  !materialStartReady ||
+                                  !uiState.previousProgressReady ||
+                                  (requiresQolipScan &&
+                                      (!qolipScanned ||
+                                          !qolipRequirementsLoaded))
+                              ? null
+                              : onResume,
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: Text(
                             context.l10n.productionText('worker.action.resume'),

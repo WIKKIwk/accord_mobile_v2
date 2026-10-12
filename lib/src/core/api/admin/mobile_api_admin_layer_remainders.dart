@@ -1,6 +1,6 @@
 part of '../mobile_api.dart';
 
-/// A physical input roll, rather than the order-level astatka report.
+/// A physical input roll included in the lamination Astatka report.
 class AdminLayerRemainderSource {
   const AdminLayerRemainderSource({
     required this.sourceKind,
@@ -186,7 +186,144 @@ class AdminLayerRemainderResult {
   }
 }
 
+class AdminLaminationAstatkaSnapshot {
+  const AdminLaminationAstatkaSnapshot({
+    required this.sessionId,
+    required this.sessionStatus,
+    this.sources = const [],
+    this.requestResult,
+  });
+
+  final String sessionId;
+  final String sessionStatus;
+  final List<AdminLayerRemainderSource> sources;
+  final AdminLaminationAstatkaResult? requestResult;
+  bool get outputRequired => sessionStatus == 'active';
+
+  factory AdminLaminationAstatkaSnapshot.fromJson(Map<String, dynamic> json) {
+    final session = json['session'];
+    final saved = json['request_result'];
+    return AdminLaminationAstatkaSnapshot(
+      sessionId: session is Map ? session['session_id']?.toString() ?? '' : '',
+      sessionStatus: session is Map ? session['status']?.toString() ?? '' : '',
+      sources: [
+        if (json['sources'] is List)
+          for (final source in json['sources'] as List)
+            AdminLayerRemainderSource.fromJson(
+                (source as Map).cast<String, dynamic>()),
+      ],
+      requestResult: saved is Map
+          ? AdminLaminationAstatkaResult.fromJson(saved.cast<String, dynamic>())
+          : null,
+    );
+  }
+}
+
+class AdminLaminationAstatkaResult {
+  const AdminLaminationAstatkaResult({
+    this.action = 'pause',
+    this.sessionStatus = '',
+    this.remainders = const [],
+    this.progressBatches = const [],
+    this.prints = const [],
+  });
+
+  final String action;
+  final String sessionStatus;
+  final List<AdminLayerRemainder> remainders;
+  final List<AdminProgressBatch> progressBatches;
+  final List<Map<String, dynamic>> prints;
+
+  factory AdminLaminationAstatkaResult.fromJson(Map<String, dynamic> json) {
+    final action = json['action']?.toString() ?? 'pause';
+    if (json['ok'] != true ||
+        (action != 'pause' && action != 'complete') ||
+        (action == 'pause' && json['report'] is! Map) ||
+        (action == 'complete' &&
+            (json['session'] is! Map ||
+                (json['session'] as Map)['status'] != 'completed'))) {
+      throw const MobileApiException(
+        code: 'laminatsiya_astatka_invalid_response',
+        message: 'Astatka qaydi javobi noto‘g‘ri',
+      );
+    }
+    final session = json['session'];
+    return AdminLaminationAstatkaResult(
+      action: action,
+      sessionStatus: session is Map ? session['status']?.toString() ?? '' : '',
+      remainders: [
+        if (json['remainders'] is List)
+          for (final value in json['remainders'] as List)
+            AdminLayerRemainder.fromJson(
+                (value as Map).cast<String, dynamic>()),
+      ],
+      progressBatches: [
+        if (json['progress_batches'] is List)
+          for (final value in json['progress_batches'] as List)
+            AdminProgressBatch.fromJson((value as Map).cast<String, dynamic>()),
+      ],
+      prints: [
+        if (json['prints'] is List)
+          for (final value in json['prints'] as List)
+            (value as Map).cast<String, dynamic>(),
+      ],
+    );
+  }
+}
+
 extension MobileApiAdminLayerRemainders on MobileApi {
+  Future<AdminLaminationAstatkaSnapshot> adminLaminationAstatkaSnapshot({
+    required String apparatus,
+    required String orderId,
+    String requestId = '',
+  }) async {
+    _validateLayerRemainderContext(apparatus, orderId);
+    final response = await _sendAuthorized(() => _get(
+          Uri.parse(
+                  '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/laminatsiya-astatka')
+              .replace(queryParameters: {
+            'apparatus': apparatus.trim(),
+            'order_id': orderId.trim(),
+            if (requestId.trim().isNotEmpty) 'request_id': requestId.trim(),
+          }),
+          headers: _headers(requireToken()),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+          response, 'laminatsiya_astatka_report_failed');
+    }
+    return AdminLaminationAstatkaSnapshot.fromJson(
+        await decodeJsonMapPayload(response.body));
+  }
+
+  /// The caller persists this complete request before sending it. Retries must
+  /// retain its request ID and quantities, including explicit zero dispositions.
+  Future<AdminLaminationAstatkaResult> adminSubmitLaminationAstatka(
+      Map<String, dynamic> request) async {
+    _validateLayerRemainderContext(request['apparatus']?.toString() ?? '',
+        request['order_id']?.toString() ?? '');
+    if (request['request_id']?.toString().trim().isNotEmpty != true ||
+        request['session_id']?.toString().trim().isNotEmpty != true ||
+        request['layer_remainders'] is! List) {
+      throw const MobileApiException(
+          code: 'laminatsiya_astatka_metrics_required',
+          message: 'Astatka hisobotini to‘liq kiriting');
+    }
+    final response = await _sendAuthorized(() => _post(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/laminatsiya-astatka'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode(request),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+          response, 'laminatsiya_astatka_report_failed');
+    }
+    return AdminLaminationAstatkaResult.fromJson(
+        await decodeJsonMapPayload(response.body));
+  }
+
   Future<AdminLayerRemainderSnapshot> adminLayerRemainders({
     required String apparatus,
     required String orderId,

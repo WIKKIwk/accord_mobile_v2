@@ -56,6 +56,7 @@ class AdminQueueWorkerInteraction {
     required this.qolipMode,
     this.openingWipMode = AdminQueuePreviousWipMode.notRequired,
     this.blockingReasonCode = '',
+    this.resumeInputRequired = false,
   });
 
   final AdminQueueInteractionMode mode;
@@ -67,6 +68,7 @@ class AdminQueueWorkerInteraction {
   final AdminQueueQolipMode qolipMode;
   final AdminQueuePreviousWipMode openingWipMode;
   final String blockingReasonCode;
+  final bool resumeInputRequired;
 
   static AdminQueueWorkerInteraction? tryFromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -104,6 +106,7 @@ class AdminQueueWorkerInteraction {
       qolipMode: qolipMode,
       openingWipMode: openingWipMode,
       blockingReasonCode: json['blocking_reason_code']?.toString().trim() ?? '',
+      resumeInputRequired: json['resume_input_required'] == true,
     );
   }
 }

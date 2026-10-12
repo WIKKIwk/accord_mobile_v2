@@ -295,6 +295,31 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'The next stage for this roll is not performed on your assigned machines. Please ask an admin to check your machine assignment.',
     'ru': 'Следующий этап этого рулона не выполняется на назначенных вам аппаратах. Попросите администратора проверить назначение аппарата.',
   },
+  'worker.qr.route_source_destination': {
+    'uz': 'Bu rulon {source}dan chiqqan va {destination} uchun mo‘ljallangan.',
+    'en': 'This roll was produced on {source} and is intended for {destination}.',
+    'ru': 'Этот рулон выпущен на {source} и предназначен для {destination}.',
+  },
+  'worker.qr.route_destination': {
+    'uz': 'Bu rulon {destination} uchun mo‘ljallangan.',
+    'en': 'This roll is intended for {destination}.',
+    'ru': 'Этот рулон предназначен для {destination}.',
+  },
+  'worker.qr.wrong_stage_expected_input': {
+    'uz': 'Uni {current}da kiruvchi rulon sifatida ishlatib bo‘lmaydi. {expected}dan kelgan, hali ishlatilmagan rulon QR’ini skanerlang.',
+    'en': 'It cannot be used as an input roll on {current}. Scan the QR of an unused roll from {expected}.',
+    'ru': 'Его нельзя использовать как входящий рулон на {current}. Отсканируйте QR неиспользованного рулона с {expected}.',
+  },
+  'worker.qr.wrong_stage': {
+    'uz': 'Uni {current}da kiruvchi rulon sifatida ishlatib bo‘lmaydi. Shu apparat uchun mo‘ljallangan QR’ni skanerlang.',
+    'en': 'It cannot be used as an input roll on {current}. Scan a QR intended for this machine.',
+    'ru': 'Его нельзя использовать как входящий рулон на {current}. Отсканируйте QR, предназначенный для этого аппарата.',
+  },
+  'worker.qr.route_unassigned': {
+    'uz': 'Sizga {destination} bosqichidagi apparat biriktirilmagan. Shu bosqichdagi operatorga topshiring yoki apparat biriktirilishini admin bilan tekshiring.',
+    'en': 'You have no assigned machine for {destination}. Give the roll to that stage’s operator or ask an admin to check your assignment.',
+    'ru': 'Вам не назначен аппарат для этапа {destination}. Передайте рулон оператору этого этапа или уточните назначение у администратора.',
+  },
   'worker.qr.freeze_requested': {
     'uz': 'Buyurtmani muzlatish so‘ralgan. Yangi ish boshlash mumkin emas. Iltimos, buyurtma holatini aniqlashtirish uchun adminga murojaat qiling.',
     'en': 'A freeze has been requested for this order. New work cannot start. Please contact an admin to clarify its status.',
