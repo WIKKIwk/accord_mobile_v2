@@ -1,6 +1,30 @@
 part of 'app_localizations.dart';
 
 const _qrHistoryTranslations = {
+  'worker.wip.info.gross_weight': {
+    'uz': 'Brutto',
+    'en': 'Gross weight',
+    'ru': 'Брутто',
+    'ur': 'مجموعی وزن',
+  },
+  'worker.wip.info.net_weight': {
+    'uz': 'Netto',
+    'en': 'Net weight',
+    'ru': 'Нетто',
+    'ur': 'خالص وزن',
+  },
+  'worker.wip.info.produced_by': {
+    'uz': 'Chiqargan xodim',
+    'en': 'Produced by',
+    'ru': 'Выпустил',
+    'ur': 'تیار کرنے والا',
+  },
+  'worker.wip.info.epc': {
+    'uz': 'EPC kodi',
+    'en': 'EPC code',
+    'ru': 'Код EPC',
+    'ur': 'EPC کوڈ',
+  },
   'worker.qr.history.resources': {
     'uz': 'Xomashyo va qolip',
     'en': 'Materials and plates',

@@ -151,8 +151,23 @@ void _registerWorkerMapWipTests() {
               findsNothing);
           expect(
               find.descendant(
-                  of: details, matching: find.text('400000000000000000000001')),
-              findsNothing);
+                  of: details,
+                  matching: find.text(ownSource
+                      ? '4000 0000 0000 0000 0000 0001'
+                      : '4000 0000 0000 0000 0000 0002')),
+              findsOneWidget);
+          for (final visible in [
+            'Brutto',
+            'Netto',
+            '90.5 kg',
+            '89.25 kg',
+            'Chiqargan xodim',
+            'Akmal Rahimov',
+            'EPC kodi',
+          ]) {
+            expect(find.descendant(of: details, matching: find.text(visible)),
+                findsOneWidget);
+          }
           final reprint =
               find.byKey(ValueKey('worker-wip-history-reprint-$source'));
           expect(reprint, canReprint ? findsOneWidget : findsNothing);
@@ -238,9 +253,14 @@ void _registerWorkerMapWipTests() {
                                 : 'other-worker',
                             'label_item_name':
                                 'Output apparatus:$station complete',
-                            'payload_json': scenario == 'opening'
-                                ? {'input_wip_source_kind': 'opening_wip'}
-                                : {},
+                            'worker_display_name': 'Akmal Rahimov',
+                            'finished_goods_kg': 88,
+                            'bobina_kg': 1.25,
+                            'payload_json': {
+                              'gross_qty': 90.5,
+                              if (scenario == 'opening')
+                                'input_wip_source_kind': 'opening_wip',
+                            },
                             'action': 'complete',
                             'status': 'completed',
                             'wip_status':

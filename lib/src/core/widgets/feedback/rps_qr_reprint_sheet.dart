@@ -24,6 +24,7 @@ class RpsQrReprintSheet extends StatefulWidget {
     required this.errorMessage,
     this.title = 'Chop etilgan QR',
     this.itemHeader,
+    this.detailsContent,
     this.showPayload = true,
     this.successMessage = 'Mavjud QR qayta chop etildi',
     this.previewKey,
@@ -40,6 +41,7 @@ class RpsQrReprintSheet extends StatefulWidget {
   final bool showPayload;
   final String itemName;
   final Widget? itemHeader;
+  final Widget? detailsContent;
   final List<RpsQrDetail> details;
   final Future<String?> Function()? onReprint;
   final String Function(Object error) errorMessage;
@@ -226,8 +228,11 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                 ),
               ],
               const SizedBox(height: 16),
-              for (final detail in widget.details)
-                _RpsQrDetailLine(label: detail.label, value: detail.value),
+              if (widget.detailsContent != null)
+                widget.detailsContent!
+              else
+                for (final detail in widget.details)
+                  _RpsQrDetailLine(label: detail.label, value: detail.value),
               if (_errorText != null) ...[
                 const SizedBox(height: 12),
                 Text(

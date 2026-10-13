@@ -284,10 +284,17 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
           'worker-wip-history-reprint-${batch.batchId}',
         ),
         details: widget.workerMode
-            ? _workerWipCompactDetails(
-                batch, sheetContext.l10n, widget.apparatusCatalog)
+            ? const []
             : _workerWipReprintDetails(
                 batch, sheetContext.l10n, widget.apparatusCatalog),
+        detailsContent: widget.workerMode
+            ? WorkerWipDetails(
+                batch: batch,
+                apparatusCatalog: widget.apparatusCatalog,
+                statusLabel: _workerWipStatusLabel(batch, sheetContext.l10n),
+                viewer: AppSession.instance.profile,
+              )
+            : null,
         onReprint: _canReprintWip(batch) ? () => _reprintWip(batch) : null,
         errorMessage: (error) => error is MobileApiException
             ? error.message
@@ -546,47 +553,6 @@ List<AdminProgressBatch> _mergeWorkerWipBatches(
     return byTime != 0 ? byTime : right.batchId.compareTo(left.batchId);
   });
   return merged;
-}
-
-List<RpsQrDetail> _workerWipCompactDetails(
-  AdminProgressBatch batch,
-  AppLocalizations l10n,
-  List<AdminApparatus> apparatusCatalog,
-) {
-  String displayApparatus(String value) {
-    final label =
-        canonicalApparatusDisplayLabel(value, apparatusCatalog).trim();
-    return label.contains('apparatus:') ? '' : label;
-  }
-
-  final source = displayApparatus(batch.apparatus);
-  final current = displayApparatus(_workerWipFirstNotEmpty([
-    batch.currentApparatus,
-    batch.currentLocation,
-  ]));
-  return [
-    RpsQrDetail(
-      l10n.productionText('worker.wip.info.quantity'),
-      formatQuantityWithUnit(
-        batch.producedQty,
-        batch.uom,
-        trimTrailingZeros: true,
-      ),
-    ),
-    RpsQrDetail(
-      l10n.productionText('worker.daily.status'),
-      _workerWipStatusLabel(batch, l10n),
-    ),
-    if (source.isNotEmpty)
-      RpsQrDetail(l10n.productionText('worker.wip.info.source'), source),
-    if (current.isNotEmpty && current != source)
-      RpsQrDetail(l10n.productionText('worker.wip.info.location'), current),
-    if (batch.completedAtUnix > 0)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.finished'),
-        formatUnixSecondsLocalDateTime(batch.completedAtUnix),
-      ),
-  ];
 }
 
 List<RpsQrDetail> _workerWipReprintDetails(
