@@ -85,8 +85,14 @@ Future<void> showScreen(
 }
 
 Finder get accept => find.byKey(const ValueKey('werka-paddon-receive'));
+Future<void> reveal(WidgetTester tester, Finder target, {double delta = 300}) async {
+  await tester.scrollUntilVisible(target, delta, scrollable: find.descendant(
+      of: find.byType(AparatchiPaddonDetailScreen),
+      matching: find.byType(Scrollable)).first);
+  await tester.pumpAndSettle();
+}
 Future<void> confirm(WidgetTester tester) async {
-  await tester.ensureVisible(accept);
+  await reveal(tester, accept);
   await tester.tap(accept);
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('werka-paddon-confirm')));
@@ -133,16 +139,18 @@ void main() {
         findsOneWidget);
     expect(find.descendant(of: creator, matching: find.text('Qobil')),
         findsOneWidget);
-    expect(find.text('Rezka 1'), findsOneWidget);
+    expect(find.text('Rezka 1'), findsWidgets);
     expect(find.text('Buyurtma: — - Avella 120 sht'), findsNWidgets(2));
     expect(find.textContaining('apparatus:'), findsNothing);
     expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
     expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
-    expect(find.text('EPC: QR-0 • 100 m'), findsOneWidget);
+    expect(find.text('QR-0'), findsOneWidget);
     await confirm(tester);
     expect(calls, 1);
+    await reveal(tester, find.byKey(const ValueKey('werka-paddon-received')));
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(find.text('Ombor: WH-1'), findsOneWidget);
+    await reveal(tester, creator, delta: -300);
     expect(find.descendant(of: creator, matching: find.text('Qobil')),
         findsOneWidget);
     expect(accept, findsNothing);
@@ -170,6 +178,7 @@ void main() {
           findsOneWidget);
       expect(find.textContaining('apparatus:'), findsNothing);
       expect(find.byKey(const ValueKey('werka-paddon-error')), findsNothing);
+      await reveal(tester, accept);
       expect(tester.widget<FilledButton>(accept).onPressed, isNotNull);
     });
   }
@@ -187,11 +196,13 @@ void main() {
         .l10n.adminText('wip.unspecified');
     expect(find.text(unspecified), findsOneWidget);
     await confirm(tester);
+    await reveal(tester, find.byKey(const ValueKey('werka-paddon-received')));
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     names.complete({apparatusId: 'Rezka 1'});
     await tester.pumpAndSettle();
     expect(find.text(unspecified), findsNothing);
-    expect(find.text('Rezka 1'), findsOneWidget);
+    expect(find.text('Rezka 1'), findsWidgets);
+    await reveal(tester, find.byKey(const ValueKey('werka-paddon-received')));
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(accept, findsNothing);
   });
@@ -236,11 +247,10 @@ void main() {
         find.byKey(const ValueKey('paddon-wip-card-roll-0')));
     await tester.pumpAndSettle();
     final sheet = tester.widget<RpsQrReprintSheet>(find.byType(RpsQrReprintSheet));
-    expect(sheet.details.any((detail) =>
-        detail.label == 'Chiqarilgan vaqt' &&
-        detail.value == formatUnixSecondsLocalDateTime(producedAt)), isTrue);
-    expect(sheet.details.any((detail) =>
-        detail.label == 'Chiqargan' && detail.value == 'Anis'), isTrue);
+    expect(find.descendant(of: find.byType(RpsQrReprintSheet),
+        matching: find.text(formatUnixSecondsLocalDateTime(producedAt))), findsOneWidget);
+    expect(find.descendant(of: find.byType(RpsQrReprintSheet),
+        matching: find.text('Anis')), findsOneWidget);
     expect(sheet.onReprint, isNotNull);
     final reprint = tester.widget<FilledButton>(
         find.byKey(const ValueKey('paddon-wip-reprint-roll-0')));
@@ -272,6 +282,7 @@ void main() {
         matching: find.text('Qobil')), findsOneWidget);
     expect(find.text('Jami brutto: 21 kg'), findsOneWidget);
     expect(find.text('Jami netto: 19.875 kg'), findsOneWidget);
+    await reveal(tester, accept);
     expect(accept, findsOneWidget);
   });
   testWidgets('preview shows all rolls; confirm receives whole pallet once',
@@ -290,6 +301,7 @@ void main() {
         find.byKey(const ValueKey('paddon-wip-card-roll-1')), findsOneWidget);
     await confirm(tester);
     expect(calls, 1);
+    await reveal(tester, find.byKey(const ValueKey('werka-paddon-received')));
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(accept, findsNothing);
   });
@@ -300,12 +312,13 @@ void main() {
       calls++;
       return receipt;
     });
-    await tester.ensureVisible(accept);
+    await reveal(tester, accept);
     await tester.tap(accept);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
     expect(calls, 0);
+    await reveal(tester, accept);
     expect(tester.widget<FilledButton>(accept).onPressed, isNotNull);
   });
 
@@ -313,16 +326,19 @@ void main() {
       (tester) async {
     await showScreen(tester,
         load: (_) async => preview(warehouses: ['WH-1', 'WH-2']));
+    await reveal(tester, accept);
     expect(tester.widget<FilledButton>(accept).onPressed, isNull);
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('WH-2').last);
     await tester.pumpAndSettle();
+    await reveal(tester, accept);
     expect(tester.widget<FilledButton>(accept).onPressed, isNotNull);
   });
 
   testWidgets('ineligible pallet cannot be submitted', (tester) async {
     await showScreen(tester, load: (_) async => preview(ready: false));
+    await reveal(tester, accept);
     expect(tester.widget<FilledButton>(accept).onPressed, isNull);
   });
 
@@ -330,6 +346,7 @@ void main() {
       (tester) async {
     await showScreen(tester,
         load: (_) async => preview(ready: false, received: receipt));
+    await reveal(tester, find.byKey(const ValueKey('werka-paddon-received')));
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(accept, findsNothing);
   });
@@ -347,12 +364,14 @@ void main() {
         });
     await confirm(tester);
     expect(calls, 1);
+    await reveal(tester, accept);
     expect(tester.widget<FilledButton>(accept).onPressed, isNull);
-    await tester.ensureVisible(find.text('Qayta tekshirish'));
+    await reveal(tester, find.text('Qayta tekshirish'));
     await tester.tap(find.text('Qayta tekshirish'));
     await tester.pumpAndSettle();
     expect(calls, 1);
     expect(loads, 2);
+    await reveal(tester, find.byKey(const ValueKey('werka-paddon-received')));
     expect(find.byKey(const ValueKey('werka-paddon-received')), findsOneWidget);
     expect(accept, findsNothing);
   });
@@ -367,10 +386,10 @@ void main() {
         warehouses:initial.warehouses, canReceive:initial.canReceive, snapshotToken:initial.snapshotToken);
     });
     expect(find.text('Jami brutto: —'), findsOneWidget);
-    await tester.ensureVisible(find.text('Qayta tekshirish'));
+    await reveal(tester, find.text('Qayta tekshirish'));
     await tester.tap(find.text('Qayta tekshirish')); await tester.pumpAndSettle();
     expect(loads,2);
-    await tester.ensureVisible(find.byKey(const ValueKey('paddon-detail-weights')));
+    await reveal(tester, find.byKey(const ValueKey('paddon-detail-weights')), delta: -300);
     await tester.pumpAndSettle();
     expect(find.text('Jami brutto: 22.125 kg'),findsOneWidget);
     expect(find.text('Jami netto: 20.875 kg'),findsOneWidget);

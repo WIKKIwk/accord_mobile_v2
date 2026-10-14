@@ -307,14 +307,14 @@ void main() {
       await tester.pumpAndSettle();
       final card = find.byKey(const ValueKey('paddon-wip-card-wip-001'));
       await tester.ensureVisible(card);
+      await tester.pumpAndSettle();
       await tester.longPress(card);
       await tester.pumpAndSettle();
       final sheet = tester.widget<RpsQrReprintSheet>(find.byType(RpsQrReprintSheet));
-      expect(sheet.details.any((detail) =>
-          detail.label == 'Chiqarilgan vaqt' &&
-          detail.value == formatUnixSecondsLocalDateTime(producedAt)), isTrue);
-      expect(sheet.details.any((detail) =>
-          detail.label == 'Chiqargan' && detail.value == 'Qobil'), isTrue);
+      expect(find.descendant(of: find.byType(RpsQrReprintSheet),
+          matching: find.text(formatUnixSecondsLocalDateTime(producedAt))), findsOneWidget);
+      expect(find.descendant(of: find.byType(RpsQrReprintSheet),
+          matching: find.text('Qobil')), findsOneWidget);
       expect(sheet.onReprint, isNotNull);
     }, () => MockClient((request) async =>
         http.Response('{"error":"not_found"}', 404)));
@@ -884,7 +884,7 @@ void main() {
 
     expect(find.text('Buyurtma: 0001 - Bosma paket'), findsOneWidget);
     expect(
-      find.text('EPC: 40011234567890ABCDEF • 1 m'),
+      find.text('40011234567890ABCDEF'),
       findsOneWidget,
     );
     expect(find.text('1 metr rulon'), findsNothing);
@@ -897,7 +897,7 @@ void main() {
     );
     expect(find.text('Buyurtma: 0002 - Shaffof paket'), findsOneWidget);
     expect(
-      find.text('EPC: 40019876543210FEDCBA • 2 m'),
+      find.text('40019876543210FEDCBA'),
       findsOneWidget,
     );
     expect(
@@ -1265,6 +1265,8 @@ void main() {
         busy: !readOnly,
       )));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('paddon-wip-card-wip-001')));
+      await tester.pumpAndSettle();
       await tester.drag(find.byKey(const ValueKey('paddon-wip-card-wip-001')),
           const Offset(-120, 0));
       await tester.pumpAndSettle();
@@ -1527,7 +1529,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Buyurtma: — - —'), findsOneWidget);
-    expect(find.text('EPC: —'), findsOneWidget);
+    expect(find.text('EPC kodi'), findsOneWidget);
     expect(find.textContaining('progress-batch:'), findsNothing);
     expect(find.textContaining('…'), findsNothing);
     expect(find.byKey(const ValueKey('paddon-add-wip-scan')), findsNothing);

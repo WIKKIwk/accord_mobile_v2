@@ -140,6 +140,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                       items.length,
                     ),
                     batch: items[index],
+                    apparatusCatalog: widget.apparatus ?? _apparatus,
                     selected: selectedBatchIds.contains(
                       items[index].batchId.trim(),
                     ),
@@ -181,63 +182,17 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
       );
       return;
     }
-    final orderSummary = AparatchiPaddonDisplay.orderSummary(batch);
-    final orderLabel = context.l10n.productionText('worker.paddon.order');
-    final orderTitle = '$orderLabel: $orderSummary';
-    final producedAt = formatUnixSecondsLocalDateTime(
-      batch.completedAtUnix > 0 ? batch.completedAtUnix : batch.startedAtUnix,
-    );
-    final producedBy = batch.workerDisplayName.trim().isNotEmpty
-        ? batch.workerDisplayName.trim()
-        : batch.executorName.trim();
-    final lengthM = batch.finishedGoodsMeter;
-    final hasLength = lengthM != null && lengthM.isFinite && lengthM > 0 ||
-        (batch.uom.trim().toLowerCase() == 'm' &&
-            batch.producedQty.isFinite &&
-            batch.producedQty > 0);
-    final lengthText = !hasLength
-        ? '—'
-        : formatQuantityWithUnit(
-            lengthM != null && lengthM.isFinite && lengthM > 0
-                ? lengthM
-                : batch.producedQty,
-            'm',
-            trimTrailingZeros: true,
-          );
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => RpsQrReprintSheet(
-        title: context.l10n.productionText('worker.daily.wip_qr'),
-        payload: payload,
-        itemName: orderTitle,
-        itemHeader: _PaddonWipOrderHeader(batch: batch, title: orderTitle),
+      builder: (sheetContext) => WorkerWipDetailsSheet(
+        batch: batch,
+        apparatusCatalog: widget.apparatus ?? _apparatus,
+        viewer: AppSession.instance.profile,
         previewKey: ValueKey('paddon-wip-preview-${batch.batchId}'),
         reprintButtonKey: ValueKey('paddon-wip-reprint-${batch.batchId}'),
-        details: [
-          RpsQrDetail(
-            orderLabel,
-            orderSummary,
-          ),
-          RpsQrDetail(
-            context.l10n.productionText('worker.wip.info.qr'),
-            payload,
-          ),
-          RpsQrDetail(
-            context.l10n.productionText('worker.daily.field.length'),
-            lengthText,
-          ),
-          RpsQrDetail(
-            context.l10n.productionText('worker.paddon.wip.produced_at'),
-            producedAt.isEmpty ? '—' : producedAt,
-          ),
-          RpsQrDetail(
-            context.l10n.productionText('worker.paddon.wip.produced_by'),
-            producedBy.isEmpty ? '—' : producedBy,
-          ),
-        ],
         onReprint: () => _reprintPaddonWip(batch),
         errorMessage: (error) => error is MobileApiException
             ? context.l10n.productionErrorMessage(
@@ -246,9 +201,6 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                     .productionText('worker.daily.reprint_failed'),
               )
             : context.l10n.productionText('worker.daily.reprint_failed'),
-        successMessage: context.l10n.productionText(
-          'worker.daily.wip_qr.reprinted',
-        ),
       ),
     );
   }

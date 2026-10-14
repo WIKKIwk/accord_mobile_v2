@@ -102,6 +102,7 @@ ProductionQuickScannerPanel _scanner(WidgetTester tester) =>
 Future<void> _confirm(WidgetTester tester) async {
   final button = find.byKey(const ValueKey('paddon-scan-confirm'));
   await tester.ensureVisible(button);
+  await tester.pumpAndSettle();
   await tester.tap(button);
   await tester.pumpAndSettle();
 }
@@ -275,10 +276,16 @@ void main() {
       await tester.pumpAndSettle();
       final pending = find.byKey(const ValueKey('paddon-pending-scans'));
       await tester.ensureVisible(pending);
+      await tester.pumpAndSettle();
       await tester.tap(pending);
       await tester.pumpAndSettle();
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('paddon-pending-wip-A')));
+      final pendingTitle = find.descendant(
+          of: find.byKey(const ValueKey('paddon-pending-wip-A')),
+          matching: find.textContaining('Buyurtma:')).first;
+      await tester.ensureVisible(pendingTitle);
+      await tester.pumpAndSettle();
+      await tester.tap(pendingTitle);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('paddon-pending-wip-A')), findsNothing);
       expect(writes, 0);
@@ -313,6 +320,10 @@ void main() {
       await tester.pumpAndSettle();
       await _confirm(tester);
       expect(writes, 1);
+      await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('paddon-pending-scans')), -300,
+          scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
       expect(find.text('Qo‘shilayotganlar: 1 ta'), findsOneWidget);
       expect(
           find.byKey(const ValueKey('paddon-scanned-wip-A')), findsOneWidget);

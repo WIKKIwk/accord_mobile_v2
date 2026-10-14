@@ -117,12 +117,15 @@ void _expectSelected(Object weight, bool selected) {
   );
 }
 
-Future<void> _tapFabEditAction(WidgetTester tester) async {
+Future<void> _tapFabEditAction(WidgetTester tester, {bool removing = false}) async {
   await tester.tap(
     find.byKey(const ValueKey('app-primary-navigation-button')),
   );
   await tester.pumpAndSettle();
-  await tester.tap(find.textContaining(RegExp(r'^(Qo‘shish|Olib tashlash)')));
+  await tester.tap(find.textContaining(RegExp(removing ? r'^Olib tashlash' : r'^Qo‘shish')));
+  await tester.pumpAndSettle();
+  await tester.scrollUntilVisible(_group(2000000), -300,
+      scrollable: find.byType(Scrollable).first);
   await tester.pumpAndSettle();
 }
 
@@ -272,7 +275,7 @@ void main() {
     await _tapGroup(tester, 2000000);
     expect(_wips(available: true), findsNWidgets(2));
     // No selected hidden 4kg WIP remains: the action switches to remove mode.
-    await _tapFabEditAction(tester);
+    await _tapFabEditAction(tester, removing: true);
     expect(_wips(), findsNWidgets(2));
     expect(_wips(available: true), findsNothing);
     _expectSelected(2000000, false);
@@ -330,7 +333,8 @@ void main() {
     _expectGroup(808000, '0.808 kg', '2 ta');
     _expectGroup(808001, '0.808001 kg', '1 ta');
     _expectGroup('unknown', 'Kiritilmagan', '5 ta');
-    expect(find.text('0 kg'), findsNothing);
+    expect(find.descendant(of: find.byKey(const ValueKey('paddon-bobina-summary')),
+        matching: find.text('0 kg')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

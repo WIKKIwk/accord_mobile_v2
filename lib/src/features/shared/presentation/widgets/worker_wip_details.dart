@@ -4,21 +4,21 @@ import '../../../../core/api/mobile_api.dart';
 import '../../../../core/formatters/date_time_formatters.dart';
 import '../../../../core/formatters/quantity_formatters.dart';
 import '../../../../core/localization/app_localizations.dart';
-import '../../../shared/models/app_models.dart';
-import '../../logic/canonical_apparatus_display.dart';
+import '../../models/app_models.dart';
+import '../../../admin/logic/canonical_apparatus_display.dart';
 
 class WorkerWipDetails extends StatelessWidget {
   const WorkerWipDetails({
     super.key,
     required this.batch,
     required this.apparatusCatalog,
-    required this.statusLabel,
+    this.statusLabel,
     this.viewer,
   });
 
   final AdminProgressBatch batch;
   final List<AdminApparatus> apparatusCatalog;
-  final String statusLabel;
+  final String? statusLabel;
   final SessionProfile? viewer;
 
   @override
@@ -43,11 +43,28 @@ class WorkerWipDetails extends StatelessWidget {
       batch.currentApparatus,
       batch.currentLocation,
     ]);
+    final hasQuantity = batch.producedQty.isFinite &&
+        batch.producedQty > 0 &&
+        batch.uom.trim().isNotEmpty;
+    final lengthM = batch.finishedGoodsMeter;
+    final hasLength = lengthM != null && lengthM.isFinite && lengthM > 0;
     final metadata = <(String, String)>[
       (
         l10n.productionText('worker.wip.info.quantity'),
-        _quantity(batch.producedQty, batch.uom),
+        hasQuantity
+            ? _quantity(batch.producedQty, batch.uom)
+            : hasLength
+                ? _quantity(lengthM, 'm')
+                : missing,
       ),
+      if (hasLength &&
+          hasQuantity &&
+          (batch.uom.trim().toLowerCase() != 'm' ||
+              batch.finishedGoodsMeter != batch.producedQty))
+        (
+          l10n.productionText('worker.daily.field.length'),
+          _quantity(lengthM, 'm'),
+        ),
       (
         l10n.productionText('worker.wip.info.gross_weight'),
         weight(gross != null && gross > 0 ? gross : null),
@@ -55,7 +72,10 @@ class WorkerWipDetails extends StatelessWidget {
       (l10n.productionText('worker.wip.info.net_weight'), weight(net)),
       (l10n.productionText('worker.qr.passport.bobbin_weight'), weight(bobina)),
       (l10n.productionText('worker.wip.info.produced_by'), _producerName(l10n)),
-      (l10n.productionText('worker.daily.status'), statusLabel),
+      (
+        l10n.productionText('worker.daily.status'),
+        statusLabel ?? statusLabelFor(batch, l10n)
+      ),
       (
         l10n.productionText('worker.wip.info.source'),
         source.isEmpty
@@ -64,10 +84,27 @@ class WorkerWipDetails extends StatelessWidget {
       ),
       if (current.isNotEmpty && current != source)
         (l10n.productionText('worker.wip.info.location'), current),
+      if (_apparatusName([batch.nextApparatus]).isNotEmpty)
+        (
+          l10n.productionText('worker.wip.info.next_machine'),
+          _apparatusName([batch.nextApparatus]),
+        ),
       if (batch.completedAtUnix > 0)
         (
           l10n.productionText('worker.wip.info.finished'),
           formatUnixSecondsLocalDateTime(batch.completedAtUnix),
+        ),
+      if (batch.completedAtUnix <= 0 && batch.startedAtUnix > 0)
+        (
+          l10n.productionText('worker.wip.info.started'),
+          formatUnixSecondsLocalDateTime(batch.startedAtUnix),
+        ),
+      if (batch.diameter != null &&
+          batch.diameter!.isFinite &&
+          batch.diameter! > 0)
+        (
+          l10n.productionText('worker.qr.passport.diameter'),
+          _quantity(batch.diameter!, ''),
         ),
       if (batch.description.trim().isNotEmpty)
         (l10n.productionText('worker.wip.info.note'), batch.description.trim()),
@@ -85,6 +122,33 @@ class WorkerWipDetails extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  static String statusLabelFor(
+      AdminProgressBatch batch, AppLocalizations l10n) {
+    final flow = batch.statusDetail.flowStatus.trim();
+    final flowKey = switch (flow) {
+      'free_wip' => 'worker.wip.status.free',
+      'accepted_to_stock' => 'worker.wip.status.accepted',
+      'waiting_next_stage' => 'worker.wip.status.waiting_next',
+      'consumed_by_next_stage' => 'worker.wip.status.consumed_next',
+      'in_progress' => 'worker.wip.status.in_progress',
+      _ => '',
+    };
+    if (flowKey.isNotEmpty) return l10n.productionText(flowKey);
+    return l10n.productionText(switch (batch.wipStatus.trim()) {
+      'waiting' => 'worker.wip.status.waiting',
+      'in_use' => 'worker.wip.status.in_progress',
+      'processed' => 'worker.wip.status.used',
+      _ => switch (batch.statusDetail.workStatus.trim().isNotEmpty
+            ? batch.statusDetail.workStatus.trim()
+            : batch.status.trim()) {
+          'paused' => 'worker.wip.status.paused',
+          'resumed' || 'in_progress' => 'worker.wip.status.in_progress',
+          'completed' || 'complete' => 'worker.wip.status.finished',
+          _ => 'worker.daily.wip',
+        },
+    });
   }
 
   String _apparatusName(Iterable<String> candidates) {
@@ -143,6 +207,7 @@ String _quantity(double value, String unit) {
 
 String _readableEpc(String value) {
   final code = value.trim();
+  if (code.isEmpty) return '—';
   if (!RegExp(r'^[0-9a-f]{24}$', caseSensitive: false).hasMatch(code)) {
     return code;
   }

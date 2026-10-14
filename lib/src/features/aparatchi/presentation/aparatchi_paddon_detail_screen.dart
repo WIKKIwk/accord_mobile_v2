@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import '../../../core/widgets/paddon_weight_totals.dart';
@@ -7,13 +6,12 @@ import '../../../core/widgets/paddon_weight_totals.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session_read_scope.dart';
-import '../../../core/formatters/date_time_formatters.dart';
+import '../../../core/session/state/app_session.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
-import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -23,7 +21,8 @@ import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
-import '../../admin/presentation/widgets/admin_order_image_thumb.dart';
+import '../../shared/presentation/widgets/worker_wip_details.dart';
+import '../../shared/presentation/widgets/worker_wip_details_sheet.dart';
 import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_display.dart';
 import 'widgets/aparatchi_dock.dart';
@@ -35,7 +34,6 @@ part 'aparatchi_paddon_detail_screen__AparatchiPaddonDetailScreenState_methods_0
 part 'aparatchi_paddon_detail_screen_models_part_01.dart';
 part 'aparatchi_paddon_detail_screen_bobina_summary.dart';
 part 'aparatchi_paddon_detail_screen_swipe_remove.dart';
-part 'aparatchi_paddon_detail_screen_order_header.dart';
 part 'aparatchi_paddon_print_workflow.dart';
 part 'aparatchi_paddon_qr_addition.dart';
 

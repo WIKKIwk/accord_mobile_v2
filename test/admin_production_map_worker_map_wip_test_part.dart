@@ -103,14 +103,24 @@ void _registerWorkerMapWipTests() {
       await TestModeController.instance.setEnabled(false);
       final requests = <http.Request>[];
       var attempts = 0;
+      // The worker transport can animate behind the modal; wait for its
+      // transitions without requiring the entire application to become idle.
       await http.runWithClient(() async {
         await tester.tap(node);
-        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump();
         if (scenario == 'retry') {
           expect(find.text(l10n.productionText('worker.wip.history.error')),
               findsOneWidget);
-          await tester.tap(find.text('Qayta urinish').last);
-          await tester.pumpAndSettle();
+          final retry = find.descendant(
+              of: find.byType(BottomSheet).last,
+              matching: find.text('Qayta urinish'));
+          await tester.ensureVisible(retry);
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump();
+          await tester.tap(retry);
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump();
         }
         if (scenario == 'denied') {
           expect(find.text(l10n.productionText('worker.wip.access_denied')),
@@ -120,9 +130,17 @@ void _registerWorkerMapWipTests() {
         } else {
           expect(find.text('1 ta WIP yaratilgan'), findsOneWidget);
           expect(find.text(ownSource ? '15 m' : '12 m'), findsOneWidget);
-          await tester
-              .longPress(find.byKey(const ValueKey('worker-wip-item-0')));
-          await tester.pumpAndSettle();
+          final wipTitle = find
+              .descendant(
+                  of: find.byKey(const ValueKey('worker-wip-item-0')),
+                  matching: find.textContaining('Output'))
+              .first;
+          await tester.ensureVisible(wipTitle);
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump();
+          await tester.longPress(wipTitle);
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump();
           expect(find.byKey(ValueKey('worker-wip-history-preview-$source')),
               findsOneWidget);
           final details = find.byType(BottomSheet).last;
@@ -174,7 +192,8 @@ void _registerWorkerMapWipTests() {
           if (canReprint) {
             await tester.ensureVisible(reprint);
             await tester.tap(reprint);
-            await tester.pumpAndSettle();
+            await tester.pump(const Duration(milliseconds: 500));
+            await tester.pump();
             if (scenario == 'own-print-error') {
               expect(find.text('Printer ulanmagan'), findsOneWidget);
               expect(find.text('Qayta chop etish'), findsOneWidget);
@@ -191,7 +210,17 @@ void _registerWorkerMapWipTests() {
             expect(body['driver_url'], 'http://printer.test');
           }
         }
-        final reads = requests.where((r) => r.method == 'GET');
+        final reads = requests.where((r) =>
+            r.method == 'GET' &&
+            (r.url.path.endsWith('/wip-batches') ||
+                r.url.path.endsWith('/opening-wip')));
+        final imageReads = requests.where((r) =>
+            r.method == 'GET' && r.url.path.endsWith('/order-image/view'));
+        expect(imageReads, hasLength(scenario == 'denied' ? 0 : 1));
+        expect(
+            imageReads
+                .every((r) => r.url.queryParameters['order_id'] == orderId),
+            isTrue);
         expect(reads, hasLength(scenario == 'retry' ? 4 : 2));
         expect(requests.where((r) => r.method == 'POST'),
             hasLength(canReprint ? 1 : 0));
@@ -208,8 +237,7 @@ void _registerWorkerMapWipTests() {
                 if (request.url.path.endsWith('/progress-qr/reprint')) {
                   if (scenario == 'own-print-error') {
                     return http.Response(
-                        '{"error":"scale_driver_not_configured"}',
-                        503);
+                        '{"error":"scale_driver_not_configured"}', 503);
                   }
                   return http.Response(
                       jsonEncode({

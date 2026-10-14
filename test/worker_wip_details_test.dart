@@ -1,7 +1,7 @@
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
-import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/worker_wip_details.dart';
+import 'package:accord_mobile_v2/src/features/shared/presentation/widgets/worker_wip_details.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -16,6 +16,10 @@ AdminProgressBatch _batch({
   double? finishedGoodsKg = 200,
   double? bobinaKg = 1.125,
   String workerName = 'Akmal Rahimov',
+  double producedQty = 8787,
+  String uom = 'm',
+  double? finishedGoodsMeter,
+  double? diameter,
 }) =>
     AdminProgressBatch(
       batchId: 'internal-wip-id',
@@ -24,8 +28,10 @@ AdminProgressBatch _batch({
       orderId: 'internal-order-id',
       action: 'complete',
       status: 'completed',
-      producedQty: 8787,
-      uom: 'm',
+      producedQty: producedQty,
+      uom: uom,
+      finishedGoodsMeter: finishedGoodsMeter,
+      diameter: diameter,
       qrPayload: _epc,
       labelItemCode: '0021',
       labelItemName: 'Guruch alanga arzon 1 kg',
@@ -101,6 +107,22 @@ Future<void> _showDetails(
 }
 
 void main() {
+  testWidgets('WIP retains measured length and diameter for kg quantities',
+      (tester) async {
+    await _showDetails(
+        tester,
+        _batch(
+            producedQty: 12,
+            uom: 'kg',
+            finishedGoodsMeter: 1450,
+            diameter: 35));
+    expect(find.text('12 kg'), findsOneWidget);
+    expect(find.text('Metraj'), findsOneWidget);
+    expect(find.text('1 450 m'), findsOneWidget);
+    expect(find.text('Diametr'), findsOneWidget);
+    expect(find.text('35'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('WIP shows measured gross, net, core, readable producer and EPC',
       (tester) async {
     await _showDetails(tester, _batch());

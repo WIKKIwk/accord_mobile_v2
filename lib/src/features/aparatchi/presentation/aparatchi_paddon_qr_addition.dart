@@ -261,6 +261,7 @@ extension _PaddonQrAddition on _AparatchiPaddonDetailScreenState {
         context: context,
         builder: (_) => _PaddonScannedWipsDialog(
           items: _scannedWips.values.toList(growable: false),
+          apparatusCatalog: widget.apparatus ?? _apparatus,
           canConfirm: canConfirm,
           onRemove: (batchId) {
             if (!_isCurrentQrScan(generation, scope)) return;
@@ -350,6 +351,7 @@ extension _PaddonQrAddition on _AparatchiPaddonDetailScreenState {
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                         index, scannedWips.length),
                     batch: scannedWips[index],
+                    apparatusCatalog: widget.apparatus ?? _apparatus,
                     selectionIcon: Icons.add_circle_outline_rounded,
                   ),
               ],
@@ -363,9 +365,11 @@ extension _PaddonQrAddition on _AparatchiPaddonDetailScreenState {
 
 class _PaddonScannedWipsDialog extends StatefulWidget {
   const _PaddonScannedWipsDialog(
-      {required this.items, required this.onRemove, required this.canConfirm});
+      {required this.items, required this.onRemove, required this.canConfirm,
+      required this.apparatusCatalog});
 
   final List<AdminProgressBatch> items;
+  final List<AdminApparatus> apparatusCatalog;
   final ValueChanged<String> onRemove;
   final bool canConfirm;
 
@@ -396,6 +400,7 @@ class _PaddonScannedWipsDialogState extends State<_PaddonScannedWipsDialog> {
               slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                   index, _items.length),
               batch: batch,
+              apparatusCatalog: widget.apparatusCatalog,
               selectionIcon: Icons.close_rounded,
               onSelect: () {
                 widget.onRemove(batch.batchId.trim());

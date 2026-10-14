@@ -258,50 +258,21 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => RpsQrReprintSheet(
-        title: sheetContext.l10n.productionText('worker.wip.history.title'),
-        payload: payload,
-        showPayload: !widget.workerMode,
-        itemName: widget.workerMode
-            ? [
-                if (widget.order.map.orderNumber.trim().isNotEmpty)
-                  widget.order.map.orderNumber.trim(),
-                _workerWipFirstNotEmpty([
-                  widget.order.map.title,
-                  sheetContext.l10n.productionText('worker.daily.wip'),
-                ]),
-              ].join(' • ')
-            : _workerWipFirstNotEmpty([
-                batch.labelItemName
-                    .split(RegExp(r',?\s*apparat:', caseSensitive: false))
-                    .first
-                    .trim(),
-                batch.labelItemCode,
-                sheetContext.l10n.productionText('worker.daily.wip'),
-              ]),
+      builder: (sheetContext) => WorkerWipDetailsSheet(
+        batch: batch,
+        apparatusCatalog: widget.apparatusCatalog,
+        viewer: AppSession.instance.profile,
+        orderNumber: widget.order.map.orderNumber,
+        productName: widget.order.map.title,
+        orderImageId: widget.order.map.imageId,
         previewKey: ValueKey('worker-wip-history-preview-${batch.batchId}'),
         reprintButtonKey: ValueKey(
           'worker-wip-history-reprint-${batch.batchId}',
         ),
-        details: widget.workerMode
-            ? const []
-            : _workerWipReprintDetails(
-                batch, sheetContext.l10n, widget.apparatusCatalog),
-        detailsContent: widget.workerMode
-            ? WorkerWipDetails(
-                batch: batch,
-                apparatusCatalog: widget.apparatusCatalog,
-                statusLabel: _workerWipStatusLabel(batch, sheetContext.l10n),
-                viewer: AppSession.instance.profile,
-              )
-            : null,
         onReprint: _canReprintWip(batch) ? () => _reprintWip(batch) : null,
         errorMessage: (error) => error is MobileApiException
             ? error.message
             : error.toString().replaceFirst('Bad state: ', ''),
-        successMessage: sheetContext.l10n.productionText(
-          'worker.daily.wip_qr.reprinted',
-        ),
       ),
     );
   }
@@ -553,91 +524,6 @@ List<AdminProgressBatch> _mergeWorkerWipBatches(
     return byTime != 0 ? byTime : right.batchId.compareTo(left.batchId);
   });
   return merged;
-}
-
-List<RpsQrDetail> _workerWipReprintDetails(
-  AdminProgressBatch batch,
-  AppLocalizations l10n,
-  List<AdminApparatus> apparatusCatalog,
-) {
-  final current = canonicalApparatusDisplayLabel(
-    _workerWipFirstNotEmpty([
-      batch.currentLocation,
-      batch.currentApparatus,
-      batch.apparatus,
-    ]),
-    apparatusCatalog,
-  );
-  final worker = _workerWipFirstNotEmpty([
-    batch.workerDisplayName,
-    batch.executorName,
-    batch.workerRef,
-  ]);
-  final next = canonicalApparatusDisplayLabel(
-    batch.nextApparatus,
-    apparatusCatalog,
-  );
-  final action = _workerWipActionLabel(batch.action, l10n);
-  return [
-    if (batch.orderId.trim().isNotEmpty)
-      RpsQrDetail(
-        l10n.productionText('worker.daily.order'),
-        batch.orderId.trim(),
-      ),
-    RpsQrDetail(
-      l10n.productionText('worker.wip.info.quantity'),
-      formatQuantityWithUnit(
-        batch.producedQty,
-        batch.uom,
-        trimTrailingZeros: true,
-      ),
-    ),
-    RpsQrDetail(
-      l10n.productionText('worker.daily.status'),
-      _workerWipStatusLabel(batch, l10n),
-    ),
-    if (batch.startedAtUnix > 0)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.started'),
-        formatUnixSecondsLocalDateTime(batch.startedAtUnix),
-      ),
-    if (batch.completedAtUnix > 0)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.finished'),
-        formatUnixSecondsLocalDateTime(batch.completedAtUnix),
-      ),
-    RpsQrDetail(
-      l10n.productionText('worker.wip.info.source'),
-      canonicalApparatusDisplayLabel(
-        _workerWipValue(batch.apparatus),
-        apparatusCatalog,
-      ),
-    ),
-    if (action.isNotEmpty)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.action'),
-        action,
-      ),
-    RpsQrDetail(
-      l10n.productionText('worker.wip.info.location'),
-      current,
-    ),
-    if (next.trim().isNotEmpty)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.next_machine'),
-        next,
-      ),
-    if (worker.trim().isNotEmpty)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.worker'),
-        worker,
-      ),
-    if (batch.description.trim().isNotEmpty)
-      RpsQrDetail(
-        l10n.productionText('worker.wip.info.note'),
-        batch.description.trim(),
-      ),
-  ];
 }
 
 List<AdminProgressBatch> _openingWipBatchesProducedByApparatus(
@@ -1167,39 +1053,7 @@ String _workerWipStatusLabel(
   AdminProgressBatch batch,
   AppLocalizations l10n,
 ) {
-  final flow = batch.statusDetail.flowStatus.trim();
-  if (flow == 'free_wip') {
-    return l10n.productionText('worker.wip.status.free');
-  }
-  if (flow == 'accepted_to_stock') {
-    return l10n.productionText('worker.wip.status.accepted');
-  }
-  if (flow == 'waiting_next_stage') {
-    return l10n.productionText('worker.wip.status.waiting_next');
-  }
-  if (flow == 'consumed_by_next_stage') {
-    return l10n.productionText('worker.wip.status.consumed_next');
-  }
-  if (flow == 'in_progress') {
-    return l10n.productionText('worker.wip.status.in_progress');
-  }
-  return switch (batch.wipStatus.trim()) {
-    'waiting' => l10n.productionText('worker.wip.status.waiting'),
-    'in_use' => l10n.productionText('worker.wip.status.in_progress'),
-    'processed' => l10n.productionText('worker.wip.status.used'),
-    _ => switch (batch.statusDetail.workStatus.trim().isNotEmpty
-          ? batch.statusDetail.workStatus.trim()
-          : batch.status.trim()) {
-        'paused' => l10n.productionText('worker.wip.status.paused'),
-        'resumed' ||
-        'in_progress' =>
-          l10n.productionText('worker.wip.status.in_progress'),
-        'completed' ||
-        'complete' =>
-          l10n.productionText('worker.wip.status.finished'),
-        _ => l10n.productionText('worker.daily.wip'),
-      },
-  };
+  return WorkerWipDetails.statusLabelFor(batch, l10n);
 }
 
 String _workerWipFirstNotEmpty(Iterable<String> values) {

@@ -306,6 +306,7 @@ class _PaddonWipCard extends StatelessWidget {
     super.key,
     required this.slot,
     required this.batch,
+    required this.apparatusCatalog,
     this.selected = false,
     this.onSelect,
     required this.selectionIcon,
@@ -315,6 +316,7 @@ class _PaddonWipCard extends StatelessWidget {
 
   final M3SegmentVerticalSlot slot;
   final AdminProgressBatch batch;
+  final List<AdminApparatus> apparatusCatalog;
   final bool selected;
   final VoidCallback? onSelect;
   final IconData selectionIcon;
@@ -326,22 +328,6 @@ class _PaddonWipCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final orderSummary = AparatchiPaddonDisplay.orderSummary(batch);
-    final qr = batch.qrPayload.trim();
-    final epc = qr.isNotEmpty ? qr : '—';
-    final lengthM = batch.finishedGoodsMeter;
-    final hasLength = lengthM != null && lengthM.isFinite && lengthM > 0 ||
-        (batch.uom.trim().toLowerCase() == 'm' &&
-            batch.producedQty.isFinite &&
-            batch.producedQty > 0);
-    final lengthText = !hasLength
-        ? ''
-        : formatQuantityWithUnit(
-            lengthM != null && lengthM.isFinite && lengthM > 0
-                ? lengthM
-                : batch.producedQty,
-            'm',
-            trimTrailingZeros: true,
-          );
     final card = M3SegmentFilledSurface(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -365,15 +351,12 @@ class _PaddonWipCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    UrduAwareText(
-                      lengthText.isEmpty
-                          ? 'EPC: $epc'
-                          : 'EPC: $epc • $lengthText',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w800,
+                    const SizedBox(height: 8),
+                    IgnorePointer(
+                      child: WorkerWipDetails(
+                        batch: batch,
+                        apparatusCatalog: apparatusCatalog,
+                        viewer: AppSession.instance.profile,
                       ),
                     ),
                   ],

@@ -242,7 +242,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
       expect(
         find.descendant(
           of: qrSheet,
-          matching: find.text('Admin map apparatus WIP yarim tayyor mahsulot'),
+          matching: find.text('0004 • Admin map apparatus WIP'),
         ),
         findsOneWidget,
       );
