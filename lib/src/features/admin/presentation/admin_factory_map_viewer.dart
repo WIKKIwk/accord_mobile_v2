@@ -81,9 +81,10 @@ class AdminFactoryMapViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     const scriptVersion = '20260926_factory_map_perf4';
+    const rendererVersion = '20261015_order_names1';
     final rendererScript = kIsWeb
-        ? './assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$scriptVersion'
-        : './factory-map-renderer.js?v=$scriptVersion';
+        ? './assets/packages/model_viewer_plus/assets/factory-map-renderer.js?v=$rendererVersion'
+        : './factory-map-renderer.js?v=$rendererVersion';
     final escapedSelectedObjectId = htmlEscape.convert(selectedObjectId.trim());
 
     return ModelViewer(

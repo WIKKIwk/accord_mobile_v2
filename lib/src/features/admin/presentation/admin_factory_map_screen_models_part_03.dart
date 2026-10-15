@@ -24,14 +24,13 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
     final scheme = Theme.of(context).colorScheme;
     final map = widget.order?.map;
     final orderNumber = map?.orderNumber.trim() ?? '';
-    final title = orderNumber.isEmpty
-        ? widget.orderId
-        : '${l10n.adminText('calculate.order')} №$orderNumber';
+    final title = factoryMapOrderLabel(map, fallbackId: widget.orderId);
     final statusColor = Color(widget.status.colorValue);
     String readable(String value) => factoryMapReadableText(value,
         apparatusNames: widget.apparatusNames,
         fallback: l10n.adminText('factory_map.machine'));
     final subtitle = [
+      if (orderNumber.isNotEmpty) '№ $orderNumber',
       l10n.adminText(widget.status.labelKey),
       if ((map?.customerName.trim() ?? '').isNotEmpty) map!.customerName.trim(),
       if ((map?.productCode.trim() ?? '').isNotEmpty) map!.productCode.trim(),
@@ -68,7 +67,7 @@ class _FactoryOrderCardState extends State<_FactoryOrderCard> {
               children: [
                 Text(
                   title,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,

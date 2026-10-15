@@ -1,9 +1,12 @@
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate_orders_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_home_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/presentation/widgets/profile_avatar_preview.dart';
@@ -124,6 +127,65 @@ void main() {
     expect(find.text('Saqlangan zakaz yo‘q'), findsNothing);
   });
 
+  testWidgets('quick order back preserves the filtered list and home',
+      (tester) async {
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.admin,
+      displayName: 'Admin',
+      legalName: 'Admin',
+      ref: 'ADMIN-001',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['admin.access', 'production.map.manage'],
+    );
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(code: 'Z-BACK', name: 'Back navigation'),
+    );
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(code: 'Z-OTHER', name: 'Other template'),
+    );
+    await _pumpScreen(
+      tester,
+      home: const AdminHomeScreen(),
+      onGenerateRoute: AppRouter.onGenerateRoute,
+    );
+
+    await tester.tap(find.text('Tezkor buyurtmalar'));
+    await tester.pumpAndSettle();
+    final listState = tester.state(find.byType(AdminCalculateOrdersScreen));
+    await tester.enterText(find.byType(EditableText), 'back');
+    await tester.pumpAndSettle();
+    expect(find.text('Other template'), findsNothing);
+
+    await tester.tap(find.text('Back navigation'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AdminCalculateScreen), findsOneWidget);
+    expect(find.byIcon(Icons.menu), findsNothing);
+    final backTooltip = MaterialLocalizations.of(
+      tester.element(find.byType(AdminCalculateScreen)),
+    ).backButtonTooltip;
+    expect(find.byTooltip(backTooltip), findsOneWidget);
+
+    await tester.tap(find.byTooltip(backTooltip));
+    await tester.pumpAndSettle();
+    expect(find.byType(AdminCalculateScreen), findsNothing);
+    expect(
+      tester.state(find.byType(AdminCalculateOrdersScreen)),
+      same(listState),
+    );
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      'back',
+    );
+    expect(find.text('Back navigation'), findsOneWidget);
+    expect(find.text('Other template'), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(AdminCalculateOrdersScreen), findsNothing);
+    expect(find.byType(AdminHomeScreen), findsOneWidget);
+  });
+
   testWidgets('quick order image opens profile preview on long press', (
     tester,
   ) async {
@@ -154,7 +216,11 @@ void main() {
   });
 }
 
-Future<void> _pumpScreen(WidgetTester tester) async {
+Future<void> _pumpScreen(
+  WidgetTester tester, {
+  Widget home = const AdminCalculateOrdersScreen(),
+  RouteFactory? onGenerateRoute,
+}) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(430, 900);
   addTearDown(tester.view.resetPhysicalSize);
@@ -171,7 +237,8 @@ Future<void> _pumpScreen(WidgetTester tester) async {
         GlobalWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      home: const AdminCalculateOrdersScreen(),
+      onGenerateRoute: onGenerateRoute,
+      home: home,
     ),
   );
   await tester.pumpAndSettle();

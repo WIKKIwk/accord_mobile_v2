@@ -136,7 +136,7 @@ export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect
     .factory-live-label[data-focused=true] {border-color:#4f6fb5;box-shadow:0 3px 14px #4f6fb53d;}
     .factory-live-label b,.factory-live-label small,.factory-live-label span {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .factory-live-label b {font-size:12px;font-weight:700;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-    .factory-live-label small {font-size:11px;margin-top:3px;color:#5d6f68;}
+    .factory-live-label small {font-size:11px;font-weight:600;line-height:1.35;margin-top:4px;color:#405750;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
     .factory-live-label span {font-size:11px;margin-top:4px;color:var(--state-color);font-weight:650;white-space:normal;overflow-wrap:break-word;}
     .factory-live-label span::before {content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--state-color);margin-right:4px;}
     .factory-live-route {position:absolute;top:58px;left:12px;right:12px;text-align:center;font-size:11px;color:#475e73;background:#ffffffeb;border-radius:9px;padding:5px;}
@@ -213,7 +213,7 @@ export function createFactoryLive({ host, root, camera, canvas, getBox, onSelect
       }
       entry.data = data;
       entry.name.textContent = data.name;
-      entry.order.textContent = data.orderNumber ? `№ ${data.orderNumber}` : data.orderLabel;
+      entry.order.textContent = data.orderLabel;
       entry.button.title = [data.name, data.orderLabel, data.statusLabel].filter(Boolean).join(' · ');
       entry.order.hidden = !data.orderLabel;
     }

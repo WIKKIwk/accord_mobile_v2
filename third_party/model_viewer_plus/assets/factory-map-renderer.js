@@ -4,7 +4,7 @@ import { OrbitControls } from './OrbitControls.js';
 import { CAMERA_LIMITS, constrainCamera, focusCamera, overviewCamera, smoothStep, visibleWorldBoxes } from './factory-map-navigation.js?v=20260907near4';
 import { buildPickBounds, closestMapHits, loadMapBytes, optimizeStaticMap } from './factory-map-performance.js?v=20260926perf2';
 import { apparatusHit, apparatusObjectId, cleanFactoryMapGeometry, FACTORY_MAP_CLUTTER_BASE_IDS, isFactoryMapApparatus } from './factory-map-scene-policy.js?v=20260907live2';
-import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20260926perf1';
+import { createFactoryLive, FrameBudget } from './factory-map-live.js?v=20261015_order_names1';
 import { createFactoryStock } from './factory-map-stock.js?v=20260926map2';
 import { lockFactoryMapGestures } from './factory-map-gestures.js?v=20260907touch1';
 

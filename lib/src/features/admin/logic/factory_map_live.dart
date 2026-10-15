@@ -131,12 +131,7 @@ class FactoryMapLive extends ChangeNotifier {
         focusedOrder = orderId;
       }
       final order = orderMaps[orderId];
-      final orderLabel = order == null
-          ? orderId
-          : [
-              order.orderNumber.isNotEmpty ? '#${order.orderNumber}' : order.id,
-              order.title
-            ].where((value) => value.isNotEmpty).join(' · ');
+      final orderLabel = factoryMapOrderLabel(order, fallbackId: orderId);
       machines.add({
         'objectId': objectId,
         'apparatusId': item.id,
@@ -167,6 +162,19 @@ class FactoryMapLive extends ChangeNotifier {
     stop();
     super.dispose();
   }
+}
+
+String factoryMapOrderLabel(ProductionMapDefinition? map,
+    {String fallbackId = ''}) {
+  final title = map?.title.trim() ?? '';
+  if (title.isNotEmpty) return title;
+  for (final node in map?.nodes ?? const <ProductionMapNode>[]) {
+    if (node.kind == 'end' && node.title.trim().isNotEmpty) {
+      return node.title.trim();
+    }
+  }
+  final number = map?.orderNumber.trim() ?? '';
+  return number.isNotEmpty ? '№ $number' : fallbackId.trim();
 }
 
 /// Traverse graph edges, including intermediate non-machine nodes. This is a

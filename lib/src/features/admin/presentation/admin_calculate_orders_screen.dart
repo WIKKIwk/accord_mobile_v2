@@ -61,9 +61,8 @@ class _AdminCalculateOrdersScreenState
   }
 
   void _openTemplate(CalculateOrderTemplate template) {
-    Navigator.of(context).pushNamedAndRemoveUntil(
+    Navigator.of(context).pushNamed(
       AppRoutes.adminCalculate,
-      (route) => false,
       arguments: template,
     );
   }
