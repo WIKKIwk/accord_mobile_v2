@@ -18,6 +18,9 @@ MobileApiException _adminProductionMapException(
   double? maximumWidthMm;
   int? activeKadrCount;
   int? scannedKadrCount;
+  String serverMessage = '';
+  Map<String, dynamic> diagnostics = const {};
+  String? requestId = response.headers['x-request-id'];
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -41,6 +44,9 @@ MobileApiException _adminProductionMapException(
       ];
     }
     if (payload is Map) {
+      diagnostics = payload.cast<String, dynamic>();
+      serverMessage = (payload['message'] ?? payload['detail'] ?? '').toString().trim();
+      requestId ??= payload['request_id']?.toString();
       progressApparatusName = payload['apparatus_name']?.toString().trim() ?? '';
       assignedOrderTitle = payload['order_title']?.toString().trim() ?? '';
       rawMaterialStatus =
@@ -74,12 +80,19 @@ MobileApiException _adminProductionMapException(
   } : null;
   return MobileApiException(
     code: code,
+    requestId: requestId,
+    diagnostics: diagnostics,
     apparatusOptions: apparatusOptions,
     details: details,
     activeKadrCount: activeKadrCount,
     scannedKadrCount: scannedKadrCount,
     orderTitle: assignedOrderTitle,
     message: earlyCloseMessage ?? switch (code.trim().toLowerCase()) {
+      'rezka_frame_groups_invalid' => serverMessage.isNotEmpty
+          ? serverMessage
+          : 'Kesish rejasidagi kadrlar taqsimoti mos emas. Production mapdagi Rezka tugunlari va kadr sonini tekshiring.',
+      'template_identity_conflict' =>
+          'Shablon boshqa mahsulot yoki egaga tegishli. Mahsulot uchun yangi mustaqil variant yarating.',
       'duplicate_order_number' => 'Bu raqam boshqa zakazga berilgan',
       'order_number_immutable' => 'Zakaz raqamini o‘zgartirish mumkin emas',
       'order_number_exhausted' => 'Zakaz raqamlari limiti tugagan',
@@ -118,7 +131,7 @@ MobileApiException _adminProductionMapException(
       'queue_reorder_invalid' || 'queue_reorder_idempotency_conflict' =>
         'Navbatni surish so‘rovi mos emas. Navbatni yangilang.',
       'print_preflight_active' =>
-          'Buyurtmada rang chiqarish davom etmoqda. Avval “Rang chiqdi” yoki “Rang chiqmadi” natijasini belgilang.',
+          'Buyurtmaning rang sinovi rezervi faol. Hozir bu amalni bajarib bo‘lmaydi.',
       'print_preflight_not_found' =>
           'Rang chiqarish sinovi topilmadi. Oynani yangilang va qayta urinib ko‘ring.',
       'print_preflight_not_ready' =>
@@ -518,7 +531,7 @@ String _adminProductionMapUnknownErrorMessage({
       normalizedCode == fallbackCode.trim().toLowerCase()) {
     return '$operation$retryAdvice';
   }
-  return '$operation. Server sababini batafsil yubormadi$retryAdvice';
+  return '$operation. Server xato kodi: $code (HTTP $statusCode)$retryAdvice';
 }
 
 class AdminProductionWorkflowAuditViolation {

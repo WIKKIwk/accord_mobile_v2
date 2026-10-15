@@ -25,8 +25,10 @@ extension _AdminProductionMapOrdersLiveState
     // This is read-only; queue actions are never replayed by recovery.
     await _refreshCanonicalInitial();
     if (!mounted || !_workerForeground) return;
+    await _recoverOrdersSectionReads();
+    if (!mounted || !_workerForeground) return;
     if (_loadError != null || _queueSnapshotContractError ||
-        !_workerCatalogReady) {
+        !_workerCatalogReady || _reconnectingOrderReads.isNotEmpty) {
       _scheduleWorkerRecovery();
     } else {
       await _restartWorkerLiveStream();
@@ -34,7 +36,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _clearOrdersLoadError() {
-    if (widget.workerMode && !_workerCatalogReady) return;
+    if (!_workerCatalogReady) return;
     _workerRecoveryTimer?.cancel();
     _workerRecoveryTimer = null;
     _workerRetryAllowed = true;
@@ -42,6 +44,42 @@ extension _AdminProductionMapOrdersLiveState
     _loadError = null;
     _queueSnapshotContractError = false;
     _queueSnapshotErrorMessage = null;
+    _reconnectingOrderReads.removeAll({
+      _OrdersReadSection.initial,
+      _OrdersReadSection.queue,
+    });
+    if (_reconnectingOrderReads.isNotEmpty) _scheduleWorkerRecovery();
+  }
+
+  void _markOrdersReadConnectionError(_OrdersReadSection section, Object error) {
+    final retryable = error is TimeoutException || error is http.ClientException ||
+        (error is MobileApiException &&
+            (error.statusCode == 408 || error.statusCode == 429 ||
+                (error.statusCode ?? 0) >= 500));
+    if (retryable) {
+      _reconnectingOrderReads.add(section);
+    } else {
+      _reconnectingOrderReads.remove(section);
+    }
+  }
+
+  Future<void> _recoverOrdersSectionReads() async {
+    if (_sectionRecoveryInFlight) return;
+    _sectionRecoveryInFlight = true;
+    try {
+      await Future.wait([
+        if (_reconnectingOrderReads.contains(_OrdersReadSection.completed))
+          _refreshWorkerCompletedOrders(),
+        if (_reconnectingOrderReads.contains(_OrdersReadSection.closed))
+          _refreshClosedOrders(),
+        if (_reconnectingOrderReads.contains(_OrdersReadSection.completionRequests))
+          _refreshCompletionRequests(),
+        if (_reconnectingOrderReads.contains(_OrdersReadSection.pending))
+          _refreshPendingOrders(),
+      ]);
+    } finally {
+      _sectionRecoveryInFlight = false;
+    }
   }
 
   bool _canRetryWorkerRead(Object error) => error is! MobileApiException ||
@@ -134,6 +172,13 @@ extension _AdminProductionMapOrdersLiveState
         if (!mounted || _queueSnapshotRefreshInFlight) {
           return;
         }
+        unawaited(_recoverOrdersSectionReads());
+        if (!_workerCatalogReady || _loadError != null) {
+          if (_reconnectingOrderReads.contains(_OrdersReadSection.initial)) {
+            unawaited(_refreshCanonicalInitial());
+          }
+          return;
+        }
         unawaited(_refreshQueueSnapshot());
       },
     );
@@ -219,7 +264,8 @@ extension _AdminProductionMapOrdersLiveState
         final error = streamError ?? const MobileApiException(
           code: 'live_closed', message: 'Live connection closed');
         _workerRetryAllowed = _canRetryWorkerRead(error);
-        _invalidateQueueSnapshotContract(_workerReadErrorText(error), retryRead: false);
+        _invalidateQueueSnapshotContract(_workerReadErrorText(error),
+          retryRead: false, reconnecting: _workerRetryAllowed);
         if (!_workerRetryAllowed) return;
         unawaited(_runWorkerHttpFallback(generation));
       }
@@ -374,12 +420,17 @@ extension _AdminProductionMapOrdersLiveState
     _workerCompletedHistoryErrorMessage = null;
     _completionRequests = snapshot.completionRequests;
     _completionRequestsErrorMessage = null;
+    _reconnectingOrderReads.removeAll({
+      _OrdersReadSection.completed,
+      _OrdersReadSection.completionRequests,
+    });
   }
 
   void _requestStateReconcile() {
     _queueSnapshotNeedsReconcile = true;
     _invalidateQueueSnapshotContract(
       context.l10n.productionText('worker.connection.reconnecting'), retryRead: false,
+      reconnecting: true,
     );
     // Compressed HTTP, single-flight. Never request a full WS frame on a gap.
     unawaited(_refreshQueueSnapshot());
@@ -426,11 +477,13 @@ extension _AdminProductionMapOrdersLiveState
           _completedWorkerOrders = nextCompleted;
           _workerCompletedHistoryError = false;
           _workerCompletedHistoryErrorMessage = null;
+          _reconnectingOrderReads.remove(_OrdersReadSection.completed);
         }
         if (nextRequests != null) {
           _completionRequestsGeneration++;
           _completionRequests = nextRequests;
           _completionRequestsErrorMessage = null;
+          _reconnectingOrderReads.remove(_OrdersReadSection.completionRequests);
         }
         _clearOrdersLoadError();
       });
@@ -732,6 +785,7 @@ extension _AdminProductionMapOrdersLiveState
               ? error.message
               : context.l10n.productionText('worker.error.sync'),
           retryRead: !waitForChanges,
+          reconnecting: _canRetryWorkerRead(error),
         );
       }
       return;
@@ -744,21 +798,29 @@ extension _AdminProductionMapOrdersLiveState
     }
   }
 
-  void _invalidateQueueSnapshotContract(String message, {bool retryRead = true}) {
+  void _invalidateQueueSnapshotContract(String message, {
+    bool retryRead = true,
+    bool reconnecting = false,
+  }) {
     _queueSnapshotGeneration++;
     if (!mounted) {
       return;
     }
     if (_queueSnapshotContractError && !_loading &&
-        _queueSnapshotErrorMessage == message) {
+        _queueSnapshotErrorMessage == message &&
+        _reconnectingOrderReads.contains(_OrdersReadSection.queue) == reconnecting) {
       if (retryRead) _scheduleWorkerRecovery();
       return;
     }
-    // Keep the last good state on screen (no list wipe, no loading spinner).
-    // Only surface the warning; a newer canonical snapshot will recover.
+    // Keep the last good list while a fresh canonical snapshot reconnects.
     _updateScreenState(() {
       _queueSnapshotContractError = true;
       _queueSnapshotErrorMessage = message;
+      if (reconnecting) {
+        _reconnectingOrderReads.add(_OrdersReadSection.queue);
+      } else {
+        _reconnectingOrderReads.remove(_OrdersReadSection.queue);
+      }
       _loading = false;
     });
     if (retryRead) _scheduleWorkerRecovery();
@@ -983,6 +1045,7 @@ extension _AdminProductionMapOrdersLiveState
         _completedWorkerOrders = completed;
         _workerCompletedHistoryError = false;
         _workerCompletedHistoryErrorMessage = null;
+        _reconnectingOrderReads.remove(_OrdersReadSection.completed);
       });
     } catch (error) {
       if (!mounted || generation != _workerCompletedOrdersGeneration) {
@@ -990,10 +1053,14 @@ extension _AdminProductionMapOrdersLiveState
       }
       _updateScreenState(() {
         _workerCompletedHistoryError = true;
+        _markOrdersReadConnectionError(_OrdersReadSection.completed, error);
         _workerCompletedHistoryErrorMessage = error is MobileApiException
             ? error.message
             : context.l10n.productionText('worker.error.sync');
       });
+      if (_reconnectingOrderReads.contains(_OrdersReadSection.completed)) {
+        _scheduleWorkerRecovery();
+      }
     }
   }
 
@@ -1061,11 +1128,13 @@ extension _AdminProductionMapOrdersLiveState
         _updateScreenState(() {
           _closedOrders = closed;
           _closedOrdersErrorMessage = null;
+          _reconnectingOrderReads.remove(_OrdersReadSection.closed);
         });
       } catch (error) {
         if (!mounted) return;
         if (_closedOrdersRefreshQueued) continue;
         _updateScreenState(() {
+          _markOrdersReadConnectionError(_OrdersReadSection.closed, error);
           _closedOrdersErrorMessage =
               error is MobileApiException && error.message.trim().isNotEmpty
                   ? error.message
@@ -1091,12 +1160,14 @@ extension _AdminProductionMapOrdersLiveState
       _updateScreenState(() {
         _completionRequests = requests;
         _completionRequestsErrorMessage = null;
+        _reconnectingOrderReads.remove(_OrdersReadSection.completionRequests);
       });
     } catch (error) {
       if (!mounted || generation != _completionRequestsGeneration) {
         return;
       }
       _updateScreenState(() {
+        _markOrdersReadConnectionError(_OrdersReadSection.completionRequests, error);
         _completionRequestsErrorMessage =
             error is MobileApiException && error.message.trim().isNotEmpty
                 ? error.message
@@ -1390,17 +1461,27 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _applyInitialProductionMapLoadError(Object error) {
+    final retryable = _canRetryWorkerRead(error);
     if (widget.workerMode) {
-      _workerRetryAllowed = _canRetryWorkerRead(error);
+      _workerRetryAllowed = retryable;
       if (_workerCatalogReady) {
-        _invalidateQueueSnapshotContract(_workerReadErrorText(error));
+        _invalidateQueueSnapshotContract(_workerReadErrorText(error),
+          reconnecting: retryable);
         return;
       }
     }
     _updateScreenState(() {
       _loading = false;
+      if (retryable) {
+        _reconnectingOrderReads.add(_OrdersReadSection.initial);
+      } else {
+        _reconnectingOrderReads.remove(_OrdersReadSection.initial);
+      }
       _loadError = widget.workerMode
-          ? _workerReadErrorText(error) : 'Reja menu yuklanmadi';
+          ? _workerReadErrorText(error)
+          : error is MobileApiException && !retryable
+              ? error.message
+              : 'Reja menu yuklanmadi';
     });
     _scheduleWorkerRecovery();
   }

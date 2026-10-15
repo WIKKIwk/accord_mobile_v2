@@ -95,7 +95,12 @@ void main() {
     expect(captured?.arguments, containsPair('progress_qty', 125.0));
     expect(captured?.arguments, containsPair('progress_unit', 'M'));
     expect(captured?.arguments, isNot(contains('bytes')));
-    expect(captured?.arguments, isNot(contains('material_data_matrix')));
+    expect(captured?.arguments, containsPair('material_data_matrix', true));
+    expect(
+      captured?.arguments,
+      containsPair('material_data_matrix_bars',
+          materialDataMatrixBars('303132333435363738394142')),
+    );
   });
 
   for (final scenario in [
@@ -103,9 +108,14 @@ void main() {
     (kind: 'material_product', meters: true, enabled: true, expected: true),
     (kind: 'material_product', meters: true, enabled: false, expected: false),
     (kind: 'qolip_code', meters: false, enabled: true, expected: false),
-    (kind: 'progress', meters: true, enabled: true, expected: false),
+    (kind: 'progress', meters: true, enabled: true, expected: true),
+    (kind: 'progress', meters: true, enabled: false, expected: true),
+    (kind: 'opening_wip', meters: true, enabled: false, expected: true),
+    (kind: 'paddon_code', meters: false, enabled: false, expected: true),
+    (kind: 'qolip_cell', meters: false, enabled: false, expected: false),
+    (kind: '', meters: false, enabled: false, expected: false),
   ]) {
-    test('Bluetooth material Data Matrix is opt-in: $scenario', () async {
+    test('Bluetooth worker Data Matrix is automatic; material is opt-in: $scenario', () async {
       MethodCall? captured;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
@@ -137,7 +147,7 @@ void main() {
       expect(response.ok, isTrue);
       final payload = captured!.arguments as Map;
       expect(payload['epc'], epc);
-      expect(payload['label_kind'], scenario.kind);
+      expect(payload['label_kind'], scenario.kind.isEmpty ? null : scenario.kind);
       expect(payload['print_count'], 1);
       expect(payload['gross_qty'], 100);
       expect(payload['material_data_matrix'] == true, scenario.expected);

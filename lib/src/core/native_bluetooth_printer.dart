@@ -39,12 +39,15 @@ class NativeBluetoothPrinter {
     required BluetoothPrinterProfile printer,
     bool materialDataMatrix = false,
   }) async {
+    final useDataMatrix = request.isProgressLabel ||
+        request.isPaddonCodeLabel ||
+        (materialDataMatrix && request.isMaterialProductLabel);
     final raw = await _channel.invokeMapMethod<String, Object?>(
       'printLabel',
       {
         ..._bluetoothLabelPayload(request),
         'mac_address': printer.address,
-        if (materialDataMatrix && request.isMaterialProductLabel) ...{
+        if (useDataMatrix) ...{
           'material_data_matrix': true,
           'material_data_matrix_bars': materialDataMatrixBars(request.epc),
         },

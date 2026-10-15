@@ -6,7 +6,7 @@ const _inlineWipQr = '400118D5A225166D31898C1F';
 const _inlineOtherWipQr = '400118D5A225166D31898C2F';
 
 class _InlineWipFixture {
-  _InlineWipFixture(this.entrypoint)
+  _InlineWipFixture(this.entrypoint, {this.station = _lamination1Id})
       : phase = entrypoint == 'start'
             ? 'start'
             : entrypoint == 'resume'
@@ -14,6 +14,7 @@ class _InlineWipFixture {
                 : 'active';
 
   final String entrypoint;
+  final String station;
   String phase;
   String wipStatus = 'waiting';
   bool allowMerge = true;
@@ -90,14 +91,14 @@ class _InlineWipFixture {
 
   AdminProductionMapLiveSnapshot snapshot() => AdminProductionMapLiveSnapshot(
         maps: maps,
-        sequences: const {
-          _lamination1Id: [_inlineOrderId, _inlineOtherOrderId]
+        sequences: {
+          station: [_inlineOrderId, _inlineOtherOrderId]
         },
-        visibleOrderIds: const {
-          _lamination1Id: [_inlineOrderId, _inlineOtherOrderId]
+        visibleOrderIds: {
+          station: [_inlineOrderId, _inlineOtherOrderId]
         },
         queueStates: {
-          _lamination1Id: {
+          station: {
             _inlineOrderId: control()['state'] as String,
             _inlineOtherOrderId: control(other: true)['state'] as String,
           }
@@ -107,7 +108,7 @@ class _InlineWipFixture {
           if (phase == 'frozen') _inlineOrderId: AdminOrderControlState.frozen
         },
         queueActionControls: {
-          _lamination1Id: {
+          station: {
             _inlineOrderId:
                 AdminApparatusQueueOrderActionControl.fromJson(control()),
             _inlineOtherOrderId: AdminApparatusQueueOrderActionControl.fromJson(
@@ -134,13 +135,13 @@ class _InlineWipFixture {
             },
         ],
         'sequences': {
-          _lamination1Id: [_inlineOrderId, _inlineOtherOrderId]
+          station: [_inlineOrderId, _inlineOtherOrderId]
         },
         'visible_order_ids': {
-          _lamination1Id: [_inlineOrderId, _inlineOtherOrderId]
+          station: [_inlineOrderId, _inlineOtherOrderId]
         },
         'queue_states': {
-          _lamination1Id: {
+          station: {
             _inlineOrderId: control()['state'],
             _inlineOtherOrderId: control(other: true)['state'],
           }
@@ -148,7 +149,7 @@ class _InlineWipFixture {
         'queue_policies': [],
         'stage_states': {},
         'queue_action_controls': {
-          _lamination1Id: {
+          station: {
             _inlineOrderId: control(),
             _inlineOtherOrderId: control(other: true),
           }
@@ -174,10 +175,10 @@ class _InlineWipFixture {
         'finished_goods_kg': 20,
         'bobina_kg': 1,
         'wip_status': wipStatus,
-        'next_apparatus': _lamination1Id,
+        'next_apparatus': station,
         'current_apparatus':
-            wipStatus == 'waiting' ? _print9Id : _lamination1Id,
-        if (wipStatus != 'waiting') 'used_by_apparatus': _lamination1Id,
+            wipStatus == 'waiting' ? _print9Id : station,
+        if (wipStatus != 'waiting') 'used_by_apparatus': station,
         if (wipStatus != 'waiting') 'used_by_session_id': 'other-shift-session',
         'payload_json': {'next_stage_node_id': 'second-apparatus'},
       };
@@ -197,7 +198,7 @@ class _InlineWipFixture {
         'wip_status': wipStatus,
         if (wipStatus == 'in_use')
           'used_by_session_id': 'previous-shift-session',
-        if (wipStatus == 'in_use') 'used_by_apparatus': _lamination1Id,
+        if (wipStatus == 'in_use') 'used_by_apparatus': station,
       };
 
   Map<String, dynamic> openingRecord() => {
@@ -229,7 +230,7 @@ class _InlineWipFixture {
           jsonEncode([
             {
               'order_id': _inlineOrderId,
-              'apparatus': _lamination1Id,
+              'apparatus': station,
               'barcode': 'RAW-INLINE-1',
               'item_code': 'FILM-INLINE',
               'item_name': 'Additional film',
@@ -308,7 +309,7 @@ class _InlineWipFixture {
 
   Future<void> open(WidgetTester tester) async {
     await TestModeController.instance.setEnabled(true);
-    AppSession.instance.profile = const SessionProfile(
+    AppSession.instance.profile = SessionProfile(
       role: UserRole.aparatchi,
       displayName: 'New shift',
       legalName: '',
@@ -316,7 +317,7 @@ class _InlineWipFixture {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-      assignedApparatus: [_lamination1Id],
+      assignedApparatus: [station],
     );
     maps = [
       for (final other in [false, true])
@@ -327,7 +328,7 @@ class _InlineWipFixture {
           productCode: other ? 'INLINE-OTHER' : 'INLINE',
           product: 'Inline product',
           firstApparatusId: _print9Id,
-          secondApparatusId: _lamination1Id,
+          secondApparatusId: station,
         )),
     ];
     apparatus = await MobileApi.instance.adminApparatus(limit: 200);
@@ -364,7 +365,7 @@ class _InlineWipFixture {
     ));
     await tester.pumpAndSettle();
     if (consumeInitialQr) return;
-    await tester.tap(find.text('Laminatsiya 1'));
+    await tester.tap(find.text(_fixtureApparatusName(station)));
     await tester.pumpAndSettle();
     await TestModeController.instance.setEnabled(false);
     await tester

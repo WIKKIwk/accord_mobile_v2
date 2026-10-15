@@ -253,6 +253,26 @@ Set<String> _frozenOrderIds(Map<String, AdminOrderControlState> orderControls) {
   };
 }
 
+Map<String, List<String>> _testModePendingMoveSequences({
+  required Iterable<String> orderIds,
+  required String fromApparatus,
+  required String toApparatus,
+}) {
+  final moved = orderIds.map((id) => id.trim()).toSet();
+  final current = _testModeEffectiveQueueSequences();
+  return {
+    fromApparatus: [
+      for (final id in current[fromApparatus] ?? const <String>[])
+        if (!moved.contains(id)) id,
+    ],
+    toApparatus: [
+      for (final id in current[toApparatus] ?? const <String>[])
+        if (!moved.contains(id)) id,
+      ...moved,
+    ],
+  };
+}
+
 void _testModeRemoveOrderFromQueueSequence(String orderId) {
   final normalizedOrderId = orderId.trim();
   if (normalizedOrderId.isEmpty) {

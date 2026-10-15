@@ -42,7 +42,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   }
 
   List<ProductionMapChainStage> get _availableSourceStages =>
-      _openingWipSourceStages(_selectedOrder, widget.stageStatesByOrderId);
+      _openingWipSourceStages(_selectedOrder, widget.queueSnapshot.stageStates);
 
   ProductionMapChainStage? get _selectedSourceStage {
     for (final stage in _availableSourceStages) {
@@ -395,6 +395,36 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
           itemKey: (item) => item.map.id,
           itemSelected: (item) =>
               item.map.id.trim() == _selectedOrder?.map.id.trim(),
+          listBuilder:
+              (context, orders, scrollController, loadingMore, onItemTap) {
+            final snapshot = widget.queueSnapshot;
+            return ListView(
+              controller: scrollController,
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              children: [
+                _OpenedOrderList(
+                  orders: orders,
+                  apparatusCatalog: widget.apparatusCatalog,
+                  customerNameByMapId: snapshot.orderCustomers,
+                  orderStatusesByOrderId: snapshot.orderStatuses,
+                  orderControlsByOrderId: snapshot.orderControls,
+                  queueStatesByApparatus: snapshot.queueStates,
+                  stageStatesByOrderId: snapshot.stageStates,
+                  queueActionControlsByApparatus: snapshot.queueActionControls,
+                  visibleOrderIdsByApparatus: snapshot.visibleOrderIds,
+                  selectedOrderId: _selectedOrder?.map.id.trim() ?? '',
+                  onInfoOrder: onItemTap,
+                  onLongPressOrder: (_) {},
+                ),
+                if (loadingMore)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(child: AppLoadingIndicator()),
+                  ),
+              ],
+            );
+          },
           onSelected: (item) => Navigator.of(context).pop(item),
         );
       },
@@ -421,7 +451,7 @@ class _OpeningWipWizardState extends State<_OpeningWipWizard> {
   void _selectOrder(ProductionMapSaved? order) {
     final sourceStages = _openingWipSourceStages(
       order,
-      widget.stageStatesByOrderId,
+      widget.queueSnapshot.stageStates,
     );
     final nextSourceNodeId =
         sourceStages.isEmpty ? '' : sourceStages.first.nodeId;
@@ -753,11 +783,11 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
     final snapshot = results[2] as AdminApparatusQueueSnapshot;
     return _OpeningWipPageData(
       orders: _openingWipEligibleOrders(
-        orders: orders,
+        orders: _productionMapZakazOrders(orders),
         stageStatesByOrderId: snapshot.stageStates,
       ),
       apparatus: apparatus,
-      stageStatesByOrderId: snapshot.stageStates,
+      queueSnapshot: snapshot,
     );
   }
 
@@ -811,7 +841,7 @@ class _AdminOpeningWipScreenState extends State<AdminOpeningWipScreen> {
                         _OpeningWipWizard(
                           orders: data.orders,
                           apparatusCatalog: data.apparatus,
-                          stageStatesByOrderId: data.stageStatesByOrderId,
+                          queueSnapshot: data.queueSnapshot,
                           progressDriverUrlPicker:
                               widget.progressDriverUrlPicker,
                           onCreated: _handleCreated,
@@ -1724,11 +1754,11 @@ class _OpeningWipPageData {
   const _OpeningWipPageData({
     required this.orders,
     required this.apparatus,
-    required this.stageStatesByOrderId,
+    required this.queueSnapshot,
   });
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatus;
-  final Map<String, Map<String, String>> stageStatesByOrderId;
+  final AdminApparatusQueueSnapshot queueSnapshot;
 }
 
 List<ProductionMapChainStage> _openingWipSourceStages(
@@ -1760,13 +1790,13 @@ class _OpeningWipWizard extends StatefulWidget {
   const _OpeningWipWizard({
     required this.orders,
     required this.apparatusCatalog,
-    required this.stageStatesByOrderId,
+    required this.queueSnapshot,
     this.progressDriverUrlPicker,
     this.onCreated,
   });
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatusCatalog;
-  final Map<String, Map<String, String>> stageStatesByOrderId;
+  final AdminApparatusQueueSnapshot queueSnapshot;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final VoidCallback? onCreated;
 

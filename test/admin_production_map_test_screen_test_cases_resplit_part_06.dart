@@ -213,7 +213,7 @@ void _registeradmin_production_map_test_screen_testCases06() {
     expect(find.textContaining('ITEM-002'), findsNothing);
   });
 
-  testWidgets('opened production map orders load error is text only', (
+  testWidgets('opened production map orders transient load shows linear progress', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -233,14 +233,21 @@ void _registeradmin_production_map_test_screen_testCases06() {
         home: const AdminProductionMapOrdersScreen(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpRecoveryFrames(tester);
 
-    expect(find.text('Reja menu yuklanmadi'), findsOneWidget);
+    final progress = find.byKey(_recoveryProgressKey);
+    expect(progress, findsOneWidget);
+    expect(tester.widget<LinearProgressIndicator>(progress).value, isNull);
+    expect(find.text('Reja menu yuklanmadi'), findsNothing);
+    expect(find.text('Qayta urinish'), findsNothing);
     expect(find.byIcon(Icons.refresh_rounded), findsNothing);
-    expect(find.byType(AppRefreshIndicator), findsOneWidget);
+    setMobileApiTestModeForceProductionMapMenuLoadFailure(false);
+    await tester.pump(const Duration(seconds: 2));
+    await _pumpRecoveryFrames(tester);
+    expect(progress, findsNothing);
   });
 
-  testWidgets('queue snapshot failure keeps opened orders visible', (
+  testWidgets('cold queue failure shows progress until automatic recovery', (
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
@@ -270,15 +277,23 @@ void _registeradmin_production_map_test_screen_testCases06() {
         home: const AdminProductionMapOrdersScreen(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpRecoveryFrames(tester);
 
-    expect(find.textContaining('Queue degraded order'), findsOneWidget);
+    expect(find.byKey(_recoveryProgressKey), findsOneWidget);
+    expect(find.textContaining('Queue degraded order'), findsNothing);
     expect(
-        find.text('Ish rejasi navbati serverdan yuklanmadi'), findsOneWidget);
+        find.text('Ish rejasi navbati serverdan yuklanmadi'), findsNothing);
     expect(
       find.text('Production map ma’lumotlarini saqlashda server xatosi'),
       findsNothing,
     );
+    setMobileApiTestModeForceProductionMapQueueSnapshotLoadFailure(false);
+    await tester.pump(const Duration(seconds: 2));
+    await _pumpRecoveryFrames(tester);
+    await tester.tap(find.text('Buyurtmalar'));
+    await _pumpRecoveryFrames(tester);
+    expect(find.textContaining('Queue degraded order'), findsOneWidget);
+    expect(find.byKey(_recoveryProgressKey), findsNothing);
   });
 
   testWidgets('closed orders failure is visible and retry clears it', (

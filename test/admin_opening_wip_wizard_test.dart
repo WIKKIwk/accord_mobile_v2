@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/widgets/m3_picker_sheet.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -103,7 +104,9 @@ void main() {
     expect(
       find.descendant(
         of: orderPicker,
-        matching: find.text('OWIP-0001 • Opening WIP mahsulot'),
+        matching: find.byKey(
+          const ValueKey('opened-order-zakaz-opening-wip-1'),
+        ),
       ),
       findsOneWidget,
     );
@@ -111,7 +114,9 @@ void main() {
       find
           .descendant(
             of: orderPicker,
-            matching: find.text('OWIP-0001 • Opening WIP mahsulot'),
+            matching: find.byKey(
+              const ValueKey('opened-order-zakaz-opening-wip-1'),
+            ),
           )
           .last,
     );
@@ -252,7 +257,7 @@ void main() {
     );
   });
 
-  testWidgets('Opening WIP order picker searches and selects orders',
+  testWidgets('Opening WIP reuses illustrated order rows and searches orders',
       (tester) async {
     await MobileApi.instance.adminSaveProductionMap(
       _printingOpeningOrder(
@@ -264,6 +269,12 @@ void main() {
       _printingOpeningOrder(
         id: 'zakaz-opening-wip-picker-b',
         orderNumber: 'OWIP-PICKER-B',
+      ).copyWith(customerName: '365 Korzinka', imageId: 'picker-order-image'),
+    );
+    await MobileApi.instance.adminSaveProductionMap(
+      _printingOpeningOrder(
+        id: 'template-opening-wip-picker',
+        orderNumber: 'TEMPLATE-PICKER',
       ),
     );
     tester.view.devicePixelRatio = 1;
@@ -287,21 +298,61 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('opening-wip-order')));
+    final orderField = find.byKey(const ValueKey('opening-wip-order'));
+    final initiallySelectedId = find
+            .descendant(
+              of: orderField,
+              matching: find.text('OWIP-PICKER-A • Opening WIP switch'),
+            )
+            .evaluate()
+            .isNotEmpty
+        ? 'zakaz-opening-wip-picker-a'
+        : 'zakaz-opening-wip-picker-b';
+    await tester.tap(orderField);
     await tester.pumpAndSettle();
     final orderPicker = find.byType(M3AsyncPickerSheet<ProductionMapSaved>);
     expect(
       find.descendant(
         of: orderPicker,
-        matching: find.text('OWIP-PICKER-A • Opening WIP switch'),
+        matching: find.byKey(
+          const ValueKey('opened-order-zakaz-opening-wip-picker-a'),
+        ),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: orderPicker,
-        matching: find.text('OWIP-PICKER-B • Opening WIP switch'),
+        matching: find.byKey(
+          const ValueKey('opened-order-zakaz-opening-wip-picker-b'),
+        ),
       ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('TEMPLATE-PICKER'), findsNothing);
+    expect(find.text('365 Korzinka • 3 ta aparat'), findsOneWidget);
+    final covers = tester.widgetList<AdminOrderCoverThumb>(
+      find.descendant(
+        of: orderPicker,
+        matching: find.byType(AdminOrderCoverThumb),
+      ),
+    );
+    expect(covers, hasLength(2));
+    expect(
+      covers
+          .singleWhere((cover) =>
+              cover.heroTag ==
+              'production-order-cover-zakaz-opening-wip-picker-b')
+          .imageUrl,
+      MobileApi.instance.adminProductionMapOrderImageUrl(
+        'zakaz-opening-wip-picker-b',
+        imageId: 'picker-order-image',
+      ),
+    );
+    expect(
+      find.byKey(ValueKey(
+        'opened-order-selected-$initiallySelectedId',
+      )),
       findsOneWidget,
     );
 
@@ -310,14 +361,18 @@ void main() {
     expect(
       find.descendant(
         of: orderPicker,
-        matching: find.text('OWIP-PICKER-A • Opening WIP switch'),
+        matching: find.byKey(
+          const ValueKey('opened-order-zakaz-opening-wip-picker-a'),
+        ),
       ),
       findsNothing,
     );
     expect(
       find.descendant(
         of: orderPicker,
-        matching: find.text('OWIP-PICKER-B • Opening WIP switch'),
+        matching: find.byKey(
+          const ValueKey('opened-order-zakaz-opening-wip-picker-b'),
+        ),
       ),
       findsOneWidget,
     );
@@ -326,7 +381,9 @@ void main() {
       find
           .descendant(
             of: orderPicker,
-            matching: find.text('OWIP-PICKER-B • Opening WIP switch'),
+            matching: find.byKey(
+              const ValueKey('opened-order-zakaz-opening-wip-picker-b'),
+            ),
           )
           .last,
     );
@@ -507,7 +564,9 @@ void main() {
     final orderField = find.byKey(const ValueKey('opening-wip-order'));
     await tester.tap(orderField);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('OWIP-SWITCH-B • Opening WIP switch').last);
+    await tester.tap(find.byKey(
+      const ValueKey('opened-order-zakaz-opening-wip-switch-b'),
+    ));
     await tester.pumpAndSettle();
 
     expect(selectedSourceNode(), 'print');

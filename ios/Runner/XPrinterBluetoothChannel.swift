@@ -916,7 +916,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       rawTitle: label.itemName.isEmpty ? label.itemCode : label.itemName
     )
     var lines = titleLines.flatMap { wrapLabelText($0, width: Self.progressFieldWidthChars) }
-    let availableHeight = Self.progressPackQrY - 8 - Self.progressTextTopY
+    let availableHeight = progressCodeY(label, payload: payload) - 8 - Self.progressTextTopY
     var fontHeight = lines.count * 24 <= availableHeight ? 24 : 20
     if lines.count * fontHeight > availableHeight {
       lines = titleLines.flatMap { wrapLabelText($0, width: 46) }
@@ -940,7 +940,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
         font: font
       )
     }
-    return appendProgressQr(result, payload: payload)
+    return appendProgressQr(result, label: label)
   }
 
   private func appendProgressPackLabel(
@@ -962,58 +962,78 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     )
     let status = progressStatusLabel(rawProduct)
 
-    var result = command
-    var y = Self.progressTextTopY
-    let productLines = progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 5)
-    result = appendProgressLines(result, lines: productLines, y: y)
-    y += productLines.count * Self.progressTextLineHeightDots +
-      Self.progressFieldGapDots * 3
-
-    let apparatusLines = progressFieldLines("APARAT", value: apparatus, maxLines: 2)
-    result = appendProgressLines(result, lines: apparatusLines, y: y)
-    y += apparatusLines.count * Self.progressTextLineHeightDots +
-      Self.progressFieldGapDots * 2
-
-    let statusLines = progressFieldLines("HOLAT", value: status, maxLines: 2)
-    result = appendProgressLines(result, lines: statusLines, y: y)
-    y += statusLines.count * Self.progressTextLineHeightDots +
-      Self.progressFieldGapDots * 2
-
     let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
     let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
-    let metricLines = [
-      ("METRAJ", "\(formatLabelQty(label.progressQty ?? label.netQty)) \(meterUnit)"),
-      ("NETTO", "\(formatLabelQty(label.netQty)) \(weightUnit)"),
-      ("BRUTTO", "\(formatLabelQty(label.grossQty)) \(weightUnit)")
+    let fields = [
+      progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 5),
+      progressFieldLines("APARAT", value: apparatus, maxLines: 2),
+      progressFieldLines("HOLAT", value: status, maxLines: 2),
+      progressFieldLines(
+        "METRAJ", value: "\(formatLabelQty(label.progressQty ?? label.netQty)) \(meterUnit)",
+        maxLines: 1
+      ),
+      progressFieldLines("NETTO", value: "\(formatLabelQty(label.netQty)) \(weightUnit)", maxLines: 1),
+      progressFieldLines("BRUTTO", value: "\(formatLabelQty(label.grossQty)) \(weightUnit)", maxLines: 1)
     ]
-    for (fieldLabel, value) in metricLines {
-      let lines = progressFieldLines(fieldLabel, value: value, maxLines: 1)
-      result = appendProgressLines(result, lines: lines, y: y)
-      y += lines.count * Self.progressTextLineHeightDots + Self.progressFieldGapDots
+    let gaps = [12, 8, 8, 4, 4, 0]
+    let availableHeight = progressCodeY(label, payload: payload) - 8 - Self.progressTextTopY
+    let lineCount = fields.reduce(0) { $0 + $1.count }
+    let lineHeight = label.materialDataMatrix
+      ? ([24, 20, 12].first { lineCount * $0 + gaps.reduce(0, +) <= availableHeight } ?? 12)
+      : Self.progressTextLineHeightDots
+    let font = lineHeight == 24 ? kFNT_16_24 : (lineHeight == 20 ? kFNT_12_20 : kFNT_8_12)
+    let charWidth = lineHeight == 24 ? 16 : (lineHeight == 20 ? 12 : 8)
+    var result = command
+    var y = Self.progressTextTopY
+    for (fieldIndex, lines) in fields.enumerated() {
+      result = appendProgressLines(
+        result, lines: lines, y: y, lineHeight: lineHeight, font: font, charWidth: charWidth
+      )
+      y += lines.count * lineHeight + gaps[fieldIndex]
     }
 
-    return appendProgressQr(result, payload: payload)
+    return appendProgressQr(result, label: label)
   }
 
-  // Paddon codes occupy the same QR and identifier positions as WIP EPCs.
-  private func appendProgressQr(
-    _ command: XTSPLCommand?,
-    payload: String
-  ) -> XTSPLCommand? {
-    var result = command
-    let qrCellWidth = packQrCellWidth(payload)
-    let qrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
-    let epcY = min(
+  private func progressEpcY(_ payload: String) -> Int {
+    let qrSize = qrSymbolSizeDots(payload, cellWidth: packQrCellWidth(payload))
+    return min(
       Self.labelHeightDots - 24,
       Self.progressPackQrY + qrSize + Self.progressPackEpcGapDots
     )
-    result = qr(
-      result,
-      x: Self.progressPackQrX,
-      y: Self.progressPackQrY,
-      value: payload,
-      cellWidth: qrCellWidth
-    )
+  }
+
+  private func progressCodeY(_ label: BluetoothLabelRequest, payload: String) -> Int {
+    label.materialDataMatrix
+      ? progressEpcY(payload) - Self.progressPackEpcGapDots - Self.materialDataMatrixSizeDots
+      : Self.progressPackQrY
+  }
+
+  // Keep the identifier at its former position, with the shared three-code
+  // row immediately above it for WIP and pallet labels.
+  private func appendProgressQr(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest
+  ) -> XTSPLCommand? {
+    var result = command
+    let payload = requiredPayload(label.epc)
+    let qrCellWidth = packQrCellWidth(payload)
+    let epcY = progressEpcY(payload)
+    if label.materialDataMatrix {
+      result = materialDataMatrixRow(
+        result,
+        y: progressCodeY(label, payload: payload),
+        bars: label.materialDataMatrixBars
+      )
+    } else {
+      result = qr(
+        result,
+        x: Self.progressPackQrX,
+        y: Self.progressPackQrY,
+        value: payload,
+        cellWidth: qrCellWidth
+      )
+    }
     let epcIsLarge = payload.count <= 32
     let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
     let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
@@ -1043,14 +1063,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private func appendProgressLines(
     _ command: XTSPLCommand?,
     lines: [String],
-    y: Int
+    y: Int,
+    lineHeight: Int,
+    font: String,
+    charWidth: Int
   ) -> XTSPLCommand? {
     var result = command
     for (index, line) in lines.enumerated() {
       result = appendProgressStyledLine(
         result,
         line: line,
-        y: y + index * Self.progressTextLineHeightDots
+        y: y + index * lineHeight,
+        font: font,
+        charWidth: charWidth
       )
     }
     return result
@@ -1059,14 +1084,17 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private func appendProgressStyledLine(
     _ command: XTSPLCommand?,
     line: String,
-    y: Int
+    y: Int,
+    font: String,
+    charWidth: Int
   ) -> XTSPLCommand? {
     guard let separator = line.firstIndex(of: ":") else {
       return appendBoldText(
         command,
         x: Self.labelLeftMarginDots,
         y: y,
-        value: line
+        value: line,
+        font: font
       )
     }
     let labelEnd = line.index(after: separator)
@@ -1077,16 +1105,17 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       command,
       x: Self.labelLeftMarginDots,
       y: y,
-      font: kFNT_16_24,
+      font: font,
       value: labelPart
     )
     if !valuePart.isEmpty {
       result = appendBoldText(
         result,
         x: Self.labelLeftMarginDots +
-          (labelPart.count + 1) * Self.progressTextCharWidthDots,
+          (labelPart.count + 1) * charWidth,
         y: y,
-        value: valuePart
+        value: valuePart,
+        font: font
       )
     }
     return result
@@ -1770,7 +1799,7 @@ private struct BluetoothLabelRequest {
   }
 
   var isProgress: Bool {
-    labelKind == "progress"
+    labelKind == "progress" || labelKind == "opening_wip"
   }
 
   // Faqat homashyo rezkachisi split chiqishi (progressUnit='m' yoki HOMASHYO

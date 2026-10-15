@@ -177,6 +177,24 @@ part 'werka/mobile_api_werka_MobileApiWerka_methods_01.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_MobileApiAdminQueueActionResultTestMode_resplit_class.dart';
 part 'admin/mobile_api_admin_queue_action_result_test_mode_MobileApiAdminQueueActionResultTestMode_resplit_class_MobileApiAdminQueueActionResultTestMode_resplit2_methods_01.dart';
 
+final _testModeOrderCreationReplies = <String, (String, ProductionMapSaveWithOrderResult)>{};
+final _testModeOrderCreationLocks = <String, Future<void>>{};
+
+Future<ProductionMapSaveWithOrderResult> _withTestModeOrderCreationLock(
+  String key, Future<ProductionMapSaveWithOrderResult> Function() action,
+) async {
+  if (!key.startsWith('zakaz-draft-')) return action();
+  while (_testModeOrderCreationLocks[key] != null) {
+    await _testModeOrderCreationLocks[key];
+  }
+  final completion = Completer<void>();
+  _testModeOrderCreationLocks[key] = completion.future;
+  try { return await action(); } finally {
+    _testModeOrderCreationLocks.remove(key);
+    completion.complete();
+  }
+}
+
 class MobileApiException implements Exception {
   const MobileApiException({
     required this.code,
@@ -187,6 +205,8 @@ class MobileApiException implements Exception {
     this.activeKadrCount,
     this.scannedKadrCount,
     this.orderTitle = '',
+    this.requestId,
+    this.diagnostics = const {},
   });
 
   final String code;
@@ -197,6 +217,8 @@ class MobileApiException implements Exception {
   final int? activeKadrCount;
   final int? scannedKadrCount;
   final String orderTitle;
+  final String? requestId;
+  final Map<String, dynamic> diagnostics;
 
   @override
   String toString() => message;

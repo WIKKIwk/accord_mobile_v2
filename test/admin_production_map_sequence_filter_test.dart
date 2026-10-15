@@ -176,52 +176,137 @@ void main() {
   );
 
   testWidgets(
-    'search filters orders in the admin sequence tab',
+    'admin search matches displayed customers and preserves queue positions',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
-      await MobileApi.instance.adminSaveProductionMap(
+      tester.view.physicalSize = const Size(430, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final maps = [
         _sequenceSearchMap(
           id: 'zakaz-sequence-search-alpha',
           title: 'Alpha sequence order',
-        ),
-      );
-      await MobileApi.instance.adminSaveProductionMap(
+        ).copyWith(code: '0011', customerName: 'Alpha customer'),
+        for (var index = 1; index <= 4; index++)
+          _sequenceSearchMap(
+            id: 'zakaz-sequence-search-$index',
+            title: 'Intermediate order $index',
+          ).copyWith(code: '001${index + 1}'),
         _sequenceSearchMap(
           id: 'zakaz-sequence-search-beta',
           title: 'Beta sequence order',
-        ),
-      );
+        ).copyWith(code: '0016', customerName: 'Map customer'),
+      ];
+      for (final map in maps) {
+        await MobileApi.instance.adminSaveProductionMap(map);
+      }
       await MobileApi.instance.adminSaveProductionMapSequence(
         apparatus: _godexId,
-        orderIds: const [
-          'zakaz-sequence-search-alpha',
-          'zakaz-sequence-search-beta',
-        ],
+        orderIds: maps.map((map) => map.id).toList(),
+      );
+      final initial =
+          await MobileApi.instance.adminProductionMapQueueSnapshot();
+      final snapshot = AdminApparatusQueueSnapshot(
+        maps: initial.maps,
+        sequences: initial.sequences,
+        visibleOrderIds: initial.visibleOrderIds,
+        queueStates: initial.queueStates,
+        queuePolicies: initial.queuePolicies,
+        orderControls: initial.orderControls,
+        orderCustomers: const {'zakaz-sequence-search-beta': 'Miray'},
       );
 
       await tester.pumpWidget(
-        const MaterialApp(
-          locale: Locale('uz'),
-          localizationsDelegates: [
+        MaterialApp(
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: AdminProductionMapOrdersScreen(),
+          home: AdminProductionMapOrdersScreen(
+            queueSnapshotLoader: () async => snapshot,
+            liveEventsLoader: () => const Stream.empty(),
+          ),
         ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ketma-ketlik'));
       await tester.pumpAndSettle();
 
       expect(find.text('Alpha sequence order'), findsOneWidget);
       expect(find.text('Beta sequence order'), findsOneWidget);
 
-      await tester.enterText(find.byType(EditableText), 'beta');
+      Finder filteredRow(String id) => find.byKey(
+            ValueKey('sequence-static-$_godexId-zakaz-sequence-search-$id'),
+          );
+
+      await tester.enterText(find.byType(EditableText), '0016');
       await tester.pumpAndSettle();
 
       expect(find.text('Alpha sequence order'), findsNothing);
       expect(find.text('Beta sequence order'), findsOneWidget);
+      expect(
+        find.descendant(of: filteredRow('beta'), matching: find.text('6')),
+        findsOneWidget,
+      );
+      expect(find.byType(ReorderableListView), findsNothing);
+
+      await tester.enterText(find.byType(EditableText), 'sequence order');
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: filteredRow('alpha'), matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: filteredRow('beta'), matching: find.text('6')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(find.byType(EditableText), 'mIrAy');
+      await tester.pumpAndSettle();
+      expect(find.text('Alpha sequence order'), findsNothing);
+      expect(find.text('Beta sequence order'), findsOneWidget);
+      expect(find.text('Miray • 1 ta aparat'), findsOneWidget);
+      expect(
+        find.descendant(of: filteredRow('beta'), matching: find.text('6')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('opened-order-zakaz-sequence-search-beta')),
+        findsOneWidget,
+      );
+      expect(find.text('Alpha sequence order'), findsNothing);
+
+      await tester.enterText(find.byType(EditableText), 'alpha CUSTOMER');
+      await tester.pumpAndSettle();
+      expect(find.text('Alpha sequence order'), findsOneWidget);
+      expect(find.text('Beta sequence order'), findsNothing);
+
+      await tester.enterText(find.byType(EditableText), 'no matching customer');
+      await tester.pumpAndSettle();
+      expect(find.text('Alpha sequence order'), findsNothing);
+      expect(find.text('Beta sequence order'), findsNothing);
+
+      await tester.enterText(find.byType(EditableText), '');
+      await tester.tap(find.text('Ketma-ketlik'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ReorderableListView), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(
+            'sequence-row-$_godexId-zakaz-sequence-search-beta',
+          )),
+          matching: find.text('6'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 }

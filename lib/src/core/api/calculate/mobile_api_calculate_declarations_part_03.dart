@@ -62,6 +62,7 @@ class CalculateOrderTemplate {
     required this.note,
     this.kg = 0,
     this.sourceMapId = '',
+    this.variantId = '',
   });
 
   factory CalculateOrderTemplate.fromJson(Map<String, dynamic> json) {
@@ -129,6 +130,7 @@ class CalculateOrderTemplate {
       note: _calculateText(json['note']),
       kg: _calculateNumber(json['kg']),
       sourceMapId: _calculateText(json['source_map_id']),
+      variantId: _calculateText(json['variant_id']),
     );
   }
 
@@ -169,6 +171,7 @@ class CalculateOrderTemplate {
   final String note;
   final double kg;
   final String sourceMapId;
+  final String variantId;
 
   /// Older templates stored the printing method in the product-form field.
   String get effectivePrintMethod {
@@ -245,6 +248,7 @@ class CalculateOrderTemplate {
       'note': note.trim(),
       if (kg > 0) 'kg': kg,
       if (sourceMapId.trim().isNotEmpty) 'source_map_id': sourceMapId.trim(),
+      if (variantId.isNotEmpty) 'variant_id': variantId,
     };
   }
 
@@ -285,6 +289,7 @@ class CalculateOrderTemplate {
     String? note,
     double? kg,
     String? sourceMapId,
+    String? variantId,
   }) {
     return CalculateOrderTemplate(
       productionOptions: productionOptions ?? this.productionOptions,
@@ -323,6 +328,7 @@ class CalculateOrderTemplate {
       note: note ?? this.note,
       kg: kg ?? this.kg,
       sourceMapId: sourceMapId ?? this.sourceMapId,
+      variantId: variantId ?? (id != null && id != this.id ? '' : this.variantId),
     );
   }
 }
@@ -356,15 +362,16 @@ class CalculateOrderImage {
 CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
   CalculateOrderTemplate template,
 ) {
+  final existing = _testModeCheckedTemplateIdentity(template);
   if (_testModeForceCalculateTemplateSaveFailure) {
     throw const MobileApiException(
       code: 'calculate_order_save',
       message: 'Calculate order save failed (test)',
     );
   }
-  final id = template.id.trim().isNotEmpty
+  final id = existing?.id ?? (template.id.trim().isNotEmpty
       ? template.id.trim()
-      : 'test-co-${DateTime.now().millisecondsSinceEpoch}';
+      : 'test-co-${DateTime.now().microsecondsSinceEpoch}');
   final code = template.code.trim().isNotEmpty ? template.code.trim() : 'Z-$id';
   final saved = CalculateOrderTemplate(
     productionOptions: template.productionOptions,
@@ -402,6 +409,7 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
     note: template.note,
     kg: template.kg,
     sourceMapId: template.sourceMapId,
+    variantId: existing?.variantId ?? template.variantId,
   );
   final lowerCode = code.toLowerCase();
   _testModeCalculateOrderTemplates.removeWhere(
@@ -409,4 +417,16 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
   );
   _testModeCalculateOrderTemplates.insert(0, saved);
   return saved;
+}
+
+CalculateOrderTemplate? _testModeCheckedTemplateIdentity(CalculateOrderTemplate template) {
+  final matches = _testModeCalculateOrderTemplates.where((item) =>
+      (template.id.trim().isNotEmpty && item.id == template.id.trim()) ||
+      (template.code.trim().isNotEmpty && item.code.toLowerCase() == template.code.trim().toLowerCase())).toList();
+  if (matches.any((item) => item.itemCode.trim().isNotEmpty && item.itemCode.trim() != template.itemCode.trim()) ||
+      matches.map((item)=>item.id).toSet().length > 1) {
+    throw const MobileApiException(code:'template_identity_conflict', statusCode:409,
+        message:'Shablon boshqa mahsulotga tegishli. Mustaqil variant yarating.');
+  }
+  return matches.isEmpty ? null : matches.first;
 }

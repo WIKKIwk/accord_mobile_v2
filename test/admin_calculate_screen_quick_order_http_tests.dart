@@ -1,7 +1,7 @@
 part of 'admin_calculate_screen_test.dart';
 
 void _registerQuickOrderHttpTests() {
-  testWidgets('saved quick order opens even when post-save list refresh fails',
+  testWidgets('saved quick order opens without a preliminary template write',
       (tester) async {
     await TestModeController.instance.setEnabled(false);
     const sourceMapId = 'template-quick-order';
@@ -97,9 +97,10 @@ void _registerQuickOrderHttpTests() {
         await tester.ensureVisible(find.text('Hisoblash'));
         await tester.tap(find.text('Hisoblash'));
         await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(find.text('Zakaz ochish'), 240,
+        final openLabel = AppLocalizations(const Locale('uz')).adminText('calculate.order_open');
+        await tester.scrollUntilVisible(find.text(openLabel), 240,
             scrollable: find.byType(Scrollable).first);
-        await tester.tap(find.text('Zakaz ochish'));
+        await tester.tap(find.text(openLabel));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(
           const ValueKey('production-map-order-confirm'),
@@ -118,6 +119,7 @@ void _registerQuickOrderHttpTests() {
       }
       expect(opened.map((input) => input['map']['id']).toSet(), hasLength(2));
       expect(CalculateOrderTemplateStore.instance.templates.single.code, '0012');
+      expect(templateSaved,isFalse,reason:'Opening an order must not upsert its source quick template');
     }, () => client);
   });
 }

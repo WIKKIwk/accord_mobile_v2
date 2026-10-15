@@ -132,7 +132,8 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
       ),
     );
     if (response.statusCode != 200) {
-      throw _adminProductionMapException(response, 'production_map_load_failed');
+      throw _adminProductionMapException(
+          response, 'production_map_load_failed');
     }
     return ProductionMapSaved.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -201,94 +202,173 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
     required ProductionMapDefinition map,
     required CalculateOrderTemplate template,
     String pendingOrderId = '',
+    String templateAction = '',
   }) async {
     _requireCanonicalProductionMapApparatusIds(map);
+    // Use the current draft photo for both the order and any template fork.
+    map = map.copyWith(imageId: template.imageId.trim());
     if (await TestModeController.instance.isEnabled()) {
-      final previousIndex = _testModeProductionMaps.indexWhere(
-        (item) => item.map.id.trim() == map.id.trim(),
-      );
-      ProductionMapSaved? previousMap;
-      if (previousIndex >= 0) {
-        previousMap = _testModeProductionMaps[previousIndex];
-      }
-      if (template.product.trim().isEmpty || template.widthMm <= 0) {
-        throw const MobileApiException(
-          code: 'calculate_order_save',
-          message: 'Calculate order validation failed',
-        );
-      }
-      ProductionMapSaved? savedMapForRollback;
-      try {
-        var orderMap =
-            previousIndex < 0 ? _testModeAssignOrderNumberIfMissing(map) : map;
-        orderMap = orderMap.copyWith(
-          printValSizeMm: template.printValSizeMm,
-          clearPrintValSize: template.printValSizeMm == null,
-        );
-        if (template.kg > 0) {
-          final calculation = await calculate(
-            CalculateRequest(
-              product: template.product,
-              kg: template.kg,
-              frameProductSizeMm: template.frameProductSizeMm,
-              frameCount: template.frameCount,
-              edgeAllowanceMm: template.edgeAllowanceMm,
-              wastePercent: template.wastePercent,
-              rollCount: template.rollCount,
-              layers: template.effectiveLayers,
-            ),
-          );
-          orderMap = orderMap.copyWith(
-            widthMm: calculation.widthMm,
-            orderKg: calculation.kg,
-            baseLength: calculation.results.first.roundedLength,
-          );
+      return _withTestModeOrderCreationLock(map.id, () async {
+        if (!const {'', 'use', 'update', 'fork'}.contains(templateAction) ||
+            (templateAction == 'use' &&
+                !_isSheetOrderMap(map) &&
+                !map.id.startsWith('zakaz-draft-'))) {
+          throw const MobileApiException(
+              code: 'template_action_invalid',
+              statusCode: 400,
+              message: 'Shablon amali noto‘g‘ri');
         }
-        if (previousIndex < 0) {
-          orderMap = _orderMapWithTemplateRezkaKadrCount(orderMap, template);
-        }
-        final orderNumberWasGenerated =
-            previousIndex < 0 && orderMap.id.trim() != map.id.trim();
-        final savedMap = await adminSaveProductionMap(orderMap);
-        savedMapForRollback = savedMap;
-        final templateMap = _templateMapCopyForSave(savedMap.map, template);
-        final savedTemplateMap = templateMap == null
-            ? null
-            : await adminSaveProductionMap(templateMap);
-        final opensQuickTemplateAsOrder =
-            template.sourceMapId.trim().isNotEmpty &&
-                template.sourceMapId.trim() != savedMap.map.id.trim() &&
-                _isSheetOrderMap(savedMap.map);
-        final templateToSave = orderNumberWasGenerated
-            ? template.copyWith(orderNumber: savedMap.map.orderNumber)
-            : template;
-        final savedTemplate = opensQuickTemplateAsOrder
-            ? null
-            : _testModeUpsertCalculateOrderTemplate(
-                templateToSave.copyWith(
-                  sourceMapId: savedTemplateMap?.map.id ??
-                      _templateSourceMapIdForSave(savedMap.map, template),
-                ),
-              );
-        return ProductionMapSaveWithOrderResult(
-          saved: savedMap,
-          template: savedTemplate,
-        );
-      } catch (error) {
-        if (previousMap != null) {
-          if (previousIndex >= 0) {
-            _testModeProductionMaps[previousIndex] = previousMap;
+        final requestKey = map.id.startsWith('zakaz-draft-') ? map.id : '';
+        final requestTemplate = template.toJson()..remove('saved_at');
+        final fingerprint = jsonEncode({
+          'map': map.toJson(),
+          'template': requestTemplate,
+          'template_action': templateAction
+        });
+        final replay = _testModeOrderCreationReplies[requestKey];
+        if (requestKey.isNotEmpty && replay != null) {
+          if (replay.$1 != fingerprint) {
+            throw const MobileApiException(
+                code: 'order_creation_idempotency_conflict',
+                statusCode: 409,
+                message: 'Buyurtma so‘rovi oldingi urinishga mos emas');
           }
-        } else {
-          _testModeProductionMaps.removeWhere((item) {
-            final itemId = item.map.id.trim();
-            return itemId == map.id.trim() ||
-                (savedMapForRollback != null &&
-                    itemId == savedMapForRollback!.map.id.trim());
-          });
+          return replay.$2;
         }
-        rethrow;
-      }
+        _testModeCheckedTemplateIdentity(template);
+        final previousMaps =
+            List<ProductionMapSaved>.of(_testModeProductionMaps);
+        final previousTemplates =
+            List<CalculateOrderTemplate>.of(_testModeCalculateOrderTemplates);
+        ProductionMapDefinition? forkMap;
+        if (templateAction == 'fork') {
+          final source = await adminProductionMap(template.sourceMapId);
+          forkMap = ProductionMapDefinition.fromJson({
+            ...map.withoutAlternativeAssignments().toJson(),
+            'id': 'template-${template.id}'.toLowerCase(),
+            'product_code': template.itemCode,
+            'code': '',
+            'order_number': '',
+            'order_kg': null,
+            'base_length': null,
+            'nodes': [
+              for (final node in map.withoutAlternativeAssignments().nodes)
+                {
+                  ...node.toJson(),
+                  if (node.itemCode == source.map.productCode)
+                    'item_code': template.itemCode,
+                }
+            ],
+          });
+          if (!_isSheetOrderMap(map) && !map.id.startsWith('zakaz-draft-'))
+            map = forkMap;
+          template = template.copyWith(
+              sourceMapId: forkMap.id, variantId: template.id);
+        }
+        final previousIndex = _testModeProductionMaps.indexWhere(
+          (item) => item.map.id.trim() == map.id.trim(),
+        );
+        ProductionMapSaved? previousMap;
+        if (previousIndex >= 0) {
+          previousMap = _testModeProductionMaps[previousIndex];
+        }
+        if (template.product.trim().isEmpty || template.widthMm <= 0) {
+          throw const MobileApiException(
+            code: 'calculate_order_save',
+            message: 'Calculate order validation failed',
+          );
+        }
+        ProductionMapSaved? savedMapForRollback;
+        try {
+          var orderMap = previousIndex < 0
+              ? _testModeAssignOrderNumberIfMissing(map)
+              : map;
+          orderMap = orderMap.copyWith(
+            printValSizeMm: template.printValSizeMm,
+            clearPrintValSize: template.printValSizeMm == null,
+          );
+          if (template.kg > 0) {
+            final calculation = await calculate(
+              CalculateRequest(
+                product: template.product,
+                kg: template.kg,
+                frameProductSizeMm: template.frameProductSizeMm,
+                frameCount: template.frameCount,
+                edgeAllowanceMm: template.edgeAllowanceMm,
+                wastePercent: template.wastePercent,
+                rollCount: template.rollCount,
+                layers: template.effectiveLayers,
+              ),
+            );
+            orderMap = orderMap.copyWith(
+              widthMm: calculation.widthMm,
+              orderKg: calculation.kg,
+              baseLength: calculation.results.first.roundedLength,
+            );
+          }
+          if (previousIndex < 0) {
+            orderMap = _orderMapWithTemplateRezkaKadrCount(orderMap, template,
+                templateFork: templateAction == 'fork');
+            if (forkMap != null)
+              forkMap = _orderMapWithTemplateRezkaKadrCount(forkMap, template,
+                  templateFork: true);
+          }
+          final orderNumberWasGenerated =
+              previousIndex < 0 && orderMap.id.trim() != map.id.trim();
+          final savedMap = await adminSaveProductionMap(orderMap);
+          savedMapForRollback = savedMap;
+          final templateMap = _isSheetOrderMap(savedMap.map)
+              ? (forkMap ?? _templateMapCopyForSave(savedMap.map, template))
+              : null;
+          final savedTemplateMap = templateMap == null
+              ? null
+              : await adminSaveProductionMap(templateMap);
+          final opensQuickTemplateAsOrder = templateAction != 'fork' &&
+              template.sourceMapId.trim().isNotEmpty &&
+              template.sourceMapId.trim() != savedMap.map.id.trim() &&
+              _isSheetOrderMap(savedMap.map);
+          final templateToSave = templateAction == 'fork'
+              ? template.copyWith(kg: 0, orderNumber: '')
+              : orderNumberWasGenerated
+                  ? template.copyWith(orderNumber: savedMap.map.orderNumber)
+                  : template;
+          final savedTemplate = opensQuickTemplateAsOrder
+              ? null
+              : _testModeUpsertCalculateOrderTemplate(
+                  templateToSave.copyWith(
+                    sourceMapId: savedTemplateMap?.map.id ??
+                        _templateSourceMapIdForSave(savedMap.map, template),
+                  ),
+                );
+          final result = ProductionMapSaveWithOrderResult(
+            saved: savedMap,
+            template: savedTemplate,
+          );
+          if (requestKey.isNotEmpty)
+            _testModeOrderCreationReplies[requestKey] = (fingerprint, result);
+          return result;
+        } catch (error) {
+          _testModeProductionMaps
+            ..clear()
+            ..addAll(previousMaps);
+          _testModeCalculateOrderTemplates
+            ..clear()
+            ..addAll(previousTemplates);
+          if (previousMap != null) {
+            if (previousIndex >= 0) {
+              _testModeProductionMaps[previousIndex] = previousMap;
+            }
+          } else {
+            _testModeProductionMaps.removeWhere((item) {
+              final itemId = item.map.id.trim();
+              return itemId == map.id.trim() ||
+                  (savedMapForRollback != null &&
+                      itemId == savedMapForRollback!.map.id.trim());
+            });
+          }
+          rethrow;
+        }
+      });
     }
     final response = await _sendAuthorized(
       () => _put(
@@ -299,6 +379,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
         body: jsonEncode({
           'map': map.toJson(),
           'template': template.toJson(),
+          if (templateAction.isNotEmpty) 'template_action': templateAction,
           if (pendingOrderId.isNotEmpty) 'pending_order_id': pendingOrderId
         }),
       ),
@@ -408,10 +489,10 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final sourceApparatus = _testModeRequiredApparatus(normalizedFrom);
       final targetApparatus = _testModeRequiredApparatus(normalizedTo);
-      final normalizedIds = [
+      final normalizedIds = <String>{
         for (final id in mapIds)
           if (id.trim().isNotEmpty) id.trim(),
-      ];
+      }.toList(growable: false);
       if (normalizedIds.isEmpty) {
         throw const MobileApiException(
           code: 'move_not_allowed',
@@ -472,6 +553,11 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           ),
         );
       }
+      final sequences = _testModePendingMoveSequences(
+        orderIds: normalizedIds,
+        fromApparatus: normalizedFrom,
+        toApparatus: normalizedTo,
+      );
       for (var i = 0; i < normalizedIds.length; i++) {
         final index = _testModeProductionMaps.indexWhere(
           (item) => item.map.id.trim() == normalizedIds[i],
@@ -480,6 +566,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           _testModeProductionMaps[index] = updated[i];
         }
       }
+      _testModeApparatusSequences.addAll(sequences);
       return updated;
     }
     final response = await _sendAuthorized(

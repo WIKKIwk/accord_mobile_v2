@@ -37,14 +37,20 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final source = await MobileApi.instance.adminProductionMap(sourceMapId);
       final sourceMap = source.map.withoutAlternativeAssignments();
       final kg = _parseRequiredDouble(_kg.text);
-      final savedQuickTemplate = await CalculateOrderTemplateStore.instance
-          .upsert(_buildTemplateDraft().copyWith(kg: 0, orderNumber: ''));
+      final currentDraft = _buildTemplateDraft();
+      final signatureFields = currentDraft.toJson()..remove('saved_at');
+      final signature = signatureFields.toString();
+      if (_savedOrderRequestId.isEmpty || _savedOrderRequestSignature != signature) {
+        _savedOrderRequestId = 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}';
+        _savedOrderRequestSignature = signature;
+      }
       final plannedLength = _result != null && _result!.results.isNotEmpty
           ? _result!.results.first.roundedLength
           : null;
       final clonedMap = sourceMap.copyWith(
-        id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
+        id: _savedOrderRequestId,
         title: _resolvedOrderName(),
+        imageId: currentDraft.imageId.trim(),
         code: '',
         orderNumber: '',
         productCode: _itemCode.trim().isNotEmpty
@@ -57,9 +63,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         orderKg: kg,
         baseLength: plannedLength,
       );
-      final draft = savedQuickTemplate.copyWith(
-        id: '',
-        code: '',
+      final draft = currentDraft.copyWith(
         orderNumber: '',
         kg: kg,
         sourceMapId: sourceMapId,
@@ -67,6 +71,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final result = await MobileApi.instance.adminSaveProductionMapWithOrder(
         map: clonedMap,
         template: draft,
+        templateAction: _templateIsFork ? 'fork' : 'use',
       );
       if (!mounted) {
         return;
@@ -74,11 +79,15 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final savedTemplate = result.template;
       if (savedTemplate != null) {
         CalculateOrderTemplateStore.instance.remember(savedTemplate);
+        _templateId = savedTemplate.id;
+        _orderCode = savedTemplate.code;
+        _sourceMapId = savedTemplate.sourceMapId;
+        _templateIsFork = false;
+        _templateVariantId = savedTemplate.variantId;
       }
       final normalizedOrder = result.saved.map.orderNumber.trim();
-      _templateId = savedQuickTemplate.id;
-      _orderCode = savedQuickTemplate.code;
-      _sourceMapId = savedQuickTemplate.sourceMapId;
+      _savedOrderRequestId = '';
+      _savedOrderRequestSignature = '';
       showAdminTopNotice(
         context,
         context.l10n.adminText(
@@ -290,11 +299,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
   CalculateOrderTemplate? _findExistingQuickOrderForProduct(
     SupplierItem product,
   ) {
-    final productKeys = {
-      product.code,
-      product.name,
-    }.map(_normalizeProductMapKey).where((key) => key.isNotEmpty).toSet();
-    if (productKeys.isEmpty) {
+    final sku = product.code.trim();
+    if (sku.isEmpty) {
       return null;
     }
     final currentTemplateId = _templateId.trim();
@@ -304,13 +310,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           template.id.trim() == currentTemplateId) {
         continue;
       }
-      final templateKeys = {
-        template.itemCode,
-        template.product,
-        template.name,
-        template.code,
-      }.map(_normalizeProductMapKey).where((key) => key.isNotEmpty);
-      if (templateKeys.any(productKeys.contains)) {
+      if (template.itemCode.trim() == sku) {
         return template;
       }
     }
@@ -367,6 +367,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       note: _note.text.trim(),
       kg: _kg.text.trim().isEmpty ? 0 : _parseRequiredDouble(_kg.text),
       sourceMapId: _sourceMapId,
+      variantId: _templateVariantId,
     );
   }
 

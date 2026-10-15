@@ -264,6 +264,18 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
       _AdminProductionMapOrdersScreenState();
 }
 
+enum _OrdersReadSection { initial, queue, completed, closed, completionRequests, pending }
+
+class _OrdersConnectionProgress extends StatelessWidget {
+  const _OrdersConnectionProgress();
+
+  @override
+  Widget build(BuildContext context) => LinearProgressIndicator(
+        key: const ValueKey('production-orders-connection-progress'),
+        semanticsLabel: context.l10n.loading,
+      );
+}
+
 class _QueueSnapshotWarningBanner extends StatelessWidget {
   const _QueueSnapshotWarningBanner({
     required this.message,

@@ -74,6 +74,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       return;
     }
     final existingTemplate = _findExistingQuickOrderForProduct(picked);
+    var recreate = false;
     if (widget.openedOrder == null && existingTemplate != null) {
       if (!mounted) {
         return;
@@ -103,6 +104,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         }
         return;
       }
+      recreate = true;
     }
     if (!mounted) {
       return;
@@ -111,6 +113,15 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         _customerRef.trim().isEmpty && _customer.text.trim().isEmpty;
     final generation = _productCustomerGeneration + 1;
     setState(() {
+      if (widget.openedOrder == null &&
+          (recreate || (_templateId.isNotEmpty && picked.code.trim() != _itemCode.trim()))) {
+        _templateId = 'quick-${DateTime.now().microsecondsSinceEpoch}';
+        _orderCode = 'Z-$_templateId';
+        _templateVariantId = _templateId;
+        _templateIsFork = _sourceMapId.trim().isNotEmpty;
+        _savedOrderRequestId = '';
+        _savedOrderRequestSignature = '';
+      }
       _productCustomerGeneration = generation;
       _itemCode = picked.code;
       _product.text =

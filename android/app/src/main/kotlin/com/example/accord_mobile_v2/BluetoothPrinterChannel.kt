@@ -398,7 +398,7 @@ class BluetoothPrinterChannel(
         val payload = requiredPayload(label.epc)
         val titleLines = largeQrTitleLines(label, label.itemName.ifBlank { label.itemCode })
         var lines = titleLines.flatMap { wrapLabelText(it, PROGRESS_FIELD_WIDTH_CHARS) }
-        val availableHeight = PROGRESS_PACK_QR_Y - 8 - PROGRESS_TEXT_TOP_Y
+        val availableHeight = progressCodeY(label, payload) - 8 - PROGRESS_TEXT_TOP_Y
         var fontHeight = if (lines.size * 24 <= availableHeight) 24 else 20
         if (lines.size * fontHeight > availableHeight) {
             lines = titleLines.flatMap { wrapLabelText(it, 46) }
@@ -423,7 +423,7 @@ class BluetoothPrinterChannel(
                 font,
             )
         }
-        printProgressQr(printer, payload)
+        printProgressQr(printer, label)
     }
 
     private fun printLargeQr(
@@ -819,56 +819,79 @@ class BluetoothPrinterChannel(
             rawProduct,
         )
         val status = progressStatusLabel(rawProduct)
-        var y = PROGRESS_TEXT_TOP_Y
-        y = printProgressField(printer, y, "MAHSULOT NOMI", product, maxLines = 5)
-        y = printProgressField(printer, y, "APARAT", apparatus, maxLines = 2)
-        y += PROGRESS_FIELD_GAP_DOTS * 2
-        y = printProgressField(
-            printer,
-            y,
-            "HOLAT",
-            status,
-            maxLines = 2,
-        )
-        y += PROGRESS_FIELD_GAP_DOTS
-
         val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
         val weightUnit = cleanLabelText(label.unit.ifBlank { "kg" })
-        y = printProgressField(
-            printer,
-            y,
-            "METRAJ",
-            "${formatLabelQty(label.progressQty ?: label.netQty)} $meterUnit",
+        val fields = listOf(
+            progressFieldLines("MAHSULOT NOMI", product, maxLines = 5),
+            progressFieldLines("APARAT", apparatus, maxLines = 2),
+            progressFieldLines("HOLAT", status, maxLines = 2),
+            progressFieldLines(
+                "METRAJ",
+                "${formatLabelQty(label.progressQty ?: label.netQty)} $meterUnit",
+                maxLines = 1,
+            ),
+            progressFieldLines("NETTO", "${formatLabelQty(label.netQty)} $weightUnit", maxLines = 1),
+            progressFieldLines("BRUTTO", "${formatLabelQty(label.grossQty)} $weightUnit", maxLines = 1),
         )
-        y = printProgressField(
-            printer,
-            y,
-            "NETTO",
-            "${formatLabelQty(label.netQty)} $weightUnit",
-        )
-        printProgressField(
-            printer,
-            y,
-            "BRUTTO",
-            "${formatLabelQty(label.grossQty)} $weightUnit",
-        )
+        val gaps = intArrayOf(4, 12, 8, 4, 4, 0)
+        val availableHeight = progressCodeY(label, payload) - 8 - PROGRESS_TEXT_TOP_Y
+        val lineCount = fields.sumOf { it.size }
+        val lineHeight = if (label.materialDataMatrix) {
+            listOf(24, 20, 12).first { lineCount * it + gaps.sum() <= availableHeight }
+        } else {
+            PROGRESS_TEXT_LINE_HEIGHT_DOTS
+        }
+        val (font, charWidth) = when (lineHeight) {
+            24 -> TSPLConst.FNT_16_24 to 16
+            20 -> TSPLConst.FNT_12_20 to 12
+            else -> TSPLConst.FNT_8_12 to 8
+        }
+        var y = PROGRESS_TEXT_TOP_Y
+        fields.forEachIndexed { fieldIndex, lines ->
+            lines.forEachIndexed { lineIndex, line ->
+                sdkProgressLine(printer, y + lineIndex * lineHeight, line, font, charWidth)
+            }
+            y += lines.size * lineHeight + gaps[fieldIndex]
+        }
 
-        printProgressQr(printer, payload)
+        printProgressQr(printer, label)
     }
 
-    // Paddon codes occupy the same QR and identifier positions as WIP EPCs.
-    private fun printProgressQr(printer: TSPLPrinter, payload: String) {
-        val qrCellSize = packQrCellSize(payload)
-        val qrSize = qrSymbolSizeDots(payload, qrCellSize)
-        val epcY = (PROGRESS_PACK_QR_Y + qrSize + PROGRESS_PACK_EPC_GAP_DOTS)
+    private fun progressEpcY(payload: String): Int {
+        val qrSize = qrSymbolSizeDots(payload, packQrCellSize(payload))
+        return (PROGRESS_PACK_QR_Y + qrSize + PROGRESS_PACK_EPC_GAP_DOTS)
             .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
-        sdkQr(
-            printer,
-            PROGRESS_PACK_QR_X,
-            PROGRESS_PACK_QR_Y,
-            payload,
-            cellSize = qrCellSize,
-        )
+    }
+
+    private fun progressCodeY(label: BluetoothLabelRequest, payload: String): Int {
+        return if (label.materialDataMatrix) {
+            progressEpcY(payload) - PROGRESS_PACK_EPC_GAP_DOTS - MATERIAL_DATA_MATRIX_SIZE_DOTS
+        } else {
+            PROGRESS_PACK_QR_Y
+        }
+    }
+
+    // Keep the identifier at its former position, with the shared three-code
+    // row immediately above it for WIP and pallet labels.
+    private fun printProgressQr(printer: TSPLPrinter, label: BluetoothLabelRequest) {
+        val payload = requiredPayload(label.epc)
+        val qrCellSize = packQrCellSize(payload)
+        val epcY = progressEpcY(payload)
+        if (label.materialDataMatrix) {
+            sdkMaterialDataMatrixRow(
+                printer,
+                progressCodeY(label, payload),
+                label.materialDataMatrixBars,
+            )
+        } else {
+            sdkQr(
+                printer,
+                PROGRESS_PACK_QR_X,
+                PROGRESS_PACK_QR_Y,
+                payload,
+                cellSize = qrCellSize,
+            )
+        }
         val epcFont = if (payload.length <= 32) {
             TSPLConst.FNT_12_20
         } else {
@@ -882,20 +905,6 @@ class BluetoothPrinterChannel(
             epcFont,
             epcText,
         )
-    }
-
-    private fun printProgressField(
-        printer: TSPLPrinter,
-        y: Int,
-        fieldLabel: String,
-        value: String,
-        maxLines: Int = 1,
-    ): Int {
-        val lines = progressFieldLines(fieldLabel, value, maxLines)
-        lines.forEachIndexed { index, line ->
-            sdkProgressLine(printer, y + index * PROGRESS_TEXT_LINE_HEIGHT_DOTS, line)
-        }
-        return y + lines.size * PROGRESS_TEXT_LINE_HEIGHT_DOTS + PROGRESS_FIELD_GAP_DOTS
     }
 
     private fun progressFieldLines(
@@ -913,10 +922,12 @@ class BluetoothPrinterChannel(
         printer: TSPLPrinter,
         y: Int,
         line: String,
+        font: String,
+        charWidth: Int,
     ) {
         val separator = line.indexOf(':')
         if (separator < 0) {
-            sdkBoldText(printer, LABEL_LEFT_MARGIN_DOTS, y, line)
+            sdkBoldText(printer, LABEL_LEFT_MARGIN_DOTS, y, line, font)
             return
         }
         val labelPart = line.take(separator + 1)
@@ -925,16 +936,17 @@ class BluetoothPrinterChannel(
             printer,
             LABEL_LEFT_MARGIN_DOTS,
             y,
-            TSPLConst.FNT_16_24,
+            font,
             labelPart,
         )
         if (valuePart.isNotEmpty()) {
             sdkBoldText(
                 printer,
                 LABEL_LEFT_MARGIN_DOTS +
-                    (labelPart.length + 1) * PROGRESS_TEXT_CHAR_WIDTH_DOTS,
+                    (labelPart.length + 1) * charWidth,
                 y,
                 valuePart,
+                font,
             )
         }
     }
@@ -1528,7 +1540,7 @@ private data class BluetoothLabelRequest(
         get() = (grossQty - tareKg).coerceAtLeast(0.0)
 
     val isProgress: Boolean
-        get() = labelKind == "progress"
+        get() = labelKind == "progress" || labelKind == "opening_wip"
 
     val isQolipCell: Boolean
         get() = labelKind == "qolip_cell" || labelKind == "qr_center"

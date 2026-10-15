@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
 import 'package:accord_mobile_v2/src/core/print_service.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
+import 'package:accord_mobile_v2/src/core/printing/material_data_matrix.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -125,6 +126,8 @@ void main() {
       expect(captured!['epc'], '00001');
       expect(captured!['label_kind'], 'paddon_code');
       expect(captured!['print_count'], 2);
+      expect(captured!['material_data_matrix'], isTrue);
+      expect(captured!['material_data_matrix_bars'], materialDataMatrixBars('00001'));
       final previewDir = Platform.environment['PALLET_LABEL_PREVIEW_DIR'];
       if (previewDir != null) {
         Directory(previewDir).createSync(recursive: true);

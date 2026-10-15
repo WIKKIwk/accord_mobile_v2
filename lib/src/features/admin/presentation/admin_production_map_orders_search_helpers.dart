@@ -3,8 +3,13 @@ part of 'admin_production_map_orders_screen.dart';
 List<ProductionMapSaved> _visibleOrders({
   required List<ProductionMapSaved> orders,
   required String query,
+  Map<String, String> customerNameByMapId = const {},
 }) {
-  return _filterOrdersBySearch(orders, query: query);
+  return _filterOrdersBySearch(
+    orders,
+    query: query,
+    customerNameByMapId: customerNameByMapId,
+  );
 }
 
 List<AdminClosedProductionOrder> _visibleClosedOrders({
@@ -42,6 +47,7 @@ List<AdminClosedProductionOrder> _visibleClosedOrders({
 List<ProductionMapSaved> _filterOrdersBySearch(
   List<ProductionMapSaved> orders, {
   required String query,
+  Map<String, String> customerNameByMapId = const {},
 }) {
   final normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.isEmpty) {
@@ -49,7 +55,11 @@ List<ProductionMapSaved> _filterOrdersBySearch(
   }
   return orders
       .where(
-        (order) => _orderMatchesSearch(order, query: normalizedQuery),
+        (order) => _orderMatchesSearch(
+          order,
+          query: normalizedQuery,
+          customerNameByMapId: customerNameByMapId,
+        ),
       )
       .toList(growable: false);
 }
@@ -57,6 +67,7 @@ List<ProductionMapSaved> _filterOrdersBySearch(
 bool _orderMatchesSearch(
   ProductionMapSaved order, {
   required String query,
+  Map<String, String> customerNameByMapId = const {},
 }) {
   if (query.isEmpty) {
     return true;
@@ -68,6 +79,10 @@ bool _orderMatchesSearch(
     map.orderNumber,
     map.title,
     map.productCode,
+    resolveCanonicalOrderCustomer(
+      map: map,
+      customersByMapId: customerNameByMapId,
+    ),
     for (final node in map.nodes) node.title,
   ].join(' ').toLowerCase();
   return haystack.contains(query);

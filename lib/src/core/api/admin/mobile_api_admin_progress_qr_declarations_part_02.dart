@@ -367,9 +367,10 @@ class AdminProgressQrReport {
 
 ProductionMapDefinition _orderMapWithTemplateRezkaKadrCount(
   ProductionMapDefinition map,
-  CalculateOrderTemplate template,
-) {
-  if ((!_isSheetOrderMap(map) && !_isTrainingOrderMap(map)) ||
+  CalculateOrderTemplate template, {
+  bool templateFork = false,
+}) {
+  if ((!_isSheetOrderMap(map) && !_isTrainingOrderMap(map) && !templateFork) ||
       !template.frameCount.isFinite ||
       template.frameCount <= 0) {
     return map;
@@ -379,8 +380,28 @@ ProductionMapDefinition _orderMapWithTemplateRezkaKadrCount(
     return map;
   }
   var changed = false;
+  final maxGroupTotal = BigInt.parse('9223372036854775807');
   final nodes = map.nodes.map((node) {
     if (node.kind == 'apparatus' && _testModeNodeHasOperation(node, 'cut')) {
+      var total = BigInt.zero;
+      for (final group in node.rezkaFrameGroups) {
+        total += BigInt.from(group);
+        if (group <= 0 || total > maxGroupTotal) {
+          throw const MobileApiException(
+            code: 'rezka_frame_groups_invalid',
+            statusCode: 400,
+            message: 'Kesish guruhlari noto‘g‘ri',
+          );
+        }
+      }
+      if (node.rezkaFrameGroups.isNotEmpty && total != BigInt.from(frameCount)) {
+        throw MobileApiException(
+          code: 'rezka_frame_groups_invalid',
+          statusCode: 400,
+          message:
+              '${node.title} (${node.id}): kesish rejasida $total kadr taqsimlangan, mahsulot uchun $frameCount kadr kerak. Kesish rejasini tekshiring.',
+        );
+      }
       if (node.rezkaKadrCount == frameCount) {
         return node;
       }

@@ -27,6 +27,7 @@ part 'admin_calculate_screen_waste_tests.dart';
 part 'admin_calculate_screen_pending_order_tests.dart';
 part 'admin_calculate_screen_order_edit_tests.dart';
 part 'admin_calculate_screen_quick_order_http_tests.dart';
+part 'linked_template_regression_test_part.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -59,4 +60,5 @@ void main() {
   _registerPendingOrderTests();
   _registerOpenedOrderEditTests();
   _registerQuickOrderHttpTests();
+  _registerLinkedTemplateRegressionTests();
 }

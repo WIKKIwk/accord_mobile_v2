@@ -139,6 +139,11 @@ void main() {
         ];
       }
       if (call.method == 'printLabel') {
+        final label = call.arguments as Map;
+        expect(label['label_kind'], 'paddon_code');
+        expect(label['epc'], '00001');
+        expect(label['material_data_matrix'], isTrue);
+        expect(label['material_data_matrix_bars'], isNotEmpty);
         server.events
             .add(server.printerOk ? 'printer-success' : 'printer-failure');
         return {'ok': server.printerOk};

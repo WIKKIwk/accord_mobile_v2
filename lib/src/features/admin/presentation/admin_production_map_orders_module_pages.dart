@@ -222,10 +222,7 @@ class _AdminModulesBody extends StatelessWidget {
     );
     final sequenceOrders = selectedApparatus == null
         ? const <ProductionMapSaved>[]
-        : _visibleOrders(
-            orders: ordersForApparatus(selectedApparatus!),
-            query: searchQuery,
-          );
+        : ordersForApparatus(selectedApparatus!);
     return Column(
       children: [
         if (modules.length > 1)
@@ -292,6 +289,7 @@ class _AdminModulesBody extends StatelessWidget {
                       visibleOrders: _visibleOrders(
                         orders: activeOrders,
                         query: searchQuery,
+                        customerNameByMapId: customerNameByMapId,
                       ),
                       customerNameByMapId: customerNameByMapId,
                       orderStatusesByOrderId: orderStatusesByOrderId,
@@ -314,6 +312,7 @@ class _AdminModulesBody extends StatelessWidget {
                                 target: moveBottomApparatus!,
                               ),
                               query: searchQuery,
+                              customerNameByMapId: customerNameByMapId,
                             ),
                       bottomOrders: moveTopApparatus == null ||
                               moveBottomApparatus == null
@@ -324,6 +323,7 @@ class _AdminModulesBody extends StatelessWidget {
                                 target: moveTopApparatus!,
                               ),
                               query: searchQuery,
+                              customerNameByMapId: customerNameByMapId,
                             ),
                       selectedOrderIds: selectedMoveOrderIds,
                       draggingOrders: draggingMoveOrders,

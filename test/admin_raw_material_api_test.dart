@@ -269,7 +269,7 @@ void main() {
           'Buyurtmani muzlatish uchun bir nechta faol sessiya topildi',
       'store_failed': 'Production map ma’lumotlarini saqlashda server xatosi',
       'print_preflight_active':
-          'Buyurtmada rang chiqarish davom etmoqda. Avval “Rang chiqdi” yoki “Rang chiqmadi” natijasini belgilang.',
+          'Buyurtmaning rang sinovi rezervi faol. Hozir bu amalni bajarib bo‘lmaydi.',
       'print_preflight_not_found':
           'Rang chiqarish sinovi topilmadi. Oynani yangilang va qayta urinib ko‘ring.',
       'print_preflight_not_ready':

@@ -997,7 +997,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                         FilledButton.icon(
                           onPressed: actionInFlight ||
                                   !materialStartReady ||
-                                  !uiState.previousProgressReady ||
+                                  !uiState.resumeWipReady ||
                                   (requiresQolipScan &&
                                       (!qolipScanned ||
                                           !qolipRequirementsLoaded))

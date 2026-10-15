@@ -35,6 +35,7 @@ class ProductionMapOrderContext {
     this.apparatus = '',
     this.apparatusId = '',
     this.templateDraft,
+    this.templateAction = '',
   });
 
   final String templateId;
@@ -50,6 +51,7 @@ class ProductionMapOrderContext {
   final String apparatus;
   final String apparatusId;
   final CalculateOrderTemplate? templateDraft;
+  final String templateAction;
 }
 
 bool _productionMapOrderContextHasApparatus(

@@ -68,6 +68,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   String _templateId = '';
   String _orderCode = '';
   String _sourceMapId = '';
+  bool _templateIsFork = false;
+  String _templateVariantId = '';
+  String _savedOrderRequestId = '';
+  String _savedOrderRequestSignature = '';
   int _productCustomerGeneration = 0;
   bool _calculating = false;
   bool _openingSavedOrder = false;

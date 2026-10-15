@@ -2,7 +2,12 @@ import 'package:accord_mobile_v2/src/core/printing/material_data_matrix.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final epc in ['30D97A14CEB04D30B156968F', '30D97C6BFC81E170627AE591']) {
+  for (final epc in [
+    '30D97A14CEB04D30B156968F',
+    '30D97C6BFC81E170627AE591',
+    '00001',
+    'WIP:progress-batch:17894018964434500:apparatus-default-asset-010',
+  ]) {
     for (final size in [104, 174, 261]) {
       test('ECC 200 fills the $size dot print bounds for $epc', () {
         final bars = materialDataMatrixBars(epc);

@@ -260,6 +260,9 @@ class AdminApparatusQueueOrderActionControl {
         !_queueInteractionModeMatchesState(value.mode, normalizedState)) {
       return false;
     }
+    if (allowedActions.contains('resume') && !value.resumeInputRequirementKnown) {
+      return false;
+    }
     final preflight = printPreflight;
     if (preflight != null) {
       final preflightFreezeRequested = normalizedState == 'print_preflight' &&

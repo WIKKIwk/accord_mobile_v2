@@ -130,6 +130,8 @@ extension _AdminProductionMapTestDefinitionState
           map: templateDefinition,
           template: draft,
           pendingOrderId: widget.orderContext?.pendingOrderId ?? '',
+          templateAction: _lastSavedTemplate == null
+              ? (widget.orderContext?.templateAction ?? '') : 'update',
         );
         if (!mounted) {
           return;

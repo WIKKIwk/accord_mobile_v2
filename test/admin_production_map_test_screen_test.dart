@@ -12,7 +12,6 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/printing/session_bluetooth_printer.dart';
-import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_pechat_rules.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/production_map_edit_policy.dart';
 import 'package:accord_mobile_v2/src/features/admin/logic/canonical_apparatus_groups.dart';
@@ -97,6 +96,7 @@ part 'admin_production_map_worker_sync_optimization_test_part.dart';
 part 'admin_production_map_material_delivery_test_part.dart';
 part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
+part 'admin_production_map_resume_wip_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -160,6 +160,7 @@ void main() {
   _registerMaterialDeliveryTests();
   _registerLaminationAstatkaScopeTests();
   _registerQolipAlternativeSetTests();
+  _registerResumeWipTests();
   _registerPrintMethodRoutingTests();
 
   _registeradmin_production_map_test_screen_testCases02();

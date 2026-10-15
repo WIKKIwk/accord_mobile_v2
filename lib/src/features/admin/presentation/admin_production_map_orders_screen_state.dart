@@ -8,6 +8,8 @@ class _AdminProductionMapOrdersScreenState
   late TabController _tabController;
   bool _loading = true;
   String? _loadError;
+  final Set<_OrdersReadSection> _reconnectingOrderReads = {};
+  bool _sectionRecoveryInFlight = false;
   Future<void>? _initialRefresh;
   bool _workerCatalogReady = false;
   bool _workerForeground = true;
@@ -99,11 +101,15 @@ class _AdminProductionMapOrdersScreenState
         setState(() {
           _pendingOrders = orders;
           _pendingOrdersError = null;
+          _reconnectingOrderReads.remove(_OrdersReadSection.pending);
         });
       }
     } catch (error) {
       if (mounted && generation == _pendingOrdersGeneration) {
-        setState(() => _pendingOrdersError = 'Chala buyurtmalar yuklanmadi');
+        setState(() {
+          _pendingOrdersError = 'Chala buyurtmalar yuklanmadi';
+          _markOrdersReadConnectionError(_OrdersReadSection.pending, error);
+        });
       }
     } finally {
       if (generation == _pendingOrdersGeneration) _pendingOrdersLoading = false;
@@ -442,8 +448,13 @@ class _AdminProductionMapOrdersScreenState
                 ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: _loading
-          ? const Center(child: AppLoadingIndicator())
+      child: _loading ||
+              (_loadError != null &&
+                  _reconnectingOrderReads.contains(_OrdersReadSection.initial))
+          ? const Align(
+              alignment: Alignment.topCenter,
+              child: _OrdersConnectionProgress(),
+            )
           : _loadError != null
               ? _OpenedOrdersLoadErrorBody(
                   message: _loadError!,
@@ -452,7 +463,10 @@ class _AdminProductionMapOrdersScreenState
                 )
               : Column(
                   children: [
-                    if (_queueSnapshotContractError)
+                    if (_reconnectingOrderReads.isNotEmpty)
+                      const _OrdersConnectionProgress(),
+                    if (_queueSnapshotContractError &&
+                        !_reconnectingOrderReads.contains(_OrdersReadSection.queue))
                       _QueueSnapshotWarningBanner(
                         message: _queueSnapshotErrorMessage ??
                             context.l10n.productionText('worker.error.sync'),
@@ -483,19 +497,22 @@ class _AdminProductionMapOrdersScreenState
                             'Biriktirilgan (${_tayyorlovResponsibilities.map((item) => item.materialName.isEmpty ? item.materialId : item.materialName).join(', ')}) bo‘yicha faol buyurtma topilmadi.',
                         onRetry: _refreshTayyorlovOrderFilter,
                       ),
-                    if (widget.workerMode && _workerCompletedHistoryError)
+                    if (widget.workerMode && _workerCompletedHistoryError &&
+                        !_reconnectingOrderReads.contains(_OrdersReadSection.completed))
                       _QueueSnapshotWarningBanner(
                         message: _workerCompletedHistoryErrorMessage ??
                             context.l10n.productionText('worker.error.sync'),
                         onRetry: _refreshWorkerCompletedOrders,
                       ),
                     if (!widget.workerMode &&
-                        _completionRequestsErrorMessage != null)
+                        _completionRequestsErrorMessage != null &&
+                        !_reconnectingOrderReads.contains(_OrdersReadSection.completionRequests))
                       _QueueSnapshotWarningBanner(
                         message: _completionRequestsErrorMessage!,
                         onRetry: _refreshCompletionRequests,
                       ),
-                    if (!widget.workerMode && _closedOrdersErrorMessage != null)
+                    if (!widget.workerMode && _closedOrdersErrorMessage != null &&
+                        !_reconnectingOrderReads.contains(_OrdersReadSection.closed))
                       _QueueSnapshotWarningBanner(
                         message: _closedOrdersErrorMessage!,
                         onRetry: _refreshClosedOrders,
@@ -540,7 +557,10 @@ class _AdminProductionMapOrdersScreenState
                                   queueActionControlsByApparatus:
                                       _queueActionControlsByApparatus,
                                   pendingOrders: _pendingOrders,
-                                  pendingOrdersError: _pendingOrdersError,
+                                  pendingOrdersError: _reconnectingOrderReads
+                                          .contains(_OrdersReadSection.pending)
+                                      ? null
+                                      : _pendingOrdersError,
                                   onPendingOrder: _showPendingOrder,
                                   onRetryPendingOrders: _refreshPendingOrders,
                                   modules: _modules,

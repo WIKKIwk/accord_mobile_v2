@@ -21,6 +21,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
     this.onMultiSelected,
     this.itemKey,
     this.itemSelected,
+    this.listBuilder,
     this.selectedCountLabel,
     this.confirmSelectionTooltip,
     this.multiSelectOnTap = false,
@@ -51,6 +52,15 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final ValueChanged<List<T>>? onMultiSelected;
   final Object Function(T item)? itemKey;
   final bool Function(T item)? itemSelected;
+
+  /// Reuses a domain list while keeping this sheet's search and pagination.
+  final Widget Function(
+    BuildContext context,
+    List<T> items,
+    ScrollController scrollController,
+    bool loadingMore,
+    ValueChanged<T> onItemTap,
+  )? listBuilder;
   final String Function(int count)? selectedCountLabel;
   final String? confirmSelectionTooltip;
   final bool multiSelectOnTap;

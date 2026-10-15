@@ -237,7 +237,13 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         map: current.map.copyWith(nodes: nodes),
         program: current.program,
       );
+      final sequences = _testModePendingMoveSequences(
+        orderIds: [current.map.id],
+        fromApparatus: normalizedFrom,
+        toApparatus: normalizedTo,
+      );
       _testModeProductionMaps[index] = saved;
+      _testModeApparatusSequences.addAll(sequences);
       return saved;
     }
     final response = await _sendAuthorized(

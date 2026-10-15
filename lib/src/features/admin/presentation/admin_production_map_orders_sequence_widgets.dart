@@ -58,7 +58,15 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
   @override
   Widget build(BuildContext context) {
     final selected = widget.apparatus;
-    final orders = widget.orders;
+    final sequenceIndices = {
+      for (final (index, order) in widget.orders.indexed)
+        order.map.id.trim(): index,
+    };
+    final orders = _visibleOrders(
+      orders: widget.orders,
+      query: widget.searchQuery,
+      customerNameByMapId: widget.customerNameByMapId,
+    );
     final notifications = widget.completionRequests;
     final notificationSection = notifications.isEmpty
         ? const SizedBox.shrink()
@@ -92,7 +100,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           orders.length,
         ),
         order: order,
-        index: index,
+        index: sequenceIndices[order.map.id.trim()] ?? index,
         readOnly: widget.readOnly,
         canReorder: canReorder,
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',

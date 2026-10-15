@@ -74,6 +74,8 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _templateId = template.id;
       _orderCode = template.code;
       _sourceMapId = template.sourceMapId;
+      _templateIsFork = false;
+      _templateVariantId = template.variantId;
       _customerRef = template.customerRef;
       _customer.text = template.customer;
       _itemCode = template.itemCode;
@@ -255,7 +257,9 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
         final source = await MobileApi.instance.adminProductionMap(sourceMapId);
         final cleanSourceMap = source.map.withoutAlternativeAssignments();
         savedMap = cleanSourceMap.copyWith(
+          id: _templateIsFork ? 'template-$_templateId' : cleanSourceMap.id,
           title: _resolvedOrderName(),
+          imageId: _imageId.trim(),
           productCode: _itemCode.trim().isNotEmpty
               ? _itemCode.trim()
               : cleanSourceMap.productCode,
@@ -355,6 +359,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       apparatus: widget.trainingMode ? widget.trainingApparatus.trim() : '',
       apparatusId: widget.trainingMode ? widget.trainingApparatusId.trim() : '',
       templateDraft: _buildTemplateDraft(),
+      templateAction: _templateIsFork ? 'fork' : 'update',
     );
   }
 }

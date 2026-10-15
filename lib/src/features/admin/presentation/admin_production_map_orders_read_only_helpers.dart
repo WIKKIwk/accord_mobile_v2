@@ -524,7 +524,8 @@ _PreparedReadOnlyQueueAction? _prepareReadOnlyQueueAction({
       materialsError: materialsError,
       inputWipReady: inputWipReady,
       materialScanRequired: interaction.materialScanRequired,
-      previousWipRequired: previousWipRequired || openingWipRequired,
+      previousWipRequired: (previousWipRequired || openingWipRequired) &&
+          (action != 'resume' || interaction.resumeInputRequired),
       qolipScanRequired:
           interaction.qolipMode == AdminQueueQolipMode.scanRequired,
       qolipScanned: qolipScanned,
@@ -593,6 +594,8 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
   final acceptedPreviousWip =
       (openingWipRequired && startInputOpeningWipBatch != null) ||
       (normalPreviousProgressRequired && startInputProgressBatch != null);
+  final previousProgressReady =
+      !previousProgressRequired || acceptedPreviousWip;
   final showStart = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('start');
@@ -662,7 +665,10 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
     previousStage: previousStage,
     openingWipRequired: openingWipRequired,
     previousProgressRequired: previousProgressRequired,
-    previousProgressReady: !previousProgressRequired || acceptedPreviousWip,
+    previousProgressReady: previousProgressReady,
+    resumeWipReady: contractSynchronized &&
+        interaction?.resumeInputRequirementKnown == true &&
+        (interaction?.resumeInputRequired == false || acceptedPreviousWip),
     showStart: showStart,
     printPreflight: printPreflight,
     showPrintPreflightHold: showPrintPreflightHold,

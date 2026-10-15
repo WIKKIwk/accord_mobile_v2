@@ -153,6 +153,14 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
           ),
         ),
       );
+    } else if (widget.listBuilder != null) {
+      body = widget.listBuilder!(
+        context,
+        _sortedItems(),
+        _scrollController,
+        _loadingMore,
+        _handleItemTap,
+      );
     } else {
       final sortedItems = _sortedItems();
       body = ListView.separated(

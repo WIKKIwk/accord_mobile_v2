@@ -21,6 +21,7 @@ class _OpenedOrderList extends StatelessWidget {
     required this.stageStatesByOrderId,
     required this.queueActionControlsByApparatus,
     required this.visibleOrderIdsByApparatus,
+    this.selectedOrderId = '',
     required this.onInfoOrder,
     required this.onLongPressOrder,
   });
@@ -36,6 +37,7 @@ class _OpenedOrderList extends StatelessWidget {
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
+  final String selectedOrderId;
   final ValueChanged<ProductionMapSaved> onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -102,6 +104,7 @@ class _OpenedOrderList extends StatelessWidget {
             l10n: l10n,
           ),
           tone: tone,
+          selected: orderId == selectedOrderId,
           onInfo: () => onInfoOrder(order),
           onLongPress: () => onLongPressOrder(order),
         ),
@@ -121,6 +124,7 @@ class _OpenedOrderRow extends StatelessWidget {
     required this.customerName,
     required this.watermarks,
     required this.tone,
+    this.selected = false,
     required this.onInfo,
     required this.onLongPress,
   });
@@ -129,6 +133,7 @@ class _OpenedOrderRow extends StatelessWidget {
   final String customerName;
   final List<_OrderWatermarkData> watermarks;
   final _OrderCardTone tone;
+  final bool selected;
   final VoidCallback onInfo;
   final VoidCallback onLongPress;
 
@@ -214,6 +219,14 @@ class _OpenedOrderRow extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (selected) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      key: ValueKey('opened-order-selected-${map.id.trim()}'),
+                      color: passedForeground ?? scheme.primary,
+                    ),
+                  ],
                 ],
               ),
             ),

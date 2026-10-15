@@ -168,6 +168,7 @@ class _ReadOnlyOrderDetailUiState {
     required this.openingWipRequired,
     required this.previousProgressRequired,
     required this.previousProgressReady,
+    required this.resumeWipReady,
     required this.showStart,
     required this.printPreflight,
     required this.showPrintPreflightHold,
@@ -211,6 +212,7 @@ class _ReadOnlyOrderDetailUiState {
   final bool openingWipRequired;
   final bool previousProgressRequired;
   final bool previousProgressReady;
+  final bool resumeWipReady;
   final bool showStart;
   final AdminPrintPreflightHold? printPreflight;
   final bool showPrintPreflightHold;

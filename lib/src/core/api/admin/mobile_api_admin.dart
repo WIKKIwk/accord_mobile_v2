@@ -107,6 +107,7 @@ void setMobileApiTestModeForceCalculateTemplateSaveFailure(bool value) {
 }
 
 void resetMobileApiTestModeData() {
+  _testModeOrderCreationReplies.clear();
   _testModeProductionMaps.clear();
   _testModeOpeningWipRecords.clear();
   _testModeAdminItemDetailOverrides.clear();
