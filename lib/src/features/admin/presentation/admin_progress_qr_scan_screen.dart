@@ -12,16 +12,17 @@ import '../../../core/session/session.dart';
 import '../../../core/formatters/date_time_formatters.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/widgets/paddon_weight_totals.dart';
 import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import '../../aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import '../logic/canonical_apparatus_display.dart';
 import '../models/production_map_models.dart';
 import 'admin_progress_qr_passport.dart';
 import 'admin_progress_qr_history_view.dart';
 import 'admin_progress_qr_scan_pdf.dart';
 import 'admin_production_map_orders_screen.dart' show AdminWorkerWipQrScanArgs;
+import 'widgets/admin_dock.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 
 part 'admin_progress_qr_scan_screen__AdminProgressQrScanScreenState_methods_01.dart';
@@ -90,10 +91,31 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
     final scheme = theme.colorScheme;
     final report = _report;
     final paddonReport = _paddonReport;
+    if (paddonReport != null) {
+      return AparatchiPaddonDetailScreen(
+        code: paddonReport.paddon.code,
+        snapshot: paddonReport,
+        loader: () => MobileApi.instance.adminPaddonQrReport(
+          paddonReport.paddon.code,
+        ),
+        apparatus: _apparatusCatalog,
+        manageItems: false,
+        bottom: AppSession.instance.profile?.role == UserRole.admin
+            ? const AdminDock(activeTab: AdminDockTab.home)
+            : null,
+        footerBuilder: (context, _) => FilledButton.icon(
+          key: const ValueKey('admin-paddon-scan-again'),
+          onPressed: _scanAgain,
+          icon: const Icon(Icons.qr_code_scanner_rounded),
+          label: Text(
+            context.l10n.productionText('worker.scanner.scan_again'),
+          ),
+        ),
+      );
+    }
     final rawMaterialReport = _rawMaterialReport;
     final openingWipReport = _openingWipReport;
     final scannerMode = report == null &&
-        paddonReport == null &&
         rawMaterialReport == null &&
         openingWipReport == null &&
         _scannerSupported;
@@ -122,48 +144,41 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
                 onShare: _shareCurrentReport,
                 sharing: _sharing,
               )
-            : paddonReport != null
-                ? _PaddonQrReportView(
-                    report: paddonReport,
+            : rawMaterialReport != null
+                ? _RawMaterialReportView(
+                    report: rawMaterialReport,
                     apparatusNamesById: _apparatusNamesById,
                     onScanAgain: _scanAgain,
+                    onShare: _shareCurrentReport,
+                    sharing: _sharing,
                   )
-                : rawMaterialReport != null
-                    ? _RawMaterialReportView(
-                        report: rawMaterialReport,
+                : openingWipReport != null
+                    ? _OpeningWipQrReportView(
+                        report: openingWipReport,
                         apparatusNamesById: _apparatusNamesById,
                         onScanAgain: _scanAgain,
-                        onShare: _shareCurrentReport,
-                        sharing: _sharing,
                       )
-                    : openingWipReport != null
-                        ? _OpeningWipQrReportView(
-                            report: openingWipReport,
-                            apparatusNamesById: _apparatusNamesById,
-                            onScanAgain: _scanAgain,
+                    : scannerMode
+                        ? _ScannerView(
+                            session: _scannerSession,
+                            statusText: _statusText(context.l10n),
+                            processing: _processing,
+                            errorText: _scanStatus == _QrScanStatus.error ||
+                                    _scanStatus == _QrScanStatus.cameraFailed
+                                ? _statusText(context.l10n)
+                                : null,
+                            onDetect: _handleDetect,
+                            onRetry: _startScanner,
+                            onManualEntry: _showManualQrDialog,
                           )
-                        : scannerMode
-                            ? _ScannerView(
-                                session: _scannerSession,
-                                statusText: _statusText(context.l10n),
-                                processing: _processing,
-                                errorText: _scanStatus == _QrScanStatus.error ||
-                                        _scanStatus ==
-                                            _QrScanStatus.cameraFailed
-                                    ? _statusText(context.l10n)
-                                    : null,
-                                onDetect: _handleDetect,
-                                onRetry: _startScanner,
-                                onManualEntry: _showManualQrDialog,
-                              )
-                            : _UnsupportedScannerView(
-                                onBack: Navigator.of(context).pop,
-                                onManualEntry: _showManualQrDialog,
-                                errorText: _scanStatus == _QrScanStatus.error ||
-                                        _scanStatus == _QrScanStatus.invalidQr
-                                    ? _statusText(context.l10n)
-                                    : null,
-                              ),
+                        : _UnsupportedScannerView(
+                            onBack: Navigator.of(context).pop,
+                            onManualEntry: _showManualQrDialog,
+                            errorText: _scanStatus == _QrScanStatus.error ||
+                                    _scanStatus == _QrScanStatus.invalidQr
+                                ? _statusText(context.l10n)
+                                : null,
+                          ),
       ),
     );
   }

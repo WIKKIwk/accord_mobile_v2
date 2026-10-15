@@ -291,7 +291,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                 onPrintQr: _busy || widget.busy || _printingQr || _qrScanMode
                     ? null : _printPaddonQr,
                 printingQr: _printingQr,
-                onUnlock: data.canUnlock && !_busy && !widget.busy && !_printingQr && !_qrScanMode
+                onUnlock: widget.manageItems && data.canUnlock && !_busy && !widget.busy && !_printingQr && !_qrScanMode
                     ? () => unawaited(_unlockPaddon()) : null,
                 selectedBobinaWeightUnits: _bobinaFilterUnits,
                 onBobinaWeightSelected: _toggleBobinaFilter,

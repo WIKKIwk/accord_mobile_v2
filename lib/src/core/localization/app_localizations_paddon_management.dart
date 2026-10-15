@@ -15,13 +15,13 @@ const _paddonManagementTranslations = {
   },
   'paddon.management.free_movement.description': {
     'uz':
-        'Yoqilganda barcha ishchilar bir-birining rulonlarini paddonlar orasida ko‘chira oladi va bir-birining paddonlarini qulfdan chiqara oladi. Chop etilgan paddonlarni ham tahrirlash mumkin. Omborga qabul qilingan mahsulotlar ko‘chirilmaydi.',
+        'Yoqilganda barcha ishchilar bir-birining rulonlarini paddonlar orasida ko‘chira oladi va bir-birining paddonlarini qulfdan chiqara oladi. Ko‘chirishdan avval ikkala paddonni qulfdan chiqaring. Omborga qabul qilingan mahsulotlar ko‘chirilmaydi.',
     'en':
-        'When enabled, workers can move each other’s rolls between paddons and unlock each other’s paddons, including printed paddons. Goods already received into a warehouse cannot be moved.',
+        'When enabled, workers can move each other’s rolls between paddons and unlock each other’s paddons. Unlock both paddons before moving rolls. Goods already received into a warehouse cannot be moved.',
     'ru':
-        'Все работники смогут перемещать рулоны друг друга между паллетами и разблокировать паллеты друг друга, включая паллеты с напечатанным QR. Принятые на склад товары перемещать нельзя.',
+        'Все работники смогут перемещать рулоны друг друга между паллетами и разблокировать паллеты друг друга. Перед перемещением разблокируйте обе паллеты. Принятые на склад товары перемещать нельзя.',
     'ur':
-        'فعال ہونے پر کارکن ایک دوسرے کے رول پیلیٹس کے درمیان منتقل اور ایک دوسرے کے پیلیٹس کھول سکتے ہیں، پرنٹ شدہ پیلیٹس سمیت۔ گودام میں وصول شدہ مال منتقل نہیں ہوگا۔',
+        'فعال ہونے پر کارکن ایک دوسرے کے رول منتقل اور پیلیٹس کھول سکتے ہیں۔ منتقلی سے پہلے دونوں پیلیٹس کھولیں۔ گودام میں وصول شدہ مال منتقل نہیں ہوگا۔',
   },
   'paddon.management.free_movement.confirm': {
     'uz': 'Erkin ko‘chirish yoqilsinmi?',
@@ -60,5 +60,81 @@ const _paddonManagementTranslations = {
     'en': 'The setting could not be saved. Please retry.',
     'ru': 'Не удалось сохранить настройку. Повторите попытку.',
     'ur': 'ترتیب محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔',
+  },
+  'worker.paddon.transfer.title': {
+    'uz': 'Paddonlar aro WIP ko‘chirish',
+    'en': 'Move WIP between paddons',
+    'ru': 'Перемещение НЗП между паллетами',
+    'ur': 'پیلیٹس کے درمیان WIP منتقل کریں',
+  },
+  'worker.paddon.transfer.hint': {
+    'uz':
+        'Ikkala paddonni tanlang. WIP’ni belgilang yoki boshqa panelga torting. Faqat qulfdan chiqarilgan paddonlar orasida ko‘chiriladi.',
+    'en':
+        'Choose two paddons. Select WIP or drag it to the other pane. Both paddons must be unlocked.',
+    'ru':
+        'Выберите две паллеты. Отметьте НЗП или перетащите в другую панель. Обе паллеты должны быть разблокированы.',
+    'ur':
+        'دو پیلیٹس منتخب کریں۔ WIP منتخب کریں یا دوسرے پینل میں گھسیٹیں۔ دونوں پیلیٹس کھلے ہونے چاہئیں۔',
+  },
+  'worker.paddon.transfer.source': {
+    'uz': 'Boshlang‘ich paddon',
+    'en': 'Source paddon',
+    'ru': 'Исходная паллета',
+    'ur': 'ماخذ پیلیٹ',
+  },
+  'worker.paddon.transfer.target': {
+    'uz': 'Qabul qiluvchi paddon',
+    'en': 'Destination paddon',
+    'ru': 'Целевая паллета',
+    'ur': 'منزل پیلیٹ',
+  },
+  'worker.paddon.transfer.choose': {
+    'uz': 'Qulfdan chiqarilgan paddonni tanlang',
+    'en': 'Choose an unlocked paddon',
+    'ru': 'Выберите разблокированную паллету',
+    'ur': 'کھلا پیلیٹ منتخب کریں',
+  },
+  'worker.paddon.transfer.empty': {
+    'uz': 'Paddonda WIP yo‘q',
+    'en': 'No WIP in this paddon',
+    'ru': 'На паллете нет НЗП',
+    'ur': 'اس پیلیٹ میں WIP نہیں',
+  },
+  'worker.paddon.transfer.move': {
+    'uz': '{count} ta WIP ko‘chirish',
+    'en': 'Move {count} WIP',
+    'ru': 'Переместить НЗП: {count}',
+    'ur': '{count} WIP منتقل کریں',
+  },
+  'worker.paddon.transfer.confirm': {
+    'uz': '{source} paddondan {target} paddonga {count} ta WIP ko‘chirilsinmi?',
+    'en': 'Move {count} WIP from paddon {source} to paddon {target}?',
+    'ru': 'Переместить НЗП ({count}) с паллеты {source} на паллету {target}?',
+    'ur': '{source} سے {target} پیلیٹ میں {count} WIP منتقل کریں؟',
+  },
+  'worker.paddon.transfer.success': {
+    'uz': 'WIP’lar ko‘chirildi',
+    'en': 'WIP moved',
+    'ru': 'НЗП перемещено',
+    'ur': 'WIP منتقل ہو گیا',
+  },
+  'worker.paddon.transfer.failed': {
+    'uz': 'Ko‘chirish tasdiqlanmadi. Paddonlarning joriy holatini tekshiring.',
+    'en': 'Transfer was not confirmed. Check the current paddon contents.',
+    'ru': 'Перемещение не подтверждено. Проверьте содержимое паллет.',
+    'ur': 'منتقلی کی تصدیق نہیں ہوئی۔ پیلیٹس کی موجودہ حالت دیکھیں۔',
+  },
+  'worker.paddon.transfer.refresh': {
+    'uz': 'Yangilash',
+    'en': 'Refresh',
+    'ru': 'Обновить',
+    'ur': 'تازہ کریں',
+  },
+  'worker.paddon.transfer.forbidden': {
+    'uz': 'Boshqa ishchining paddonidagi WIP’ni ko‘chirishga ruxsat yo‘q.',
+    'en': 'You cannot move WIP from another worker’s paddon.',
+    'ru': 'Нет разрешения на перемещение НЗП с паллеты другого работника.',
+    'ur': 'دوسرے کارکن کے پیلیٹ کا WIP منتقل کرنے کی اجازت نہیں۔',
   },
 };

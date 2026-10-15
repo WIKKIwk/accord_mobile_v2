@@ -73,7 +73,7 @@ class AdminPaddonSnapshot {
   final bool freeMovementEnabled;
   final bool canUnlock;
   final bool? _canManageItems;
-  bool get canManageItems => _canManageItems ?? !paddon.isLocked;
+  bool get canManageItems => !paddon.isLocked && (_canManageItems ?? true);
 
   factory AdminPaddonSnapshot.fromJson(Map<String, dynamic> json) {
     final rawPaddon = json['paddon'];

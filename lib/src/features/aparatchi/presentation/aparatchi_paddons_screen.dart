@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'aparatchi_paddon_transfer_screen.dart';
 
 import 'package:flutter/material.dart';
 
@@ -6,6 +7,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
@@ -15,6 +17,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
+import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_detail_screen.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
@@ -35,6 +38,7 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   late Future<List<AdminPaddon>> _future;
   bool _creatingPaddon = false;
   bool _deletingPaddon = false;
+  bool _canTransfer = false;
 
   bool get _canDeletePaddon =>
       AppSession.instance.profile?.hasAnyCapability(
@@ -52,9 +56,41 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
     _future = _load();
   }
 
-  Future<List<AdminPaddon>> _load() {
+  Future<List<AdminPaddon>> _load() async {
+    final scope = currentSessionReadScope();
     final loader = widget.loader;
-    return loader == null ? MobileApi.instance.adminPaddons() : loader();
+    final paddons =
+        await (loader == null ? MobileApi.instance.adminPaddons() : loader());
+    var canTransfer = false;
+    final profile = AppSession.instance.profile;
+    if (loader == null &&
+        profile != null &&
+        profile.hasAnyCapability(
+            const ['admin.access', 'apparatus.queue.manage'])) {
+      if (profile.role == UserRole.admin) {
+        canTransfer = true;
+      } else if (profile.role == UserRole.aparatchi) {
+        try {
+          final apparatuses =
+              await MobileApi.instance.adminApparatus(limit: 10000);
+          canTransfer = apparatuses.any((a) =>
+              a.operation == 'cut' && profile.assignedApparatus.contains(a.id));
+        } catch (_) {
+          // The list remains usable when the equipment permissions cannot load.
+        }
+      }
+    }
+    if (mounted && scope == currentSessionReadScope()) {
+      setState(() => _canTransfer = canTransfer);
+    }
+    return paddons;
+  }
+
+  Future<void> _openTransfer() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => const AparatchiPaddonTransferScreen(),
+    ));
+    if (mounted) await _retry();
   }
 
   Future<void> _retry() async {
@@ -183,6 +219,14 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
       bottom: AparatchiDock(
         activeTab: null,
         primaryActions: [
+          if (_canTransfer)
+            AdminFabMenuAction(
+              title:
+                  context.l10n.productionText('worker.paddon.transfer.title'),
+              icon: Icons.swap_vert_rounded,
+              enabled: !_creatingPaddon && !_deletingPaddon,
+              onTap: () => unawaited(_openTransfer()),
+            ),
           AdminFabMenuAction(
             title: context.l10n.productionText('worker.paddon.create'),
             icon: Icons.add_rounded,

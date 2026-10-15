@@ -153,7 +153,7 @@ void main() {
   });
 
   for (final enabled in [false, true]) {
-    testWidgets('printed paddon accepts another worker roll only with free mode: $enabled', (tester) async {
+    testWidgets('printed paddon requires unlock before editing; free mode: $enabled', (tester) async {
       SharedPreferences.setMockInitialValues({});
       _setSession(canManage: true);
       var moved = false;
@@ -176,19 +176,8 @@ void main() {
         expect(find.text('Qulflangan'), findsOneWidget);
         await _tapPaddonFabEditAction(tester);
         final available = find.byKey(const ValueKey('paddon-available-wip-card-other-worker-roll'));
-        if (!enabled) {
-          expect(available, findsNothing);
-          expect(writes, 0);
-          return;
-        }
-        expect(available, findsOneWidget);
-        await tester.tap(available);
-        await tester.pumpAndSettle();
-        await _tapPaddonFabEditAction(tester);
-        await tester.tap(find.byKey(const ValueKey('paddon-add-confirm')));
-        await tester.pumpAndSettle();
-        expect(writes, 1);
-        expect(find.byKey(const ValueKey('paddon-wip-card-other-worker-roll')), findsOneWidget);
+        expect(available, findsNothing);
+        expect(writes, 0);
         expect(tester.takeException(), isNull);
       }, () => MockClient((request) async {
         if (!request.url.path.endsWith('/paddons/items/add-batch')) return http.Response('{}', 404);
