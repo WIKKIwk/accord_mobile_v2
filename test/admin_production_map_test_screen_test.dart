@@ -97,6 +97,7 @@ part 'admin_production_map_material_delivery_test_part.dart';
 part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
 part 'admin_production_map_resume_wip_test_part.dart';
+part 'admin_production_map_re_pause_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -161,6 +162,7 @@ void main() {
   _registerLaminationAstatkaScopeTests();
   _registerQolipAlternativeSetTests();
   _registerResumeWipTests();
+  _registerRePauseTests();
   _registerPrintMethodRoutingTests();
 
   _registeradmin_production_map_test_screen_testCases02();

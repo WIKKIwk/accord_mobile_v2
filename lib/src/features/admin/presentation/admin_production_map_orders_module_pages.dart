@@ -994,14 +994,16 @@ enum _LaminatsiyaWorkerLongPressChoice {
   finishWork,
   continueRoll,
   removeRoll,
+  rePause,
 }
 
-enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport }
+enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport, rePause }
 
 class _BosmaWorkerFinishSheet extends StatelessWidget {
-  const _BosmaWorkerFinishSheet({required this.canFinish});
+  const _BosmaWorkerFinishSheet({required this.canFinish, this.canRePause = false});
 
   final bool canFinish;
+  final bool canRePause;
 
   @override
   Widget build(BuildContext context) {
@@ -1018,6 +1020,9 @@ class _BosmaWorkerFinishSheet extends StatelessWidget {
             const SizedBox(height: 8),
             Text(l10n.productionText('worker.finish.description')),
             const SizedBox(height: 16),
+            if (canRePause)
+              _WorkerRePauseButton(onPressed: () => Navigator.of(context)
+                  .pop(_BosmaWorkerLongPressChoice.rePause)),
             OutlinedButton.icon(
               onPressed: () => Navigator.of(context)
                   .pop(_BosmaWorkerLongPressChoice.astatkaReport),
@@ -1046,8 +1051,10 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
   const _LaminatsiyaWorkerFinishSheet({
     this.isRezka = false,
     this.isLamination = false,
+    this.canRePause = false,
   });
 
+  final bool canRePause;
   final bool isRezka;
   final bool isLamination;
 
@@ -1084,6 +1091,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (canRePause)
+              _WorkerRePauseButton(onPressed: () => Navigator.of(context)
+                  .pop(_LaminatsiyaWorkerLongPressChoice.rePause)),
             FilledButton.icon(
               onPressed: () => Navigator.of(context).pop(
                 _LaminatsiyaWorkerLongPressChoice.finishWork,

@@ -1641,10 +1641,11 @@ class _AdminProductionMapOrdersScreenState
     final state = apparatusQueueOrderStateFromRaw(
       queueStates[order.map.id.trim()],
     );
-    final stageWork = _queueActionControlForApparatus(
-            apparatus: apparatus, orderId: order.map.id.trim())
-        ?.stageWork;
-    if (stageWork?.astatkaAvailable == true && operation != 'laminate') {
+    final control = _queueActionControlForApparatus(
+        apparatus: apparatus, orderId: order.map.id.trim());
+    final stageWork = control?.stageWork;
+    final rePause = _workerRePauseControl(apparatus, order, control);
+    if (stageWork?.astatkaAvailable == true && operation != 'laminate' && rePause == null) {
       _showWatchOrderDetail(
           apparatus: apparatus, order: order, startAstatkaOnOpen: true);
       return;
@@ -1669,9 +1670,14 @@ class _AdminProductionMapOrdersScreenState
         useSafeArea: true,
         showDragHandle: true,
         builder: (_) => _BosmaWorkerFinishSheet(
-            canFinish: control?.allows('complete') == true),
+            canFinish: control?.allows('complete') == true,
+            canRePause: rePause != null),
       );
       if (!mounted || choice == null) return;
+      if (choice == _BosmaWorkerLongPressChoice.rePause) {
+        if (rePause != null) await _runWorkerRePause(apparatus, order, rePause);
+        return;
+      }
       _showWatchOrderDetail(
           apparatus: apparatus,
           order: order,
@@ -1716,6 +1722,7 @@ class _AdminProductionMapOrdersScreenState
               order: order,
               startAstatkaOnOpen: true,
             );
+          case _LaminatsiyaWorkerLongPressChoice.rePause:
           case null:
             break;
         }
@@ -1734,9 +1741,14 @@ class _AdminProductionMapOrdersScreenState
         builder: (_) => _LaminatsiyaWorkerFinishSheet(
           isRezka: operation == 'cut',
           isLamination: operation == 'laminate',
+          canRePause: rePause != null,
         ),
       );
       if (!mounted || choice == null) return;
+      if (choice == _LaminatsiyaWorkerLongPressChoice.rePause) {
+        if (rePause != null) await _runWorkerRePause(apparatus, order, rePause);
+        return;
+      }
       if (choice != _LaminatsiyaWorkerLongPressChoice.finishWork) return;
       _showWatchOrderDetail(
         apparatus: apparatus,

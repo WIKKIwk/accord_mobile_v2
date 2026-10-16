@@ -9,6 +9,7 @@ part 'app_localizations_paddon_print.dart';
 part 'app_localizations_paddon_management.dart';
 part 'app_localizations_paddon_scanning.dart';
 part 'app_localizations_qolip_product_transfer.dart';
+part 'app_localizations_re_pause.dart';
 part 'app_localizations_AppLocalizations_methods_01.dart';
 part 'app_localizations_AppLocalizations_methods_02.dart';
 part 'app_localizations_declarations_part_01.dart';

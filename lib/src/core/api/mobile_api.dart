@@ -1,4 +1,5 @@
 import '../../features/admin/logic/apparatus_queue_state.dart';
+import '../session/session_read_scope.dart';
 import '../../features/admin/logic/canonical_apparatus_groups.dart';
 import '../../features/admin/logic/production_map_chain.dart';
 import '../../features/admin/logic/production_map_pechat_rules.dart';
@@ -90,6 +91,7 @@ part 'admin/mobile_api_admin_items.dart';
 part 'admin/mobile_api_admin_item_groups.dart';
 part 'admin/mobile_api_paddons.dart';
 part 'admin/mobile_api_paddon_transfer.dart';
+part 'admin/mobile_api_re_pause.dart';
 part 'admin/mobile_api_factory_locations.dart';
 part 'admin/mobile_api_inventory_movements.dart';
 part 'auth/mobile_api_auth_profile.dart';
