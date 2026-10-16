@@ -19,12 +19,14 @@ class AdminProductionMapRequiredQolip {
     required this.color,
     this.isInUse = false,
     this.qolipSetId = '',
+    this.isExtension = false,
   });
 
   final String qolipCode;
   final String color;
   final bool isInUse;
   final String qolipSetId;
+  final bool isExtension;
   String get setId => qolipSetId.trim().isEmpty ? 'legacy' : qolipSetId.trim();
 
   factory AdminProductionMapRequiredQolip.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,7 @@ class AdminProductionMapRequiredQolip {
       color: json['color']?.toString().trim() ?? '',
       isInUse: json['in_use'] == true,
       qolipSetId: json['qolip_set_id']?.toString().trim() ?? '',
+      isExtension: json['is_extension'] == true,
     );
   }
 }
@@ -73,7 +76,7 @@ class AdminProductionMapQolipValidation {
 }
 
 extension MobileApiAdminQolipOrders on MobileApi {
-Future<String> adminValidateProductionMapQolip({
+  Future<String> adminValidateProductionMapQolip({
     required String apparatus,
     required String orderId,
     required String qolipCode,
@@ -86,7 +89,7 @@ Future<String> adminValidateProductionMapQolip({
     return validation.qolipCode;
   }
 
-Future<AdminProductionMapQolipValidation>
+  Future<AdminProductionMapQolipValidation>
       adminProductionMapQolipRequirements({
     required String apparatus,
     required String orderId,
@@ -98,7 +101,7 @@ Future<AdminProductionMapQolipValidation>
     );
   }
 
-Future<AdminProductionMapQolipValidation>
+  Future<AdminProductionMapQolipValidation>
       adminValidateProductionMapQolipDetails({
     required String apparatus,
     required String orderId,
@@ -132,20 +135,32 @@ Future<AdminProductionMapQolipValidation>
                   qolipCode: product.qolipCode.trim(),
                   color: product.qolipColor.trim(),
                   qolipSetId: product.setId,
+                  isExtension: product.isExtension,
                 ),
           ],
         );
       }
-      final requirements = await adminProductionMapQolipRequirements(apparatus: normalizedApparatus, orderId: orderId);
-      final matches = requirements.requiredQolips.where((mold) => mold.qolipCode.toLowerCase() == qolipCode.trim().toLowerCase());
-      if (matches.isEmpty) throw const MobileApiException(code: 'qolip_code_mismatch', message: 'qolip_code_mismatch');
+      final requirements = await adminProductionMapQolipRequirements(
+          apparatus: normalizedApparatus, orderId: orderId);
+      final matches = requirements.requiredQolips.where((mold) =>
+          mold.qolipCode.toLowerCase() == qolipCode.trim().toLowerCase());
+      if (matches.isEmpty)
+        throw const MobileApiException(
+            code: 'qolip_code_mismatch', message: 'qolip_code_mismatch');
       final selected = matches.first;
-      return AdminProductionMapQolipValidation(qolipCode: selected.qolipCode,
-        requiredQolips: requirements.requiredQolips.where((mold) => mold.setId == selected.setId).toList(growable: false));
+      return AdminProductionMapQolipValidation(
+          qolipCode: selected.qolipCode,
+          requiredQolips: requirements.requiredQolips
+              .where((mold) =>
+                  selected.isExtension ||
+                  mold.isExtension ||
+                  mold.setId == selected.setId)
+              .toList(growable: false));
     }
     final response = await _sendAuthorized(
       () => _post(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/production-maps/qolip-validate'),
+        Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/qolip-validate'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
@@ -167,5 +182,4 @@ Future<AdminProductionMapQolipValidation>
     }
     return AdminProductionMapQolipValidation(qolipCode: qolipCode.trim());
   }
-
 }

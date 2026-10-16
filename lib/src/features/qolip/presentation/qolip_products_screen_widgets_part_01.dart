@@ -40,8 +40,10 @@ class QolipProductContainer {
   Map<String, List<QolipProduct>> get qolipSets {
     final sets = <String, List<QolipProduct>>{};
     for (final child in children) {
-      sets.putIfAbsent(child.setId, () => []).add(child);
+      if (!child.isExtension) sets.putIfAbsent(child.setId, () => []).add(child);
     }
+    final extensions = children.where((child) => child.isExtension).toList();
+    if (extensions.isNotEmpty) sets['extensions'] = extensions;
     return sets;
   }
 
@@ -298,6 +300,13 @@ class _QolipProductContainerCard extends StatelessWidget {
                                   scheme.outlineVariant.withValues(alpha: 0.65),
                             ),
                             for (final entry in sets.entries) ...[
+                              if (entry.key == 'extensions')
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                                  child: Text(l10n.qolipSharedSetText('extensions'),
+                                      style: Theme.of(context).textTheme.labelLarge),
+                                )
+                              else
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(14, 8, 8, 0),
                                 child: Row(children: [
@@ -312,7 +321,8 @@ class _QolipProductContainerCard extends StatelessWidget {
                                   ),
                                 ]),
                               ),
-                              if (sets.length > 1)
+                              if (entry.key != 'extensions' &&
+                                  sets.keys.where((key) => key != 'extensions').length > 1)
                                 Padding(
                                   padding:
                                       const EdgeInsets.fromLTRB(14, 12, 14, 0),

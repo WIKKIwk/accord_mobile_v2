@@ -4,6 +4,7 @@ part of '../mobile_api.dart';
 void resetMobileApiQolipTestModeData() {
   _testModeQolipTransfers.clear();
   _testModeQolipSetLinks.clear();
+  _testModeQolipProductOverrides.clear();
   _testModeQolipLocations.clear();
   _testModeQolipSpecs.clear();
   _testModeFirstQolipCodes.clear();
@@ -25,8 +26,13 @@ String qolipErrorMessage(
     MobileApiException(code: final value) => value,
     _ => error.toString(),
   };
-  final sharedKey = switch (code) { 'qolip_set_changed' => 'changed', 'qolip_set_ambiguous' => 'ambiguous', _ => null };
-  if (sharedKey != null && l10n != null) return l10n.qolipSharedSetText(sharedKey);
+  final sharedKey = switch (code) {
+    'qolip_set_changed' => 'changed',
+    'qolip_set_ambiguous' => 'ambiguous',
+    _ => null
+  };
+  if (sharedKey != null && l10n != null)
+    return l10n.qolipSharedSetText(sharedKey);
   final localized = l10n?.qolipErrorText(code);
   if (localized != null && localized.isNotEmpty) {
     return localized;

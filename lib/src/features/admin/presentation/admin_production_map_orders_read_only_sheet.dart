@@ -347,21 +347,36 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   Map<String, List<String>> get _requiredQolipSets {
     final sets = <String, List<String>>{};
     for (final qolip in _requiredQolips.values) {
-      sets.putIfAbsent(qolip.setId, () => []).add(qolip.qolipCode);
+      if (!qolip.isExtension) {
+        sets.putIfAbsent(qolip.setId, () => []).add(qolip.qolipCode);
+      }
+    }
+    final extensions = _requiredQolips.values
+        .where((qolip) => qolip.isExtension)
+        .map((qolip) => qolip.qolipCode)
+        .toList();
+    if (sets.isEmpty && extensions.isNotEmpty) sets['extensions'] = [];
+    for (final members in sets.values) {
+      members.addAll(extensions);
     }
     return sets;
   }
 
-  String? get _selectedQolipSetId => _scannedQolipCodes.isEmpty
-      ? null
-      : _requiredQolips[_scannedQolipCodes.keys.first]?.setId;
+  String? get _selectedQolipSetId {
+    for (final code in _scannedQolipCodes.keys) {
+      final qolip = _requiredQolips[code];
+      if (qolip != null && !qolip.isExtension) return qolip.setId;
+    }
+    return null;
+  }
 
   List<AdminProductionMapRequiredQolip> get _visibleRequiredQolips {
     final selected = _selectedQolipSetId;
     final result = _requiredQolips.values
-        .where((qolip) => selected == null || qolip.setId == selected)
+        .where((qolip) => qolip.isExtension || selected == null || qolip.setId == selected)
         .toList();
     result.sort((a, b) {
+      if (a.isExtension != b.isExtension) return a.isExtension ? 1 : -1;
       final group = a.setId.compareTo(b.setId);
       return group == 0 ? a.qolipCode.compareTo(b.qolipCode) : group;
     });
@@ -1966,7 +1981,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         final requiredQolip = _requiredQolips[normalized.toLowerCase()];
         if (requiredQolip != null) {
           final selectedSet = _selectedQolipSetId;
-          if (selectedSet != null && selectedSet != requiredQolip.setId) {
+          if (!requiredQolip.isExtension && selectedSet != null && selectedSet != requiredQolip.setId) {
             _seenQuickScanValues.remove(scanKey);
             _showSheetNotice(context.l10n.productionText('worker.error.mixed_mold_sets'));
             _showQuickScanFeedback(

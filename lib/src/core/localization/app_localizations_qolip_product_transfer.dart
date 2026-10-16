@@ -8,10 +8,11 @@ const _qolipProductTransferTranslations = {
   },
   'qolip.product_transfer.hint': {
     'uz':
-        'Qoliplarni tanlang va to‘g‘ri mahsulotga ko‘chiring. QR/EPC saqlanadi.',
+        'Tanlangan qoliplar faqat shu ikki mahsulot uchun ko‘chadi. Umumiy komplekt saqlanadi.',
     'en':
-        'Select molds and move them to the correct product. QR/EPC stays the same.',
-    'ru': 'Выберите формы и перенесите к нужному товару. QR/EPC сохраняется.',
+        'Move selected molds between these two products. The shared set is preserved.',
+    'ru':
+        'Перенесите выбранные формы между этими двумя товарами. Общий комплект сохраняется.',
   },
   'qolip.product_transfer.source': {
     'uz': 'Hozirgi mahsulotni tanlang',
@@ -40,11 +41,11 @@ const _qolipProductTransferTranslations = {
   },
   'qolip.product_transfer.confirm': {
     'uz':
-        '{from}\n↓\n{to}\n\n{count} ta qolip: {codes}\n\nQR/EPC, rang, o‘lcham va ombordagi joyi saqlanadi.',
+        '{from}\n↓\n{to}\n\n{count} ta qolip: {codes}\n\nTanlangan qoliplar faqat manba mahsulotdan chiqarilib, qabul qiluvchi mahsulotga qo‘shiladi. Umumiy komplekt va boshqa mahsulotlar o‘zgarmaydi. QR/EPC, rang, o‘lcham va ombordagi joyi saqlanadi.',
     'en':
-        '{from}\n↓\n{to}\n\n{count} molds: {codes}\n\nQR/EPC, color, size and warehouse location stay the same.',
+        '{from}\n↓\n{to}\n\n{count} molds: {codes}\n\nOnly the source and destination product assignments change. The shared set and other products are preserved. QR/EPC, color, size and warehouse location stay the same.',
     'ru':
-        '{from}\n↓\n{to}\n\nФормы ({count}): {codes}\n\nQR/EPC, цвет, размер и место на складе сохраняются.',
+        '{from}\n↓\n{to}\n\nФормы ({count}): {codes}\n\nИзменяются только привязки исходного и целевого товаров. Общий комплект и другие товары сохраняются. QR/EPC, цвет, размер и место на складе сохраняются.',
   },
   'qolip.product_transfer.confirm_action': {
     'uz': 'Ko‘chirish',

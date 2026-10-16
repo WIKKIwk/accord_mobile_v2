@@ -135,7 +135,8 @@ extension MobileApiQolipAstPart02 on MobileApi {
     var saved = QolipProduct(
       qolipSetId: previousQolipCode?.trim().isNotEmpty == true
           ? product.setId
-          : (qolipSetId ?? 'test-qolip-set:${product.code}:${qolipCode.trim()}'),
+          : (qolipSetId ??
+              'test-qolip-set:${product.code}:${qolipCode.trim()}'),
       warehouse:
           warehouse.trim().isEmpty ? product.warehouse : warehouse.trim(),
       code: product.code.trim(),
@@ -151,14 +152,23 @@ extension MobileApiQolipAstPart02 on MobileApi {
       hasQolipSpec: true,
     );
     if (await TestModeController.instance.isEnabled()) {
-      final existing = _sharedPhysicalMolds().where((mold) => mold.qolipCode.trim().toLowerCase() == previousQolipCode?.trim().toLowerCase());
+      final existing = _sharedPhysicalMolds().where((mold) =>
+          mold.qolipCode.trim().toLowerCase() ==
+          previousQolipCode?.trim().toLowerCase());
       if (existing.isNotEmpty) {
         final physical = existing.first;
-        saved = QolipProduct(qolipSetId: physical.setId, warehouse: physical.warehouse,
-          code: physical.code, name: physical.name, itemGroup: physical.itemGroup,
-          customerNames: physical.customerNames, qolipCode: saved.qolipCode,
-          firstQolipCode: physical.firstQolipCode, qolipSize: saved.qolipSize,
-          qolipColor: saved.qolipColor, hasQolipSpec: true);
+        saved = QolipProduct(
+            qolipSetId: physical.setId,
+            warehouse: physical.warehouse,
+            code: physical.code,
+            name: physical.name,
+            itemGroup: physical.itemGroup,
+            customerNames: physical.customerNames,
+            qolipCode: saved.qolipCode,
+            firstQolipCode: physical.firstQolipCode,
+            qolipSize: saved.qolipSize,
+            qolipColor: saved.qolipColor,
+            hasQolipSpec: true);
       }
       final itemKey = saved.code.trim().toLowerCase();
       final firstQolipCode = _testModeFirstQolipCodes.putIfAbsent(
@@ -209,6 +219,10 @@ extension MobileApiQolipAstPart02 on MobileApi {
         }
         if (previous != next) {
           _testModeQolipSpecs.remove(previous);
+          for (final overrides in _testModeQolipProductOverrides.values) {
+            final mode = overrides.remove(previous);
+            if (mode != null) overrides[next] = mode;
+          }
         }
         for (var index = 0; index < _testModeQolipLocations.length; index++) {
           final location = _testModeQolipLocations[index];
@@ -290,7 +304,8 @@ extension MobileApiQolipAstPart02 on MobileApi {
       );
       try {
         final saved = <QolipProduct>[];
-        final setId = 'test-qolip-set:${product.code}:${specs.first.qolipCode.trim()}';
+        final setId =
+            'test-qolip-set:${product.code}:${specs.first.qolipCode.trim()}';
         for (final item in specs) {
           saved.add(
             await qolipSaveProductSpec(
@@ -383,6 +398,9 @@ extension MobileApiQolipAstPart02 on MobileApi {
       _testModeQolipSpecs.removeWhere(
         (_, product) => keys.contains(product.qolipCode.trim().toLowerCase()),
       );
+      for (final overrides in _testModeQolipProductOverrides.values) {
+        overrides.removeWhere((code, _) => keys.contains(code));
+      }
       _testModeQolipLocations.removeWhere(
         (location) => keys.contains(location.qolipCode.trim().toLowerCase()),
       );

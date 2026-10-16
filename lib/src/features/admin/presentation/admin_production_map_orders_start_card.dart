@@ -274,7 +274,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         .map((code) => code.trim().toLowerCase())
         .where((code) => code.isNotEmpty)
         .toSet();
-    final setIds = requiredQolips.map((q) => q.setId).toSet().toList();
+    final setIds = requiredQolips
+        .where((q) => !q.isExtension)
+        .map((q) => q.setId).toSet().toList();
     final showAlternatives = setIds.length > 1;
     final qolipProgressText = showAlternatives
         ? context.l10n.productionText('worker.mold.choose_set')
@@ -765,7 +767,16 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       index < requiredQolips.length;
                       index++) ...[
                     if (index > 0) const SizedBox(height: 8),
-                    if (showAlternatives &&
+                    if (requiredQolips[index].isExtension &&
+                        (index == 0 || !requiredQolips[index - 1].isExtension))
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          context.l10n.qolipSharedSetText('extensions'),
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                      ),
+                    if (!requiredQolips[index].isExtension && showAlternatives &&
                         (index == 0 || requiredQolips[index - 1].setId != requiredQolips[index].setId))
                       Align(
                         alignment: AlignmentDirectional.centerStart,

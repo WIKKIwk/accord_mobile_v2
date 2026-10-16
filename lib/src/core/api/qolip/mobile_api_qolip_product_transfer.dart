@@ -49,7 +49,7 @@ extension MobileApiQolipProductTransfer on MobileApi {
         throw const MobileApiException(
             code: 'item_required', message: 'item_required');
       final saved = <QolipProduct>[];
-      final selectedSets = <String, QolipProduct>{};
+      final physical = _sharedPhysicalMolds();
       for (final code in codes) {
         final matches = molds.where((mold) =>
             mold.qolipCode.trim().toLowerCase() == code &&
@@ -65,24 +65,30 @@ extension MobileApiQolipProductTransfer on MobileApi {
           throw const MobileApiException(
               code: 'qolip_in_use', message: 'qolip_in_use');
         }
-        selectedSets[mold.setId] = mold;
-        saved.add(_sharedMoldForProduct(mold, target.first));
-      }
-      for (final entry in selectedSets.entries) {
-        final members = molds.where((mold) =>
-            mold.setId == entry.key &&
-            mold.code.toLowerCase() == fromItemCode.trim().toLowerCase());
-        if (members
-            .any((mold) => !codes.contains(mold.qolipCode.toLowerCase()))) {
+        final sourceMold = physical
+            .firstWhere((m) => m.qolipCode.trim().toLowerCase() == code);
+        if (_testModeEffectiveMold(sourceMold, toItemCode) != null) {
           throw const MobileApiException(
               code: 'qolip_product_transfer_conflict', message: 'conflict');
         }
+        final isBase = _testModeQolipSetLinks[sourceMold.setId]
+                ?.containsKey(toItemCode.trim().toLowerCase()) ??
+            (sourceMold.code.trim().toLowerCase() ==
+                toItemCode.trim().toLowerCase());
+        saved.add(
+            _sharedMoldForProduct(mold, target.first, isExtension: !isBase));
       }
-      for (final entry in selectedSets.entries) {
-        final targets = _testModeQolipSetLinks.putIfAbsent(
-            entry.key, () => {fromItemCode.trim().toLowerCase(): entry.value});
-        targets[target.first.code.toLowerCase()] = target.first;
-        targets.remove(fromItemCode.trim().toLowerCase());
+      for (final mold in saved) {
+        final code = mold.qolipCode.trim().toLowerCase();
+        _testModeQolipProductOverrides.putIfAbsent(
+            fromItemCode.trim().toLowerCase(), () => {})[code] = false;
+        final overrides = _testModeQolipProductOverrides.putIfAbsent(
+            toItemCode.trim().toLowerCase(), () => {});
+        if (mold.isExtension) {
+          overrides[code] = true;
+        } else {
+          overrides.remove(code);
+        }
       }
       _testModeQolipTransfers[key] = (signature, List.unmodifiable(saved));
       return saved;
@@ -118,6 +124,7 @@ extension MobileApiQolipProductTransfer on MobileApi {
           code: 'qolip_product_transfer_failed',
           message: 'Incomplete transfer response');
     }
+    _qolipProductsSnapshot = null;
     return saved;
   }
 }

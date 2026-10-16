@@ -116,7 +116,38 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
           m.qolipCode.trim().toLowerCase() ==
           product.qolipCode.trim().toLowerCase());
       if (matches.isEmpty) throw StateError(_text('scan_failed'));
-      final mold = matches.first;
+      final candidates = <String, QolipProduct>{
+        for (final match in matches) match.code.trim().toLowerCase(): match,
+      };
+      final current = candidates[_source?.code.trim().toLowerCase()];
+      final mold = current ??
+          (candidates.length == 1
+              ? candidates.values.single
+              : await showModalBottomSheet<QolipProduct>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  backgroundColor: Colors.transparent,
+                  sheetAnimationStyle: kM3PickerSheetAnimation,
+                  builder: (sheetContext) => M3AsyncPickerSheet<QolipProduct>(
+                    title: _text('source'),
+                    hintText:
+                        context.l10n.qolipText('home.product_customer_search'),
+                    pageSize: 80,
+                    loadPage: (query, offset, limit) async => candidates.values
+                        .where((item) => '${item.code} ${item.name}'
+                            .toLowerCase()
+                            .contains(query.trim().toLowerCase()))
+                        .skip(offset)
+                        .take(limit)
+                        .toList(),
+                    itemTitle: (item) => item.name,
+                    itemSubtitle: (item) => item.code,
+                    itemKey: (item) => item.code.trim().toLowerCase(),
+                    onSelected: (item) => Navigator.of(sheetContext).pop(item),
+                  ),
+                ));
+      if (mold == null || !mounted) return;
       setState(() {
         _source = mold;
         _selectedProduct = mold;
@@ -144,16 +175,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       _message(context.l10n.qolipSharedSetText('transfer'));
       return;
     }
-    final selectedSets = sourceMolds
-        .where((mold) => codes.contains(mold.qolipCode.trim().toLowerCase()))
-        .map((mold) => mold.setId)
-        .toSet();
-    codes = sourceMolds
-        .where((mold) => selectedSets.contains(mold.setId))
-        .map((mold) => mold.qolipCode.trim().toLowerCase())
-        .toSet()
-        .toList()
-      ..sort();
+    codes = codes.toSet().toList()..sort();
     final available = _forProduct(source)
         .where((m) => !m.isInUse)
         .map((m) => m.qolipCode.trim().toLowerCase())
@@ -213,7 +235,11 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
         _molds = [
           ...saved,
           ..._molds.where((mold) =>
-              !movedCodes.contains(mold.qolipCode.trim().toLowerCase())),
+              !movedCodes.contains(mold.qolipCode.trim().toLowerCase()) ||
+              (mold.code.trim().toLowerCase() !=
+                      source.code.trim().toLowerCase() &&
+                  mold.code.trim().toLowerCase() !=
+                      target.code.trim().toLowerCase())),
         ];
         _dragging = null;
         _requestSignature = null;
@@ -238,7 +264,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
   void _showError(Object error, String fallback) {
     if (error is MobileApiException) {
       if (error.code == 'qolip_product_transfer_conflict') {
-        _message(context.l10n.qolipSharedSetText('transfer'));
+        _message(_text('conflict'));
         return;
       }
       _message(context.l10n.qolipErrorText(error.code, fallback: fallback));

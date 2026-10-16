@@ -226,6 +226,7 @@ class _QolipProductTransferScreenState
         scheme: theme.colorScheme,
       ),
       subtitle: [
+        if (item.isExtension) context.l10n.qolipSharedSetText('extensions'),
         if (item.qolipSize > 0) '${item.qolipSize}',
         if (item.qolipColor.trim().isNotEmpty)
           context.l10n.qolipColorName(item.qolipColor),

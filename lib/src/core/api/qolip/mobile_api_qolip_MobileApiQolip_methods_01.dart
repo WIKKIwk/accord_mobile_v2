@@ -200,7 +200,9 @@ extension MobileApiQolipAstPart01 on MobileApi {
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
-      if (_testModeQolipSetLinks.isNotEmpty) return _sharedTestModeCatalog(query, limit, withQolipOnly);
+      if (_testModeQolipSetLinks.isNotEmpty ||
+          _testModeQolipProductOverrides.isNotEmpty)
+        return _sharedTestModeCatalog(query, limit, withQolipOnly);
       final products = <QolipProduct>[];
       for (final item in TestModeDemoData.items) {
         final specs = _testModeQolipSpecs.values

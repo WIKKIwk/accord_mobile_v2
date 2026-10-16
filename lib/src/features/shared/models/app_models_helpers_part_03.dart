@@ -245,6 +245,7 @@ class QolipBlocksResult {
 
 class QolipProduct {
   const QolipProduct({
+    this.isExtension = false,
     this.qolipSetId = '',
     this.warehouse = '',
     required this.code,
@@ -260,6 +261,7 @@ class QolipProduct {
     this.orderImageOrderId = '',
   });
 
+  final bool isExtension;
   final String qolipSetId;
   String get setId {
     if (qolipSetId.trim().isNotEmpty) return qolipSetId.trim();
@@ -282,6 +284,7 @@ class QolipProduct {
 
   factory QolipProduct.fromJson(Map<String, dynamic> json) {
     return QolipProduct(
+      isExtension: json['is_extension'] == true,
       qolipSetId: json['qolip_set_id']?.toString() ?? '',
       warehouse: json['warehouse']?.toString() ?? '',
       code: json['code']?.toString() ?? '',

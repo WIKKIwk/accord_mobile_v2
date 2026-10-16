@@ -1,6 +1,18 @@
 part of '../mobile_api.dart';
 
 final _testModeQolipSetLinks = <String, Map<String, QolipProduct>>{};
+final _testModeQolipProductOverrides = <String, Map<String, bool>>{};
+
+bool? _testModeEffectiveMold(QolipProduct mold, String itemCode) {
+  final item = itemCode.trim().toLowerCase();
+  final override = _testModeQolipProductOverrides[item]
+      ?[mold.qolipCode.trim().toLowerCase()];
+  if (override == false) return null;
+  final base = _testModeQolipSetLinks[mold.setId]?.containsKey(item) ??
+      (mold.code.trim().toLowerCase() == item);
+  if (base) return false;
+  return override == true ? true : null;
+}
 
 List<QolipProduct> _sharedPhysicalMolds() {
   final molds = Map<String, QolipProduct>.from(_testModeQolipSpecs);
@@ -66,8 +78,10 @@ class QolipSharedSet {
   }
 }
 
-QolipProduct _sharedMoldForProduct(QolipProduct mold, QolipProduct product) =>
+QolipProduct _sharedMoldForProduct(QolipProduct mold, QolipProduct product,
+        {bool isExtension = false}) =>
     QolipProduct(
+      isExtension: isExtension,
       qolipSetId: mold.setId,
       warehouse: mold.warehouse,
       code: product.code,
@@ -100,9 +114,21 @@ List<QolipProduct> _sharedTestModeCatalog(
   ];
   final withMolds = <String>{};
   for (final mold in _sharedPhysicalMolds()) {
-    final targets = _testModeQolipSetLinks[mold.setId]?.values ?? [mold];
-    for (final target in targets) {
-      result.add(_sharedMoldForProduct(mold, target));
+    final targets = <String, QolipProduct>{
+      for (final target in _testModeQolipSetLinks[mold.setId]?.values ?? [mold])
+        target.code.trim().toLowerCase(): target,
+    };
+    for (final product in catalog) {
+      if (_testModeQolipProductOverrides[product.code.trim().toLowerCase()]
+              ?[mold.qolipCode.trim().toLowerCase()] ==
+          true) {
+        targets[product.code.trim().toLowerCase()] = product;
+      }
+    }
+    for (final target in targets.values) {
+      final isExtension = _testModeEffectiveMold(mold, target.code);
+      if (isExtension == null) continue;
+      result.add(_sharedMoldForProduct(mold, target, isExtension: isExtension));
       withMolds.add(target.code.toLowerCase());
     }
   }
@@ -160,7 +186,20 @@ extension MobileApiQolipSharedSets on MobileApi {
           a.qolipCode.length == b.qolipCode.length
               ? a.qolipCode.compareTo(b.qolipCode)
               : a.qolipCode.length.compareTo(b.qolipCode.length));
-      final targets = _testModeQolipSetLinks[id]?.values ?? [members.first];
+      final targets = <String, QolipProduct>{
+        for (final product
+            in _testModeQolipSetLinks[id]?.values ?? [members.first])
+          product.code.trim().toLowerCase(): product,
+      };
+      for (final item in TestModeDemoData.items) {
+        if (members.any((mold) =>
+            _testModeQolipProductOverrides[item.code.trim().toLowerCase()]
+                ?[mold.qolipCode.trim().toLowerCase()] ==
+            true)) {
+          targets[item.code.trim().toLowerCase()] = QolipProduct(
+              code: item.code, name: item.name, itemGroup: item.itemGroup);
+        }
+      }
       return QolipSharedSet(
           id: id,
           code: display.last.qolipCode,
@@ -174,7 +213,7 @@ extension MobileApiQolipSharedSets on MobileApi {
                   ])
               .toList()),
           members: members,
-          productLabels: targets
+          productLabels: targets.values
               .map((product) => '${product.name} (${product.code})')
               .toList());
     }
@@ -205,6 +244,10 @@ extension MobileApiQolipSharedSets on MobileApi {
                 current.members.first.code.toLowerCase(): current.members.first
               });
       targets[product.code.toLowerCase()] = product;
+      for (final member in current.members) {
+        _testModeQolipProductOverrides[product.code.trim().toLowerCase()]
+            ?.remove(member.qolipCode.trim().toLowerCase());
+      }
       return current.members;
     }
     final response = await _sendAuthorized(() => _post(

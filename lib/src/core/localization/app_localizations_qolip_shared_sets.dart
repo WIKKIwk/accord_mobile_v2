@@ -25,6 +25,8 @@ extension AppLocalizationsQolipSharedSets on AppLocalizations {
           'Select a warehouse for the new set.',
           'Выберите склад для нового комплекта.'),
       'id' => _t('Komplekt ID', 'Set ID', 'ID комплекта'),
+      'extensions' =>
+        _t('Qo‘shimcha qoliplar', 'Additional molds', 'Дополнительные формы'),
       'copied' => _t(
           'Komplekt ID nusxalandi', 'Set ID copied', 'ID комплекта скопирован'),
       'edit' => _t(
@@ -36,9 +38,9 @@ extension AppLocalizationsQolipSharedSets on AppLocalizations {
           'Reprint the QR label if you change the mold code.',
           'При изменении кода формы напечатайте новую QR-этикетку.'),
       'transfer' => _t(
-          'Ko‘chirish uchun komplektdagi barcha qoliplarni tanlang. Bog‘lanish o‘zgargan bo‘lsa, ro‘yxatni yangilang.',
-          'Select every mold in the set to move it. Refresh if its assignment changed.',
-          'Для переноса выберите все формы комплекта. Если привязка изменилась, обновите список.'),
+          'Qolip bog‘lanishi o‘zgargan. Ro‘yxatni yangilab, qayta tanlang.',
+          'The mold assignment changed. Refresh and select again.',
+          'Привязка формы изменилась. Обновите список и выберите заново.'),
       _ => key,
     };
     for (final entry in values.entries) {
