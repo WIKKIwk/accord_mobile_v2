@@ -12,9 +12,6 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'Confirm that the material has arrived at the machine and select who delivered it. Work will start automatically once all required scans are complete.',
     'ru': 'Подтвердите, что сырьё доставлено к аппарату, и выберите сотрудника. Работа начнётся автоматически после всех обязательных сканирований.',
   },
-  'worker.delivery.confirm': {
-    'uz': 'Qabul qilish', 'en': 'Receive', 'ru': 'Принять',
-  },
   'worker.delivery.cancel': {
     'uz': 'Bekor qilish', 'en': 'Cancel', 'ru': 'Отмена',
   },
