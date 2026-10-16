@@ -4,6 +4,9 @@ extension _QolipAttachSharedSets on _QolipAttachSheetState {
   Future<void> _showSpecSaveError(String message) => showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+          constraints: const BoxConstraints.tightFor(width: 420),
           title: Text(context.l10n.qolipText('home.save_failed')),
           content: SingleChildScrollView(child: Text(message)),
           actions: [
@@ -38,17 +41,32 @@ extension _QolipAttachSharedSets on _QolipAttachSheetState {
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) => AlertDialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+          constraints: const BoxConstraints.tightFor(width: 420),
           title: Text(l10n.qolipSharedSetText('title')),
           content: SingleChildScrollView(
               child: Text(
                   '${changed ? '${l10n.qolipSharedSetText('changed')}\n\n' : ''}$body')),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(l10n.qolipSharedSetText('no'))),
-            FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(l10n.qolipSharedSetText('yes'))),
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    child: Text(l10n.qolipSharedSetText('yes')),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: Text(l10n.qolipSharedSetText('no')),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );
