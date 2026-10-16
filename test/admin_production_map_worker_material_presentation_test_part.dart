@@ -237,6 +237,14 @@ void _registerWorkerMaterialPresentationTests() {
           of: find.byKey(const ValueKey('material-alert:$orderId:$_print9Id')),
           matching: find.byType(OutlinedButton),
         );
+        const buttonShape = RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(28)),
+        );
+        for (final finder in [linkButton, alertButton]) {
+          expect(
+              tester.widget<OutlinedButton>(finder).style?.shape?.resolve({}),
+              buttonShape);
+        }
         final explanation = find.text(
             'Apparat oldidagi 1 ta mos rulondan keraklisini tanlab so‘rov yuboring');
         final buttonGap = tester.getTopLeft(alertButton).dy -
@@ -246,6 +254,14 @@ void _registerWorkerMaterialPresentationTests() {
         expect(buttonGap, 10);
         expect(explanationGap, buttonGap);
         if (!blocked) {
+          expect(
+              tester
+                  .widget<FilledButton>(
+                      find.widgetWithText(FilledButton, 'Boshlash'))
+                  .style
+                  ?.shape
+                  ?.resolve({}),
+              buttonShape);
           expect(
               tester
                   .widget<FilledButton>(

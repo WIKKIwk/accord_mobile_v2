@@ -88,6 +88,11 @@ class _OrderAlertButtonState extends State<OrderAlertButton> {
       children: [
         OutlinedButton.icon(
           onPressed: _sending || _sent ? null : _send,
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+          ),
           icon: Icon(_sent
               ? Icons.check_rounded
               : Icons.notifications_active_outlined),

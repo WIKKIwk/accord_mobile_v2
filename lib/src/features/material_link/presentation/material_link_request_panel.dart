@@ -304,6 +304,11 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
               const SizedBox(height: actionSpacing),
               OutlinedButton.icon(
                 onPressed: _busy || pending || !available ? null : _send,
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
                 icon: const Icon(Icons.send_outlined),
                 label: UrduAwareText(
                     pending ? 'Tasdiq kutilmoqda' : 'Ulash uchun so‘rov'),
