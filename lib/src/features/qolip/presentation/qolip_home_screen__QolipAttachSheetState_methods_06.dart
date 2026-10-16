@@ -263,31 +263,26 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
       if (await _reuseExistingSet(product, identifier)) return;
       if (!mounted) return;
       if (_specWarehouse == null || _warehousesLoading || _warehousesFailed) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.qolipSharedSetText('warehouse'))));
+        await _showSpecSaveError(l10n.qolipSharedSetText('warehouse'));
         return;
       }
       final size = int.tryParse(_size.text.trim());
       if (size == null || size <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.qolipText('home.size_invalid'))));
+        await _showSpecSaveError(l10n.qolipText('home.size_invalid'));
         return;
       }
       final draft = _batchDraft;
       if (draft == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.qolipText('home.code_range'))));
+        await _showSpecSaveError(l10n.qolipText('home.code_range'));
         return;
       }
       if (draft.count > 1 && _selectedColors.length != draft.count) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(l10n.qolipText('home.colors_required',
-                values: {'count': draft.count}))));
+        await _showSpecSaveError(l10n
+            .qolipText('home.colors_required', values: {'count': draft.count}));
         return;
       }
       if (draft.count == 1 && _selectedColors.length > 1) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.qolipText('home.one_color'))));
+        await _showSpecSaveError(l10n.qolipText('home.one_color'));
         return;
       }
       final colors = _selectedColors.toList(growable: false);
@@ -312,10 +307,10 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
         throw StateError(l10n.qolipText('home.batch_response'));
       if (mounted) _finishSpecSave(product, saved, draft.input);
     } catch (error) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(qolipErrorMessage(error,
-                fallback: l10n.qolipText('home.save_failed'), l10n: l10n))));
+      if (mounted) {
+        await _showSpecSaveError(qolipErrorMessage(error,
+            fallback: l10n.qolipText('home.save_failed'), l10n: l10n));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

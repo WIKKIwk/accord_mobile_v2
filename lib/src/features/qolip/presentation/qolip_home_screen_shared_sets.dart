@@ -1,6 +1,21 @@
 part of 'qolip_home_screen.dart';
 
 extension _QolipAttachSharedSets on _QolipAttachSheetState {
+  Future<void> _showSpecSaveError(String message) => showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(context.l10n.qolipText('home.save_failed')),
+          content: SingleChildScrollView(child: Text(message)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child:
+                  Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
+            ),
+          ],
+        ),
+      );
+
   Future<bool> _reuseExistingSet(
       QolipProduct product, String identifier) async {
     var set = await MobileApi.instance.qolipResolveSet(identifier);
