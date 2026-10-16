@@ -136,28 +136,12 @@ Future<AdminProductionMapQolipValidation>
           ],
         );
       }
-      final product = await qolipProductByQr(qolipCode);
-      final products = await qolipProducts(
-        query: product.code,
-        limit: 20000,
-        withQolipOnly: true,
-      );
-      return AdminProductionMapQolipValidation(
-        qolipCode: product.qolipCode.trim().isEmpty
-            ? qolipCode.trim()
-            : product.qolipCode.trim(),
-        requiredQolips: [
-          for (final candidate in products)
-            if (candidate.code.trim().toLowerCase() ==
-                    product.code.trim().toLowerCase() &&
-                candidate.qolipCode.trim().isNotEmpty)
-              AdminProductionMapRequiredQolip(
-                qolipCode: candidate.qolipCode.trim(),
-                color: candidate.qolipColor.trim(),
-                qolipSetId: candidate.setId,
-              ),
-        ],
-      );
+      final requirements = await adminProductionMapQolipRequirements(apparatus: normalizedApparatus, orderId: orderId);
+      final matches = requirements.requiredQolips.where((mold) => mold.qolipCode.toLowerCase() == qolipCode.trim().toLowerCase());
+      if (matches.isEmpty) throw const MobileApiException(code: 'qolip_code_mismatch', message: 'qolip_code_mismatch');
+      final selected = matches.first;
+      return AdminProductionMapQolipValidation(qolipCode: selected.qolipCode,
+        requiredQolips: requirements.requiredQolips.where((mold) => mold.setId == selected.setId).toList(growable: false));
     }
     final response = await _sendAuthorized(
       () => _post(

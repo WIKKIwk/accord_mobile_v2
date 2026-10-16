@@ -31,16 +31,11 @@ class _SequenceQolipSheetState extends State<_SequenceQolipSheet> {
       final itemCode = widget.order.map.productCode.trim();
       final products = itemCode.isEmpty
           ? const <QolipProduct>[]
-          : await MobileApi.instance.qolipProducts(
-              query: itemCode,
-              limit: 200,
-              withQolipOnly: true,
-            );
+          : await MobileApi.instance.qolipProductMolds(itemCode);
       final seen = <String>{};
       final qolips = [
         for (final product in products)
-          if (product.code.trim().toLowerCase() == itemCode.toLowerCase() &&
-              product.qolipCode.trim().isNotEmpty &&
+          if (product.qolipCode.trim().isNotEmpty &&
               seen.add(product.qolipCode.trim().toLowerCase()))
             product,
       ]..sort(

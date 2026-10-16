@@ -836,17 +836,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
               .values
               .whereType<QolipProduct>()
               .toList()
-          : await MobileApi.instance.qolipProducts(
-              query: itemCode,
-              limit: 200,
-              withQolipOnly: true,
-            );
+          : await MobileApi.instance.qolipProductMolds(itemCode);
       if (!mounted || generation != _attachedQolipsLoadGeneration) return;
       final seen = <String>{};
       final qolips = [
         for (final product in products)
-          if (product.code.trim().toLowerCase() == itemCode.toLowerCase() &&
-              product.qolipCode.trim().isNotEmpty &&
+          if (product.qolipCode.trim().isNotEmpty &&
               seen.add(product.qolipCode.trim().toLowerCase()))
             product,
       ]..sort(

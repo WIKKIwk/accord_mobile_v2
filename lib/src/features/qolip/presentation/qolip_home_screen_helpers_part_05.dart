@@ -9,10 +9,12 @@ List<QolipProduct> qolipProductsAvailableForCellPlacement(
       .map((code) => code.trim().toLowerCase())
       .where((code) => code.isNotEmpty)
       .toSet();
+  final seen = <String>{};
   return _qolipProductsWithSavedCodeOnly(products)
       .where(
         (product) =>
             !product.isInUse &&
+            seen.add(product.qolipCode.trim().toLowerCase()) &&
             !normalizedPlacedCodes.contains(
               product.qolipCode.trim().toLowerCase(),
             ),

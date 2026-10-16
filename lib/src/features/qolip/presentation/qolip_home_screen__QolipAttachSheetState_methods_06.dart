@@ -250,107 +250,74 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
   Future<void> _save() async {
     final l10n = context.l10n;
     final product = _product;
-    final size = int.tryParse(_size.text.trim());
-    if (_saving || product == null) {
-      return;
-    }
+    if (_saving || product == null) return;
     if (widget.mode == _QolipAttachMode.cellPlacement) {
       await _saveCellProducts(_selectedProducts);
       return;
     }
-    if (_specWarehouse == null || _warehousesLoading || _warehousesFailed) {
-      return;
-    }
-    if (size == null || size <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.qolipText('home.size_invalid'))),
-      );
-      return;
-    }
-    final draft = _batchDraft;
-    if (draft == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.qolipText('home.code_range')),
-        ),
-      );
-      return;
-    }
-    if (draft.count > 1 && _selectedColors.length != draft.count) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.qolipText(
-              'home.colors_required',
-              values: {'count': draft.count},
-            ),
-          ),
-        ),
-      );
-      return;
-    }
-    if (draft.count == 1 && _selectedColors.length > 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.qolipText('home.one_color'))),
-      );
-      return;
-    }
-    final colors = _selectedColors.toList(growable: false);
-    final batchItems = [
-      for (var index = 0; index < draft.codes.length; index++)
-        QolipProductSpecBatchItem(
-          qolipCode: draft.codes[index],
-          size: size,
-          qolipColor: colors.isEmpty ? '' : colors[index],
-        ),
-    ];
+    final identifier = _qolipCode.text.trim();
+    FocusScope.of(context).unfocus();
     setState(() => _saving = true);
     try {
-      final saved = await MobileApi.instance.qolipSaveProductSpecsBatch(
-        warehouse: _specWarehouse!,
-        product: product,
-        specs: batchItems,
-      );
-      if (saved.length != batchItems.length) {
-        throw StateError(l10n.qolipText('home.batch_response'));
-      }
-      if (mounted) {
-        setState(() {
-          _product = saved.first;
-          _selectedProducts = <QolipProduct>[saved.first];
-          _savedProductSpecs = saved;
-          _qolipCode.text = draft.input;
-          _size.text = '${saved.first.qolipSize}';
-          _selectedColors
-            ..clear()
-            ..addAll(
-              saved
-                  .map((item) => item.qolipColor.trim().toUpperCase())
-                  .where((color) => color.isNotEmpty),
-            );
-        });
-        if (widget.closeAfterSave) {
-          Navigator.of(context).pop();
-        }
-      }
-    } catch (error) {
-      if (mounted) {
+      // Resolve before validating new colors/size: reuse always takes the existing complete set.
+      if (await _reuseExistingSet(product, identifier)) return;
+      if (!mounted) return;
+      if (_specWarehouse == null || _warehousesLoading || _warehousesFailed) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              qolipErrorMessage(
-                error,
-                fallback: l10n.qolipText('home.save_failed'),
-                l10n: l10n,
-              ),
-            ),
-          ),
-        );
+            SnackBar(content: Text(l10n.qolipSharedSetText('warehouse'))));
+        return;
       }
+      final size = int.tryParse(_size.text.trim());
+      if (size == null || size <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.qolipText('home.size_invalid'))));
+        return;
+      }
+      final draft = _batchDraft;
+      if (draft == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.qolipText('home.code_range'))));
+        return;
+      }
+      if (draft.count > 1 && _selectedColors.length != draft.count) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(l10n.qolipText('home.colors_required',
+                values: {'count': draft.count}))));
+        return;
+      }
+      if (draft.count == 1 && _selectedColors.length > 1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.qolipText('home.one_color'))));
+        return;
+      }
+      final colors = _selectedColors.toList(growable: false);
+      final items = [
+        for (var index = 0; index < draft.codes.length; index++)
+          QolipProductSpecBatchItem(
+              qolipCode: draft.codes[index],
+              size: size,
+              qolipColor: colors.isEmpty ? '' : colors[index])
+      ];
+      List<QolipProduct> saved;
+      try {
+        saved = await MobileApi.instance.qolipSaveProductSpecsBatch(
+            warehouse: _specWarehouse!, product: product, specs: items);
+      } on MobileApiException catch (error) {
+        // Another clerk may have created the set after our initial lookup.
+        if (error.code == 'qolip_code_conflict' &&
+            await _reuseExistingSet(product, identifier)) return;
+        rethrow;
+      }
+      if (saved.length != items.length)
+        throw StateError(l10n.qolipText('home.batch_response'));
+      if (mounted) _finishSpecSave(product, saved, draft.input);
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(qolipErrorMessage(error,
+                fallback: l10n.qolipText('home.save_failed'), l10n: l10n))));
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 

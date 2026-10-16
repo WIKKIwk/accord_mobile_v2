@@ -137,12 +137,35 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
     final source = from;
     final target = to;
     if (_saving || codes.isEmpty) return;
+    final sourceMolds = _forProduct(source);
+    final knownCodes =
+        sourceMolds.map((mold) => mold.qolipCode.trim().toLowerCase()).toSet();
+    if (codes.any((code) => !knownCodes.contains(code))) {
+      _message(context.l10n.qolipSharedSetText('transfer'));
+      return;
+    }
+    final selectedSets = sourceMolds
+        .where((mold) => codes.contains(mold.qolipCode.trim().toLowerCase()))
+        .map((mold) => mold.setId)
+        .toSet();
+    codes = sourceMolds
+        .where((mold) => selectedSets.contains(mold.setId))
+        .map((mold) => mold.qolipCode.trim().toLowerCase())
+        .toSet()
+        .toList()
+      ..sort();
     final available = _forProduct(source)
         .where((m) => !m.isInUse)
         .map((m) => m.qolipCode.trim().toLowerCase())
         .toSet();
-    if (codes.length > 100 || codes.any((code) => !available.contains(code)))
+    if (codes.length > 100) {
+      _message(_text('limit'));
       return;
+    }
+    if (codes.any((code) => !available.contains(code))) {
+      _message(context.l10n.qolipErrorText('qolip_in_use'));
+      return;
+    }
     setState(() {
       _saving = true;
       _dragging = null;
@@ -215,7 +238,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
   void _showError(Object error, String fallback) {
     if (error is MobileApiException) {
       if (error.code == 'qolip_product_transfer_conflict') {
-        _message(_text('conflict'));
+        _message(context.l10n.qolipSharedSetText('transfer'));
         return;
       }
       _message(context.l10n.qolipErrorText(error.code, fallback: fallback));

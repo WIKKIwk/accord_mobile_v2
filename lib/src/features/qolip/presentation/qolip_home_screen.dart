@@ -40,6 +40,7 @@ part 'qolip_home_screen__QolipHomeScreenState_methods_04.dart';
 part 'qolip_home_screen__QolipBlockGrid_methods_05.dart';
 part 'qolip_home_screen__QolipAttachSheetState_methods_06.dart';
 part 'qolip_home_screen__QolipAttachSheetState_methods_07.dart';
+part 'qolip_home_screen_shared_sets.dart';
 part 'qolip_home_screen_widgets_part_01.dart';
 part 'qolip_home_screen_models_part_02.dart';
 part 'qolip_home_screen_declarations_part_03.dart';

@@ -151,6 +151,15 @@ extension MobileApiQolipAstPart02 on MobileApi {
       hasQolipSpec: true,
     );
     if (await TestModeController.instance.isEnabled()) {
+      final existing = _sharedPhysicalMolds().where((mold) => mold.qolipCode.trim().toLowerCase() == previousQolipCode?.trim().toLowerCase());
+      if (existing.isNotEmpty) {
+        final physical = existing.first;
+        saved = QolipProduct(qolipSetId: physical.setId, warehouse: physical.warehouse,
+          code: physical.code, name: physical.name, itemGroup: physical.itemGroup,
+          customerNames: physical.customerNames, qolipCode: saved.qolipCode,
+          firstQolipCode: physical.firstQolipCode, qolipSize: saved.qolipSize,
+          qolipColor: saved.qolipColor, hasQolipSpec: true);
+      }
       final itemKey = saved.code.trim().toLowerCase();
       final firstQolipCode = _testModeFirstQolipCodes.putIfAbsent(
         itemKey,

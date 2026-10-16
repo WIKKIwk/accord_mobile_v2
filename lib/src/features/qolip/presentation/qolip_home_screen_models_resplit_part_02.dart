@@ -55,20 +55,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   bool get _canSave {
-    final size = int.tryParse(_size.text.trim()) ?? 0;
     if (widget.mode == _QolipAttachMode.productSpec) {
-      final draft = _batchDraft;
-      final colorsValid = draft != null &&
-          (draft.count == 1
-              ? _selectedColors.length <= 1
-              : _selectedColors.length == draft.count);
       return _savedProductSpecs.isEmpty &&
-          _specWarehouse != null &&
-          !_warehousesLoading &&
           _product != null &&
-          draft != null &&
-          colorsValid &&
-          size > 0;
+          _qolipCode.text.trim().isNotEmpty;
     }
     return _block != null &&
         _selectedProducts.isNotEmpty &&
@@ -141,7 +131,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 const SizedBox(height: 12),
               ],
               InkWell(
-                onTap: productSpecSaved || widget.lockProduct
+                onTap: productSpecSaved || widget.lockProduct || _saving
                     ? null
                     : _pickProduct,
                 borderRadius: BorderRadius.circular(12),
@@ -180,7 +170,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   const LinearProgressIndicator()
                 else if (_warehousesFailed || _specWarehouses.isEmpty)
                   TextButton.icon(
-                    onPressed: _loadSpecWarehouses,
+                    onPressed: _saving ? null : _loadSpecWarehouses,
                     icon: const Icon(Icons.refresh),
                     label: Text(l10n.qolipText('blocks.load_failed')),
                   )
@@ -206,7 +196,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _qolipCode,
-                  enabled: !productSpecSaved,
+                  enabled: !productSpecSaved && !_saving,
                   decoration: InputDecoration(
                     labelText: l10n.qolipText('home.mold_code_label'),
                   ),
@@ -279,7 +269,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _size,
-                  enabled: !productSpecSaved,
+                  enabled: !productSpecSaved && !_saving,
                   decoration: InputDecoration(
                     labelText: l10n.qolipText('home.size_label'),
                   ),
@@ -304,7 +294,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   selectedColors: _selectedColors,
                   pantonNumbers: _pantonNumbers,
                   maxSelectedColors: batchDraft?.count ?? 1,
-                  enabled: !productSpecSaved,
+                  enabled: !productSpecSaved && !_saving,
                   onAddPanton:
                       !productSpecSaved && _canAddPanton ? _addPanton : null,
                   onColorsChanged: (colors) => setState(() {

@@ -298,6 +298,20 @@ class _QolipProductContainerCard extends StatelessWidget {
                                   scheme.outlineVariant.withValues(alpha: 0.65),
                             ),
                             for (final entry in sets.entries) ...[
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(14, 8, 8, 0),
+                                child: Row(children: [
+                                  Expanded(child: SelectableText('${l10n.qolipSharedSetText('id')}: ${entry.key}', style: Theme.of(context).textTheme.bodySmall)),
+                                  IconButton(
+                                    tooltip: l10n.qolipSharedSetText('id'),
+                                    icon: const Icon(Icons.copy_rounded, size: 18),
+                                    onPressed: () async {
+                                      await Clipboard.setData(ClipboardData(text: entry.key));
+                                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.qolipSharedSetText('copied'))));
+                                    },
+                                  ),
+                                ]),
+                              ),
                               if (sets.length > 1)
                                 Padding(
                                   padding:

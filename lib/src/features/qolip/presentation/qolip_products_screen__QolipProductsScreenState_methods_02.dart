@@ -6,6 +6,16 @@ extension __QolipProductsScreenStateAstPart02 on _QolipProductsScreenState {
     if (product.isInUse) {
       return;
     }
+    QolipSharedSet? sharedSet;
+    try {
+      sharedSet = await MobileApi.instance.qolipResolveSet(product.setId);
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(qolipErrorMessage(error, l10n: context.l10n))));
+      return;
+    }
+    if (!mounted) return;
     final code = TextEditingController(text: product.qolipCode);
     final size = TextEditingController(text: '${product.qolipSize}');
     String? selectedColor =
@@ -24,6 +34,14 @@ extension __QolipProductsScreenStateAstPart02 on _QolipProductsScreenState {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (sharedSet != null) ...[
+                  Text(l10n.qolipSharedSetText('edit', values: {
+                    'products': sharedSet.productLabels.join(', ')
+                  })),
+                  const SizedBox(height: 10),
+                ],
+                Text(l10n.qolipSharedSetText('qr')),
+                const SizedBox(height: 12),
                 TextField(
                   controller: code,
                   autofocus: true,

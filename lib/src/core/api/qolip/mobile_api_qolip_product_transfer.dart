@@ -49,63 +49,40 @@ extension MobileApiQolipProductTransfer on MobileApi {
         throw const MobileApiException(
             code: 'item_required', message: 'item_required');
       final saved = <QolipProduct>[];
+      final selectedSets = <String, QolipProduct>{};
       for (final code in codes) {
-        final matches =
-            molds.where((m) => m.qolipCode.trim().toLowerCase() == code);
-        if (matches.isEmpty ||
-            matches.first.code.trim().toLowerCase() !=
-                fromItemCode.trim().toLowerCase()) {
+        final matches = molds.where((mold) =>
+            mold.qolipCode.trim().toLowerCase() == code &&
+            mold.code.trim().toLowerCase() ==
+                fromItemCode.trim().toLowerCase());
+        if (matches.isEmpty)
           throw const MobileApiException(
               code: 'qolip_product_transfer_conflict', message: 'conflict');
-        }
         final mold = matches.first;
         if (mold.isInUse ||
-            _testModeQolipCheckouts.any(
-                (c) => c.isOpen && c.qolipCode.trim().toLowerCase() == code)) {
+            _testModeQolipCheckouts.any((checkout) =>
+                checkout.isOpen && checkout.qolipCode.toLowerCase() == code)) {
           throw const MobileApiException(
               code: 'qolip_in_use', message: 'qolip_in_use');
         }
-        saved.add(QolipProduct(
-          qolipSetId: 'test-qolip-set:$requestId:${mold.setId}',
-          warehouse: mold.warehouse,
-          code: target.first.code,
-          name: target.first.name,
-          itemGroup: target.first.itemGroup,
-          customerNames: target.first.customerNames,
-          qolipCode: mold.qolipCode,
-          firstQolipCode: target.first.firstQolipCode,
-          qolipSize: mold.qolipSize,
-          qolipColor: mold.qolipColor,
-          hasQolipSpec: true,
-        ));
+        selectedSets[mold.setId] = mold;
+        saved.add(_sharedMoldForProduct(mold, target.first));
       }
-      for (final mold in saved) {
-        _testModeQolipSpecs[mold.qolipCode.trim().toLowerCase()] = mold;
-        for (var i = 0; i < _testModeQolipLocations.length; i++) {
-          final location = _testModeQolipLocations[i];
-          if (location.qolipCode.trim().toLowerCase() !=
-              mold.qolipCode.trim().toLowerCase()) continue;
-          _testModeQolipLocations[i] = QolipLocationEntry(
-            id: [
-              location.block,
-              mold.code,
-              mold.qolipCode,
-              mold.qolipSize,
-              location.rowLetter,
-              location.columnNumber ?? 0
-            ].join(':'),
-            block: location.block,
-            warehouse: location.warehouse,
-            itemCode: mold.code,
-            itemName: mold.name,
-            qolipCode: mold.qolipCode,
-            size: location.size,
-            quantity: location.quantity,
-            rowLetter: location.rowLetter,
-            columnNumber: location.columnNumber,
-            locationLabel: location.locationLabel,
-          );
+      for (final entry in selectedSets.entries) {
+        final members = molds.where((mold) =>
+            mold.setId == entry.key &&
+            mold.code.toLowerCase() == fromItemCode.trim().toLowerCase());
+        if (members
+            .any((mold) => !codes.contains(mold.qolipCode.toLowerCase()))) {
+          throw const MobileApiException(
+              code: 'qolip_product_transfer_conflict', message: 'conflict');
         }
+      }
+      for (final entry in selectedSets.entries) {
+        final targets = _testModeQolipSetLinks.putIfAbsent(
+            entry.key, () => {fromItemCode.trim().toLowerCase(): entry.value});
+        targets[target.first.code.toLowerCase()] = target.first;
+        targets.remove(fromItemCode.trim().toLowerCase());
       }
       _testModeQolipTransfers[key] = (signature, List.unmodifiable(saved));
       return saved;
