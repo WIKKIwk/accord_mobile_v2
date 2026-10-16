@@ -87,26 +87,31 @@ void _registeradmin_production_map_test_screen_testCases11() {
         findsOneWidget,
       );
       expect(find.text('Homashyo QR scan'), findsNothing);
+      expect(find.text('0/0'), findsNothing);
       final startMaterialsHeader = find.byKey(
         const ValueKey('production-start-materials-expansion'),
       );
+      expect(startMaterialsHeader, findsNothing);
+      final materialsHeader = find.byKey(
+        const ValueKey('production-materials-expansion'),
+      );
       expect(
         find.descendant(
-          of: startMaterialsHeader,
-          matching: find.byIcon(Icons.expand_more_rounded),
+          of: materialsHeader,
+          matching: find.text('Apparat oldiga homashyo olib kelinmagan'),
         ),
-        findsNothing,
+        findsOneWidget,
       );
       expect(
         tester
             .widget<InkWell>(
               find.descendant(
-                of: startMaterialsHeader,
+                of: materialsHeader,
                 matching: find.byType(InkWell),
               ),
             )
             .onTap,
-        isNull,
+        isNotNull,
       );
       final startButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),

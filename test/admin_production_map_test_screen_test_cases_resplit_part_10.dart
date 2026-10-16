@@ -183,7 +183,7 @@ void _registeradmin_production_map_test_screen_testCases10() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
     await tester.pumpAndSettle();
-    expect(find.text('Ish boshlash uchun homashyolar'), findsOneWidget);
+    expect(find.text('Homashyo QR tasdiqlari'), findsOneWidget);
     expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
     expect(find.text('0/1'), findsOneWidget);
     final scannerFinder = find.byType(ProductionQuickScannerPanel);
@@ -217,23 +217,12 @@ void _registeradmin_production_map_test_screen_testCases10() {
       isNotNull,
     );
     await tester.tap(
-      find.byKey(const ValueKey('production-start-materials-expansion')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text(stagedBarcode), findsOneWidget);
-    expect(find.text(unstagedBarcode), findsNothing);
-    expect(find.text('1/1'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const ValueKey('production-start-materials-expansion')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
       find.byKey(const ValueKey('production-materials-expansion')),
     );
     await tester.pumpAndSettle();
     expect(find.text(stagedBarcode), findsOneWidget);
     expect(find.text(unstagedBarcode), findsOneWidget);
+    expect(find.text('1/1'), findsOneWidget);
   });
 
   testWidgets(

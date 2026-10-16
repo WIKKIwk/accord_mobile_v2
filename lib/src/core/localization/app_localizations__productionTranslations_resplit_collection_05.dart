@@ -99,6 +99,31 @@ const _app_localizations_declarations__productionTranslations_resplitPart05 = {
     'en': 'No materials attached',
     'ru': 'Сырье не прикреплено',
   },
+  'worker.materials.unassigned_order': {
+    'uz': 'Ushbu buyurtma uchun homashyo biriktirilmagan',
+    'en': 'No materials are attached to this order',
+    'ru': 'Для этого заказа сырье не прикреплено',
+  },
+  'worker.materials.scan_progress': {
+    'uz': 'Homashyo QR tasdiqlari',
+    'en': 'Material QR confirmations',
+    'ru': 'Подтверждения QR сырья',
+  },
+  'worker.materials.delivery_progress': {
+    'uz': '{present} ta apparat oldida, {waiting} ta yetkazilishi kutilmoqda',
+    'en': '{present} at the machine, {waiting} awaiting delivery',
+    'ru': 'У аппарата: {present}, ожидают доставки: {waiting}',
+  },
+  'worker.materials.awaiting_delivery_count': {
+    'uz': '{waiting} ta homashyo yetkazilishi kutilmoqda',
+    'en': '{waiting} materials awaiting delivery',
+    'ru': 'Ожидают доставки: {waiting}',
+  },
+  'worker.materials.not_ready': {
+    'uz': 'Biriktirilgan homashyoni hozir qabul qilib bo‘lmaydi',
+    'en': 'The attached materials cannot be received for work yet',
+    'ru': 'Прикрепленное сырье пока нельзя принять в работу',
+  },
   'worker.mold.alternatives': {
     'uz': 'Muqobil qoliplar',
     'en': 'Alternative molds',

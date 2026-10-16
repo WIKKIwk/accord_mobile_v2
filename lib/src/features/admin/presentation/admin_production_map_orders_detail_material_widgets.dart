@@ -535,6 +535,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     this.countUnit,
     this.isLoading = false,
     this.hideZeroCount = false,
+    this.showCount = true,
     this.trailing,
   });
   final String title;
@@ -553,6 +554,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
   // Son 0 bo'lganda qobiq + birlik fade bilan yo'qoladi ("0 ta"
   // ko'rsatilmaydi). Faqat kerakli joyda yoqiladi.
   final bool hideZeroCount;
+  final bool showCount;
   final Widget? trailing;
 
   @override
@@ -563,7 +565,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     final highlightedForeground = highlighted ? const Color(0xFF173B1D) : null;
     // Yuklanish paytida ".." ko'rinadi; yuklanib 0 chiqsa qobiq
     // fade bilan yo'qoladi.
-    final countVisible =
+    final countVisible = showCount &&
         !(hideZeroCount && !isLoading && (countNumber ?? '').trim() == '0');
     return TweenAnimationBuilder<Color?>(
       tween: ColorTween(

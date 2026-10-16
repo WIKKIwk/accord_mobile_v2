@@ -134,6 +134,138 @@ class _OrderStartUnifiedCard extends StatelessWidget {
 
   final _ReadOnlyOrderDetailUiState uiState;
 
+  Widget _workerStartMaterials(BuildContext context) {
+    final assignments = uiState.assignedMaterialAssignments;
+    final l10n = context.l10n;
+    if (materialsLoading || materialsError.trim().isNotEmpty) {
+      return _RawMaterialAssignmentsExpansionBody(
+        assignments: const [],
+        apparatusCatalog: apparatusCatalog,
+        loading: materialsLoading,
+        error: materialsError,
+        emptyText: '',
+        scannedBarcodes: const {},
+        allowUnlink: false,
+        onUnlink: null,
+        unlinkingBarcode: '',
+      );
+    }
+    if (assignments.isEmpty) {
+      return Text(
+        l10n.productionText('worker.materials.unassigned_order'),
+        key: const ValueKey('production-materials-status'),
+        style: Theme.of(context).textTheme.titleMedium,
+      );
+    }
+
+    final notAtMachine =
+        l10n.productionText('worker.error.material_not_at_machine');
+    final waitingCount = assignments
+        .where(
+            (assignment) => assignment.executionStatus == 'awaiting_delivery')
+        .length;
+    final presentCount = assignments
+        .where((assignment) =>
+            const {'ready', 'in_use'}.contains(assignment.executionStatus))
+        .length;
+    // Older servers may omit execution status. Only use the explicit start
+    // reason as a fallback. An empty eligible list does not prove delivery.
+    final allAwaitingDelivery = waitingCount == assignments.length ||
+        (materialStartBlockingText == notAtMachine &&
+            assignments.every((assignment) => const {
+                  '',
+                  'compatible',
+                  'awaiting_delivery',
+                }.contains(assignment.executionStatus)));
+    final startMaterialUnavailable =
+        materialStartBlockingText == notAtMachine ||
+            materialStartBlockingText ==
+                l10n.productionText('worker.error.no_materials');
+    final showBlockingReason = materialStartBlockingText.trim().isNotEmpty &&
+        !startMaterialUnavailable;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ScannedItemsExpansionHeader(
+          key: const ValueKey('production-materials-expansion'),
+          title: allAwaitingDelivery
+              ? notAtMachine
+              : l10n.productionText('worker.materials.attached'),
+          countText:
+              l10n.productionCount(assignments.length, kind: 'materials'),
+          countNumber: '${assignments.length}',
+          countUnit: _countUnitForKind(l10n, 'materials'),
+          showCount: !allAwaitingDelivery,
+          expanded: materialsExpanded,
+          highlighted:
+              quickScanHighlight == ProductionQuickScanHighlight.materials,
+          onTap: onToggleMaterialsExpanded,
+        ),
+        if (!allAwaitingDelivery && waitingCount > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            l10n.productionText(
+              presentCount > 0
+                  ? 'worker.materials.delivery_progress'
+                  : 'worker.materials.awaiting_delivery_count',
+              values: {'present': presentCount, 'waiting': waitingCount},
+            ),
+            key: const ValueKey('production-materials-delivery-status'),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ] else if (!allAwaitingDelivery && startMaterialUnavailable) ...[
+          const SizedBox(height: 4),
+          Text(
+            l10n.productionText('worker.materials.not_ready'),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
+        if (uiState.materialRequiredCount > 0) ...[
+          const SizedBox(height: 4),
+          _ScannedItemsExpansionHeader(
+            key: const ValueKey('production-start-materials-expansion'),
+            title: l10n.productionText('worker.materials.scan_progress'),
+            countText:
+                '${uiState.scannedCount}/${uiState.materialRequiredCount}',
+            expanded: false,
+          ),
+        ],
+        if (showBlockingReason) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              materialStartBlockingText,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+        if (materialsExpanded) ...[
+          const SizedBox(height: 12),
+          _RawMaterialAssignmentsExpansionBody(
+            assignments: assignments,
+            apparatusCatalog: apparatusCatalog,
+            loading: false,
+            error: '',
+            emptyText: '',
+            scannedBarcodes: uiState.confirmedMaterialBarcodes,
+            allowUnlink: allowMaterialUnlink,
+            onUnlink: onUnlinkMaterial,
+            unlinkingBarcode: unlinkingMaterialBarcode,
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -186,10 +318,23 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     final showPreviousStageWaitingNotice = uiState.showWaitingForPrevious &&
         uiState.previousStage != null &&
         uiState.blockingReasonCode.trim() != 'waiting_opening_wip';
+    final workerStartMaterials = workerMode && uiState.showStartMaterials;
+    final materialNoticeInSection = workerStartMaterials &&
+        const {
+          'raw_material_assignment_required',
+          'raw_materials_missing',
+          'raw_material_groups_incomplete',
+          'raw_materials_not_at_apparatus',
+        }.contains(uiState.blockingReasonCode.trim()) &&
+        (materialsLoading ||
+            materialsError.trim().isNotEmpty ||
+            uiState.assignedMaterialAssignments.isEmpty ||
+            materialStartBlockingText.trim().isNotEmpty);
     final showBackendBlockingNotice = uiState.showBackendBlockingState &&
         !orderControlBlocked &&
         !showPreviousStageWaitingNotice &&
-        !uiState.showWaitingForSequence;
+        !uiState.showWaitingForSequence &&
+        !materialNoticeInSection;
     final backendBlockingText =
         uiState.blockingReasonCode.trim().toLowerCase() == 'apparatus_busy' &&
                 (blockingBusyDetailText?.trim().isNotEmpty == true)
@@ -340,7 +485,9 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          if (uiState.showStartMaterials) ...[
+          if (workerStartMaterials)
+            _workerStartMaterials(context)
+          else if (uiState.showStartMaterials) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-start-materials-expansion'),
               title: context.l10n.productionText(
@@ -447,59 +594,63 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               color: scheme.outlineVariant.withValues(alpha: 0.5),
             ),
           ],
-          _ScannedItemsExpansionHeader(
-            key: const ValueKey('production-materials-expansion'),
-            title: context.l10n.productionText(
-              attachedMaterialsExpandable
-                  ? 'worker.materials.attached'
-                  : 'worker.materials.attached.empty',
-            ),
-            countText: materialsLoading
-                ? '..'
-                : context.l10n.productionCount(
-                    uiState.assignedMaterialAssignments.length,
-                    kind: 'materials',
-                  ),
-            countNumber: materialsLoading
-                ? '..'
-                : '${uiState.assignedMaterialAssignments.length}',
-            countUnit: _countUnitForKind(context.l10n, 'materials'),
-            isLoading: materialsLoading,
-            // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
-            hideZeroCount: true,
-            expanded: attachedMaterialsExpandable && materialsExpanded,
-            highlighted:
-                quickScanHighlight == ProductionQuickScanHighlight.materials,
-            onTap:
-                attachedMaterialsExpandable ? onToggleMaterialsExpanded : null,
-            trailing: !attachedMaterialsExpandable && onReceiveMaterial != null
-                ? TextButton(
-                    key: const ValueKey('production-material-receive'),
-                    onPressed: onReceiveMaterial,
-                    child: Text(context.l10n.adminText('action.assign')),
-                  )
-                : null,
-          ),
-          if (attachedMaterialsExpandable && materialsExpanded) ...[
-            const SizedBox(height: 12),
-            _RawMaterialAssignmentsExpansionBody(
-              assignments: uiState.assignedMaterialAssignments,
-              apparatusCatalog: apparatusCatalog,
-              loading: materialsLoading,
-              error: materialsError,
-              emptyText: context.l10n.productionText(
-                'worker.materials.attached.empty',
+          if (!workerStartMaterials) ...[
+            _ScannedItemsExpansionHeader(
+              key: const ValueKey('production-materials-expansion'),
+              title: context.l10n.productionText(
+                attachedMaterialsExpandable
+                    ? 'worker.materials.attached'
+                    : 'worker.materials.attached.empty',
               ),
-              scannedBarcodes: uiState.confirmedMaterialBarcodes,
-              allowUnlink: allowMaterialUnlink,
-              onUnlink: onUnlinkMaterial,
-              unlinkingBarcode: unlinkingMaterialBarcode,
+              countText: materialsLoading
+                  ? '..'
+                  : context.l10n.productionCount(
+                      uiState.assignedMaterialAssignments.length,
+                      kind: 'materials',
+                    ),
+              countNumber: materialsLoading
+                  ? '..'
+                  : '${uiState.assignedMaterialAssignments.length}',
+              countUnit: _countUnitForKind(context.l10n, 'materials'),
+              isLoading: materialsLoading,
+              // 0 bo'lganda "0 ta" o'rniga qobiq fade bilan yo'qoladi.
+              hideZeroCount: true,
+              expanded: attachedMaterialsExpandable && materialsExpanded,
+              highlighted:
+                  quickScanHighlight == ProductionQuickScanHighlight.materials,
+              onTap: attachedMaterialsExpandable
+                  ? onToggleMaterialsExpanded
+                  : null,
+              trailing:
+                  !attachedMaterialsExpandable && onReceiveMaterial != null
+                      ? TextButton(
+                          key: const ValueKey('production-material-receive'),
+                          onPressed: onReceiveMaterial,
+                          child: Text(context.l10n.adminText('action.assign')),
+                        )
+                      : null,
             ),
+            if (attachedMaterialsExpandable && materialsExpanded) ...[
+              const SizedBox(height: 12),
+              _RawMaterialAssignmentsExpansionBody(
+                assignments: uiState.assignedMaterialAssignments,
+                apparatusCatalog: apparatusCatalog,
+                loading: materialsLoading,
+                error: materialsError,
+                emptyText: context.l10n.productionText(
+                  'worker.materials.attached.empty',
+                ),
+                scannedBarcodes: uiState.confirmedMaterialBarcodes,
+                allowUnlink: allowMaterialUnlink,
+                onUnlink: onUnlinkMaterial,
+                unlinkingBarcode: unlinkingMaterialBarcode,
+              ),
+            ],
           ],
           if (materialLinkRequestPanel != null)
             Offstage(
               key: const ValueKey('production-material-link-request'),
-              offstage: !materialsExpanded,
+              offstage: !workerStartMaterials && !materialsExpanded,
               // Keep polling while collapsed so approval refreshes the start card.
               child: materialLinkRequestPanel!,
             ),

@@ -159,7 +159,7 @@ void _registerWorkerMaterialWidthNoticeTests() {
       await http.runWithClient(() async {
         await TestModeController.instance.setEnabled(false);
         await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
-        await tester.pumpAndSettle();
+        await _waitForWorkerMaterialRead(tester);
 
         final card = find.byWidgetPredicate(
           (widget) => widget.runtimeType.toString() == '_OrderStartUnifiedCard',
@@ -176,7 +176,7 @@ void _registerWorkerMaterialWidthNoticeTests() {
           expect(
               find.text('Majburiy homashyo guruhlari to‘liq biriktirilmagan'),
               findsNothing);
-          expect(find.text('0/0'), findsOneWidget);
+          expect(find.text('0/0'), findsNothing);
         }
         final attached =
             find.byKey(const ValueKey('production-materials-expansion'));
