@@ -230,6 +230,21 @@ void _registerWorkerMaterialPresentationTests() {
         expect(find.byKey(const ValueKey('material-alert:$orderId:$_print9Id')),
             findsOneWidget);
         expect(find.text('Ulash uchun so‘rov'), findsOneWidget);
+        expect(find.text('Orderga ulanmagan rulonlar'), findsNothing);
+        final linkButton =
+            find.widgetWithText(OutlinedButton, 'Ulash uchun so‘rov');
+        final alertButton = find.descendant(
+          of: find.byKey(const ValueKey('material-alert:$orderId:$_print9Id')),
+          matching: find.byType(OutlinedButton),
+        );
+        final explanation = find.text(
+            'Apparat oldidagi 1 ta mos rulondan keraklisini tanlab so‘rov yuboring');
+        final buttonGap = tester.getTopLeft(alertButton).dy -
+            tester.getBottomLeft(linkButton).dy;
+        final explanationGap = tester.getTopLeft(linkButton).dy -
+            tester.getBottomLeft(explanation).dy;
+        expect(buttonGap, 10);
+        expect(explanationGap, buttonGap);
         if (!blocked) {
           expect(
               tester

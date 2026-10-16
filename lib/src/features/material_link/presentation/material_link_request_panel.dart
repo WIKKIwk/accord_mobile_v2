@@ -262,6 +262,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
 
   @override
   Widget build(BuildContext context) {
+    const actionSpacing = 10.0;
     final requests = _overview?.requests ?? const <MaterialLinkRequest>[];
     final latest = <String, MaterialLinkRequest>{};
     for (final request in requests) {
@@ -273,13 +274,11 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
       return const SizedBox.shrink();
     }
     return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: actionSpacing),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (available) ...[
-              UrduAwareText('Orderga ulanmagan rulonlar',
-                  style: Theme.of(context).textTheme.titleSmall),
               UrduAwareText(
                   'Apparat oldidagi ${_overview!.candidates.length} ta mos rulondan keraklisini tanlab so‘rov yuboring'),
             ],
@@ -301,13 +300,15 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
                   onPressed: _busy ? null : _refresh,
                   child: const UrduAwareText('Holatni yangilash')),
             ],
-            if (available || pending)
+            if (available || pending) ...[
+              const SizedBox(height: actionSpacing),
               OutlinedButton.icon(
                 onPressed: _busy || pending || !available ? null : _send,
                 icon: const Icon(Icons.send_outlined),
                 label: UrduAwareText(
                     pending ? 'Tasdiq kutilmoqda' : 'Ulash uchun so‘rov'),
               ),
+            ],
             if (!available && !pending && latest.isNotEmpty)
               const UrduAwareText(
                   'Hozir bu orderga ulash mumkin bo‘lgan bo‘sh rulon yo‘q'),
