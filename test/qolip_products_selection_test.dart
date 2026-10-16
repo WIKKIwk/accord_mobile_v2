@@ -7,6 +7,7 @@ import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_color_pic
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -95,6 +96,19 @@ void main() {
   testWidgets('qolipchi safely selects, prints and deletes qolip specs', (
     tester,
   ) async {
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
     final initialProducts = await MobileApi.instance.qolipProducts(
       withQolipOnly: true,
     );
@@ -126,7 +140,7 @@ void main() {
 
     await tester.tap(find.text('Hotlunch'));
     await tester.pumpAndSettle();
-    expect(find.text('Ishchiga berilgan'), findsOneWidget);
+    expect(find.text('2 ta qolip • bittasi ishlatilmoqda'), findsOneWidget);
     expect(find.byTooltip('Qolip qo‘shish'), findsOneWidget);
     await tester.tap(find.byTooltip('Qolip qo‘shish'));
     await tester.pumpAndSettle();
@@ -142,7 +156,16 @@ void main() {
     expect(find.text('1 ta tanlandi'), findsNothing);
 
     await tester.tap(find.text('Q-FREE'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Kod nusxalandi'), findsOneWidget);
+    expect(clipboard, 'Q-FREE');
+    expect(
+      find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byIcon(Icons.qr_code_2_rounded).first);
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE')),
       findsOneWidget,
@@ -178,6 +201,68 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
     await tester.pumpAndSettle();
     expect(find.text('Salat set'), findsNothing);
+  });
+
+  testWidgets('tapping a qolip code copies it and QR tap opens details', (
+    tester,
+  ) async {
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const QolipProductsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Hotlunch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Q-FREE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kod nusxalandi'), findsOneWidget);
+    expect(clipboard, 'Q-FREE');
+    expect(
+      find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byIcon(Icons.qr_code_2_rounded).first);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE')),
+      findsOneWidget,
+    );
+    clipboard = null;
+    await tester.tap(
+      find.byKey(const ValueKey('qolip-code-qr-payload-Q-FREE')),
+    );
+    await tester.pumpAndSettle();
+    expect(clipboard, 'Q-FREE');
+    expect(
+      find.byKey(const ValueKey('qolip-code-qr-preview-Q-FREE')),
+      findsOneWidget,
+    );
   });
 
   test('qolip product search matches customer name', () async {

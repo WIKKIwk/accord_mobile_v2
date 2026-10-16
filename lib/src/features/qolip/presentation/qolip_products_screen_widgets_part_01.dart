@@ -150,6 +150,7 @@ class _QolipProductContainerCard extends StatelessWidget {
     required this.onLongPress,
     required this.onToggleQolip,
     required this.onPrintCodeQr,
+    required this.onCopyCode,
     required this.onEditQolip,
     required this.onAdd,
   });
@@ -166,6 +167,7 @@ class _QolipProductContainerCard extends StatelessWidget {
   final VoidCallback onLongPress;
   final ValueChanged<QolipProduct> onToggleQolip;
   final ValueChanged<QolipProduct> onPrintCodeQr;
+  final ValueChanged<QolipProduct> onCopyCode;
   final ValueChanged<QolipProduct> onEditQolip;
   final VoidCallback onAdd;
 
@@ -298,31 +300,36 @@ class _QolipProductContainerCard extends StatelessWidget {
                             for (final entry in sets.entries) ...[
                               if (sets.length > 1)
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(14, 12, 14, 0),
                                   child: Text(
                                     '${l10n.qolipText('products.alternative_set')} ${sets.keys.toList().indexOf(entry.key) + 1}',
-                                    style: Theme.of(context).textTheme.labelLarge,
+                                    style:
+                                        Theme.of(context).textTheme.labelLarge,
                                   ),
                                 ),
                               for (final child in entry.value)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(14, 9, 14, 0),
-                                child: QolipCodeRow(
-                                  product: child,
-                                  selectionMode: qolipSelectionMode,
-                                  selected: selectedQolipCodes.contains(
-                                    child.qolipCode.trim(),
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(14, 9, 14, 0),
+                                  child: QolipCodeRow(
+                                    product: child,
+                                    selectionMode: qolipSelectionMode,
+                                    selected: selectedQolipCodes.contains(
+                                      child.qolipCode.trim(),
+                                    ),
+                                    onTap: () => qolipSelectionMode
+                                        ? onToggleQolip(child)
+                                        : onPrintCodeQr(child),
+                                    onCodeTap: () => qolipSelectionMode
+                                        ? onToggleQolip(child)
+                                        : onCopyCode(child),
+                                    onLongPress: child.isInUse
+                                        ? () {}
+                                        : () => onToggleQolip(child),
+                                    onEdit: () => onEditQolip(child),
                                   ),
-                                  onTap: () => qolipSelectionMode
-                                      ? onToggleQolip(child)
-                                      : onPrintCodeQr(child),
-                                  onLongPress: child.isInUse
-                                      ? () {}
-                                      : () => onToggleQolip(child),
-                                  onEdit: () => onEditQolip(child),
                                 ),
-                              ),
                             ],
                             const SizedBox(height: 10),
                           ],
@@ -358,6 +365,7 @@ class QolipCodeRow extends StatelessWidget {
     required this.selectionMode,
     required this.selected,
     required this.onTap,
+    required this.onCodeTap,
     required this.onLongPress,
     required this.onEdit,
     this.trailing,
@@ -367,6 +375,7 @@ class QolipCodeRow extends StatelessWidget {
   final bool selectionMode;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback onCodeTap;
   final VoidCallback? onLongPress;
   final VoidCallback onEdit;
   final Widget? trailing;
@@ -435,16 +444,29 @@ class QolipCodeRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      product.qolipCode,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: product.isInUse
-                                ? scheme.onSurfaceVariant
-                                : null,
-                            fontWeight: FontWeight.w700,
+                    Tooltip(
+                      message: l10n.adminText('action.copy'),
+                      child: InkWell(
+                        onTap: onCodeTap,
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            product.qolipCode,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: product.isInUse
+                                      ? scheme.onSurfaceVariant
+                                      : null,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
+                        ),
+                      ),
                     ),
                     Text(
                       product.isInUse

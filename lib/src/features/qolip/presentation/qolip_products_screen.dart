@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -182,6 +183,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                     onLongPress: () => _toggleContainerSelection(container),
                     onToggleQolip: _toggleQolipSelection,
                     onPrintCodeQr: _showQolipCodeQr,
+                    onCopyCode: _copyQolipCode,
                     onEditQolip: _editQolip,
                     onAdd: () => _addQolip(container.catalogProduct),
                   );
@@ -192,5 +194,21 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _copyQolipCode(QolipProduct product) async {
+    final code = product.qolipCode.trim();
+    if (code.isEmpty) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(context.l10n.adminText('detail.code_copied'))),
+      );
   }
 }

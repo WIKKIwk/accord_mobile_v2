@@ -413,6 +413,9 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
       builder: (_) => RpsQrReprintSheet(
         title: l10n.qolipText('products.qr_title'),
         payload: code,
+        onPayloadTap: () => _copyQolipCode(product),
+        payloadTapTooltip: l10n.adminText('action.copy'),
+        payloadTapKey: ValueKey('qolip-code-qr-payload-$code'),
         itemName: itemName,
         previewKey: ValueKey('qolip-code-qr-preview-$code'),
         reprintButtonKey: ValueKey('qolip-code-qr-reprint-$code'),
