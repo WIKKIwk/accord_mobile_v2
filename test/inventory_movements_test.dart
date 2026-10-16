@@ -2,6 +2,10 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/theme/theme_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
+import 'package:accord_mobile_v2/src/features/admin/logic/canonical_apparatus_display.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
@@ -16,11 +20,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 part 'inventory_movements_test_helpers_part_01.dart';
 part 'inventory_movements_test_cases_resplit_part_01.dart';
 part 'inventory_movements_test_cases_resplit_part_02.dart';
+part 'inventory_material_sheet_layout_test_part.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   _registerinventory_movements_testCases01();
+  _registerInventoryMaterialSheetLayoutTests();
 
   const source = InventoryLocation(
     id: 'inventory_location:warehouse:a',

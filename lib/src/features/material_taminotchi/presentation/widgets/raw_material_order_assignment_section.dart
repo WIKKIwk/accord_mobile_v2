@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../../../core/api/mobile_api.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/search/search_normalizer.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../../core/widgets/shell/app_loading_indicator.dart';
@@ -8,6 +9,7 @@ import '../../../admin/logic/canonical_apparatus_display.dart';
 import '../../../admin/models/production_map_models.dart';
 import '../../../shared/models/app_models.dart';
 import '../../../werka/presentation/widgets/m3_picker_sheet.dart';
+import 'material_sheet_action_style.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/localization/urdu_aware_text.dart';
 
@@ -262,19 +264,25 @@ class _RawMaterialOrderAssignmentSectionState
     if (options.length == 1) {
       return options.first;
     }
-    return showDialog<String>(
+    return showModalBottomSheet<String>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: const UrduAwareText('Apparatni tanlang'),
-        children: [
-          for (final option in options)
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(context).pop(option),
-              child: Text(
-                canonicalApparatusDisplayLabel(option, _apparatusCatalog),
-              ),
-            ),
-        ],
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      sheetAnimationStyle: kM3PickerSheetAnimation,
+      builder: (context) => M3PickerSheet<String>(
+        key: const ValueKey('raw-material-apparatus-picker'),
+        title: context.l10n.uiText('Apparatni tanlang'),
+        hintText: context.l10n.adminText('apparatus.search'),
+        items: options,
+        itemTitle: (option) =>
+            canonicalApparatusDisplayLabel(option, _apparatusCatalog),
+        itemSubtitle: (_) => '',
+        matchesQuery: (option, query) => searchMatches(query, [
+          canonicalApparatusDisplayLabel(option, _apparatusCatalog),
+        ]),
+        onSelected: (option) => Navigator.of(context).pop(option),
       ),
     );
   }
@@ -357,9 +365,10 @@ class _RawMaterialOrderAssignmentSectionState
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: materialSheetActionGap),
           OutlinedButton.icon(
             key: const ValueKey('raw-material-unlink-button'),
+            style: materialSheetActionStyle,
             onPressed: _saving ? null : () => _unlink(assignment),
             icon: _saving
                 ? const AppLoadingIndicator(size: 20, glyphSize: 14)
@@ -376,25 +385,30 @@ class _RawMaterialOrderAssignmentSectionState
           children: [
             Icon(Icons.link_off_rounded, color: scheme.onSurfaceVariant),
             const SizedBox(width: 12),
-            UrduAwareText(
-              'Zakaz',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
+            Expanded(
+              child: UrduAwareText(
+                'Zakaz',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
-            const Spacer(),
-            UrduAwareText(
-              'Ulanmagan',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+            Flexible(
+              child: UrduAwareText(
+                'Ulanmagan',
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
         ),
         if (widget.allowAssignment) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: materialSheetActionGap),
           FilledButton.icon(
             key: const ValueKey('raw-material-assign-order-button'),
+            style: materialSheetActionStyle,
             onPressed:
                 _saving || _candidateOrders.isEmpty ? null : _openOrderPicker,
             icon: _saving

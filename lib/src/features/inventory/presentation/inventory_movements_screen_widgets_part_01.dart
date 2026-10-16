@@ -263,7 +263,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 18),
+            const SizedBox(height: materialSheetActionGap),
             if (busy)
               const Center(child: AppLoadingIndicator())
             else
@@ -271,6 +271,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
+                      style: materialSheetActionStyle,
                       onPressed: onRelocate == null
                           ? null
                           : () => unawaited(onRelocate!()),
@@ -278,9 +279,10 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                       label: const UrduAwareText('Joylashtirish'),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: materialSheetActionGap),
                   Expanded(
                     child: FilledButton.icon(
+                      style: materialSheetActionStyle,
                       onPressed: onTransfer == null
                           ? null
                           : () => unawaited(onTransfer!()),
@@ -291,15 +293,17 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                 ],
               ),
             if (onDelete != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: materialSheetActionGap),
               OutlinedButton.icon(
                 key: ValueKey(
                   'inventory-asset-delete-button-${asset.assetRef}',
                 ),
                 onPressed: () => unawaited(onDelete!()),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: scheme.error,
-                  side: BorderSide(color: scheme.error),
+                style: materialSheetActionStyle.merge(
+                  OutlinedButton.styleFrom(
+                    foregroundColor: scheme.error,
+                    side: BorderSide(color: scheme.error),
+                  ),
                 ),
                 icon: const Icon(Icons.delete_outline_rounded),
                 label: const UrduAwareText('Homashyoni o‘chirish'),

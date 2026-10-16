@@ -262,12 +262,13 @@ class _MaterialStateAssetSheet extends StatelessWidget {
               allowAssignment: true,
               onAssignmentChanged: onOrderAssignmentChanged,
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: materialSheetActionGap),
             if (busy)
               const Center(child: AppLoadingIndicator())
             else
               FilledButton.icon(
                 key: const ValueKey('material-state-return-button'),
+                style: materialSheetActionStyle,
                 onPressed: canReturn && onReturn != null
                     ? () => unawaited(onReturn!())
                     : null,

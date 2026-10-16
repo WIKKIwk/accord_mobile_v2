@@ -377,24 +377,27 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
                 label: 'Izoh',
                 value: transfer.note,
               ),
-            const SizedBox(height: 18),
+            const SizedBox(height: materialSheetActionGap),
             if (busy)
               const Center(child: AppLoadingIndicator())
             else if (actions.isNotEmpty)
               Row(
                 children: [
                   for (int index = 0; index < actions.length; index++) ...[
-                    if (index > 0) const SizedBox(width: 10),
+                    if (index > 0)
+                      const SizedBox(width: materialSheetActionGap),
                     Expanded(
                       child: actions[index] == 'reject' ||
                               actions[index] == 'cancel'
                           ? OutlinedButton(
+                              style: materialSheetActionStyle,
                               onPressed: () => unawaited(
                                 onAction(actions[index]),
                               ),
                               child: Text(actionLabelFor(actions[index])),
                             )
                           : FilledButton(
+                              style: materialSheetActionStyle,
                               onPressed: () => unawaited(
                                 onAction(actions[index]),
                               ),
