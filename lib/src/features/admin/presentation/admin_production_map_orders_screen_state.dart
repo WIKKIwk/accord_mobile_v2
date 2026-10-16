@@ -59,6 +59,10 @@ class _AdminProductionMapOrdersScreenState
   final Set<String> _sequenceReplayInFlight = {};
   int _liveReconnectAttempt = 0;
   String _searchQuery = '';
+  int _workerQueueLimit = WorkerQueueLimitStore.defaultLimit;
+  int _workerQueueWindowGeneration = 0;
+  String _workerServerSearch = '';
+  Timer? _workerQueueSearchDebounce;
 
   /// Tayyorlov masteri supply-viewer filtri: backend snapshot'dagi order id'lar.
   /// null = hali yuklanmagan (fail-closed: bo'sh ko'rsatiladi).
@@ -203,6 +207,8 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _startWorkerWithInitialScan() async {
+    await _loadWorkerQueueLimit();
+    if (!mounted) return;
     await _startWorkerLive();
     if (!mounted || widget.initialWorkerQrPayload.trim().isEmpty) return;
     _workerQrScanInFlight = true;
@@ -215,6 +221,7 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _workerQueueSearchDebounce?.cancel();
     _queueActionReconcileTimer?.cancel();
     _sheetQueueSnapshot.dispose();
     _sheetQueueActionsInFlight.dispose();
@@ -406,10 +413,10 @@ class _AdminProductionMapOrdersScreenState
                     ? context.l10n
                         .productionText('worker.queue.search.sequence')
                     : context.l10n.productionText('worker.queue.search.open'),
-        onChanged: (value) => setState(() => _searchQuery = value),
+        onChanged: _onOrdersSearchChanged,
         onClear: () {
           _searchController.clear();
-          setState(() => _searchQuery = '');
+          _onOrdersSearchChanged('');
         },
         onBack: widget.workerMode || widget.supplyViewerMode
             ? null
@@ -517,9 +524,15 @@ class _AdminProductionMapOrdersScreenState
                         message: _closedOrdersErrorMessage!,
                         onRetry: _refreshClosedOrders,
                       ),
+                    if (widget.workerMode)
+                      WorkerQueueLimitFilter(
+                        limit: _workerQueueLimit,
+                        onChanged: (limit) => unawaited(_changeWorkerQueueWindow(limit: limit)),
+                      ),
                     Expanded(
                       child: widget.workerMode
                           ? _WorkerWatchBody(
+                              queueLimit: _workerQueueLimit,
                               apparatus: _workerVisibleApparatusFor(_apparatus),
                               assignedApparatus: AppSession
                                       .instance.profile?.assignedApparatus ??

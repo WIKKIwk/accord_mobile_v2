@@ -268,13 +268,16 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
   }
 
   Uri adminProductionMapLiveUri({bool delta = false, bool stateDelta = false,
-    String epoch = '', int? revision, String scope = ''}) {
+    String epoch = '', int? revision, String scope = '',
+    int? queueLimit, String queueSearch = ''}) {
     final Uri base = Uri.parse(MobileApi.baseUrl);
     final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
     final query = <String, String>{'token': requireToken()};
     if (stateDelta) {
       query['protocol'] = 'state_delta_v1';
       query['worker_scope'] = 'true';
+      if (queueLimit != null) query['queue_limit'] = '$queueLimit';
+      if (queueSearch.trim().isNotEmpty) query['queue_search'] = queueSearch.trim();
       query['epoch'] = epoch;
       query['scope'] = scope;
       if (revision != null) query['rev'] = revision.toString();
@@ -317,13 +320,16 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     String epoch = '',
     int? revision,
     String scope = '',
+    int? queueLimit,
+    String queueSearch = '',
   }) async* {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
     await for (final event in connectWarehouseLive(
       adminProductionMapLiveUri(delta: enableDelta, stateDelta: stateDelta,
-        epoch: epoch, revision: revision, scope: scope),
+        epoch: epoch, revision: revision, scope: scope,
+        queueLimit: queueLimit, queueSearch: queueSearch),
     )) {
       if (event['ok'] == true) {
         final type = event['type']?.toString();

@@ -676,6 +676,7 @@ class _AuditCountChip extends StatelessWidget {
 
 class _WorkerWatchBody extends StatelessWidget {
   const _WorkerWatchBody({
+    this.queueLimit = WorkerQueueLimitStore.defaultLimit,
     required this.workActivityByApparatus,
     required this.queuePoliciesByApparatus,
     required this.workerRole,
@@ -729,6 +730,8 @@ class _WorkerWatchBody extends StatelessWidget {
     required ProductionMapSaved order,
   })
   onLongPressWatchOrder;
+  final int queueLimit;
+
   String _tabLabel(BuildContext context, _WorkerWatchTab tab) {
     if (tab.isCompleted) {
       return context.l10n.productionText('worker.queue.tab.completed');
@@ -759,7 +762,7 @@ class _WorkerWatchBody extends StatelessWidget {
       ),
       queueStates: queueStatesByApparatus[item.id.trim()] ?? const {},
       controls: queueActionControlsByApparatus[item.id.trim()] ?? const {},
-    );
+    ).take(queueLimit).toList(growable: false);
   }
 
   @override
@@ -803,7 +806,7 @@ class _WorkerWatchBody extends StatelessWidget {
                                 queueActionControlsByApparatus,
                             orderStatusesByOrderId: orderStatusesByOrderId,
                             query: searchQuery,
-                          ),
+                          ).take(queueLimit).toList(growable: false),
                           bottomPadding: bottomPadding,
                           onTapOrder: onTapCompletedOrder,
                         )

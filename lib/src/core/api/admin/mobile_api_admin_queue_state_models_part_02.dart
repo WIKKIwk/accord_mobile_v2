@@ -12,6 +12,8 @@ extension MobileApiAdminQueueState on MobileApi {
     String orderId = '',
     bool fresh = false,
     bool workerScope = false,
+    int? queueLimit,
+    String queueSearch = '',
     AdminApparatusQueueSnapshot? since,
     bool waitForChanges = false,
   }) {
@@ -25,12 +27,13 @@ extension MobileApiAdminQueueState on MobileApi {
     final key = jsonEncode([
       MobileApi.baseUrl, AppSession.instance.token, _queueSnapshotReadEpoch,
       apparatus.trim(), orderId.trim(),
-      workerScope,
+      workerScope, queueLimit, queueSearch,
       cursor?.epoch, cursor?.revision, cursor?.scope, waitForChanges,
     ]);
     return reads.putIfAbsent(key, () => _loadProductionMapQueueSnapshot(
       apparatus: apparatus.trim(), orderId: orderId.trim(),
       workerScope: workerScope,
+      queueLimit: queueLimit, queueSearch: queueSearch,
       since: cursor, waitForChanges: waitForChanges,
     ).whenComplete(() { reads.remove(key); }));
   }
@@ -39,6 +42,8 @@ extension MobileApiAdminQueueState on MobileApi {
     required String apparatus,
     required String orderId,
     required bool workerScope,
+    required int? queueLimit,
+    required String queueSearch,
     required AdminApparatusQueueSnapshot? since,
     required bool waitForChanges,
   }) async {
@@ -94,6 +99,8 @@ extension MobileApiAdminQueueState on MobileApi {
               if (apparatus.isNotEmpty) 'apparatus': apparatus,
               if (apparatus.isNotEmpty) 'order_id': orderId,
               if (workerScope) 'worker_scope': 'true',
+              if (workerScope && queueLimit != null) 'queue_limit': '$queueLimit',
+              if (workerScope && queueSearch.trim().isNotEmpty) 'queue_search': queueSearch.trim(),
               if (since != null) ...{
                 'if_epoch': since.epoch,
                 'if_rev': '${since.revision}',

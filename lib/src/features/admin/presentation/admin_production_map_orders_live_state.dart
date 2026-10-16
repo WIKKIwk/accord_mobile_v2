@@ -98,6 +98,8 @@ extension _AdminProductionMapOrdersLiveState
     return widget.queueSnapshotLoader?.call() ??
         MobileApi.instance.adminProductionMapQueueSnapshot(fresh: fresh,
           workerScope: widget.workerMode,
+          queueLimit: widget.workerMode ? _workerQueueLimit : null,
+          queueSearch: widget.workerMode ? _workerServerSearch : '',
           since: waitForChanges ? _canonicalQueueSnapshot : null,
           waitForChanges: waitForChanges);
   }
@@ -134,13 +136,15 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _startWorkerLive() async {
+    final windowGeneration = _workerQueueWindowGeneration;
     // Drop the previous provider's stream before awaiting any REST request.
     _stopWorkerLiveStream();
     final generation = _liveStreamGeneration;
     // REST has bounded requests and a visible error state. Never leave the
     // first frame dependent on an unbounded/silent WebSocket handshake.
     await _refreshCanonicalInitial();
-    if (!mounted || !_workerForeground || generation != _liveStreamGeneration) {
+    if (!mounted || !_workerForeground || generation != _liveStreamGeneration ||
+        windowGeneration != _workerQueueWindowGeneration) {
       return;
     }
     if (_canonicalQueueSnapshot is! AdminProductionMapLiveSnapshot) {
@@ -297,6 +301,8 @@ extension _AdminProductionMapOrdersLiveState
         (widget.liveEventsLoader?.call() ??
             MobileApi.instance.adminProductionMapLiveStream(
               stateDelta: widget.workerMode,
+              queueLimit: widget.workerMode ? _workerQueueLimit : null,
+              queueSearch: widget.workerMode ? _workerServerSearch : '',
               epoch: _lastAppliedSnapshotEpoch,
               revision: _lastAppliedSnapshotRevision,
               scope: _canonicalQueueSnapshot?.scope ?? '',
@@ -1272,6 +1278,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshCanonicalInitialOnce() async {
+    final windowGeneration = _workerQueueWindowGeneration;
     try {
       final pending = Future.wait<Object>([
         _readOrdersSnapshot(fresh: widget.workerMode),
@@ -1281,6 +1288,7 @@ extension _AdminProductionMapOrdersLiveState
       // Eager errors still recover immediately instead of waiting for siblings.
       final results = await (widget.workerMode
           ? pending.timeout(const Duration(seconds: 10)) : pending);
+      if (!mounted || windowGeneration != _workerQueueWindowGeneration) return;
       final queueSnapshot = results[0] as AdminApparatusQueueSnapshot;
       final apparatus = results[1] as List<AdminApparatus>;
       List<ProductionMapSaved> orders;
@@ -1291,7 +1299,7 @@ extension _AdminProductionMapOrdersLiveState
         if (!mounted) return;
         orders = _productionMapZakazOrders(legacyMaps);
       }
-      if (!mounted) {
+      if (!mounted || windowGeneration != _workerQueueWindowGeneration) {
         return;
       }
       // If a live snapshot already applied a newer revision, do not let an
@@ -1357,7 +1365,9 @@ extension _AdminProductionMapOrdersLiveState
       }
     } catch (error) {
       if (mounted) {
-        _applyInitialProductionMapLoadError(error);
+        if (windowGeneration == _workerQueueWindowGeneration) {
+          _applyInitialProductionMapLoadError(error);
+        }
       }
     }
   }
