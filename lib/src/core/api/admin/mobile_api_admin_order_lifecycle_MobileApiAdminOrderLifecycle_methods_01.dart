@@ -8,8 +8,16 @@ extension MobileApiAdminOrderLifecycleAstPart01 on MobileApi {
     String nextApparatus = '',
     String currentLocation = '',
     String orderId = '',
+    String producerApparatus = '',
+    bool ownWorkerOnly = false,
     int limit = 100,
   }) async {
+    final readScope = currentSessionReadScope();
+    final normalizedProducer = _requireCanonicalApparatusId(
+      producerApparatus,
+      allowEmpty: true,
+    );
+    final workerRef = AppSession.instance.profile?.ref.trim() ?? '';
     final normalizedStatus = status.trim();
     final normalizedApparatus = _requireCanonicalApparatusId(
       apparatus,
@@ -21,10 +29,18 @@ extension MobileApiAdminOrderLifecycleAstPart01 on MobileApi {
     );
     final normalizedCurrentLocation = currentLocation.trim();
     final normalizedOrderId = orderId.trim();
-    final boundedLimit = limit.clamp(1, 1000).toInt();
+    final boundedLimit = limit.clamp(1, 500).toInt();
     if (await TestModeController.instance.isEnabled()) {
       return _testModeProgressBatchesByQr.values
           .where((batch) {
+            if (normalizedProducer.isNotEmpty &&
+                batch.apparatus.trim() != normalizedProducer) {
+              return false;
+            }
+            if (ownWorkerOnly &&
+                (workerRef.isEmpty || batch.workerRef.trim() != workerRef)) {
+              return false;
+            }
             if (normalizedStatus.isNotEmpty &&
                 !_wipStatusMatchesFilter(batch.wipStatus, normalizedStatus)) {
               return false;
@@ -49,41 +65,69 @@ extension MobileApiAdminOrderLifecycleAstPart01 on MobileApi {
             }
             return true;
           })
-          .take(boundedLimit)
+          .take(normalizedProducer.isEmpty
+              ? boundedLimit
+              : _testModeProgressBatchesByQr.length)
           .toList(growable: false);
     }
-    final response = await _sendAuthorized(
-      () => _get(
-        Uri.parse(
-          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/wip-batches',
-        ).replace(
-          queryParameters: {
-            if (normalizedStatus.isNotEmpty) 'status': normalizedStatus,
-            if (normalizedApparatus.isNotEmpty)
-              'apparatus': normalizedApparatus,
-            if (normalizedNextApparatus.isNotEmpty)
-              'next_apparatus': normalizedNextApparatus,
-            if (normalizedCurrentLocation.isNotEmpty)
-              'current_location': normalizedCurrentLocation,
-            if (normalizedOrderId.isNotEmpty) 'order_id': normalizedOrderId,
-            'limit': boundedLimit.toString(),
-          },
+    final batches = <AdminProgressBatch>[];
+    var cursor = '';
+    final seenCursors = <String>{};
+    do {
+      if (readScope != currentSessionReadScope()) {
+        throw const MobileApiException(
+            code: 'session_scope_changed', message: '');
+      }
+      final response = await _sendAuthorized(
+        () => _get(
+          Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/wip-batches',
+          ).replace(
+            queryParameters: {
+              if (normalizedStatus.isNotEmpty) 'status': normalizedStatus,
+              if (normalizedApparatus.isNotEmpty)
+                'apparatus': normalizedApparatus,
+              if (normalizedNextApparatus.isNotEmpty)
+                'next_apparatus': normalizedNextApparatus,
+              if (normalizedCurrentLocation.isNotEmpty)
+                'current_location': normalizedCurrentLocation,
+              if (normalizedOrderId.isNotEmpty) 'order_id': normalizedOrderId,
+              if (normalizedProducer.isNotEmpty)
+                'producer_apparatus': normalizedProducer,
+              if (ownWorkerOnly) 'own_worker': 'true',
+              if (cursor.isNotEmpty) 'before_batch_id': cursor,
+              'limit': boundedLimit.toString(),
+            },
+          ),
+          headers: _headers(requireToken()),
         ),
-        headers: _headers(requireToken()),
-      ),
-    );
-    if (response.statusCode != 200) {
-      throw _adminProductionMapException(response, 'wip_batches');
-    }
-    final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    final raw = payload['batches'];
-    if (raw is! List) {
-      throw const FormatException('WIP response must contain a batches list');
-    }
-    return [
-      for (final item in raw)
-        AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
-    ];
+      );
+      if (readScope != currentSessionReadScope()) {
+        throw const MobileApiException(
+            code: 'session_scope_changed', message: '');
+      }
+      if (response.statusCode != 200) {
+        throw _adminProductionMapException(response, 'wip_batches');
+      }
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final raw = payload['batches'];
+      if (raw is! List) {
+        throw const FormatException('WIP response must contain a batches list');
+      }
+      batches.addAll([
+        for (final item in raw)
+          AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
+      ]);
+      // Producer history is filtered on the server before its page limit. Keep
+      // following the stable cursor so QR search also sees older free outputs.
+      cursor = normalizedProducer.isEmpty
+          ? ''
+          : (payload['next_before_batch_id'] as String? ?? '').trim();
+      if (cursor.isNotEmpty && !seenCursors.add(cursor)) {
+        throw const FormatException('WIP history cursor did not advance');
+      }
+    } while (cursor.isNotEmpty);
+    return batches;
   }
 
   Future<List<AdminCompletedQueueOrder>>

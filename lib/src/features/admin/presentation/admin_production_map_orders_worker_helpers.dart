@@ -80,12 +80,12 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
   required String query,
 }) {
   final byId = {for (final order in orders) order.map.id.trim(): order};
-  final seen = <String>{};
+  final seen = <(String, String)>{};
   final entries = <_WorkerCompletedOrderEntry>[];
   final assigned = assignedApparatus.map((id) => id.trim()).toSet();
   for (final completed in completedOrders) {
-    // Filter exact execution ownership before deduplicating orders. Another
-    // alternative's more recent event must neither appear here nor mask ours.
+    // One history entry per order and producing apparatus. A later stage on
+    // another assigned apparatus must not hide this worker's earlier output.
     if (!assigned.contains(completed.apparatus.trim())) continue;
     final orderId = completed.orderId.trim();
     if (completed.status.trim().toLowerCase() == 'frozen' ||
@@ -95,8 +95,10 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
           queueStatesByApparatus: queueStatesByApparatus,
           queueActionControlsByApparatus: queueActionControlsByApparatus,
           orderStatusesByOrderId: orderStatusesByOrderId,
-        )) continue;
-    if (orderId.isEmpty || !seen.add(orderId)) {
+        )) {
+      continue;
+    }
+    if (orderId.isEmpty || !seen.add((orderId, completed.apparatus.trim()))) {
       continue;
     }
     final order = byId[orderId];

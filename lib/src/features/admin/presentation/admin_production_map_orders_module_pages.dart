@@ -1239,6 +1239,11 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
               children: [
                 for (var index = 0; index < orders.length; index++)
                   Builder(
+                    key: ValueKey((
+                      'worker-completed-order',
+                      orders[index].order.map.id.trim(),
+                      orders[index].apparatusId,
+                    )),
                     builder: (context) {
                       final frozen = orders[index].isFrozen;
                       final partial = !frozen && orders[index].isInProgress;
@@ -1249,6 +1254,8 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                           orders.length,
                         ),
                         order: orders[index].order,
+                        apparatusLabel: orders[index].apparatus?.name ??
+                            orders[index].apparatusId,
                         index: index,
                         readOnly: true,
                         onTap: () => onTapOrder(orders[index]),

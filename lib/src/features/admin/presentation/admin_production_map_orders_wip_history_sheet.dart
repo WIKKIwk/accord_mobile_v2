@@ -169,12 +169,14 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
         throw const MobileApiException(
             code: 'forbidden', message: '', statusCode: 403);
       }
-      // The API's apparatus filter uses the current location. Read the order
-      // history, then select the original producer and worker below.
+      // Filter original producer and authenticated worker before pagination;
+      // current location changes must not hide downstream-processed output.
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'all',
         orderId: orderId,
-        limit: 1000,
+        producerApparatus: apparatusId,
+        ownWorkerOnly: true,
+        limit: 500,
       );
       if (!_historyScopeCurrent) {
         throw const MobileApiException(
@@ -196,7 +198,8 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
         MobileApi.instance.adminWipBatches(
           status: 'all',
           orderId: orderId,
-          limit: 1000,
+          producerApparatus: sourceApparatusId,
+          limit: 500,
         ),
         MobileApi.instance.adminOpeningWipRecords(
           orderId: orderId,

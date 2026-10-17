@@ -380,6 +380,7 @@ class _SequenceOrderRow extends StatelessWidget {
     required this.readOnly,
     this.canReorder = true,
     this.customerName = '',
+    this.apparatusLabel = '',
     this.tone = _OrderCardTone.neutral,
     this.backgroundColor,
     this.titleColor,
@@ -397,6 +398,7 @@ class _SequenceOrderRow extends StatelessWidget {
   final bool readOnly;
   final bool canReorder;
   final String customerName;
+  final String apparatusLabel;
   final _OrderCardTone tone;
   final Color? backgroundColor;
   final Color? titleColor;
@@ -413,12 +415,16 @@ class _SequenceOrderRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = order.map;
-    final subtitle = _openedOrderSubtitle(
+    final orderSubtitle = _openedOrderSubtitle(
       map,
       customerName: customerName,
       includeApparatusCount: true,
       l10n: context.l10n,
     );
+    final subtitle = [
+      if (apparatusLabel.trim().isNotEmpty) apparatusLabel.trim(),
+      if (orderSubtitle.isNotEmpty) orderSubtitle,
+    ].join(' • ');
     final resolvedStatusLabel = statusLabel?.trim();
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,

@@ -75,6 +75,9 @@ void _registerWorkerCompletedWipTests() {
                 expect(request.url.queryParameters['order_id'],
                     _ReactivationFixture.orderId);
                 expect(request.url.queryParameters['status'], 'all');
+                expect(
+                    request.url.queryParameters['producer_apparatus'], station);
+                expect(request.url.queryParameters['own_worker'], 'true');
                 output = ((jsonDecode(response.body) as Map)['batches'] as List)
                     .single
                     .cast<String, dynamic>();
@@ -171,7 +174,8 @@ void _registerWorkerCompletedWipTests() {
             }));
   });
 
-  Future<void> openCompletedTab(WidgetTester tester) async {
+  Future<void> openCompletedTab(WidgetTester tester,
+      {bool bothApparatus = false}) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminSaveProductionMap(_twoStageProductionOrderMap(
       id: orderId,
@@ -185,6 +189,18 @@ void _registerWorkerCompletedWipTests() {
       await MobileApi.instance.adminSaveProductionMapSequence(
         apparatus: apparatus,
         orderIds: const [orderId],
+      );
+    }
+    if (bothApparatus) {
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Worker',
+        legalName: '',
+        ref: workerRef,
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_print7Id, _lamination1Id],
       );
     }
     await MobileApi.instance.adminApparatusQueueActionResult(
@@ -214,7 +230,7 @@ void _registerWorkerCompletedWipTests() {
       grossQty: 9,
       uom: 'm',
     );
-    AppSession.instance.profile = const SessionProfile(
+    AppSession.instance.profile = SessionProfile(
       role: UserRole.aparatchi,
       displayName: 'Worker',
       legalName: '',
@@ -222,7 +238,7 @@ void _registerWorkerCompletedWipTests() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-      assignedApparatus: [_lamination1Id],
+      assignedApparatus: [if (bothApparatus) _print7Id, _lamination1Id],
     );
     await MobileApi.instance.adminApparatusQueueActionResult(
       apparatus: _lamination1Id,
@@ -245,8 +261,13 @@ void _registerWorkerCompletedWipTests() {
     // The worker finished a batch, but another upstream roll is still waiting.
     final completed =
         await MobileApi.instance.adminCompletedProductionMapOrders();
-    expect(completed.single.orderId, orderId);
-    expect(completed.single.status, 'in_progress');
+    expect(completed, hasLength(bothApparatus ? 2 : 1));
+    expect(completed.every((entry) => entry.orderId == orderId), isTrue);
+    expect(
+        completed
+            .firstWhere((entry) => entry.apparatus == _lamination1Id)
+            .status,
+        'in_progress');
 
     await _usePhoneViewport(tester);
     await tester.pumpWidget(MaterialApp(
@@ -373,7 +394,7 @@ void _registerWorkerCompletedWipTests() {
           await tester.pumpAndSettle();
           expect(
               find.byKey(
-                  ValueKey('worker-wip-history-reprint-output-$orderId')),
+                  const ValueKey('worker-wip-history-reprint-output-$orderId')),
               findsOneWidget);
           expect(
               find.descendant(
@@ -407,6 +428,9 @@ void _registerWorkerCompletedWipTests() {
                   return http.Response('{"error":"forbidden"}', 403);
                 }
                 expect(request.url.queryParameters['order_id'], orderId);
+                expect(request.url.queryParameters['producer_apparatus'],
+                    _lamination1Id);
+                expect(request.url.queryParameters['own_worker'], 'true');
                 expect(request.url.queryParameters.containsKey('apparatus'),
                     isFalse);
                 historyAttempts++;
@@ -455,6 +479,253 @@ void _registerWorkerCompletedWipTests() {
               }));
     });
   }
+
+  testWidgets(
+      'completed history keeps both producing apparatuses for one order',
+      (tester) async {
+    final producers = <String>[];
+    await http.runWithClient(() async {
+      await openCompletedTab(tester, bothApparatus: true);
+      for (final apparatus in [_print7Id, _lamination1Id]) {
+        final row = find.byKey(ValueKey((
+          'worker-completed-order',
+          orderId,
+          apparatus,
+        )));
+        expect(row, findsOneWidget);
+        expect(
+            find.descendant(
+                of: row, matching: find.textContaining('Worker completed WIP')),
+            findsOneWidget);
+        // The display also identifies which apparatus this history belongs to.
+        expect(
+            find.descendant(
+                of: row,
+                matching: find.textContaining(
+                    apparatus == _print7Id ? '7 ta' : 'Laminatsiya')),
+            findsWidgets);
+        await tester.tap(row);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.text('1 ta WIP yaratilgan'), findsOneWidget);
+        Navigator.of(tester.element(
+                find.byKey(const ValueKey('apparatus-wip-history-sheet'))))
+            .pop();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+      expect(producers, [_print7Id, _lamination1Id]);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+    },
+        () => MockClient((request) async {
+              expect(request.url.path.endsWith('/wip-batches'), isTrue);
+              final producer =
+                  request.url.queryParameters['producer_apparatus']!;
+              producers.add(producer);
+              return http.Response(
+                  jsonEncode({
+                    'batches': [
+                      {
+                        'batch_id': 'output-$producer',
+                        'order_id': orderId,
+                        'apparatus': producer,
+                        'current_apparatus': _lamination1Id,
+                        'worker_ref': workerRef,
+                        'action': 'complete',
+                        'status': 'completed',
+                        'wip_status': 'waiting',
+                        'produced_qty': 12,
+                        'uom': 'm',
+                        'completed_at_unix': 100,
+                        'qr_payload': '400000000000000000000001',
+                      }
+                    ]
+                  }),
+                  200);
+            }));
+  });
+
+  test('producer history follows server cursor beyond 500 own WIPs', () async {
+    await TestModeController.instance.setEnabled(false);
+    final pages = <String>[];
+    await http.runWithClient(() async {
+      final batches = await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        orderId: orderId,
+        producerApparatus: _lamination1Id,
+        ownWorkerOnly: true,
+        limit: 500,
+      );
+      expect(batches, hasLength(505));
+      expect(batches.last.batchId, 'output-0000');
+      expect(pages, ['', 'output-0005']);
+    },
+        () => MockClient((request) async {
+              final cursor =
+                  request.url.queryParameters['before_batch_id'] ?? '';
+              pages.add(cursor);
+              expect(request.url.queryParameters['producer_apparatus'],
+                  _lamination1Id);
+              expect(request.url.queryParameters['own_worker'], 'true');
+              return http.Response(
+                  jsonEncode({
+                    'batches': [
+                      for (var i = cursor.isEmpty ? 504 : 4;
+                          i >= (cursor.isEmpty ? 5 : 0);
+                          i--)
+                        {
+                          'batch_id': 'output-${i.toString().padLeft(4, '0')}',
+                          'apparatus': _lamination1Id,
+                          'order_id': orderId,
+                          'worker_ref': workerRef,
+                          'produced_qty': 1,
+                          'uom': 'm',
+                        }
+                    ],
+                    'next_before_batch_id':
+                        cursor.isEmpty ? 'output-0005' : null,
+                  }),
+                  200);
+            }));
+  });
+
+  test('producer history stops pagination when the account changes', () async {
+    await TestModeController.instance.setEnabled(false);
+    var requests = 0;
+    await http.runWithClient(() async {
+      await expectLater(
+        MobileApi.instance.adminWipBatches(
+          status: 'all',
+          orderId: orderId,
+          producerApparatus: _lamination1Id,
+          ownWorkerOnly: true,
+        ),
+        throwsA(isA<MobileApiException>()
+            .having((error) => error.code, 'code', 'session_scope_changed')),
+      );
+      expect(requests, 1);
+    },
+        () => MockClient((request) async {
+              requests++;
+              AppSession.instance.profile = const SessionProfile(
+                role: UserRole.aparatchi,
+                displayName: 'Another worker',
+                legalName: '',
+                ref: 'another-worker',
+                phone: '',
+                avatarUrl: '',
+                capabilities: ['apparatus.queue.read'],
+                assignedApparatus: [_lamination1Id],
+              );
+              return http.Response(
+                  jsonEncode({
+                    'batches': [],
+                    'next_before_batch_id': 'older-output',
+                  }),
+                  200);
+            }));
+  });
+
+  testWidgets(
+      'completed history QR search reaches an older free WIP on next page',
+      (tester) async {
+    final platform = MobileScannerPlatform.instance;
+    MobileScannerPlatform.instance = _WorkerWipQrScannerPlatform();
+    addTearDown(() => MobileScannerPlatform.instance = platform);
+    final cursors = <String>[];
+    await http.runWithClient(() async {
+      await openCompletedTab(tester);
+      await tester.tap(find.byKey(const ValueKey((
+        'worker-completed-order',
+        orderId,
+        _lamination1Id,
+      ))));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('2 ta WIP yaratilgan'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('worker-wip-search-qr')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+      scanner.onDetect!(const BarcodeCapture(barcodes: [
+        Barcode(
+            rawValue: '400000000000000000000002', format: BarcodeFormat.qrCode),
+      ]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('7 m'), findsOneWidget);
+      expect(find.text('12 m'), findsNothing);
+      await tester.longPress(find.byKey(const ValueKey('worker-wip-item-1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
+          findsOneWidget);
+      expect(cursors, ['', 'newer-output']);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/reactivation/preview')) {
+                expect(request.url.queryParameters['batch_id'], 'older-output');
+                return http.Response(
+                    jsonEncode({
+                      'available': true,
+                      'target': {
+                        'apparatus': _lamination1Id,
+                        'order_id': orderId,
+                        'batch_id': 'older-output',
+                        'session_id': 'finished',
+                        'stage_node_id': 'second-apparatus',
+                        'token': 'fingerprint',
+                      }
+                    }),
+                    200);
+              }
+              expect(request.method, 'GET');
+              expect(request.url.path.endsWith('/wip-batches'), isTrue);
+              final cursor =
+                  request.url.queryParameters['before_batch_id'] ?? '';
+              cursors.add(cursor);
+              return http.Response(
+                  jsonEncode({
+                    'batches': [
+                      {
+                        'batch_id':
+                            cursor.isEmpty ? 'newer-output' : 'older-output',
+                        'order_id': orderId,
+                        'apparatus': _lamination1Id,
+                        'current_apparatus': _lamination1Id,
+                        'worker_ref': workerRef,
+                        'action': 'complete',
+                        'status': 'completed',
+                        'wip_status': 'waiting',
+                        'produced_qty': cursor.isEmpty ? 12 : 7,
+                        'uom': 'm',
+                        'completed_at_unix': cursor.isEmpty ? 100 : 90,
+                        'qr_payload': cursor.isEmpty
+                            ? '400000000000000000000001'
+                            : '400000000000000000000002',
+                      }
+                    ],
+                    'next_before_batch_id':
+                        cursor.isEmpty ? 'newer-output' : null,
+                  }),
+                  200);
+            }));
+  });
 }
 
 class _WorkerWipQrScannerPlatform extends _TestMobileScannerPlatform {
