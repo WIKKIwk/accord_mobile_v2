@@ -560,6 +560,8 @@ class _AdminProductionMapOrdersScreenState
                               bottomPadding: bottomPadding,
                               tabController: _tabController,
                               onTapCompletedOrder: _showCompletedOrderDetail,
+                              onLongPressCompletedOrder: (entry) => unawaited(
+                                  _showCompletedOrderReactivation(entry)),
                               onTapWatchOrder: _showWatchOrderInfo,
                               onLongPressWatchOrder: _showWatchOrderLongPress,
                             )
@@ -2181,7 +2183,10 @@ class _AdminProductionMapOrdersScreenState
       _showWorkerFrozenOrderDetails(entry);
       return;
     }
-    if (entry.isInProgress) {
+    final completedApparatus = entry.apparatus;
+    if (entry.isInProgress ||
+        completedApparatus?.usesLaminationWorkflow == true ||
+        completedApparatus?.operation.trim() == 'cut') {
       _showWorkerWipHistory(entry);
       return;
     }
@@ -2215,6 +2220,9 @@ class _AdminProductionMapOrdersScreenState
         apparatusCatalog: _apparatus,
         workerMode: true,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
+        allowReactivation: entry.apparatus?.usesLaminationWorkflow == true ||
+            entry.apparatus?.operation.trim() == 'cut',
+        onReactivationAttempted: _reconcileReactivatedWork,
       ),
     );
   }

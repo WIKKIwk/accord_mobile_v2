@@ -10,6 +10,7 @@ part 'app_localizations_paddon_management.dart';
 part 'app_localizations_paddon_scanning.dart';
 part 'app_localizations_qolip_product_transfer.dart';
 part 'app_localizations_re_pause.dart';
+part 'app_localizations_reactivation.dart';
 part 'app_localizations_worker_delivery.dart';
 part 'app_localizations_qolip_shared_sets.dart';
 part 'app_localizations_AppLocalizations_methods_01.dart';

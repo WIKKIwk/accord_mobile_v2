@@ -109,7 +109,7 @@ void _registerWorkerCompletedWipTests() {
 
   for (final scenario in ['success', 'empty', 'retry', 'qr-search']) {
     testWidgets(
-        'worker completed WIP uses own history without admin access: $scenario',
+        'worker completed WIP loads exact order and producer without admin access: $scenario',
         (tester) async {
       if (scenario == 'qr-search') {
         final scannerPlatform = MobileScannerPlatform.instance;
@@ -203,8 +203,7 @@ void _registerWorkerCompletedWipTests() {
             expect(
                 tester.widget<FilledButton>(searchButton).onPressed, isNotNull);
           }
-          await tester
-              .longPress(find.byKey(const ValueKey('worker-wip-item-0')));
+          await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
           await tester.pumpAndSettle();
           expect(
               find.byKey(
@@ -218,13 +217,13 @@ void _registerWorkerCompletedWipTests() {
         }
         expect(historyAttempts, scenario == 'retry' ? 2 : 1);
         expect(
-          requests.where((r) => r.url.path.endsWith('/progress-qr/history')),
+          requests.where((r) => r.url.path.endsWith('/wip-batches')),
           hasLength(historyAttempts),
         );
         expect(
           requests.where((r) =>
               r.url.path.endsWith('/opening-wip') ||
-              r.url.path.endsWith('/wip-batches')),
+              r.url.path.endsWith('/progress-qr/history')),
           isEmpty,
         );
         expect(requests.every((r) => r.method == 'GET'), isTrue);
@@ -237,10 +236,13 @@ void _registerWorkerCompletedWipTests() {
       },
           () => MockClient((request) async {
                 requests.add(request);
-                if (!request.url.path.endsWith('/progress-qr/history')) {
-                  // Personal history must not depend on order-level requests.
+                if (!request.url.path.endsWith('/wip-batches')) {
+                  // This personal view uses the exact order and producer.
                   return http.Response('{"error":"forbidden"}', 403);
                 }
+                expect(request.url.queryParameters['order_id'], orderId);
+                expect(
+                    request.url.queryParameters['apparatus'], _lamination1Id);
                 historyAttempts++;
                 if (scenario == 'retry' && historyAttempts == 1) {
                   return http.Response('{"error":"store_failed"}', 503);

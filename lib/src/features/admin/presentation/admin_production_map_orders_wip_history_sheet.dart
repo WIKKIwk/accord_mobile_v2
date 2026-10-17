@@ -113,6 +113,8 @@ class _WorkerWipHistorySheet extends StatefulWidget {
     this.progressDriverUrlPicker,
     this.sourceApparatusId = '',
     this.apparatusTitle = '',
+    this.allowReactivation = false,
+    this.onReactivationAttempted,
   });
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
@@ -122,6 +124,8 @@ class _WorkerWipHistorySheet extends StatefulWidget {
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final String sourceApparatusId;
   final String apparatusTitle;
+  final bool allowReactivation;
+  final VoidCallback? onReactivationAttempted;
 
   @override
   State<_WorkerWipHistorySheet> createState() => _WorkerWipHistorySheetState();
@@ -129,19 +133,48 @@ class _WorkerWipHistorySheet extends StatefulWidget {
 
 class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   late Future<List<AdminProgressBatch>> _future;
+  late final String _historyReadScope;
   String _searchBatchId = '';
   bool _searchingQr = false;
   bool _searchNotFound = false;
+  bool _reactivationInFlight = false;
 
   @override
   void initState() {
     super.initState();
+    _historyReadScope = currentSessionReadScope();
     _future = _load();
   }
 
   Future<List<AdminProgressBatch>> _load() async {
     final orderId = widget.order.map.id.trim();
     final sourceApparatusId = widget.sourceApparatusId.trim();
+    if (widget.allowReactivation && widget.apparatus != null) {
+      if (_historyReadScope != currentSessionReadScope()) {
+        throw const MobileApiException(
+            code: 'session_scope_changed', message: '');
+      }
+      final apparatusId = widget.apparatus!.id;
+      final batches = await MobileApi.instance.adminWipBatches(
+        status: 'all',
+        orderId: orderId,
+        apparatus: apparatusId,
+        limit: 1000,
+      );
+      if (_historyReadScope != currentSessionReadScope()) {
+        throw const MobileApiException(
+            code: 'session_scope_changed', message: '');
+      }
+      final workerRef = AppSession.instance.profile?.ref.trim() ?? '';
+      return _mergeWorkerWipBatches(
+        _wipBatchesProducedByApparatus(
+            batches.where((batch) =>
+                workerRef.isNotEmpty && batch.workerRef.trim() == workerRef),
+            orderId: orderId,
+            apparatusId: apparatusId),
+        const <AdminProgressBatch>[],
+      );
+    }
     if (sourceApparatusId.isNotEmpty) {
       // The server authorizes this explicit order for the viewer. Filter by
       // producer below: a processed roll may now be at another apparatus.
@@ -179,6 +212,34 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       batches.where((batch) => batch.orderId.trim() == orderId),
       const <AdminProgressBatch>[],
     );
+  }
+
+  Future<void> _showWipActions(AdminProgressBatch batch) async {
+    if (_reactivationInFlight ||
+        (widget.allowReactivation &&
+            _historyReadScope != currentSessionReadScope())) return;
+    final apparatus = widget.apparatus;
+    if (!widget.workerMode || !widget.allowReactivation || apparatus == null) {
+      await _showWipDetails(batch);
+      return;
+    }
+    final scope = currentSessionReadScope();
+    setState(() => _reactivationInFlight = true);
+    try {
+      final attempted = await _showWorkerWorkReactivation(
+        context: context,
+        order: widget.order,
+        apparatus: apparatus,
+        batch: batch,
+        showDetails: () => _showWipDetails(batch),
+      );
+      if (attempted && mounted && scope == currentSessionReadScope()) {
+        widget.onReactivationAttempted?.call();
+        _retry();
+      }
+    } finally {
+      if (mounted) setState(() => _reactivationInFlight = false);
+    }
   }
 
   void _retry() {
@@ -232,6 +293,8 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   }
 
   Future<void> _showWipDetails(AdminProgressBatch batch) async {
+    if (widget.allowReactivation &&
+        _historyReadScope != currentSessionReadScope()) return;
     final payload = batch.qrPayload.trim();
     if (payload.isEmpty) {
       await showDialog<void>(
@@ -441,7 +504,8 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                       batches: batches,
                       searchBatchId: _searchBatchId,
                       apparatusCatalog: widget.apparatusCatalog,
-                      onLongPress: (batch) => unawaited(_showWipDetails(batch)),
+                      onTap: (batch) => unawaited(_showWipDetails(batch)),
+                      onLongPress: (batch) => unawaited(_showWipActions(batch)),
                     );
                   },
                 ),
@@ -608,11 +672,13 @@ class _WorkerWipHistoryList extends StatelessWidget {
     required this.batches,
     this.searchBatchId = '',
     required this.apparatusCatalog,
+    required this.onTap,
     required this.onLongPress,
   });
   final List<AdminProgressBatch> batches;
   final String searchBatchId;
   final List<AdminApparatus> apparatusCatalog;
+  final void Function(AdminProgressBatch batch)? onTap;
   final void Function(AdminProgressBatch batch)? onLongPress;
 
   @override
@@ -647,6 +713,7 @@ class _WorkerWipHistoryList extends StatelessWidget {
                 batch: batches[index],
                 index: index,
                 apparatusCatalog: apparatusCatalog,
+                onTap: onTap == null ? null : () => onTap!(batches[index]),
                 onLongPress: onLongPress == null
                     ? null
                     : () => onLongPress!(batches[index]),
@@ -764,11 +831,13 @@ class _WorkerWipHistoryCard extends StatelessWidget {
     required this.batch,
     required this.index,
     required this.apparatusCatalog,
+    this.onTap,
     this.onLongPress,
   });
   final AdminProgressBatch batch;
   final int index;
   final List<AdminApparatus> apparatusCatalog;
+  final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
   @override
@@ -804,7 +873,7 @@ class _WorkerWipHistoryCard extends StatelessWidget {
     return Card.filled(
       color: scheme.surfaceContainerHighest,
       child: InkWell(
-        onTap: onLongPress,
+        onTap: onTap,
         onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),

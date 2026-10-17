@@ -142,6 +142,7 @@ part 'admin_production_map_orders_live_helpers.dart';
 part 'admin_production_map_orders_rezka_frame_print.dart';
 part 'admin_production_map_orders_screen_state.dart';
 part 'admin_production_map_orders_re_pause.dart';
+part 'admin_production_map_orders_reactivation.dart';
 part 'admin_production_map_orders_screen_widgets.dart';
 part 'admin_production_map_orders_start_card.dart';
 

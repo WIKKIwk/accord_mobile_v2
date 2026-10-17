@@ -696,6 +696,7 @@ class _WorkerWatchBody extends StatelessWidget {
     required this.bottomPadding,
     required this.tabController,
     required this.onTapCompletedOrder,
+    required this.onLongPressCompletedOrder,
     required this.onTapWatchOrder,
     required this.onLongPressWatchOrder,
   });
@@ -720,6 +721,7 @@ class _WorkerWatchBody extends StatelessWidget {
   final double bottomPadding;
   final TabController tabController;
   final ValueChanged<_WorkerCompletedOrderEntry> onTapCompletedOrder;
+  final ValueChanged<_WorkerCompletedOrderEntry> onLongPressCompletedOrder;
   final void Function({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
@@ -809,6 +811,7 @@ class _WorkerWatchBody extends StatelessWidget {
                           ).take(queueLimit).toList(growable: false),
                           bottomPadding: bottomPadding,
                           onTapOrder: onTapCompletedOrder,
+                          onLongPressOrder: onLongPressCompletedOrder,
                         )
                       : _AparatchiWatchSequencePage(
                           queueActionControls:
@@ -1181,10 +1184,12 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
     required this.orders,
     required this.bottomPadding,
     required this.onTapOrder,
+    required this.onLongPressOrder,
   });
   final List<_WorkerCompletedOrderEntry> orders;
   final double bottomPadding;
   final ValueChanged<_WorkerCompletedOrderEntry> onTapOrder;
+  final ValueChanged<_WorkerCompletedOrderEntry> onLongPressOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -1235,6 +1240,12 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                         index: index,
                         readOnly: true,
                         onTap: () => onTapOrder(orders[index]),
+                        onLongPress: !frozen &&
+                                !orders[index].hasFreezeIssue &&
+                                orders[index].apparatus?.operation.trim() ==
+                                    'print'
+                            ? () => onLongPressOrder(orders[index])
+                            : null,
                         backgroundColor: frozen
                             ? const Color(0xFFBBDEFB)
                             : partial
