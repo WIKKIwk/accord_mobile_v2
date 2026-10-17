@@ -208,6 +208,7 @@ class AdminProductionOrderLogEntry {
     this.issueNote = '',
     this.transfer,
     this.freeze,
+    this.zeroOutputWaste = const {},
   });
 
   final String eventId;
@@ -224,6 +225,7 @@ class AdminProductionOrderLogEntry {
   final String issueNote;
   final AdminProductionOrderTransferDetails? transfer;
   final AdminProductionOrderFreezeDetails? freeze;
+  final Map<String, double> zeroOutputWaste;
 
   factory AdminProductionOrderLogEntry.fromJson(Map<String, dynamic> json) {
     return AdminProductionOrderLogEntry(
@@ -241,6 +243,15 @@ class AdminProductionOrderLogEntry {
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       completedWithIssue: json['completed_with_issue'] == true,
       issueNote: json['issue_note']?.toString() ?? '',
+      zeroOutputWaste: {
+        for (final key in const ['total_waste', 'rezka_bosma_waste',
+          'rezka_lamination_waste', 'rezka_edge_waste'])
+          if (json['zero_output_waste'] is Map &&
+              json['zero_output_waste'][key] is num &&
+              (json['zero_output_waste'][key] as num).isFinite &&
+              (json['zero_output_waste'][key] as num) >= 0)
+            key: (json['zero_output_waste'][key] as num).toDouble(),
+      },
       transfer: json['transfer'] is Map
           ? AdminProductionOrderTransferDetails.fromJson(
               (json['transfer'] as Map).cast<String, dynamic>(),

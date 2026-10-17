@@ -86,7 +86,9 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final freeze = log.freeze;
     final transfer = log.transfer;
-    final batches = _closedProgressBatchesForLog(order, log);
+    final batches = log.zeroOutputWaste.isEmpty
+        ? _closedProgressBatchesForLog(order, log)
+        : const <AdminProgressBatch>[];
     final actor = _closedActorLabel(
       displayName: log.actorDisplayName,
       role: log.actorRole,
@@ -282,7 +284,18 @@ class _ClosedOrderLogDetailsSheet extends StatelessWidget {
                       ),
                 icon: Icons.analytics_outlined,
                 children: [
-                  if (batches.isEmpty)
+                  if (log.zeroOutputWaste.isNotEmpty)
+                    for (final entry in log.zeroOutputWaste.entries)
+                      Text(context.l10n.adminText(
+                        switch (entry.key) {
+                          'rezka_bosma_waste' => 'production.print_waste',
+                          'rezka_lamination_waste' => 'production.lamination_waste',
+                          'rezka_edge_waste' => 'production.edge_waste',
+                          _ => 'production.total_waste',
+                        },
+                        values: {'value': _closedLogNumber(entry.value)},
+                      ))
+                  else if (batches.isEmpty)
                     _ClosedLogMutedText(
                       text: context.l10n.adminText(
                         'production.progress_empty',
