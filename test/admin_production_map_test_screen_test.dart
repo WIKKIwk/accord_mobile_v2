@@ -82,6 +82,7 @@ part 'admin_production_map_worker_activity_test_part.dart';
 part 'admin_production_map_worker_queue_ordering_test_part.dart';
 part 'admin_production_map_rezka_frame_only_test_part.dart';
 part 'admin_production_map_alternative_visibility_test_part.dart';
+part 'admin_production_map_repeated_stage_tone_test_part.dart';
 part 'admin_production_map_print_method_tests.dart';
 part 'admin_production_map_order_image_zoom_test_part.dart';
 part 'admin_production_map_worker_wip_accuracy_test_part.dart';
@@ -154,6 +155,7 @@ void main() {
 
   _registeradmin_production_map_test_screen_testCases01();
   _registerAlternativeVisibilityTests();
+  _registerRepeatedStageToneTests();
   _registerAdminStatusScopeTests();
   _registerMergeConfirmationTests();
   _registerSequenceReorderTests();

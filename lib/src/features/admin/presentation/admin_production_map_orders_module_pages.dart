@@ -837,6 +837,7 @@ class _WorkerWatchBody extends StatelessWidget {
                           ),
                           orderStatusesByOrderId: orderStatusesByOrderId,
                           orderControlsByOrderId: orderControlsByOrderId,
+                          stageStatesByOrderId: stageStatesByOrderId,
                           onTapOrder: (order) => onTapWatchOrder(
                             apparatus: tab.apparatus!,
                             order: order,
@@ -870,6 +871,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.queueActionControls,
     required this.orderStatusesByOrderId,
     required this.orderControlsByOrderId,
+    required this.stageStatesByOrderId,
     required this.onTapOrder,
     required this.onLongPressOrder,
   });
@@ -884,6 +886,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
   final Map<String, AdminApparatusQueueOrderActionControl> queueActionControls;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
   final ValueChanged<ProductionMapSaved> onTapOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
@@ -974,8 +977,17 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                               orderControlsByOrderId,
                               orders[index].map.id.trim(),
                             ),
-                            apparatusState: apparatusQueueOrderStateFromRaw(
-                              queueStates[orders[index].map.id.trim()],
+                            apparatusState: _workerApparatusOrderCardState(
+                              map: orders[index].map,
+                              apparatusId: apparatus.id,
+                              queueState: apparatusQueueOrderStateFromRaw(
+                                queueStates[orders[index].map.id.trim()],
+                              ),
+                              stageStates: stageStatesByOrderId[
+                                      orders[index].map.id.trim()] ??
+                                  const {},
+                              control: queueActionControls[
+                                  orders[index].map.id.trim()],
                             ),
                           ),
                         ),

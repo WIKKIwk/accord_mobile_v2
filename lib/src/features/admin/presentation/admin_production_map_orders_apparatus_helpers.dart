@@ -151,9 +151,7 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
       final ownControl = queueActionControlsByApparatus[apparatus.id]?[orderId];
       final stageStates = stageStatesByOrderId[orderId] ?? const <String, String>{};
       bool stageCompleted(String nodeId) =>
-          stageStates[nodeId] == 'completed' ||
-          (ownControl?.stageNodeId == nodeId &&
-              ownControl?.stageWork?.localCompleted == true);
+          _apparatusStageCompleted(nodeId, stageStates, ownControl);
       if (occurrences.isNotEmpty &&
           occurrences.every((stage) => stageCompleted(stage.nodeId))) {
         return false;
@@ -185,6 +183,47 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     return ordered;
   }
   return _filterOrdersBySearch(ordered, query: query);
+}
+
+bool _apparatusStageCompleted(
+  String nodeId,
+  Map<String, String> stageStates,
+  AdminApparatusQueueOrderActionControl? control,
+) =>
+    stageStates[nodeId] == 'completed' ||
+    (control?.stageNodeId == nodeId &&
+        control?.stageWork?.localCompleted == true);
+
+ApparatusQueueOrderState _workerApparatusOrderCardState({
+  required ProductionMapDefinition map,
+  required String apparatusId,
+  required ApparatusQueueOrderState queueState,
+  required Map<String, String> stageStates,
+  AdminApparatusQueueOrderActionControl? control,
+}) {
+  // Real machine activity outranks shared operation state and old reports.
+  if (queueState != ApparatusQueueOrderState.completed) return queueState;
+  final occurrences = productionMapLinearWorkStages(map)
+      .where((stage) => stage.apparatusId == apparatusId)
+      .toList(growable: false);
+  if (occurrences.length < 2) return queueState;
+  const unfinishedStates = {
+    'pending',
+    'print_preflight',
+    'in_progress',
+    'paused',
+    'frozen',
+  };
+  final hasUnfinishedOccurrence = occurrences.any(
+    (stage) =>
+        unfinishedStates.contains(stageStates[stage.nodeId]) &&
+        !_apparatusStageCompleted(stage.nodeId, stageStates, control),
+  );
+  // The queue row remains for another occurrence, not the completed report.
+  // Missing stage metadata does not establish new work.
+  return hasUnfinishedOccurrence
+      ? ApparatusQueueOrderState.pending
+      : queueState;
 }
 
 List<ProductionMapSaved> _applyApparatusOrderSequence({
