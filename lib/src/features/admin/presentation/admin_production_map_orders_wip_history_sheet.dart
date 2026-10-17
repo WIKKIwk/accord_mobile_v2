@@ -216,10 +216,15 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
 
   Future<void> _showWipActions(AdminProgressBatch batch) async {
     if (_reactivationInFlight ||
-        (widget.allowReactivation &&
-            _historyReadScope != currentSessionReadScope())) return;
+        _historyReadScope != currentSessionReadScope()) {
+      return;
+    }
     final apparatus = widget.apparatus;
-    if (!widget.workerMode || !widget.allowReactivation || apparatus == null) {
+    if (!widget.workerMode ||
+        !widget.allowReactivation ||
+        apparatus == null ||
+        !(apparatus.usesLaminationWorkflow ||
+            apparatus.operation.trim() == 'cut')) {
       await _showWipDetails(batch);
       return;
     }

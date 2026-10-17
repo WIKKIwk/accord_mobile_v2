@@ -174,6 +174,7 @@ class _ReactivationFixture {
 }
 
 void _registerReactivationTests() {
+  // Print reopens an order; downstream stages reopen the selected output WIP.
   for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
     testWidgets(
         'completed reactivation requires exact confirmation on $station',
@@ -220,112 +221,177 @@ void _registerReactivationTests() {
       }, () => MockClient(fixture.respond));
     });
   }
-  for (final switchAccount in [false, true]) {
-    testWidgets(
-        'completed reactivation does not write after ${switchAccount ? 'account switch' : 'cancel'}',
-        (tester) async {
-      final fixture = _ReactivationFixture(_print8Id);
-      await http.runWithClient(() async {
-        await fixture.open(tester);
-        await fixture.longPressTarget(tester);
-        await tester.tap(
-            find.byKey(const ValueKey('worker-reactivate-completed-work')));
-        await tester.pumpAndSettle();
-        if (switchAccount) {
-          AppSession.instance.profile = const SessionProfile(
-              role: UserRole.aparatchi,
-              displayName: 'Other worker',
-              legalName: '',
-              ref: 'different-worker',
-              phone: '',
-              avatarUrl: '',
-              capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-              assignedApparatus: [_print8Id]);
-          await tester
-              .tap(find.byKey(const ValueKey('worker-reactivate-confirm')));
-        } else {
-          await tester.tap(find.text('Bekor qilish'));
-        }
-        await tester.pumpAndSettle();
-        expect(fixture.writes, isEmpty);
-      }, () => MockClient(fixture.respond));
-    });
-  }
-  for (final denial in [
-    'apparatus_busy',
-    'source_not_free',
-    'final_stage_closed',
-    'order_closed'
-  ]) {
-    testWidgets('completed reactivation explains and blocks $denial',
-        (tester) async {
-      final fixture = _ReactivationFixture(_lamination1Id, denial: denial);
-      await http.runWithClient(() async {
-        await fixture.open(tester);
-        await fixture.longPressTarget(tester);
-        final action =
-            find.byKey(const ValueKey('worker-reactivate-completed-work'));
-        expect(tester.widget<FilledButton>(action).onPressed, isNull);
-        expect(
-            find.text(AppLocalizations(const Locale('uz'))
-                .productionText('worker.reactivate.reason.$denial')),
-            findsOneWidget);
-        expect(fixture.writes, isEmpty);
-        if (denial == 'final_stage_closed' || denial == 'order_closed') {
+  for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
+    for (final switchAccount in [false, true]) {
+      testWidgets(
+          'completed reactivation does not write after ${switchAccount ? 'account switch' : 'cancel'} on $station',
+          (tester) async {
+        final fixture = _ReactivationFixture(station);
+        await http.runWithClient(() async {
+          await fixture.open(tester);
+          await fixture.longPressTarget(tester);
           await tester.tap(
-              find.byKey(const ValueKey('worker-reactivate-denial-details')));
+              find.byKey(const ValueKey('worker-reactivate-completed-work')));
           await tester.pumpAndSettle();
-          expect(find.byType(AlertDialog), findsOneWidget);
+          if (switchAccount) {
+            AppSession.instance.profile = SessionProfile(
+                role: UserRole.aparatchi,
+                displayName: 'Other worker',
+                legalName: '',
+                ref: 'different-worker',
+                phone: '',
+                avatarUrl: '',
+                capabilities: [
+                  'apparatus.queue.read',
+                  'apparatus.queue.manage'
+                ],
+                assignedApparatus: [
+                  station
+                ]);
+            await tester
+                .tap(find.byKey(const ValueKey('worker-reactivate-confirm')));
+          } else {
+            await tester.tap(find.text('Bekor qilish'));
+          }
+          await tester.pumpAndSettle();
+          expect(fixture.writes, isEmpty);
+        }, () => MockClient(fixture.respond));
+      });
+    }
+  }
+  for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
+    for (final denial in [
+      'apparatus_busy',
+      'source_not_free',
+      'final_stage_closed',
+      'order_closed'
+    ]) {
+      testWidgets(
+          'completed reactivation explains and blocks $denial on $station',
+          (tester) async {
+        final fixture = _ReactivationFixture(station, denial: denial);
+        await http.runWithClient(() async {
+          await fixture.open(tester);
+          await fixture.longPressTarget(tester);
+          final action =
+              find.byKey(const ValueKey('worker-reactivate-completed-work'));
+          expect(tester.widget<FilledButton>(action).onPressed, isNull);
           expect(
-              find.descendant(
-                  of: find.byType(AlertDialog),
-                  matching: find.text(AppLocalizations(const Locale('uz'))
-                      .productionText('worker.reactivate.reason.$denial'))),
+              find.text(AppLocalizations(const Locale('uz'))
+                  .productionText('worker.reactivate.reason.$denial')),
               findsOneWidget);
           expect(fixture.writes, isEmpty);
-          expect(find.byKey(const ValueKey('worker-reactivate-confirm')),
-              findsNothing);
-        }
-      }, () => MockClient(fixture.respond));
-    });
+          if (denial == 'final_stage_closed' || denial == 'order_closed') {
+            await tester.tap(
+                find.byKey(const ValueKey('worker-reactivate-denial-details')));
+            await tester.pumpAndSettle();
+            expect(find.byType(AlertDialog), findsOneWidget);
+            expect(
+                find.descendant(
+                    of: find.byType(AlertDialog),
+                    matching: find.text(AppLocalizations(const Locale('uz'))
+                        .productionText('worker.reactivate.reason.$denial'))),
+                findsOneWidget);
+            expect(fixture.writes, isEmpty);
+            expect(find.byKey(const ValueKey('worker-reactivate-confirm')),
+                findsNothing);
+          }
+        }, () => MockClient(fixture.respond));
+      });
+    }
   }
-  testWidgets(
-      'completed reactivation WIP short tap opens details and long press opens actions',
-      (tester) async {
-    final fixture = _ReactivationFixture(_lamination1Id);
-    await http.runWithClient(() async {
-      await fixture.open(tester);
-      final row = find
-          .ancestor(
-              of: find.textContaining('Reactivation order'),
-              matching: find.byType(InkWell))
-          .first;
-      await tester.longPress(row);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
-          findsNothing);
-      expect(fixture.requests.where((r) => r.url.path.endsWith('/preview')),
-          isEmpty);
-      if (find.byType(BottomSheet).evaluate().isNotEmpty) {
+  for (final station in [_lamination1Id, _rezkaId]) {
+    testWidgets(
+        'completed WIP short tap opens details and long press previews reactivation on $station',
+        (tester) async {
+      final fixture = _ReactivationFixture(station);
+      await http.runWithClient(() async {
+        await fixture.open(tester);
+        final row = find
+            .ancestor(
+                of: find.textContaining('Reactivation order'),
+                matching: find.byType(InkWell))
+            .first;
+        await tester.longPress(row);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
+            findsNothing);
+        expect(fixture.requests.where((r) => r.url.path.endsWith('/preview')),
+            isEmpty);
+        if (find.byType(BottomSheet).evaluate().isNotEmpty) {
+          Navigator.of(tester.element(find.byType(BottomSheet).last)).pop();
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
+        await tester.pumpAndSettle();
+        expect(
+            find.byKey(const ValueKey(
+                'worker-wip-history-preview-reactivation-output')),
+            findsOneWidget);
+        expect(fixture.requests.where((r) => r.url.path.endsWith('/preview')),
+            isEmpty);
         Navigator.of(tester.element(find.byType(BottomSheet).last)).pop();
         await tester.pumpAndSettle();
-      }
-      await tester.tap(row);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
-      await tester.pumpAndSettle();
-      expect(
-          find.byKey(
-              const ValueKey('worker-wip-history-preview-reactivation-output')),
-          findsOneWidget);
-      expect(fixture.requests.where((r) => r.url.path.endsWith('/preview')),
-          isEmpty);
-      Navigator.of(tester.element(find.byType(BottomSheet).last)).pop();
-      await tester.pumpAndSettle();
-      await tester.longPress(find.byKey(const ValueKey('worker-wip-item-0')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
-          findsOneWidget);
-    }, () => MockClient(fixture.respond));
-  });
+        await tester.longPress(find.byKey(const ValueKey('worker-wip-item-0')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
+            findsOneWidget);
+        expect(
+            find.byKey(const ValueKey(
+                'worker-wip-history-preview-reactivation-output')),
+            findsNothing);
+        final previewRequests = fixture.requests
+            .where((r) => r.url.path.endsWith('/reactivation/preview'));
+        expect(previewRequests, hasLength(1));
+        expect(jsonDecode(previewRequests.single.body), {
+          'apparatus': station,
+          'order_id': _ReactivationFixture.orderId,
+          'batch_id': _ReactivationFixture.batchId,
+        });
+        expect(fixture.writes, isEmpty);
+      }, () => MockClient(fixture.respond));
+    });
+    testWidgets(
+        'completed WIP duplicate long press requests one pending preview on $station',
+        (tester) async {
+      final fixture = _ReactivationFixture(station);
+      final pendingPreview = Completer<http.Response>();
+      final previewRequests = <http.Request>[];
+      await http.runWithClient(() async {
+        await fixture.open(tester);
+        await tester.tap(find
+            .ancestor(
+                of: find.textContaining('Reactivation order'),
+                matching: find.byType(InkWell))
+            .first);
+        await tester.pumpAndSettle();
+        final wip = find.byKey(const ValueKey('worker-wip-item-0'));
+        await tester.longPress(wip);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(previewRequests, hasLength(1));
+        await tester.longPress(wip);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(previewRequests, hasLength(1),
+            reason: 'a second gesture cannot start an overlapping preview');
+        expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
+            findsNothing);
+        pendingPreview.complete(await fixture.respond(previewRequests.single));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
+            findsOneWidget);
+        expect(fixture.writes, isEmpty);
+      },
+          () => MockClient((request) async {
+                if (request.url.path.endsWith('/reactivation/preview')) {
+                  previewRequests.add(request);
+                  return pendingPreview.future;
+                }
+                return fixture.respond(request);
+              }));
+    });
+  }
 }
