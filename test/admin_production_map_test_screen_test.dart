@@ -58,6 +58,7 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_16.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_17.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_18.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_19.dart';
+part 'admin_production_map_rezka_wip_completion_waste_test_part.dart';
 part 'admin_production_map_rezka_recorded_rolls_test_part.dart';
 part 'admin_production_map_rezka_print_optimization_test_part.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_20.dart';
@@ -204,6 +205,7 @@ void main() {
   _registeradmin_production_map_test_screen_testCases18();
 
   _registeradmin_production_map_test_screen_testCases19();
+  _registerRezkaWipCompletionWasteTests();
   _registerRezkaRecordedRollTests();
   _registerRezkaPrintOptimizationTests();
 
