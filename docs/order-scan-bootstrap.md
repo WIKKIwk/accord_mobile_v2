@@ -72,3 +72,33 @@ requests. With a deterministic 250 ms response delay per request, its old
 serial-then-parallel path completes after 500 ms and the aggregate after 250 ms.
 This isolates network-stage savings; it excludes server processing, transfer
 bandwidth, HTTP headers, TLS and compression. It is not a production benchmark.
+
+## FAB scan preparation
+
+A production worker FAB scan can request `include_context=true` and the exact
+`qr_payload` after identifying the roll's order and assigned consumer apparatus.
+The existing endpoint adds two optional fields:
+
+- `queue_context`: a sheet-local sequence snapshot at the control's epoch and
+  revision. It carries the target and active jobs' maps/contracts, plus station
+  occupancy and queue policy. It never replaces the filtered list/delta cursor.
+- `validated_progress`: the existing scoped, active-order progress-QR lookup
+  response, using the same capability, assignment, order and WIP route checks.
+
+The client passes this response once into the detail sheet. Required resource
+sections retain their independent fallback readers; material and mold scans are
+never marked complete by the progress proof. Start remains an explicit command
+with all server-side transactional validation. A newer live revision during
+section reads requires one fresh QR proof; an uncertain/stale proof is rejected.
+
+The FAB no longer waits for whole-page catalog/history refreshes. In the focused
+modern-backend fixture the ordinary waiting-input route uses four data requests
+(one identification, one aggregate, assignments and WIP candidates), plus at
+most one existing asynchronous image request. The complete-sections fixture
+also verifies that outstanding mold scans still disable Start. Request counts
+are fixture measurements, not a production latency benchmark.
+
+Old servers may omit the new fields or return the established empty 404/405.
+Those clients retain scoped control reads and exact QR validation. Domain errors
+and malformed supplied context/proofs never fall back to broader reads.
+Opening WIP and training retain their existing validation paths.

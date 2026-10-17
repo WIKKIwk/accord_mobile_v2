@@ -925,8 +925,12 @@ class _AdminProductionMapOrdersScreenState
     _ScannedWorkerWip? initialOrderSwitchBatch,
     String initialScanQrPayload = '',
     AdminApparatusQueueSnapshot? initialQueueSnapshot,
+    _WorkerFabPreparedScan? initialFabPreparedScan,
   }) {
-    if (widget.workerMode && _isWorkerOrderFrozen(order.map.id)) {
+    if (widget.workerMode && (initialQueueSnapshot == null
+        ? _isWorkerOrderFrozen(order.map.id)
+        : initialQueueSnapshot.orderControlFor(order.map.id) ==
+            AdminOrderControlState.frozen)) {
       showAdminTopNotice(
         context,
         _workerFrozenOrderMessage(context.l10n, order.map.title),
@@ -1005,6 +1009,7 @@ class _AdminProductionMapOrdersScreenState
             initialQueueSnapshot?.orderControls ?? _orderControlsByOrderId,
         initialOrderSwitchBatch: initialOrderSwitchBatch,
         initialScanQrPayload: initialScanQrPayload,
+        initialFabPreparedScan: initialFabPreparedScan,
         startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
         startAstatkaOnOpen: startAstatkaOnOpen,
         startBosmaFinishOnOpen: startBosmaFinishOnOpen,
@@ -1069,29 +1074,37 @@ class _AdminProductionMapOrdersScreenState
     try {
       final wip = await _identifyWorkerWip(qrPayload);
       if (wip == null) {
-        throw const MobileApiException(code: 'progress_batch_not_found', message: '');
+        throw const MobileApiException(
+          code: 'progress_batch_not_found',
+          message: '',
+        );
       }
       final batch = wip.progress;
       if (!mounted || scope != currentSessionReadScope()) return;
       final targetOrderId = wip.orderId;
-      final stationId = batch?.nextApparatus.trim() ?? wip.openingRecord!.intake.resumeApparatus.trim();
+      final stationId =
+          batch?.nextApparatus.trim() ??
+          wip.openingRecord!.intake.resumeApparatus.trim();
       if (targetOrderId.isEmpty) {
         throw const MobileApiException(
-          code: 'progress_qr_invalid_response', message: '');
+          code: 'progress_qr_invalid_response',
+          message: '',
+        );
       }
-      await _refreshLive();
+      final providedSnapshot = widget.queueSnapshotLoader == null
+          ? null
+          : await widget.queueSnapshotLoader!();
       if (!mounted || scope != currentSessionReadScope()) return;
-      final targetMaps =
-          _orders.where((order) => order.map.id.trim() == targetOrderId);
-      orderTitle = targetMaps.firstOrNull?.map.title.trim() ?? '';
-      final orderControl = adminProductionMapOrderControlFor(
-        _orderControlsByOrderId,
-        targetOrderId,
+      final targetMaps = _orders.where(
+        (order) => order.map.id.trim() == targetOrderId,
       );
-      if (_isWorkerOrderFrozen(targetOrderId) ||
-          orderControl != AdminOrderControlState.active) {
+      ProductionMapSaved? targetOrder = targetMaps.firstOrNull;
+      orderTitle = targetOrder?.map.title.trim() ?? '';
+      final providedControl = providedSnapshot?.orderControlFor(targetOrderId);
+      if (providedControl != null &&
+          providedControl != AdminOrderControlState.active) {
         throw MobileApiException(
-          code: _isWorkerOrderFrozen(targetOrderId)
+          code: providedControl == AdminOrderControlState.frozen
               ? 'order_frozen'
               : 'order_freeze_requested',
           message: '',
@@ -1107,51 +1120,55 @@ class _AdminProductionMapOrdersScreenState
         await _showWorkerQrGuidance(
           context,
           usageError == 'progress_batch_in_use'
-              ? _workerQrLoadedRollText(wip, targetMaps.firstOrNull)
-              : context.l10n.productionText(wip.status == 'void'
-                  ? 'worker.qr.roll_void' : 'worker.error.wip_used'),
+              ? _workerQrLoadedRollText(
+                  wip,
+                  targetOrder,
+                  snapshot: providedSnapshot,
+                )
+              : context.l10n.productionText(
+                  wip.status == 'void'
+                      ? 'worker.qr.roll_void'
+                      : 'worker.error.wip_used',
+                ),
           icon: Icons.warning_amber_rounded,
           tone: AdminTopNoticeTone.error,
         );
         return;
       }
       if ((batch?.inputRouteError ?? '').isNotEmpty) {
-        throw MobileApiException(
-          code: batch!.inputRouteError,
-          message: context.l10n.productionErrorMessage(
-            batch.inputRouteError,
-            fallback: context.l10n
-                .productionErrorMessage('wip_route_destination_unresolved'),
-          ),
-        );
+        throw MobileApiException(code: batch!.inputRouteError, message: '');
       }
-      if (_loadError != null || _queueSnapshotContractError ||
-          !_workerCatalogReady) {
+      if (!_workerCatalogReady) {
         throw const MobileApiException(code: 'worker_qr_sync', message: '');
       }
-      // A list window is a display projection, not the QR lookup boundary.
-      // Reading the map does not grant queue actions.
-      final targetOrder = targetMaps.firstOrNull ?? await MobileApi.instance
-          .adminProductionMap(targetOrderId)
-          .timeout(_queueActionControlRefreshTimeout);
-      if (!mounted || scope != currentSessionReadScope()) return;
-      if (targetOrder.map.id.trim() != targetOrderId) {
-        throw const MobileApiException(
-            code: 'progress_qr_invalid_response', message: '');
+      // Modern QR route metadata selects the station without a separate map
+      // GET. Opening/training/older payloads retain their map-based resolver.
+      if (targetOrder == null && batch?.hasInputRouteMetadata != true) {
+        targetOrder = await MobileApi.instance
+            .adminProductionMap(targetOrderId)
+            .timeout(_queueActionControlRefreshTimeout);
+        if (!mounted || scope != currentSessionReadScope()) return;
+        if (targetOrder.map.id.trim() != targetOrderId) {
+          throw const MobileApiException(
+            code: 'progress_qr_invalid_response',
+            message: '',
+          );
+        }
       }
-      // The printed payload keeps its original node IDs after a map edit.
-      // Current eligibility comes from the backend resolver. Only older
-      // servers without route metadata use the existing explicit-node filter.
-      final candidates = _workerWipConsumerIds(wip, targetOrder.map);
+      final candidates = _workerWipConsumerIds(wip, targetOrder?.map);
       final assigned =
           AppSession.instance.profile?.assignedApparatus ?? const <String>[];
       if (candidates.isEmpty) {
         throw const MobileApiException(
-          code: 'wip_route_destination_unresolved', message: '');
+          code: 'wip_route_destination_unresolved',
+          message: '',
+        );
       }
       if (assigned.isEmpty) {
         throw const MobileApiException(
-          code: 'worker_qr_no_assignment', message: '');
+          code: 'worker_qr_no_assignment',
+          message: '',
+        );
       }
       AdminApparatus? station;
       for (final candidate in _apparatus) {
@@ -1162,15 +1179,26 @@ class _AdminProductionMapOrdersScreenState
         }
       }
       if (station == null ||
-          !_isAssignedWatchApparatus(
-            station,
-            assignedApparatus: AppSession.instance.profile?.assignedApparatus ??
-                const <String>[],
-          )) {
-        if (candidates.any((id) => !_apparatus.any(
-              (apparatus) => apparatus.id.trim() == id))) {
+          !_isAssignedWatchApparatus(station, assignedApparatus: assigned)) {
+        if (candidates.any(
+          (id) => !_apparatus.any((apparatus) => apparatus.id.trim() == id),
+        )) {
           throw const MobileApiException(
-            code: 'worker_qr_catalog_missing', message: '');
+            code: 'worker_qr_catalog_missing',
+            message: '',
+          );
+        }
+        // Route guidance needs the later stages to distinguish an unassigned
+        // destination from a job that has not reached this worker yet.
+        targetOrder ??= await MobileApi.instance
+            .adminProductionMap(targetOrderId)
+            .timeout(_queueActionControlRefreshTimeout);
+        if (!mounted || scope != currentSessionReadScope()) return;
+        if (targetOrder.map.id.trim() != targetOrderId) {
+          throw const MobileApiException(
+            code: 'progress_qr_invalid_response',
+            message: '',
+          );
         }
         await _showWorkerQrGuidance(
           context,
@@ -1187,59 +1215,69 @@ class _AdminProductionMapOrdersScreenState
         );
         return;
       }
-      if (batch != null) {
-        await MobileApi.instance.adminProgressQrLookup(qrPayload,
-            apparatus: station.id, orderId: targetOrderId, requireActiveOrder: true);
-      } else {
-        await MobileApi.instance.adminLookupOpeningWip(apparatus: station.id,
-            orderId: targetOrderId, qrPayload: qrPayload);
-      }
+      final bootstrap = widget.queueSnapshotLoader == null
+          ? await _loadWorkerFabBootstrap(
+              apparatus: station.id,
+              orderId: targetOrderId,
+              qrPayload: batch == null ? '' : qrPayload,
+              isCurrent: () => mounted && scope == currentSessionReadScope(),
+              currentSnapshot: () => _canonicalQueueSnapshot,
+            )
+          : null;
       if (!mounted || scope != currentSessionReadScope()) return;
-      if (_isWorkerOrderFrozen(targetOrderId)) {
-        throw MobileApiException(
-            code: 'order_frozen', message: '', orderTitle: orderTitle);
-      }
-      await _refreshLive();
-      if (!mounted || scope != currentSessionReadScope()) return;
-      final hasInProgressOrder = _orders.any(
-        (order) {
-          final control = _queueActionControlForApparatus(
-            apparatus: station!,
-            orderId: order.map.id,
-          );
-          return control?.interaction?.mode ==
-                  AdminQueueInteractionMode.inProgress ||
-              control?.interaction?.mode ==
-                  AdminQueueInteractionMode.freezeRequested;
-        },
-      );
-      if (!hasInProgressOrder) {
-        await _refreshWorkerCompletedOrders();
-        if (!mounted || scope != currentSessionReadScope()) return;
-      }
-      if (_isWorkerOrderFrozen(targetOrderId)) {
-        throw MobileApiException(
-            code: 'order_frozen', message: '', orderTitle: orderTitle);
-      }
-      if (_loadError != null || _queueSnapshotContractError ||
-          !_workerCatalogReady) {
-        throw const MobileApiException(code: 'worker_qr_sync', message: '');
-      }
-      var targetSnapshot = _canonicalQueueSnapshot;
-      if (targetMaps.isEmpty || _workerServerSearch.isNotEmpty ||
-          targetSnapshot?.queueActionControls[station.id.trim()]
-              ?[targetOrderId] == null) {
-        targetSnapshot = await _loadWorkerQrSnapshot(
-          apparatus: station.id,
-          orderId: targetOrderId,
-          isCurrent: () => mounted && scope == currentSessionReadScope(),
-          currentSnapshot: () => _canonicalQueueSnapshot,
-        );
-      }
-      if (!mounted || scope != currentSessionReadScope() ||
+      var targetSnapshot = bootstrap?.queueContext;
+      // Old servers ignore the additive context/proof fields. Keep their
+      // scoped reads and exact QR validation, without refreshing the whole page.
+      targetSnapshot ??= providedSnapshot ?? await _loadWorkerQrSnapshot(
+              apparatus: station.id,
+              orderId: targetOrderId,
+              isCurrent: () => mounted && scope == currentSessionReadScope(),
+              currentSnapshot: () => _canonicalQueueSnapshot,
+            );
+      if (!mounted ||
+          scope != currentSessionReadScope() ||
           targetSnapshot == null) {
         return;
       }
+      targetOrder =
+          targetSnapshot.maps
+              .where((order) => order.map.id.trim() == targetOrderId)
+              .firstOrNull ??
+          targetOrder;
+      targetOrder ??= await MobileApi.instance
+          .adminProductionMap(targetOrderId)
+          .timeout(_queueActionControlRefreshTimeout);
+      if (!mounted || scope != currentSessionReadScope()) return;
+      if (targetOrder.map.id.trim() != targetOrderId) {
+        throw const MobileApiException(
+          code: 'progress_qr_invalid_response',
+          message: '',
+        );
+      }
+      orderTitle = targetOrder.map.title.trim();
+      final verified = bootstrap?.validatedProgress;
+      if (batch != null) {
+        if (verified == null) {
+          await MobileApi.instance.adminProgressQrLookup(
+            qrPayload,
+            apparatus: station.id,
+            orderId: targetOrderId,
+            requireActiveOrder: true,
+          );
+        } else if (verified.batchId != batch.batchId) {
+          throw const MobileApiException(
+            code: 'progress_qr_invalid_response',
+            message: '',
+          );
+        }
+      } else {
+        await MobileApi.instance.adminLookupOpeningWip(
+          apparatus: station.id,
+          orderId: targetOrderId,
+          qrPayload: qrPayload,
+        );
+      }
+      if (!mounted || scope != currentSessionReadScope()) return;
       final targetControl =
           targetSnapshot.queueActionControls[station.id.trim()]?[targetOrderId];
       final targetOrderControl = targetSnapshot.orderControlFor(targetOrderId);
@@ -1282,12 +1320,19 @@ class _AdminProductionMapOrdersScreenState
       var currentOrder = _workerCurrentOrderForApparatus(apparatus: station);
       AdminApparatusQueueSnapshot? currentSnapshot;
       final activeId = targetSnapshot.queueStates[station.id.trim()]?.entries
-          .where((entry) =>
-              const {'in_progress', 'print_preflight'}.contains(entry.value))
-          .firstOrNull?.key;
-      if (activeId == null && currentOrder != null &&
-          _queueActionControlForApparatus(apparatus: station,
-                  orderId: currentOrder.map.id)?.stageWork?.astatkaRequired != true) {
+          .where(
+            (entry) =>
+                const {'in_progress', 'print_preflight'}.contains(entry.value),
+          )
+          .firstOrNull
+          ?.key;
+      if (activeId == null &&
+          currentOrder != null &&
+          _queueActionControlForApparatus(
+                apparatus: station,
+                orderId: currentOrder.map.id,
+              )?.stageWork?.astatkaRequired !=
+              true) {
         // Scoped occupancy supersedes an older visible in-progress row.
         currentOrder = null;
       }
@@ -1296,20 +1341,34 @@ class _AdminProductionMapOrdersScreenState
           currentOrder = targetOrder;
           currentSnapshot = targetSnapshot;
         } else {
-          currentOrder = _orders.where((order) => order.map.id.trim() == activeId)
-              .firstOrNull ?? await MobileApi.instance.adminProductionMap(activeId)
+          currentOrder =
+              targetSnapshot.maps
+                  .where((order) => order.map.id.trim() == activeId)
+                  .firstOrNull ??
+              _orders
+                  .where((order) => order.map.id.trim() == activeId)
+                  .firstOrNull ??
+              await MobileApi.instance
+                  .adminProductionMap(activeId)
                   .timeout(_queueActionControlRefreshTimeout);
           if (!mounted || scope != currentSessionReadScope()) return;
           if (currentOrder.map.id.trim() != activeId) {
             throw const MobileApiException(code: 'worker_qr_sync', message: '');
           }
-          currentSnapshot = await _loadWorkerQrSnapshot(
-            apparatus: station.id,
-            orderId: activeId,
-            isCurrent: () => mounted && scope == currentSessionReadScope(),
-            currentSnapshot: () => _canonicalQueueSnapshot,
-          );
-          if (!mounted || scope != currentSessionReadScope() ||
+          currentSnapshot =
+              targetSnapshot.queueActionControls[station.id
+                      .trim()]?[activeId] !=
+                  null
+              ? targetSnapshot
+              : await _loadWorkerQrSnapshot(
+                  apparatus: station.id,
+                  orderId: activeId,
+                  isCurrent: () =>
+                      mounted && scope == currentSessionReadScope(),
+                  currentSnapshot: () => _canonicalQueueSnapshot,
+                );
+          if (!mounted ||
+              scope != currentSessionReadScope() ||
               currentSnapshot == null) {
             return;
           }
@@ -1366,6 +1425,9 @@ class _AdminProductionMapOrdersScreenState
           order: targetOrder,
           initialQueueSnapshot: targetSnapshot,
           initialScanQrPayload: qrPayload,
+          initialFabPreparedScan: bootstrap?.queueContext == null
+              ? null
+              : _WorkerFabPreparedScan(bootstrap!, qrPayload, scope),
         );
         return;
       }
@@ -1425,8 +1487,9 @@ class _AdminProductionMapOrdersScreenState
 
   String _workerQrLoadedRollText(
     _ScannedWorkerWip batch,
-    ProductionMapSaved? order,
-  ) {
+    ProductionMapSaved? order, {
+    AdminApparatusQueueSnapshot? snapshot,
+  }) {
     final l10n = context.l10n;
     final apparatusId = batch.usedBy;
     final station = _apparatus
@@ -1435,29 +1498,37 @@ class _AdminProductionMapOrdersScreenState
     if (station == null || order == null || !_workerCatalogReady) {
       return l10n.productionText('worker.error.wip_in_use');
     }
-    final text = l10n.productionText('worker.qr.roll_in_use', values: {
-      'apparatus': canonicalApparatusDisplayLabel(station.id, _apparatus),
-      'order': _busyOrderDisplayLabel(order, l10n),
-    });
-    final control = _queueActionControlForApparatus(
-      apparatus: station,
-      orderId: batch.orderId,
+    final text = l10n.productionText(
+      'worker.qr.roll_in_use',
+      values: {
+        'apparatus': canonicalApparatusDisplayLabel(station.id, _apparatus),
+        'order': _busyOrderDisplayLabel(order, l10n),
+      },
     );
+    final control = snapshot == null
+        ? _queueActionControlForApparatus(
+            apparatus: station,
+            orderId: batch.orderId,
+          )
+        : snapshot.queueActionControls[station.id.trim()]?[batch.orderId];
+    final orderControl =
+        snapshot?.orderControlFor(batch.orderId) ??
+        adminProductionMapOrderControlFor(
+          _orderControlsByOrderId,
+          batch.orderId,
+        );
+    final queueState =
+        (snapshot?.queueStates[station.id.trim()] ??
+        _queueStatesForApparatus(
+          station,
+          queueStatesByApparatus: _queueStatesByApparatus,
+        ))[batch.orderId];
     final assigned =
         AppSession.instance.profile?.assignedApparatus ?? const <String>[];
-    if (_loadError != null ||
-        _queueSnapshotContractError ||
+    if ((snapshot == null &&
+            (_loadError != null || _queueSnapshotContractError)) ||
         !_isAssignedWatchApparatus(station, assignedApparatus: assigned) ||
-        control?.isConsistentWith(
-              adminProductionMapOrderControlFor(
-                _orderControlsByOrderId,
-                batch.orderId,
-              ),
-              queueState: _queueStatesForApparatus(
-                station,
-                queueStatesByApparatus: _queueStatesByApparatus,
-              )[batch.orderId],
-            ) !=
+        control?.isConsistentWith(orderControl, queueState: queueState) !=
             true) {
       return text;
     }
@@ -1466,29 +1537,10 @@ class _AdminProductionMapOrdersScreenState
     }
     if (control?.interaction?.mode == AdminQueueInteractionMode.paused &&
         control?.allows('resume') == true) {
-      return '$text ${l10n.productionText('worker.qr.resume_loaded_roll', values: {
-            'action': l10n.productionText('worker.action.resume'),
-          })}';
+      return '$text ${l10n.productionText('worker.qr.resume_loaded_roll', values: {'action': l10n.productionText('worker.action.resume')})}';
     }
     final busy = _workerCurrentOrderForApparatus(apparatus: station);
-    return '$text ${_workerQrExistingOrderText(
-      l10n: l10n,
-      control: control,
-      orderControlState: adminProductionMapOrderControlFor(
-        _orderControlsByOrderId,
-        batch.orderId,
-      ),
-      queueState: _queueStatesForApparatus(
-        station,
-        queueStatesByApparatus: _queueStatesByApparatus,
-      )[batch.orderId],
-      apparatusLabel: canonicalApparatusDisplayLabel(station.id, _apparatus),
-      orderLabel: _busyOrderDisplayLabel(order, l10n),
-      usesRollJoining: false,
-      busyOrderLabel: busy != null && busy.map.id.trim() != batch.orderId.trim()
-          ? _busyOrderDisplayLabel(busy, l10n)
-          : '',
-    )}';
+    return '$text ${_workerQrExistingOrderText(l10n: l10n, control: control, orderControlState: orderControl, queueState: queueState, apparatusLabel: canonicalApparatusDisplayLabel(station.id, _apparatus), orderLabel: _busyOrderDisplayLabel(order, l10n), usesRollJoining: false, busyOrderLabel: busy != null && busy.map.id.trim() != batch.orderId.trim() ? _busyOrderDisplayLabel(busy, l10n) : '')}';
   }
 
   String _workerQrErrorText(Object error, {String orderTitle = ''}) {

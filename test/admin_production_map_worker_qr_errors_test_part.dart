@@ -341,7 +341,8 @@ void _registerWorkerQrErrorTests() {
                             scenario.key == 'frozen-after-lookup-route-error')
                           'input_route_error':
                               'wip_route_destination_unresolved'
-                        else
+                        else if (scenario.key != 'missing-map' &&
+                            scenario.key != 'map-read-failed')
                           'input_route': {
                             'source_stage_node_id':
                                 consumer == _rezkaId || scenario.key == 'passed-stage-hidden'

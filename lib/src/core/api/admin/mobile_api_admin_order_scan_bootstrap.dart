@@ -7,17 +7,22 @@ class AdminOrderScanBootstrap {
     required this.scope,
     this.materials,
     this.qolips,
+    this.queueContext,
+    this.validatedProgress,
   });
 
   final AdminPrintPreflightControlState controlState;
   final String scope;
   final AdminRawMaterialStartRequirements? materials;
   final AdminProductionMapQolipValidation? qolips;
+  final AdminApparatusQueueSnapshot? queueContext;
+  final AdminProgressBatch? validatedProgress;
 
   factory AdminOrderScanBootstrap.fromJson(
     Map<String, dynamic> json, {
     required String apparatus,
     required String orderId,
+    String qrPayload = '',
   }) {
     final rawControl = json['control_state'];
     final control = AdminPrintPreflightControlState.tryFromJson(rawControl);
@@ -45,8 +50,100 @@ class AdminOrderScanBootstrap {
       scope: rawControl['scope'] as String,
       materials: _completeBootstrapMaterials(ready('materials'), orderId),
       qolips: _completeBootstrapQolips(ready('qolips')),
+      queueContext: json.containsKey('queue_context')
+          ? _completeBootstrapQueueContext(
+              json['queue_context'], control, rawControl['scope'] as String)
+          : null,
+      validatedProgress: json.containsKey('validated_progress')
+          ? _completeBootstrapProgress(
+              json['validated_progress'], control, qrPayload)
+          : null,
     );
   }
+}
+
+Object? _bootstrapComparableJson(Object? value) {
+  if (value is Map) {
+    final keys = value.keys.cast<String>().toList()..sort();
+    return {for (final key in keys) key: _bootstrapComparableJson(value[key])};
+  }
+  if (value is List) return value.map(_bootstrapComparableJson).toList();
+  return value;
+}
+
+AdminApparatusQueueSnapshot _completeBootstrapQueueContext(
+  Object? raw,
+  AdminPrintPreflightControlState control,
+  String scope,
+) {
+  if (raw is! Map ||
+      raw['ok'] != true ||
+      raw['maps'] is! List ||
+      raw['stage_states'] is! Map) {
+    throw _productionMapQueueContractException('invalid scan queue context');
+  }
+  final snapshot = _decodeProductionMapQueueSnapshot(jsonEncode(raw));
+  final targetControl =
+      snapshot.queueActionControls[control.apparatus]?[control.orderId];
+  final ids = snapshot.maps.map((order) => order.map.id.trim()).toList();
+  if (snapshot.epoch != control.epoch ||
+      snapshot.revision != control.revision ||
+      snapshot.scope != scope ||
+      snapshot.queueStates[control.apparatus]?[control.orderId] !=
+          control.queueState ||
+      snapshot.orderControlFor(control.orderId) != control.orderControl ||
+      !mapEquals(snapshot.stageStates[control.orderId] ?? const {},
+          control.stageStates) ||
+      targetControl == null ||
+      jsonEncode(_bootstrapComparableJson(
+              jsonDecode(targetControl.serverContractSignature))) !=
+          jsonEncode(_bootstrapComparableJson(
+              jsonDecode(control.control.serverContractSignature))) ||
+      ids.length != (raw['maps'] as List).length ||
+      ids.any((id) => id.isEmpty) ||
+      ids.toSet().length != ids.length ||
+      !ids.contains(control.orderId)) {
+    throw _productionMapQueueContractException(
+        'scan queue context disagrees with control');
+  }
+  return snapshot;
+}
+
+AdminProgressBatch _completeBootstrapProgress(
+  Object? raw,
+  AdminPrintPreflightControlState control,
+  String qrPayload,
+) {
+  if (raw is! Map ||
+      raw['ok'] != true ||
+      raw['active_order_validated'] != true ||
+      raw['validated_apparatus'] != control.apparatus ||
+      raw['validated_order_id'] != control.orderId ||
+      control.orderControl != AdminOrderControlState.active ||
+      raw['batch'] is! Map) {
+    throw _productionMapQueueContractException('invalid scan progress proof');
+  }
+  final batch = raw['batch'] as Map;
+  if (qrPayload.trim().isEmpty ||
+      batch['batch_id'] is! String ||
+      (batch['batch_id'] as String).trim().isEmpty ||
+      batch['order_id'] != control.orderId ||
+      batch['qr_payload'] is! String ||
+      (batch['qr_payload'] as String).trim().toUpperCase() !=
+          qrPayload.trim().toUpperCase() ||
+      batch['wip_status'] != 'waiting' ||
+      raw['input_route'] is! Map ||
+      (raw['input_route_error'] != null && raw['input_route_error'] != '')) {
+    throw _productionMapQueueContractException(
+        'invalid scan progress identity');
+  }
+  final route = AdminProgressInputRoute.fromJson(
+      (raw['input_route'] as Map).cast<String, dynamic>());
+  if (!route.consumerApparatusIds.contains(control.apparatus)) {
+    throw _productionMapQueueContractException('invalid scan progress route');
+  }
+  return AdminProgressBatch.fromJson(batch.cast<String, dynamic>(),
+      inputRoute: route, hasInputRouteMetadata: true);
 }
 
 bool _bootstrapStrings(Object? raw) =>
@@ -146,6 +243,8 @@ extension MobileApiAdminOrderScanBootstrap on MobileApi {
     required String orderId,
     List<String> materialBarcodes = const [],
     bool includeSections = true,
+    bool includeContext = false,
+    String qrPayload = '',
   }) async {
     final station = _requireCanonicalApparatusId(apparatus);
     final order = orderId.trim();
@@ -158,6 +257,8 @@ extension MobileApiAdminOrderScanBootstrap on MobileApi {
             'apparatus': station,
             'order_id': order,
             if (!includeSections) 'include_sections': 'false',
+            if (includeContext) 'include_context': 'true',
+            if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
             if (materialBarcodes.isNotEmpty)
               'material_barcodes': materialBarcodes.join(','),
           },
@@ -179,6 +280,7 @@ extension MobileApiAdminOrderScanBootstrap on MobileApi {
       await decodeJsonMapPayload(response.body),
       apparatus: station,
       orderId: order,
+      qrPayload: qrPayload.trim(),
     );
   }
 }

@@ -54,7 +54,16 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       _qolipRequirementsError = '';
     });
     try {
-      final result = await MobileApi.instance
+      final prepared = _pendingFabPreparedScan;
+      _pendingFabPreparedScan = null;
+      if (prepared != null && (prepared.readScope != scope ||
+          prepared.qrPayload.trim() != widget.initialScanQrPayload.trim() ||
+          prepared.bootstrap.controlState.apparatus != apparatus ||
+          prepared.bootstrap.controlState.orderId != orderId)) {
+        throw const MobileApiException(
+            code: 'order_scan_bootstrap_stale', message: '');
+      }
+      final result = prepared?.bootstrap ?? await MobileApi.instance
           .adminOrderScanBootstrap(
             apparatus: apparatus,
             orderId: orderId,
@@ -78,6 +87,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       acceptedControl = control;
       _setScanBootstrapState(() {
         _applyDetailControl(control);
+        _initialFabBootstrapAccepted = prepared != null;
         _qolipRequirementsLoading = false;
       });
       final needsMaterials = control.control.interaction?.startMaterialsMode ==

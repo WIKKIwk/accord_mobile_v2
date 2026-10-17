@@ -331,7 +331,7 @@ void _registerWorkerQrWindowTests() {
                   fixture.requests.where((request) =>
                       request.url.path.endsWith('/sequence') &&
                       request.url.queryParameters.containsKey('apparatus')),
-                  hasLength(1),
+                  hasLength(0),
                   reason:
                       'Permission denial must not retry through a legacy fallback');
             }

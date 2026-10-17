@@ -45,6 +45,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   final Set<String> _seenQuickScanValues = <String>{};
   int _quickScanActiveCount = 0;
   bool _initialQrScanPending = false;
+  _WorkerFabPreparedScan? _pendingFabPreparedScan;
+  bool _initialFabBootstrapAccepted = false;
   int _materialIntakeActiveCount = 0;
   int _materialLoadGeneration = 0;
 
@@ -144,6 +146,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _applyDetailControl(canonicalControl);
     }
     _initialQrScanPending = widget.initialScanQrPayload.trim().isNotEmpty;
+    _pendingFabPreparedScan = widget.initialFabPreparedScan;
     unawaited(_loadInitialInteractionAndScan());
     unawaited(_loadOrderImage());
     if (widget.startPauseOnOpen) {
@@ -764,6 +767,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       }
       final qrPayload = widget.initialScanQrPayload.trim();
       if (qrPayload.isNotEmpty) {
+        final prepared = widget.initialFabPreparedScan;
+        if (_initialFabBootstrapAccepted && prepared != null &&
+            prepared.bootstrap.validatedProgress != null) {
+          final accepted = await _acceptInitialFabScan(prepared);
+          if (!mounted || scope != currentSessionReadScope()) return;
+          if (!accepted) {
+            await _showWipScanGuidance(
+                context.l10n.productionText('worker.qr.scan_state_changed'));
+          }
+          return;
+        }
         // Validate the FAB's QR without mounting a second camera. Scan tasks
         // stay authoritative so rejected or incomplete scans can resume below.
         await _handleQuickScan(qrPayload);
@@ -3322,6 +3336,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.initialOrderControls = const {},
     this.initialOrderSwitchBatch,
     this.initialScanQrPayload = '',
+    this.initialFabPreparedScan,
     this.initialPauseRequestId = '',
     this.startPauseOnOpen = false,
     this.startWorkerHandoffOnOpen = false,
@@ -3359,6 +3374,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final Map<String, AdminOrderControlState> initialOrderControls;
   final _ScannedWorkerWip? initialOrderSwitchBatch;
   final String initialScanQrPayload;
+  final _WorkerFabPreparedScan? initialFabPreparedScan;
   final String initialPauseRequestId;
   final bool startPauseOnOpen;
   final bool startWorkerHandoffOnOpen;
