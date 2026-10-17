@@ -15,9 +15,13 @@ class MaterialLinkRequestPanel extends StatefulWidget {
     required this.orderId,
     required this.apparatusId,
     required this.onMaterialsLinked,
+    this.allowNewRequests = true,
   });
   final String orderId, apparatusId;
   final VoidCallback onMaterialsLinked;
+  // Assignment readiness is separate from QR confirmation and delivery.
+  // Keep this panel mounted so existing requests can still be tracked.
+  final bool allowNewRequests;
   @override
   State<MaterialLinkRequestPanel> createState() =>
       _MaterialLinkRequestPanelState();
@@ -172,7 +176,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
   }
 
   Future<void> _send() async {
-    if (_busy) return;
+    if (_busy || !widget.allowNewRequests) return;
     final scope = _scope;
     final generation = _beginMutation();
     final orderId = widget.orderId;
@@ -182,7 +186,11 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
         orderId: orderId,
         apparatus: apparatusId,
       );
-      if (!mounted || !_isCurrent(scope, generation)) return;
+      if (!mounted ||
+          !_isCurrent(scope, generation) ||
+          !widget.allowNewRequests) {
+        return;
+      }
       setState(() => _overview = overview);
       if (overview.requests.any((r) => r.pending)) return;
       if (overview.candidates.isEmpty) {
@@ -204,6 +212,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
         ),
       );
       if (!_isCurrent(scope, generation) ||
+          !widget.allowNewRequests ||
           selected == null ||
           selected.isEmpty) {
         return;
@@ -269,7 +278,8 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
       latest.putIfAbsent(request.moverRef, () => request);
     }
     final pending = latest.values.any((r) => r.pending);
-    final available = _overview?.candidates.isNotEmpty ?? false;
+    final hasCandidates = _overview?.candidates.isNotEmpty ?? false;
+    final available = widget.allowNewRequests && hasCandidates;
     if (!available && latest.isEmpty && _error.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -314,7 +324,10 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
                     pending ? 'Tasdiq kutilmoqda' : 'Ulash uchun so‘rov'),
               ),
             ],
-            if (!available && !pending && latest.isNotEmpty)
+            if (widget.allowNewRequests &&
+                !hasCandidates &&
+                !pending &&
+                latest.isNotEmpty)
               const UrduAwareText(
                   'Hozir bu orderga ulash mumkin bo‘lgan bo‘sh rulon yo‘q'),
           ],

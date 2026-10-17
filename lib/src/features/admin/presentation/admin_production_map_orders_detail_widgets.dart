@@ -26,6 +26,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.materialsError,
     required this.materialStartReady,
     required this.materialStartBlockingText,
+    required this.materialLinkRequestAllowed,
     this.blockingBusyDetailText,
     required this.actionInFlight,
     required this.materialIntakeInFlight,
@@ -110,6 +111,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String materialsError;
   final bool materialStartReady;
   final String materialStartBlockingText;
+  final bool materialLinkRequestAllowed;
   // Uskuna band bo'lsa qaysi buyurtma ishlayotganini ko'rsatadigan
   // batafsil matn (topilmasa null).
   final String? blockingBusyDetailText;
@@ -390,6 +392,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                               orderId: map.id,
                               apparatusId: uiState.station,
                               onMaterialsLinked: onMaterialsLinked!,
+                              allowNewRequests: materialLinkRequestAllowed,
                             )
                           : null,
                     ),

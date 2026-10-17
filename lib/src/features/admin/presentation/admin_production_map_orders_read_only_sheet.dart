@@ -575,6 +575,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         materialsError: _materialsError,
         materialStartReady: materialStartReady,
         materialStartBlockingText: materialStartBlockingText,
+        materialLinkRequestAllowed: !_materialsLoading &&
+            _materialsError.trim().isEmpty &&
+            _materialStartRequirements?.assignmentsSatisfied == false,
         blockingBusyDetailText: _apparatusBusyDetailText(),
         actionInFlight: _queueActionBusy || _initialQrScanPending,
         materialIntakeInFlight: _materialIntakeInFlight,

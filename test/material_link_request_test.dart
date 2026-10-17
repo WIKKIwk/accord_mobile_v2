@@ -85,6 +85,152 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  testWidgets('satisfied assignments hide new linking while polling continues',
+      (tester) async {
+    final allowed = ValueNotifier(false);
+    addTearDown(allowed.dispose);
+    var reads = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_localizedApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: allowed,
+            builder: (_, allowNewRequests, __) => MaterialLinkRequestPanel(
+              orderId: 'order-1',
+              apparatusId: 'apparatus:test:film',
+              onMaterialsLinked: () {},
+              allowNewRequests: allowNewRequests,
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Ulash uchun so‘rov'), findsNothing);
+      expect(find.textContaining('ta mos rulondan'), findsNothing);
+      expect(reads, 1);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(reads, 2);
+      allowed.value = true;
+      await tester.pumpAndSettle();
+      expect(find.text('Ulash uchun so‘rov'), findsOneWidget);
+      expect(find.textContaining('ta mos rulondan'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }, () => MockClient((request) async {
+      expectSync(request.method, 'GET');
+      reads++;
+      return http.Response(
+          jsonEncode({'candidates': fixture()['candidates'], 'requests': []}),
+          200);
+    }));
+  });
+
+  testWidgets('satisfied assignments retain pending tracking and approval refresh',
+      (tester) async {
+    var status = 'pending';
+    var linked = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_localizedApp(
+        home: Scaffold(
+          body: MaterialLinkRequestPanel(
+            orderId: 'order-1',
+            apparatusId: 'apparatus:test:film',
+            onMaterialsLinked: () => linked++,
+            allowNewRequests: false,
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Tasdiq kutilmoqda'), findsOneWidget);
+      expect(find.textContaining('ta mos rulondan'), findsNothing);
+      expect(
+          tester
+              .widget<TextButton>(
+                  find.widgetWithText(TextButton, 'So‘rovni bekor qilish'))
+              .onPressed,
+          isNotNull);
+      status = 'approved';
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(linked, 1);
+      expect(find.textContaining('Tasdiqlangan'), findsOneWidget);
+      expect(find.text('Ulash uchun so‘rov'), findsNothing);
+      expect(find.text('Tasdiq kutilmoqda'), findsNothing);
+      expect(find.textContaining('bo‘sh rulon yo‘q'), findsNothing);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(linked, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }, () => MockClient((request) async {
+      expectSync(request.method, 'GET');
+      return http.Response(
+          jsonEncode({
+            'candidates': fixture()['candidates'],
+            'requests': [fixture(status: status)],
+          }),
+          200);
+    }));
+  });
+
+  for (final phase in ['preflight', 'picker']) {
+    testWidgets('assignments satisfied during $phase prevent a new request',
+        (tester) async {
+      final allowed = ValueNotifier(true);
+      addTearDown(allowed.dispose);
+      final delayed = Completer<http.Response>();
+      final response = http.Response(
+          jsonEncode({'candidates': fixture()['candidates'], 'requests': []}),
+          200);
+      var reads = 0;
+      var writes = 0;
+      await http.runWithClient(() async {
+        await tester.pumpWidget(_localizedApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: allowed,
+              builder: (_, allowNewRequests, __) => MaterialLinkRequestPanel(
+                orderId: 'order-1',
+                apparatusId: 'apparatus:test:film',
+                onMaterialsLinked: () {},
+                allowNewRequests: allowNewRequests,
+              ),
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Ulash uchun so‘rov'));
+        await tester.pumpAndSettle();
+        if (phase == 'picker') {
+          await tester.tap(find.byKey(const ValueKey('material-link-roll-R2')));
+          await tester.pump();
+        }
+        allowed.value = false;
+        await tester.pump();
+        if (phase == 'preflight') {
+          delayed.complete(response);
+        } else {
+          await tester.tap(find.text('So‘rov yuborish (1)'));
+        }
+        await tester.pumpAndSettle();
+        expect(writes, 0);
+        expect(find.byType(MaterialLinkRollPicker), findsNothing);
+        expect(find.text('Ulash uchun so‘rov'), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }, () => MockClient((request) async {
+        if (request.method == 'POST') {
+          writes++;
+          return http.Response('{"ok":true}', 200);
+        }
+        reads++;
+        if (reads == 2 && phase == 'preflight') return delayed.future;
+        return response;
+      }));
+    });
+  }
+
   testWidgets(
     'worker panel pauses hidden/background polling and refreshes on return',
     (tester) async {

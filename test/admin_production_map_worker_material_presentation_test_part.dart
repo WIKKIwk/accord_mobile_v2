@@ -11,6 +11,7 @@ void _registerWorkerMaterialPresentationTests() {
     required List<String> statuses,
     int requiredCount = 0,
     int matchedCount = 0,
+    bool? assignmentsSatisfied,
     bool scanSatisfied = false,
     bool blocked = false,
     bool materialRequired = true,
@@ -103,7 +104,8 @@ void _registerWorkerMaterialPresentationTests() {
         'staged_barcodes': staged.map((row) => row['barcode']).toList(),
         'required_scan_count': requiredCount,
         'matched_scan_count': matchedCount,
-        'assignments_satisfied': statuses.isNotEmpty || !materialRequired,
+        'assignments_satisfied':
+            assignmentsSatisfied ?? (usable.isNotEmpty || !materialRequired),
         'scan_satisfied': scanSatisfied,
         'assignments': assignments,
         'start_assignments': staged.toList(),
@@ -120,6 +122,7 @@ void _registerWorkerMaterialPresentationTests() {
         expect(find.text(unassigned), findsNothing);
         expect(find.text(notDelivered), findsNothing);
         expect(find.text('0/0'), findsNothing);
+        expect(find.text('Ulash uchun so‘rov'), findsNothing);
         expect(find.byKey(const ValueKey('material-alert:$orderId:$_print9Id')),
             findsNothing);
         loading.complete(requirementsResponse);
@@ -281,6 +284,7 @@ void _registerWorkerMaterialPresentationTests() {
       matched: 0,
       satisfied: false,
       groups: false,
+      needsLink: false,
       status: notDelivered,
       detail: ''
     ),
@@ -291,6 +295,7 @@ void _registerWorkerMaterialPresentationTests() {
       matched: 0,
       satisfied: false,
       groups: false,
+      needsLink: false,
       status: 'Biriktirilgan homashyolar',
       detail: ''
     ),
@@ -301,6 +306,7 @@ void _registerWorkerMaterialPresentationTests() {
       matched: 1,
       satisfied: true,
       groups: false,
+      needsLink: false,
       status: 'Biriktirilgan homashyolar',
       detail: ''
     ),
@@ -317,6 +323,7 @@ void _registerWorkerMaterialPresentationTests() {
       matched: 0,
       satisfied: false,
       groups: false,
+      needsLink: false,
       status: 'Biriktirilgan homashyolar',
       detail: '2 ta apparat oldida, 3 ta yetkazilishi kutilmoqda'
     ),
@@ -327,6 +334,7 @@ void _registerWorkerMaterialPresentationTests() {
       matched: 1,
       satisfied: true,
       groups: true,
+      needsLink: false,
       status: 'Biriktirilgan homashyolar',
       detail: '1 ta apparat oldida, 1 ta yetkazilishi kutilmoqda'
     ),
@@ -337,6 +345,7 @@ void _registerWorkerMaterialPresentationTests() {
       matched: 0,
       satisfied: false,
       groups: false,
+      needsLink: true,
       status: 'Biriktirilgan homashyolar',
       detail: notReady
     ),
@@ -347,6 +356,7 @@ void _registerWorkerMaterialPresentationTests() {
       matched: 0,
       satisfied: false,
       groups: false,
+      needsLink: true,
       status: 'Biriktirilgan homashyolar',
       detail: notReady
     ),
@@ -405,8 +415,13 @@ void _registerWorkerMaterialPresentationTests() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
         expect(find.textContaining('RM-PRESENTATION-0'), findsNothing);
-        // Linking stays visible and its polling remains mounted when collapsed.
-        expect(find.text('Ulash uchun so‘rov'), findsOneWidget);
+        expect(find.text('Ulash uchun so‘rov'),
+            scenario.needsLink ? findsOneWidget : findsNothing);
+        expect(
+            find.text(
+                'Apparat oldidagi 1 ta mos rulondan keraklisini tanlab so‘rov yuboring'),
+            scenario.needsLink ? findsOneWidget : findsNothing);
+        // Approval polling stays mounted even when no new request is needed.
         final polls = requests
             .where((r) => r.url.path.endsWith('/material-link-requests'))
             .length;
@@ -420,6 +435,29 @@ void _registerWorkerMaterialPresentationTests() {
       });
     });
   }
+
+  testWidgets(
+      'worker material presentation: attached roll with missing requirement group still offers linking',
+      (tester) async {
+    await open(tester,
+        statuses: const ['ready'],
+        assignmentsSatisfied: false,
+        groupsPolicy: true,
+        requiredCount: 2,
+        matchedCount: 1, verify: (_) async {
+      expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
+      expect(find.text('1/2'), findsOneWidget);
+      expect(find.text('Ulash uchun so‘rov'), findsOneWidget);
+      expect(find.text('Majburiy homashyo guruhlari to‘liq biriktirilmagan'),
+          findsOneWidget);
+      expect(
+          tester
+              .widget<FilledButton>(
+                  find.widgetWithText(FilledButton, 'Boshlash'))
+              .onPressed,
+          isNull);
+    });
+  });
 
   testWidgets('worker material presentation: loading is not unassigned',
       (tester) async {
@@ -439,6 +477,7 @@ void _registerWorkerMaterialPresentationTests() {
       expect(card.materialsError, isNotEmpty);
       expect(find.text(card.materialsError as String), findsOneWidget);
       expect(find.text('0/0'), findsNothing);
+      expect(find.text('Ulash uchun so‘rov'), findsNothing);
       expect(find.byKey(const ValueKey('material-alert:$orderId:$_print9Id')),
           findsNothing);
       expect(
