@@ -30,36 +30,45 @@ extension _AdminProductionMapOrdersRePause
 
   Future<void> _runWorkerRePause(AdminApparatus apparatus,
       ProductionMapSaved order, AdminResumePauseControl checkpoint) async {
-    final key = '${apparatus.id.trim()}|${order.map.id.trim()}';
+    final apparatusId = apparatus.id.trim();
+    final orderId = order.map.id.trim();
+    final key = '$apparatusId|$orderId';
     if (!_beginQueueAction(key)) return;
     final scope = currentSessionReadScope();
     var success = false;
     try {
       await MobileApi.instance.adminRePauseResumedWork(
-          apparatus: apparatus.id,
-          orderId: order.map.id,
+          apparatus: apparatusId,
+          orderId: orderId,
           resumeId: checkpoint.resumeId);
       success = true;
     } catch (_) {
       // A timeout may follow a committed write. Reconcile with reads only.
     } finally {
-      if (mounted && scope == currentSessionReadScope()) {
-        setState(() {
-          _queueSnapshotNeedsReconcile = true;
-          _queueSnapshotGeneration++;
-          _queueActionControlsByApparatus[apparatus.id]?.remove(order.map.id);
-        });
-        _sheetQueueSnapshot.value = null;
-        showAdminTopNotice(
-            context,
-            context.l10n.productionText(
-                success ? 'worker.re_pause.success' : 'worker.re_pause.failed'),
-            tone: success
-                ? AdminTopNoticeTone.success
-                : AdminTopNoticeTone.error);
-        unawaited(_refreshQueueSnapshot());
+      try {
+        if (mounted && scope == currentSessionReadScope()) {
+          setState(() {
+            _queueSnapshotNeedsReconcile = true;
+            _queueSnapshotGeneration++;
+            // Snapshot maps are immutable; invalidate only the local copy.
+            _queueActionControlsByApparatus[apparatusId] =
+                Map<String, AdminApparatusQueueOrderActionControl>.from(
+                    _queueActionControlsByApparatus[apparatusId] ?? const {})
+                  ..remove(orderId);
+          });
+          _sheetQueueSnapshot.value = null;
+          showAdminTopNotice(
+              context,
+              context.l10n.productionText(
+                  success ? 'worker.re_pause.success' : 'worker.re_pause.failed'),
+              tone: success
+                  ? AdminTopNoticeTone.success
+                  : AdminTopNoticeTone.error);
+          unawaited(_refreshQueueSnapshot());
+        }
+      } finally {
+        _endQueueAction(key);
       }
-      _endQueueAction(key);
     }
   }
 }
