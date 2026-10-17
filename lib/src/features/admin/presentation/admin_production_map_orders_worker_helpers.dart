@@ -108,6 +108,7 @@ List<_WorkerCompletedOrderEntry> _workerCompletedOrders({
             completed: completed,
             apparatus: apparatus,
           ),
+          apparatusId: completed.apparatus.trim(),
           status: completed.status,
           issueNote: completed.issueNote,
         ),

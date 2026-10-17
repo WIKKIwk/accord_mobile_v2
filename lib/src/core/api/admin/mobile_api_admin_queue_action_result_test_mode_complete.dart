@@ -34,7 +34,9 @@ if (current != ApparatusQueueOrderState.inProgress) {
           if (rezkaBosmaWaste == 0) 'rezka_bosma_waste',
           if (rezkaLaminationWaste == 0) 'rezka_lamination_waste',
           if (rezkaEdgeWaste == 0) 'rezka_edge_waste',
-          if (totalWaste == 0) 'total_waste',
+          if (totalWaste == 0 && !(isRezka &&
+              _testModeQueueActionControlFixtures[storageKey]?[orderId.trim()]
+                  ?.completeRequiresRezkaTotalWasteOnly == true)) 'total_waste',
           if (finishedGoodsKg == 0) 'finished_goods_kg',
           if (finishedGoodsMeter == 0) 'finished_goods_meter',
           if (bobinaKg == 0) 'bobina_kg',

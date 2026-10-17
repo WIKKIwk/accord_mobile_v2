@@ -5,6 +5,172 @@ void _registerWorkerCompletedWipTests() {
   const workerRef = 'worker-completed-wip';
   final l10n = AppLocalizations(const Locale('uz'));
 
+  for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
+    testWidgets(
+        'completed history retains downstream WIP and only reprints on $station',
+        (tester) async {
+      final fixture = _ReactivationFixture(station);
+      final requests = <http.Request>[];
+      Map<String, dynamic>? output;
+      await http.runWithClient(() async {
+        await fixture.open(tester,
+            progressDriverUrlPicker: (_) async => 'http://printer.test');
+        await tester.tap(find
+            .ancestor(
+              of: find.textContaining('Reactivation order'),
+              matching: find.byType(InkWell),
+            )
+            .first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('2 ta WIP yaratilgan'), findsOneWidget);
+        expect(find.text('5 m'), findsOneWidget);
+        expect(find.text('121 m'), findsOneWidget);
+        expect(
+            find.descendant(
+                of: find.byKey(const ValueKey('worker-wip-item-0')),
+                matching: find.text('5 m')),
+            findsOneWidget);
+        expect(find.text('999 m'), findsNothing);
+        expect(find.text('Rulonni yechish'), findsNothing);
+        expect(find.text('Tugatish'), findsNothing);
+        expect(find.text('Boshlash'), findsNothing);
+        expect(find.text('Davom ettirish'), findsNothing);
+        expect(
+            find.byKey(
+                const ValueKey('production-order-pause-complete-visible')),
+            findsNothing);
+        expect(requests.every((request) => request.method == 'GET'), isTrue);
+
+        // A short tap keeps details/reprint separate from reactivation actions.
+        await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
+        await tester.pumpAndSettle();
+        expect(find.text('Qayta chop etish'), findsOneWidget);
+        expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
+            findsNothing);
+        expect(requests.every((request) => request.method == 'GET'), isTrue);
+        await tester.tap(find.text('Qayta chop etish'));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump();
+        final writes = requests.where((request) => request.method != 'GET');
+        expect(writes, hasLength(1));
+        expect(find.text('WIP QR qayta chop etildi'), findsOneWidget);
+        final reprint = writes.single;
+        expect(reprint.url.path.endsWith('/progress-qr/reprint'), isTrue);
+        final body = jsonDecode(reprint.body) as Map;
+        expect(body['progress_batch_id'], _ReactivationFixture.batchId);
+        expect(body['qr_payload'], output!['qr_payload']);
+        expect(body['print_count'], 1);
+        expect(fixture.writes, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+          () => MockClient((request) async {
+                requests.add(request);
+                if (request.url.path.endsWith('/progress-qr/reprint')) {
+                  return http.Response(
+                      jsonEncode({'ok': true, 'batch': output}), 200);
+                }
+                final response = await fixture.respond(request);
+                if (!request.url.path.endsWith('/wip-batches')) return response;
+                expect(request.url.queryParameters['order_id'],
+                    _ReactivationFixture.orderId);
+                expect(request.url.queryParameters['status'], 'all');
+                output = ((jsonDecode(response.body) as Map)['batches'] as List)
+                    .single
+                    .cast<String, dynamic>();
+                // Its location has changed; the output must remain in producer history.
+                output!['current_apparatus'] = _lamination2Id;
+                output!['wip_status'] = 'processed';
+                output!['produced_qty'] = 5;
+                final batches = <Map<String, dynamic>>[
+                  {
+                    ...output!,
+                    'batch_id': 'earlier-output',
+                    'produced_qty': 121,
+                    'completed_at_unix': 90,
+                    'qr_payload': '400000000000000000000002',
+                  },
+                  output!,
+                  {
+                    ...output!,
+                    'batch_id': 'other-worker',
+                    'worker_ref': 'another-worker',
+                    'produced_qty': 999,
+                  },
+                  {
+                    ...output!,
+                    'batch_id': 'other-stage',
+                    'apparatus': _lamination2Id,
+                    'produced_qty': 999,
+                  },
+                  {
+                    ...output!,
+                    'batch_id': 'other-order',
+                    'order_id': 'another-order',
+                    'produced_qty': 999,
+                  },
+                ];
+                final currentApparatus =
+                    request.url.queryParameters['apparatus'] ?? '';
+                return http.Response(
+                    jsonEncode({
+                      // Match PostgreSQL: `apparatus` filters the current
+                      // location, even when status=all includes processed WIP.
+                      'batches': batches
+                          .where((batch) =>
+                              batch['order_id'] ==
+                                  request.url.queryParameters['order_id'] &&
+                              (currentApparatus.isEmpty ||
+                                  batch['current_apparatus'] ==
+                                      currentApparatus))
+                          .toList(),
+                    }),
+                    200);
+              }));
+    });
+  }
+
+  testWidgets(
+      'completed WIP reprint stops after account changes in printer picker',
+      (tester) async {
+    final fixture = _ReactivationFixture(_lamination1Id);
+    final requests = <http.Request>[];
+    await http.runWithClient(() async {
+      await fixture.open(tester, progressDriverUrlPicker: (_) async {
+        AppSession.instance.profile = const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Other worker',
+          legalName: '',
+          ref: 'another-worker',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [_lamination1Id],
+        );
+        return 'http://printer.test';
+      });
+      await tester.tap(find
+          .ancestor(
+            of: find.textContaining('Reactivation order'),
+            matching: find.byType(InkWell),
+          )
+          .first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Qayta chop etish'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      expect(requests.every((request) => request.method == 'GET'), isTrue);
+      expect(find.text('WIP QR qayta chop etildi'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              requests.add(request);
+              return fixture.respond(request);
+            }));
+  });
+
   Future<void> openCompletedTab(WidgetTester tester) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.adminSaveProductionMap(_twoStageProductionOrderMap(
@@ -241,8 +407,8 @@ void _registerWorkerCompletedWipTests() {
                   return http.Response('{"error":"forbidden"}', 403);
                 }
                 expect(request.url.queryParameters['order_id'], orderId);
-                expect(
-                    request.url.queryParameters['apparatus'], _lamination1Id);
+                expect(request.url.queryParameters.containsKey('apparatus'),
+                    isFalse);
                 historyAttempts++;
                 if (scenario == 'retry' && historyAttempts == 1) {
                   return http.Response('{"error":"store_failed"}', 503);

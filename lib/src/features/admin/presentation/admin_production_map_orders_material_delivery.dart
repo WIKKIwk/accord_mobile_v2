@@ -233,53 +233,74 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
     return showDialog<AdminMaterialDeliverer>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
+        builder: (context, update) => Dialog(
           key: const ValueKey('material-delivery-dialog'),
-          title: Text(l10n.productionText('worker.delivery.title')),
-          content: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(material.itemName.isEmpty
-                    ? material.itemCode
-                    : material.itemName),
-                Text(material.barcode),
-                const SizedBox(height: 12),
-                Text(l10n.productionText('worker.delivery.message')),
-                const SizedBox(height: 12),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(children: [
-                      for (final deliverer in deliverers)
-                        ListTile(
-                          key: ValueKey(
-                              'material-deliverer-${deliverer.role}-${deliverer.ref}'),
-                          title: Text(deliverer.name),
-                          leading: Icon(selected == deliverer
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked),
-                          onTap: () => update(() => selected = deliverer),
-                        ),
-                    ]),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 440,
+              maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.productionText('worker.delivery.title'),
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        Text(material.itemName.isEmpty
+                            ? material.itemCode
+                            : material.itemName),
+                        Text(material.barcode),
+                        const SizedBox(height: 12),
+                        Text(l10n.productionText('worker.delivery.message')),
+                        const SizedBox(height: 12),
+                        for (final deliverer in deliverers)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            key: ValueKey(
+                                'material-deliverer-${deliverer.role}-${deliverer.ref}'),
+                            title: Text(deliverer.name),
+                            leading: Icon(selected == deliverer
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked),
+                            onTap: () => update(() => selected = deliverer),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      key: const ValueKey('material-delivery-confirm'),
+                      onPressed: selected == null
+                          ? null
+                          : () => Navigator.pop(dialogContext, selected),
+                      child:
+                          Text(l10n.productionText('worker.delivery.confirm')),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(l10n.productionText('worker.delivery.cancel')),
+                  ),
+                ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(l10n.productionText('worker.delivery.cancel'))),
-            FilledButton(
-              key: const ValueKey('material-delivery-confirm'),
-              onPressed: selected == null
-                  ? null
-                  : () => Navigator.pop(dialogContext, selected),
-              child: Text(l10n.productionText('worker.delivery.confirm')),
-            ),
-          ],
         ),
       ),
     );

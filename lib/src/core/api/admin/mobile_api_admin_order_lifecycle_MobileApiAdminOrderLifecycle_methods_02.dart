@@ -5,6 +5,8 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
   Future<AdminRezkaAstatkaReport> adminRezkaAstatkaReport({
     required String apparatus,
     required String orderId,
+    String stageNodeId = '',
+    bool totalWasteOnly = false,
     double? totalWaste,
     double? rezkaBosmaWaste,
     double? rezkaLaminationWaste,
@@ -20,12 +22,14 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
         value != null && value.isFinite && value >= 0;
     bool isPositive(double? value) =>
         value != null && value.isFinite && value > 0;
+    bool validCategory(double? value) =>
+        (totalWasteOnly && value == null) || isNonNegative(value);
     if (!isCanonicalApparatusId(normalizedApparatus) ||
         normalizedOrderId.isEmpty ||
         !isNonNegative(totalWaste) ||
-        !isNonNegative(rezkaBosmaWaste) ||
-        !isNonNegative(rezkaLaminationWaste) ||
-        !isNonNegative(rezkaEdgeWaste) ||
+        !validCategory(rezkaBosmaWaste) ||
+        !validCategory(rezkaLaminationWaste) ||
+        !validCategory(rezkaEdgeWaste) ||
         (finishedGoodsMeter != null && !isPositive(finishedGoodsMeter)) ||
         (finishedGoodsKg != null && !isPositive(finishedGoodsKg)) ||
         (bobinaKg != null && !isPositive(bobinaKg))) {
@@ -71,9 +75,9 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
         fromAtUnix: fromAtUnix,
         toAtUnix: now,
         totalWaste: totalWaste!,
-        rezkaBosmaWaste: rezkaBosmaWaste!,
-        rezkaLaminationWaste: rezkaLaminationWaste!,
-        rezkaEdgeWaste: rezkaEdgeWaste!,
+        rezkaBosmaWaste: rezkaBosmaWaste ?? 0,
+        rezkaLaminationWaste: rezkaLaminationWaste ?? 0,
+        rezkaEdgeWaste: rezkaEdgeWaste ?? 0,
         finishedGoodsMeter: finishedGoodsMeter,
         finishedGoodsKg: finishedGoodsKg,
         bobinaKg: bobinaKg,
@@ -96,10 +100,12 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
         body: jsonEncode({
           'apparatus': normalizedApparatus,
           'order_id': normalizedOrderId,
+          if (stageNodeId.trim().isNotEmpty) 'stage_node_id': stageNodeId.trim(),
           'total_waste': totalWaste,
-          'rezka_bosma_waste': rezkaBosmaWaste,
-          'rezka_lamination_waste': rezkaLaminationWaste,
-          'rezka_edge_waste': rezkaEdgeWaste,
+          if (rezkaBosmaWaste != null) 'rezka_bosma_waste': rezkaBosmaWaste,
+          if (rezkaLaminationWaste != null)
+            'rezka_lamination_waste': rezkaLaminationWaste,
+          if (rezkaEdgeWaste != null) 'rezka_edge_waste': rezkaEdgeWaste,
           if (finishedGoodsMeter != null)
             'finished_goods_meter': finishedGoodsMeter,
           if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,

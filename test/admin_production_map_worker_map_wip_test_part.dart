@@ -50,15 +50,10 @@ void _registerWorkerMapWipTests() {
       await MobileApi.instance.adminApparatusQueueActionResult(
         apparatus: _print7Id,
         orderId: orderId,
-        action: 'complete',
+        action: 'detach_roll',
         producedQty: 15,
         grossQty: 9,
         uom: 'm',
-      );
-      setMobileApiTestModeQueueActionControlFixture(
-        apparatus: _print7Id,
-        orderId: orderId,
-        control: _completedQueueControl(),
       );
       await _usePhoneViewport(tester);
       await tester.pumpWidget(MaterialApp(
@@ -78,9 +73,7 @@ void _registerWorkerMapWipTests() {
         ),
       ));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Tugallangan'));
-      await tester.tap(find.text('Tugallangan'));
-      await tester.pumpAndSettle();
+      // Stage-map history is still reachable from an unfinished work item.
       await tester.tap(find
           .ancestor(
             of: find.textContaining('Map WIP order'),

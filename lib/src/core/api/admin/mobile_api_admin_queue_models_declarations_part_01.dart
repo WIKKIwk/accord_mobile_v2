@@ -216,6 +216,7 @@ class AdminApparatusQueueOrderActionControl {
     this.completeRequiresFullReport = false,
     this.closingOutputBatchId = '',
     this.completeRequiresRezkaTotalWasteOnly = false,
+    this.rezkaTotalWasteOnly = false,
     this.freezeRequest,
     this.printPreflightAllowed = false,
     this.printPreflight,
@@ -242,6 +243,7 @@ class AdminApparatusQueueOrderActionControl {
   final bool completeRequiresFullReport;
   final String closingOutputBatchId;
   final bool completeRequiresRezkaTotalWasteOnly;
+  final bool rezkaTotalWasteOnly;
   final AdminProductionOrderFreezeDetails? freezeRequest;
   final bool printPreflightAllowed;
   final AdminPrintPreflightHold? printPreflight;
@@ -545,6 +547,7 @@ class AdminApparatusQueueOrderActionControl {
           : '',
       completeRequiresRezkaTotalWasteOnly:
           json['complete_requires_rezka_total_waste_only'] == true,
+      rezkaTotalWasteOnly: json['rezka_total_waste_only'] == true,
       freezeRequest: json['freeze_request'] is Map
           ? AdminProductionOrderFreezeDetails.fromJson(
               (json['freeze_request'] as Map).cast<String, dynamic>(),

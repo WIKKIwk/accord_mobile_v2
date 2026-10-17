@@ -104,11 +104,13 @@ class _WorkerCompletedOrderEntry {
   const _WorkerCompletedOrderEntry({
     required this.order,
     required this.apparatus,
+    required this.apparatusId,
     required this.status,
     required this.issueNote,
   });
   final ProductionMapSaved order;
   final AdminApparatus? apparatus;
+  final String apparatusId;
   final String status;
   final String issueNote;
   bool get isInProgress => status.trim().toLowerCase() == 'in_progress';

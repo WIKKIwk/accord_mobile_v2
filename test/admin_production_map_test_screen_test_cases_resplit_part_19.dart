@@ -124,6 +124,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
         id: 'zakaz-rezka-intermediate-dialog',
         title: 'Intermediate Rezka dialog order',
         productCode: 'RZD-I',
+        orderNumber: '0012',
         apparatusId: _rezkaId,
         product: 'intermediate rezka dialog mahsulot',
       ),
@@ -184,7 +185,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
 
     await tester.tap(find.text('Rezka'));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('rezka-intermediate-dialog').first);
+    await tester.tap(find.byKey(const ValueKey('worker-order-zakaz-rezka-intermediate-dialog')));
     await tester.pumpAndSettle();
     expect(find.text('Rulon ulash'), findsOneWidget);
     expect(
@@ -197,8 +198,8 @@ void _registeradmin_production_map_test_screen_testCases19() {
     expect(find.text('Chiqish rulonlari (2 ta)'), findsOneWidget);
     expect(find.text('1-rulon — 1 kadrli'), findsOneWidget);
     expect(find.text('2-rulon — 2 kadrli'), findsOneWidget);
-    expect(find.text('Chiqindilar'), findsOneWidget);
-    expect(find.text('Jami chiqindi'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Chiqindi'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Jami chiqindi'), findsNothing);
     expect(find.text('Bosma chiqindisi'), findsNothing);
     expect(find.text('Laminatsiya chiqindisi'), findsNothing);
     expect(find.text('Chet chiqindisi'), findsNothing);

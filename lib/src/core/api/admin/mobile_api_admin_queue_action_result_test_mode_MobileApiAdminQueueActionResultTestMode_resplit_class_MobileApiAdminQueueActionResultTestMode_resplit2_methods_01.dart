@@ -268,7 +268,9 @@ extension MobileApiAdminQueueActionResultTestModeAstPart01 on MobileApi {
       rezkaBosmaWaste,
       rezkaLaminationWaste,
       rezkaEdgeWaste,
-    ].any(isPositive);
+    ].any(isPositive) || (isRezka && totalWaste == 0 &&
+        _testModeQueueActionControlFixtures[storageKey]?[orderId.trim()]
+            ?.completeRequiresRezkaTotalWasteOnly == true);
     final hasRezkaFrameWaste = rezkaFrames.any(
       (frame) => [
         frameMetric(frame, 'total_waste'),

@@ -49,7 +49,9 @@ final orders = [
 ];
 
 Widget screen({bool materialMode = false, bool sequenceMode = false,
-    RouteFactory? onGenerateRoute}) => MaterialApp(
+    RouteFactory? onGenerateRoute,
+    Stream<Object> Function()? liveEventsLoader,
+    int Function()? snapshotRevision}) => MaterialApp(
       onGenerateRoute: onGenerateRoute,
       locale: const Locale('uz'),
       localizationsDelegates: const [
@@ -65,10 +67,10 @@ Widget screen({bool materialMode = false, bool sequenceMode = false,
         qolipTasksMode: !materialMode && !sequenceMode,
         materialTasksMode: materialMode && !sequenceMode,
         apparatusLoader: () async => [machine],
-        liveEventsLoader: () => const Stream.empty(),
+        liveEventsLoader: liveEventsLoader ?? () => const Stream.empty(),
         queueSnapshotLoader: () async => AdminApparatusQueueSnapshot(
           maps: orders,
-          revision: 1,
+          revision: snapshotRevision?.call() ?? 1,
           epoch: 'tasks-test',
           sequences: {
             machine.id: [for (final order in orders) order.map.id]
@@ -295,6 +297,148 @@ void main() {
         return http.Response('{}', 200);
       }));
     });
+  }
+
+  for (final liveUpdate in [true, false]) {
+    testWidgets(
+      'material task returns after transfer unlinks the last material with unchanged queue IDs (${liveUpdate ? 'live' : 'polling'})',
+      (tester) async {
+        AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+          role: UserRole.materialTaminotchi,
+          capabilities: ['raw_material.assign'],
+        );
+        final events = StreamController<Object>.broadcast();
+        addTearDown(events.close);
+        var assigned = true;
+        var revision = 1;
+        var taskReads = 0;
+        final assignment = {
+          'order_id': 'zakaz-3',
+          'apparatus': machine.id,
+          'barcode': '30AA',
+          'item_code': 'PET',
+          'stock_status': 'available',
+        };
+
+        Future<void> changeAssignment({required bool link}) async {
+          if (link) {
+            await MobileApi.instance.adminAssignRawMaterialToOrder(
+              orderId: 'zakaz-3',
+              barcode: '30AA',
+              apparatus: machine.id,
+            );
+          } else {
+            await MobileApi.instance.adminUnlinkRawMaterialAssignment(
+              orderId: 'zakaz-3',
+              barcode: '30AA',
+            );
+          }
+          final previousRevision = revision++;
+          if (liveUpdate) {
+            events.add(
+              AdminProductionMapLiveStateDelta(
+                epoch: 'tasks-test',
+                baseRevision: previousRevision,
+                revision: revision,
+                // Assignment changes invalidate the cursor without changing queue rows.
+                patch: const {},
+              ),
+            );
+          } else {
+            await tester.pump(const Duration(seconds: 2));
+          }
+          await tester.pumpAndSettle();
+        }
+
+        await http.runWithClient(
+          () async {
+            await tester.pumpWidget(
+              screen(
+                materialMode: true,
+                liveEventsLoader: () => events.stream,
+                snapshotRevision: () => revision,
+              ),
+            );
+            await tester.pumpAndSettle();
+            final task = find.byKey(const ValueKey('material-task-zakaz-3'));
+            expect(task, findsNothing);
+            expect(taskReads, 1);
+
+            final navigator = Navigator.of(
+              tester.element(find.byType(AdminProductionMapOrdersScreen)),
+            );
+            unawaited(
+              navigator.push<void>(
+                MaterialPageRoute(
+                  builder: (_) => const Scaffold(body: Text('Transfer')),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            await changeAssignment(link: false);
+            navigator.pop();
+            await tester.pumpAndSettle();
+
+            // No 20-second polling delay and no apparatus/queue changes are needed.
+            expect(task, findsOneWidget);
+            expect(taskReads, 2);
+            expect(
+              find.byKey(const ValueKey('material-task-zakaz-1')),
+              findsNothing,
+            );
+
+            await changeAssignment(link: true);
+            expect(task, findsNothing);
+            await changeAssignment(link: false);
+            expect(task, findsOneWidget);
+            expect(taskReads, 4);
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+          },
+          () => MockClient((request) async {
+            if (request.url.path.endsWith('/gscale/material-tasks')) {
+              taskReads++;
+              final ids = (jsonDecode(request.body)['order_ids'] as List)
+                  .cast<String>();
+              return http.Response(
+                jsonEncode({
+                  'orders': [
+                    for (final id in ids)
+                      {
+                        'order_id': id,
+                        'materials': [
+                          {
+                            'material': 'PET',
+                            'micron': 12,
+                            'assigned': id == 'zakaz-3' ? assigned : true,
+                          },
+                        ],
+                      },
+                  ],
+                }),
+                200,
+              );
+            }
+            if (request.url.path.endsWith('/raw-material-assignments')) {
+              expect(jsonDecode(request.body)['order_id'], 'zakaz-3');
+              assigned = request.method == 'POST';
+              return http.Response(
+                jsonEncode(
+                  request.method == 'DELETE'
+                      ? {'ok': true, 'assignment': assignment}
+                      : assignment,
+                ),
+                200,
+              );
+            }
+            if (request.url.path.contains('order-image')) {
+              return http.Response('', 404);
+            }
+            return http.Response('{}', 200);
+          }),
+        );
+      },
+    );
   }
 
   testWidgets('material task tap shows details and QR permissions, long press opens receipt', (tester) async {

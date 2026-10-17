@@ -13,6 +13,8 @@ extension _QolipTasksScreen on _AdminProductionMapOrdersScreenState {
         apparatus.firstOrNull;
     return _QolipTasksPage(
       materialMode: widget.materialTasksMode,
+      snapshotEpoch: _lastAppliedSnapshotEpoch,
+      snapshotRevision: _lastAppliedSnapshotRevision,
       apparatus: apparatus,
       selected: selected,
       orders: selected == null ? const [] : _ordersForApparatus(selected),
@@ -32,6 +34,8 @@ extension _QolipTasksScreen on _AdminProductionMapOrdersScreenState {
 class _QolipTasksPage extends StatefulWidget {
   const _QolipTasksPage(
       {this.materialMode = false,
+      required this.snapshotEpoch,
+      required this.snapshotRevision,
       required this.apparatus,
       required this.selected,
       required this.orders,
@@ -42,6 +46,8 @@ class _QolipTasksPage extends StatefulWidget {
       required this.onSelect});
 
   final bool materialMode;
+  final String snapshotEpoch;
+  final int? snapshotRevision;
   final List<AdminApparatus> apparatus;
   final AdminApparatus? selected;
   final List<ProductionMapSaved> orders;
@@ -94,8 +100,16 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   @override
   void didUpdateWidget(covariant _QolipTasksPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_identity(oldWidget) != _identity(widget)) {
+    final windowChanged = _identity(oldWidget) != _identity(widget);
+    // Linking/unlinking materials advances the backend cursor even when the
+    // queue rows stay identical. Refresh without hiding the existing list.
+    final materialsChanged = widget.materialMode &&
+        (oldWidget.snapshotEpoch != widget.snapshotEpoch ||
+            oldWidget.snapshotRevision != widget.snapshotRevision);
+    if (windowChanged) {
       _loading = true;
+    }
+    if (windowChanged || materialsChanged) {
       unawaited(_load());
     }
   }

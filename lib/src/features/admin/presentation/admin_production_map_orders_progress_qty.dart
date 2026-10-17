@@ -113,7 +113,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
   String closingOutputBatchId = '',
-  bool rezkaTotalWasteOnlyCompletionRequired = false,
+  bool rezkaTotalWasteOnlyReport = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
   bool astatkaReport = false,
@@ -149,8 +149,8 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       returnedPaintDraft: draft,
       fullCompletionReportRequired: fullCompletionReportRequired,
       closingOutputBatchId: closingOutputBatchId,
-      rezkaTotalWasteOnlyCompletionRequired:
-          rezkaTotalWasteOnlyCompletionRequired,
+      rezkaTotalWasteOnlyReport:
+          rezkaTotalWasteOnlyReport,
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
       astatkaReport: astatkaReport,
@@ -174,7 +174,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
   String closingOutputBatchId = '',
-  bool rezkaTotalWasteOnlyCompletionRequired = false,
+  bool rezkaTotalWasteOnlyReport = false,
   bool workerHandoff = false,
   bool removeRollFromApparatus = false,
   bool astatkaReport = false,
@@ -200,8 +200,8 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,
     closingOutputBatchId: closingOutputBatchId,
-    rezkaTotalWasteOnlyCompletionRequired:
-        rezkaTotalWasteOnlyCompletionRequired,
+    rezkaTotalWasteOnlyReport:
+        rezkaTotalWasteOnlyReport,
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
     astatkaReport: astatkaReport,
@@ -243,7 +243,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.returnedPaintDraft,
     required this.fullCompletionReportRequired,
     required this.closingOutputBatchId,
-    required this.rezkaTotalWasteOnlyCompletionRequired,
+    required this.rezkaTotalWasteOnlyReport,
     required this.workerHandoff,
     required this.removeRollFromApparatus,
     required this.astatkaReport,
@@ -265,7 +265,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final ReturnedPaintDraft returnedPaintDraft;
   final bool fullCompletionReportRequired;
   final String closingOutputBatchId;
-  final bool rezkaTotalWasteOnlyCompletionRequired;
+  final bool rezkaTotalWasteOnlyReport;
   final bool workerHandoff;
   final bool removeRollFromApparatus;
   final bool astatkaReport;
@@ -925,7 +925,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final hasRezkaEdgeWaste =
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
     final hasWaste =
-        totalWaste != null && totalWaste.isFinite && totalWaste > 0;
+        totalWaste != null && totalWaste.isFinite &&
+        (totalWaste > 0 || (_requiresRezkaTotalWasteOnlyReport && totalWaste == 0));
     if (_isAstatkaReport) {
       if (!formValid) {
         _revealDescriptionField();
@@ -1045,7 +1046,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         (!_requiresFullCompletionReport ||
             hasRezkaWaste ||
             allRezkaFramesIssue) &&
-        (!_requiresRezkaTotalWasteOnlyCompletion ||
+        (!_requiresRezkaTotalWasteOnlyReport ||
             hasWaste ||
             allRezkaFramesIssue);
     if (!widget.isBosma &&
@@ -1352,14 +1353,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   bool get _isComplete => widget.action == 'complete';
   bool get _isBosmaClosingReport =>
       _isComplete && widget.isBosma && widget.closingOutputBatchId.isNotEmpty;
-  bool get _requiresRezkaTotalWasteOnlyCompletion =>
-      _isComplete &&
+  bool get _requiresRezkaTotalWasteOnlyReport =>
+      (_isComplete || _isAstatkaReport) &&
       widget.isRezka &&
-      widget.rezkaTotalWasteOnlyCompletionRequired;
+      widget.rezkaTotalWasteOnlyReport;
   bool get _requiresFullCompletionReport =>
       _isComplete &&
       (widget.fullCompletionReportRequired || _isBosmaClosingReport) &&
-      !_requiresRezkaTotalWasteOnlyCompletion;
+      !_requiresRezkaTotalWasteOnlyReport;
   bool get _isWorkerHandoff => widget.workerHandoff;
   bool get _isAstatkaReport => widget.astatkaReport;
   bool get _integratedLaminationAstatka => widget.laminationAstatka != null;
@@ -1745,24 +1746,30 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ..._astatkaLayerFields(),
                         if (isRezka &&
                             (_requiresFullCompletionReport ||
-                                _requiresRezkaTotalWasteOnlyCompletion ||
+                                _requiresRezkaTotalWasteOnlyReport ||
                                 _isAstatkaReport)) ...[
                           _progressQtySectionLabel(
                             context,
                             context.l10n.productionText(
-                              'worker.progress.qty.waste',
+                              _requiresRezkaTotalWasteOnlyReport
+                                  ? 'worker.daily.field.waste'
+                                  : 'worker.progress.qty.waste',
                             ),
                           ),
                           _qtyField(
                             controller: _wasteController,
                             label: context.l10n.productionText(
-                              'worker.daily.field.total_waste',
+                              _requiresRezkaTotalWasteOnlyReport
+                                  ? 'worker.daily.field.waste'
+                                  : 'worker.daily.field.total_waste',
                             ),
                             error: context.l10n.productionText(
                               'worker.daily.required_field',
                               values: {
                                 'label': context.l10n.productionText(
-                                  'worker.daily.field.total_waste',
+                                  _requiresRezkaTotalWasteOnlyReport
+                                      ? 'worker.daily.field.waste'
+                                      : 'worker.daily.field.total_waste',
                                 ),
                               },
                             ),
@@ -1770,16 +1777,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                               'worker.progress.qty.unit.kg',
                             ),
                             requiredField:
-                                (_requiresRezkaTotalWasteOnlyCompletion ||
+                                (_requiresRezkaTotalWasteOnlyReport ||
                                         _isAstatkaReport)
                                     ? true
                                     : false,
-                            positive: !_isAstatkaReport,
-                            allowZero: _isAstatkaReport,
+                            positive: !_isAstatkaReport && !_requiresRezkaTotalWasteOnlyReport,
+                            allowZero: _isAstatkaReport || _requiresRezkaTotalWasteOnlyReport,
                           ),
                           const SizedBox(height: 10),
                           if (_requiresFullCompletionReport ||
-                              _isAstatkaReport) ...[
+                              (_isAstatkaReport && !_requiresRezkaTotalWasteOnlyReport)) ...[
                             _qtyField(
                               controller: _rezkaBosmaWasteController,
                               label: context.l10n.productionText(

@@ -326,6 +326,7 @@ extension _MobileApiAdminQueueActionMerge on _TestModeQueueActionContext {
       closingOutputBatchId: fixture.closingOutputBatchId,
       completeRequiresRezkaTotalWasteOnly:
           fixture.completeRequiresRezkaTotalWasteOnly,
+      rezkaTotalWasteOnly: fixture.rezkaTotalWasteOnly,
       freezeRequest: fixture.freezeRequest,
     );
   }

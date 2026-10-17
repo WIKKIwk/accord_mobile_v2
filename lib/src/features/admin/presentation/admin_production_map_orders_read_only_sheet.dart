@@ -2392,12 +2392,31 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       return _runIntegratedLaminationAstatka();
     }
     if (!mounted) return _ProgressActionOutcome.cancelled;
+    AdminApparatusQueueOrderActionControl? rezkaControl;
+    if (widget.apparatus?.operation.trim() == 'cut') {
+      try {
+        rezkaControl = await _loadCurrentQueueActionControl();
+        if (!mounted) return _ProgressActionOutcome.cancelled;
+        if (rezkaControl == null ||
+            (rezkaControl.rezkaTotalWasteOnly &&
+                rezkaControl.stageNodeId.isEmpty)) {
+          throw const FormatException('Missing Rezka report stage');
+        }
+        _queueActionControl = rezkaControl;
+      } catch (_) {
+        if (mounted) {
+          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
+        }
+        return _ProgressActionOutcome.failed;
+      }
+    }
     final input = await _showProgressQtyDialogForApparatus(
       context,
       action: 'astatka',
       apparatus: widget.apparatus,
       order: widget.order,
       astatkaReport: true,
+      rezkaTotalWasteOnlyReport: rezkaControl?.rezkaTotalWasteOnly ?? false,
     );
     if (!mounted || input == null) {
       return _ProgressActionOutcome.cancelled;
@@ -2424,6 +2443,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         await MobileApi.instance.adminRezkaAstatkaReport(
           apparatus: apparatusId,
           orderId: widget.order.map.id,
+          stageNodeId: rezkaControl?.stageNodeId ?? '',
+          totalWasteOnly: rezkaControl?.rezkaTotalWasteOnly ?? false,
           totalWaste: input.totalWaste,
           finishedGoodsMeter: input.meterQty,
           finishedGoodsKg: input.kgQty,
@@ -2652,7 +2673,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       closingOutputBatchId: action == 'complete'
           ? _queueActionControl?.closingOutputBatchId ?? ''
           : '',
-      rezkaTotalWasteOnlyCompletionRequired:
+      rezkaTotalWasteOnlyReport:
           _queueActionControl?.completeRequiresRezkaTotalWasteOnly ?? false,
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,

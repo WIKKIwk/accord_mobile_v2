@@ -113,6 +113,7 @@ class _WorkerWipHistorySheet extends StatefulWidget {
     this.progressDriverUrlPicker,
     this.sourceApparatusId = '',
     this.apparatusTitle = '',
+    this.ownWorkerOutputOnly = false,
     this.allowReactivation = false,
     this.onReactivationAttempted,
   });
@@ -124,6 +125,7 @@ class _WorkerWipHistorySheet extends StatefulWidget {
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final String sourceApparatusId;
   final String apparatusTitle;
+  final bool ownWorkerOutputOnly;
   final bool allowReactivation;
   final VoidCallback? onReactivationAttempted;
 
@@ -138,6 +140,9 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   bool _searchingQr = false;
   bool _searchNotFound = false;
   bool _reactivationInFlight = false;
+  bool get _historyScopeCurrent =>
+      !widget.ownWorkerOutputOnly ||
+      _historyReadScope == currentSessionReadScope();
 
   @override
   void initState() {
@@ -149,23 +154,32 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   Future<List<AdminProgressBatch>> _load() async {
     final orderId = widget.order.map.id.trim();
     final sourceApparatusId = widget.sourceApparatusId.trim();
-    if (widget.allowReactivation && widget.apparatus != null) {
-      if (_historyReadScope != currentSessionReadScope()) {
+    if (widget.ownWorkerOutputOnly) {
+      if (!_historyScopeCurrent) {
         throw const MobileApiException(
             code: 'session_scope_changed', message: '');
       }
-      final apparatusId = widget.apparatus!.id;
+      // Completed work keeps its producer identity even if its apparatus is
+      // absent from the current catalog or the WIP has moved downstream.
+      final apparatusId = sourceApparatusId.isNotEmpty
+          ? sourceApparatusId
+          : widget.apparatus?.id.trim() ?? '';
+      final workerRef = AppSession.instance.profile?.ref.trim() ?? '';
+      if (orderId.isEmpty || apparatusId.isEmpty || workerRef.isEmpty) {
+        throw const MobileApiException(
+            code: 'forbidden', message: '', statusCode: 403);
+      }
+      // The API's apparatus filter uses the current location. Read the order
+      // history, then select the original producer and worker below.
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'all',
         orderId: orderId,
-        apparatus: apparatusId,
         limit: 1000,
       );
-      if (_historyReadScope != currentSessionReadScope()) {
+      if (!_historyScopeCurrent) {
         throw const MobileApiException(
             code: 'session_scope_changed', message: '');
       }
-      final workerRef = AppSession.instance.profile?.ref.trim() ?? '';
       return _mergeWorkerWipBatches(
         _wipBatchesProducedByApparatus(
             batches.where((batch) =>
@@ -283,7 +297,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   }
 
   bool _canReprintWip(AdminProgressBatch batch) {
-    if (!widget.allowWipQrReprint) return false;
+    if (!widget.allowWipQrReprint || !_historyScopeCurrent) return false;
     if (!widget.workerMode) return true;
     // Ownership, not assignment to the same machine, permits a worker reprint.
     // Opening WIP is admin-managed stock, even when its creator has this ref.
@@ -298,8 +312,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   }
 
   Future<void> _showWipDetails(AdminProgressBatch batch) async {
-    if (widget.allowReactivation &&
-        _historyReadScope != currentSessionReadScope()) return;
+    if (!_historyScopeCurrent) return;
     final payload = batch.qrPayload.trim();
     if (payload.isEmpty) {
       await showDialog<void>(
@@ -358,6 +371,10 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
     );
     if (!mounted || printer == null) {
       throw const RpsQrReprintCancelled();
+    }
+    if (!_canReprintWip(batch)) {
+      throw const MobileApiException(
+          code: 'session_scope_changed', message: '');
     }
 
     final isOpeningWip = batch.payloadJson['input_wip_source_kind']

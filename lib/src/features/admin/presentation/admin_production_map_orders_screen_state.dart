@@ -2281,19 +2281,7 @@ class _AdminProductionMapOrdersScreenState
       _showWorkerFrozenOrderDetails(entry);
       return;
     }
-    final completedApparatus = entry.apparatus;
-    if (entry.isInProgress ||
-        completedApparatus?.usesLaminationWorkflow == true ||
-        completedApparatus?.operation.trim() == 'cut') {
-      _showWorkerWipHistory(entry);
-      return;
-    }
-    final apparatus = entry.apparatus;
-    if (apparatus == null) {
-      _showOrderDetail(entry.order);
-      return;
-    }
-    _showWatchOrderDetail(apparatus: apparatus, order: entry.order);
+    _showWorkerWipHistory(entry);
   }
 
   void _showWorkerFrozenOrderDetails(_WorkerCompletedOrderEntry entry) {
@@ -2317,6 +2305,8 @@ class _AdminProductionMapOrdersScreenState
         apparatus: entry.apparatus,
         apparatusCatalog: _apparatus,
         workerMode: true,
+        ownWorkerOutputOnly: true,
+        sourceApparatusId: entry.apparatusId,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         allowReactivation: entry.apparatus?.usesLaminationWorkflow == true ||
             entry.apparatus?.operation.trim() == 'cut',

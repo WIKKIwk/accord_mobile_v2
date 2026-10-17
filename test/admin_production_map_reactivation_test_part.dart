@@ -12,7 +12,10 @@ class _ReactivationFixture {
   bool get isPrint => station == _print8Id;
   String get stage => isPrint ? 'first-apparatus' : 'second-apparatus';
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(
+    WidgetTester tester, {
+    Future<String?> Function(BuildContext context)? progressDriverUrlPicker,
+  }) async {
     await TestModeController.instance.setEnabled(true);
     var map = _twoStageProductionOrderMap(
         id: orderId,
@@ -97,6 +100,7 @@ class _ReactivationFixture {
         home: AdminProductionMapOrdersScreen(
             readOnly: true,
             workerMode: true,
+            progressDriverUrlPicker: progressDriverUrlPicker,
             liveEventsLoader: () => const Stream.empty())));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Tugallangan'));
@@ -213,7 +217,7 @@ void _registerReactivationTests() {
               .firstWhere((r) => r.url.path.endsWith('/wip-batches'));
           expect(request.url.queryParameters['order_id'],
               _ReactivationFixture.orderId);
-          expect(request.url.queryParameters['apparatus'], station);
+          expect(request.url.queryParameters.containsKey('apparatus'), isFalse);
         }
         dismissAdminTopNotice();
         await tester.pumpWidget(const SizedBox.shrink());

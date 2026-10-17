@@ -21,6 +21,41 @@ void main() {
   });
 
   for (final waste in [0.0, 2.5]) {
+    test('intermediate rezka astatka sends only waste $waste and its stage',
+        () async {
+      final report = await http.runWithClient(
+        () => MobileApi.instance.adminRezkaAstatkaReport(
+          apparatus: 'apparatus:default:asset-010',
+          orderId: 'zakaz-intermediate',
+          stageNodeId: 'cut-before-lamination',
+          totalWasteOnly: true,
+          totalWaste: waste,
+        ),
+        () => MockClient((request) async {
+          final payload = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(payload, {
+            'apparatus': 'apparatus:default:asset-010',
+            'order_id': 'zakaz-intermediate',
+            'stage_node_id': 'cut-before-lamination',
+            'total_waste': waste,
+          });
+          return http.Response(
+              jsonEncode({
+                'ok': true,
+                'report': {
+                  ...payload,
+                  'report_id': 'intermediate-report',
+                  'rezka_bosma_waste': 0,
+                  'rezka_lamination_waste': 0,
+                  'rezka_edge_waste': 0,
+                },
+              }),
+              200);
+        }),
+      );
+      expect(report.totalWaste, waste);
+      expect(report.rezkaBosmaWaste, 0);
+    });
     test('rezka astatka sends waste $waste without roll output metrics',
         () async {
       const apparatus = 'apparatus:default:asset-010';
@@ -69,4 +104,15 @@ void main() {
       });
     });
   }
+  test('full rezka report still requires all waste categories', () async {
+    await expectLater(
+      MobileApi.instance.adminRezkaAstatkaReport(
+        apparatus: 'apparatus:default:asset-010',
+        orderId: 'zakaz-final',
+        totalWaste: 1,
+      ),
+      throwsA(isA<MobileApiException>().having(
+          (error) => error.code, 'code', 'rezka_astatka_metrics_required')),
+    );
+  });
 }

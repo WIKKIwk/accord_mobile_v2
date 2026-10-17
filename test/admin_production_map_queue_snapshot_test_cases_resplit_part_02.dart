@@ -397,6 +397,7 @@ void _registeradmin_production_map_queue_snapshot_testCases02() {
       'previous_stage_ready': true,
       'complete_requires_full_report': false,
       'complete_requires_rezka_total_waste_only': true,
+      'rezka_total_waste_only': true,
       'stage_node_id': 'rezka-before-lamination',
       'rezka_output_kadr_counts': [1, 2],
       'rezka_input_lineage': [
@@ -443,6 +444,7 @@ void _registeradmin_production_map_queue_snapshot_testCases02() {
     );
     expect(control.rezkaActivePartialRolls.single.containedKadrCount, 1);
     expect(control.completeRequiresRezkaTotalWasteOnly, isTrue);
+    expect(control.rezkaTotalWasteOnly, isTrue);
   });
 
   test('Rezka merge contract rejects malformed or disconnected lineage', () {

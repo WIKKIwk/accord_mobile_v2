@@ -384,6 +384,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'Total waste',
     'ru': 'Общие отходы',
   },
+  'worker.daily.field.waste': {
+    'uz': 'Chiqindi',
+    'en': 'Waste',
+    'ru': 'Отходы',
+  },
   'worker.daily.field.print_waste': {
     'uz': 'Bosma chiqindisi',
     'en': 'Print waste',
