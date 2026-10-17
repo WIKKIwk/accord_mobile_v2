@@ -902,6 +902,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     required String orderId,
     required String apparatus,
     required List<String> materialBarcodes,
+    List<AdminRawMaterialAssignment>? preparedAssignments,
   }) async {
     final isMaterialTaminotchi =
         AppSession.instance.profile?.role == UserRole.materialTaminotchi;
@@ -936,7 +937,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             )
             .toList(growable: false);
       } else {
-        assignments = await MobileApi.instance.adminRawMaterialAssignments(
+        assignments = preparedAssignments ?? await MobileApi.instance.adminRawMaterialAssignments(
           orderId: orderId,
           apparatus: apparatus,
         );
@@ -992,6 +993,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   Future<bool> _loadMaterialAssignments({
     bool showLoading = true,
     bool Function()? readIsCurrent,
+    List<AdminRawMaterialAssignment>? preparedAssignments,
   }) async {
     final loadGeneration = ++_materialLoadGeneration;
     final orderId = widget.order.map.id.trim();
@@ -1009,6 +1011,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         orderId: orderId,
         apparatus: apparatus,
         materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
+        preparedAssignments: preparedAssignments,
       );
       if (!mounted ||
           readIsCurrent?.call() == false ||
@@ -3000,6 +3003,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   Future<void> _loadInputProgressBatches({
     bool Function()? readIsCurrent,
+    List<AdminProgressBatch>? preparedBatches,
   }) async {
     final station = widget.apparatus?.id.trim() ?? '';
     if (station.isEmpty) {
@@ -3028,7 +3032,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
                 .adminOpeningWipCandidates(apparatus: station, orderId: orderId)
             : Future.value(const <AdminOpeningWipBatch>[]),
         previousWipRequired
-            ? _fetchInputProgressBatches(previousStage)
+            ? _fetchInputProgressBatches(
+                previousStage, preparedBatches: preparedBatches)
             : Future.value(const <AdminProgressBatch>[]),
       ]);
       if (!mounted ||
@@ -3087,12 +3092,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<List<AdminProgressBatch>> _fetchInputProgressBatches(
-    String previousStage,
-  ) async {
+    String previousStage, {
+    List<AdminProgressBatch>? preparedBatches,
+  }) async {
     final station = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
     final training = orderId.startsWith('training-');
-    final batches = await MobileApi.instance.adminWipBatches(
+    final batches = (training ? null : preparedBatches) ??
+        await MobileApi.instance.adminWipBatches(
       status: 'waiting',
       apparatus: training ? previousStage : '',
       nextApparatus: training ? station : '',

@@ -8,7 +8,9 @@ material and Qolip scan data in one request:
 The optimization is enabled only for a worker scan-required detail route with a
 canonical live-snapshot callback. Training, freeze/pause-on-open and other detail
 entry points retain their existing readers. No warehouse catalog, history,
-photo, WIP lookup, opening-WIP or mutation payload is added to the aggregate.
+photo, opening-WIP or mutation payload is added to the ordinary detail aggregate.
+The FAB preparation described below additionally supports scoped WIP proof and
+bounded input candidates.
 
 ## Request path
 
@@ -77,13 +79,26 @@ bandwidth, HTTP headers, TLS and compression. It is not a production benchmark.
 
 A production worker FAB scan can request `include_context=true` and the exact
 `qr_payload` after identifying the roll's order and assigned consumer apparatus.
-The existing endpoint adds two optional fields:
+The existing endpoint adds optional fields:
 
 - `queue_context`: a sheet-local sequence snapshot at the control's epoch and
   revision. It carries the target and active jobs' maps/contracts, plus station
   occupancy and queue policy. It never replaces the filtered list/delta cursor.
 - `validated_progress`: the existing scoped, active-order progress-QR lookup
   response, using the same capability, assignment, order and WIP route checks.
+- With `include_context=true` and `include_sections=true`,
+  `sections.material_assignments` carries the existing order/apparatus assignment
+  reader when raw-material scans are not required. `sections.input_progress`
+  carries the existing waiting-WIP reader for the exact order, limited to 500,
+  when previous-stage WIP scans are required. Both include apparatus, order and
+  stage identity; the client validates these before reusing the lists. Invalid,
+  failed or missing sections use only their existing independent readers.
+
+The WIP list retains the existing stage/alternative-route filter. Its 500-row
+window is not complete history: the exact scanned WIP proof can still supply a
+batch outside that window. The backend reads sections in parallel, rechecks
+authorization and retries a changed production revision before responding.
+Decoded queue context is reused directly without a JSON encode/decode round trip.
 
 The client passes this response once into the detail sheet. Required resource
 sections retain their independent fallback readers; material and mold scans are
@@ -92,9 +107,11 @@ with all server-side transactional validation. A newer live revision during
 section reads requires one fresh QR proof; an uncertain/stale proof is rejected.
 
 The FAB no longer waits for whole-page catalog/history refreshes. In the focused
-modern-backend fixture the ordinary waiting-input route uses four data requests
-(one identification, one aggregate, assignments and WIP candidates), plus at
-most one existing asynchronous image request. The complete-sections fixture
+modern-backend fixture the ordinary waiting-input route uses two data requests
+(one identification and one aggregate), down from four requests in three network
+stages to two requests in two stages. This excludes at most one existing
+asynchronous image request and the existing material-link-request panel read on
+cards requiring material scans. The complete-sections fixture
 also verifies that outstanding mold scans still disable Start. Request counts
 are fixture measurements, not a production latency benchmark.
 

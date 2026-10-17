@@ -15,6 +15,11 @@ Future<AdminApparatusQueueSnapshot> decodeProductionMapQueueSnapshotPayload(
 
 AdminApparatusQueueSnapshot _decodeProductionMapQueueSnapshot(String source) {
   final payload = (jsonDecode(source) as Map).cast<String, dynamic>();
+  return _productionMapQueueSnapshotFromJson(payload);
+}
+
+AdminApparatusQueueSnapshot _productionMapQueueSnapshotFromJson(
+    Map<String, dynamic> payload) {
   if (payload['completed_orders'] is List && payload['completion_requests'] is List &&
       payload['completion_request_decisions'] is List) {
     return AdminProductionMapLiveSnapshot.fromJson(payload);

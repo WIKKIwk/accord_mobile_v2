@@ -13,12 +13,14 @@ class _WorkerFabLatencyFixture extends _WorkerQrWindowFixture {
   @override
   Map<String, dynamic> control({bool other = false}) => {
         ...super.control(other: other),
-        if (!other && mode == 'complete sections')
+        if (!other && const {'complete sections', 'material requirement denied'}
+            .contains(mode))
           'interaction': {
             ...(super.control(other: other)['interaction'] as Map),
             'start_materials_mode': 'scan_required',
             'material_scan_required': true,
-            'qolip_mode': 'scan_required',
+            'qolip_mode': mode == 'complete sections'
+                ? 'scan_required' : 'not_required',
           },
       };
 
@@ -82,7 +84,7 @@ class _WorkerFabLatencyFixture extends _WorkerQrWindowFixture {
       'validated_progress': validatedProgress(),
       'sections': {
         'materials': {
-          'status': 'ready',
+          'status': mode == 'material requirement denied' ? 'error' : 'ready',
           'data': {
             'policy': 'state_all',
             'requires_material': false,
@@ -113,12 +115,59 @@ class _WorkerFabLatencyFixture extends _WorkerQrWindowFixture {
                   },
                 },
         },
+        if (mode != 'input sections absent')
+          'material_assignments': {
+            'status': mode == 'input sections failed' ? 'error' : 'ready',
+            'apparatus': station,
+            'order_id': _inlineOrderId,
+            'stage_node_id': mode == 'input sections malformed'
+                ? 'wrong-stage' : current['stage_node_id'],
+            'data': [
+              if (mode == 'hidden assigned materials') {
+                'order_id': _inlineOrderId,
+                'apparatus': station,
+                'barcode': 'RAW-PREPARED-1',
+                'item_code': 'FILM-PREPARED',
+                'item_name': 'Prepared raw material',
+                'item_group': 'film',
+                'stock_status': 'available',
+                'stock_qty': 100,
+                'stock_uom': 'kg',
+                'execution_status': 'ready',
+              },
+            ],
+          },
+        if (mode != 'input sections absent' && mode != 'consumed during sections')
+          'input_progress': {
+            'status': mode == 'input sections failed' ? 'error' : 'ready',
+            'apparatus': station,
+            'order_id': _inlineOrderId,
+            'stage_node_id': mode == 'input sections malformed'
+                ? 'wrong-stage' : current['stage_node_id'],
+            'limit': 500,
+            'status_filter': 'waiting',
+            'data': {'batches': [
+              if (mode != 'scanned WIP outside page') batch(),
+            ]},
+          },
       },
     };
   }
 
   @override
   Future<http.Response> respond(http.Request request) async {
+    if (mode == 'hidden assigned materials' &&
+        request.url.path.endsWith('/raw-material-assignments')) {
+      requests.add(request);
+      final sections = aggregate()['sections'] as Map;
+      return http.Response(
+          jsonEncode((sections['material_assignments'] as Map)['data']), 200);
+    }
+    if (mode == 'material requirement denied' &&
+        request.url.path.endsWith('/raw-material-start-requirements')) {
+      requests.add(request);
+      return http.Response('{"error":"forbidden"}', 403);
+    }
     if (request.url.path.endsWith('/progress-qr/lookup')) {
       requests.add(request);
       return http.Response(jsonEncode(validatedProgress()), 200);
@@ -262,6 +311,12 @@ void _registerWorkerFabLatencyTests() {
     'hidden limit',
     'hidden search',
     'complete sections',
+    'hidden assigned materials',
+    'scanned WIP outside page',
+    'input sections absent',
+    'input sections malformed',
+    'input sections failed',
+    'material requirement denied',
     'old server',
     'forbidden aggregate',
     'stale aggregate',
@@ -301,16 +356,25 @@ void _registerWorkerFabLatencyTests() {
             expect(find.text('0062'), findsOneWidget);
             expect(start, findsOneWidget);
             expect(tester.widget<FilledButton>(start).onPressed,
-                mode == 'complete sections' ? isNull : isNotNull,
+                const {'complete sections', 'material requirement denied'}
+                    .contains(mode) ? isNull : isNotNull,
                 reason: tester
                     .widgetList<Text>(find.byType(Text))
                     .map((text) => text.data)
                     .toList()
                     .toString());
-            expect(find.byType(ProductionQuickScannerPanel),
-                mode == 'complete sections' ? findsOneWidget : findsNothing,
-                reason:
-                    'Unscanned Qolips keep their existing scanner and gate');
+            if (mode != 'material requirement denied') {
+              expect(find.byType(ProductionQuickScannerPanel),
+                  mode == 'complete sections' ? findsOneWidget : findsNothing,
+                  reason:
+                      'Unscanned Qolips keep their existing scanner and gate');
+            }
+            if (mode == 'hidden assigned materials') {
+              await tester.tap(find.text('Biriktirilgan homashyolar'));
+              await tester.pumpAndSettle();
+              expect(find.textContaining('Prepared raw material'), findsOneWidget,
+                  reason: 'Hidden scan requirements must not hide assigned material');
+            }
             if (mode != 'old server') {
               final aggregates = reads.where((request) =>
                   request.url.path.endsWith('/order-scan-bootstrap'));
@@ -342,11 +406,25 @@ void _registerWorkerFabLatencyTests() {
                   .where((read) => !read.url.path.endsWith('/order-image/view'))
                   .toList();
               expect(images.length, lessThanOrEqualTo(1));
-              expect(dataReads.length, lessThanOrEqualTo(4),
+              final independentInputs = const {
+                'input sections absent', 'input sections malformed',
+                'input sections failed',
+              }.contains(mode);
+              final expectedReads = independentInputs ? 4 :
+                  mode == 'material requirement denied' ? 4 :
+                  mode == 'complete sections' ? 3 : 2;
+              expect(dataReads.length, expectedReads,
                   reason:
-                      'Modern startup consists of identification, aggregate, '
-                      'and at most the existing assignment/WIP section reads: '
+                      'Ready inputs are reused; missing, failed or malformed '
+                      'sections keep their exact independent readers. Material '
+                      'scan cards retain their existing link-request panel read: '
                       '${reads.map((read) => '${read.method} ${read.url.path}').toList()}');
+              expect(reads.where((request) =>
+                  request.url.path.endsWith('/wip-batches')),
+                  hasLength(independentInputs ? 1 : 0));
+              expect(reads.where((request) =>
+                  request.url.path.endsWith('/raw-material-assignments')),
+                  hasLength(independentInputs ? 1 : 0));
               if (mode == 'complete sections') {
                 expect(
                     reads.where((request) =>

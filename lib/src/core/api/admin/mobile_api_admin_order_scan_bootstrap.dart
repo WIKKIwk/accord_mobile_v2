@@ -9,6 +9,8 @@ class AdminOrderScanBootstrap {
     this.qolips,
     this.queueContext,
     this.validatedProgress,
+    this.materialAssignments,
+    this.inputProgressBatches,
   });
 
   final AdminPrintPreflightControlState controlState;
@@ -17,6 +19,8 @@ class AdminOrderScanBootstrap {
   final AdminProductionMapQolipValidation? qolips;
   final AdminApparatusQueueSnapshot? queueContext;
   final AdminProgressBatch? validatedProgress;
+  final List<AdminRawMaterialAssignment>? materialAssignments;
+  final List<AdminProgressBatch>? inputProgressBatches;
 
   factory AdminOrderScanBootstrap.fromJson(
     Map<String, dynamic> json, {
@@ -50,6 +54,10 @@ class AdminOrderScanBootstrap {
       scope: rawControl['scope'] as String,
       materials: _completeBootstrapMaterials(ready('materials'), orderId),
       qolips: _completeBootstrapQolips(ready('qolips')),
+      materialAssignments: _bootstrapMaterialAssignments(
+          sections is Map ? sections['material_assignments'] : null, control),
+      inputProgressBatches: _bootstrapInputProgress(
+          sections is Map ? sections['input_progress'] : null, control),
       queueContext: json.containsKey('queue_context')
           ? _completeBootstrapQueueContext(
               json['queue_context'], control, rawControl['scope'] as String)
@@ -82,7 +90,8 @@ AdminApparatusQueueSnapshot _completeBootstrapQueueContext(
       raw['stage_states'] is! Map) {
     throw _productionMapQueueContractException('invalid scan queue context');
   }
-  final snapshot = _decodeProductionMapQueueSnapshot(jsonEncode(raw));
+  final snapshot = _productionMapQueueSnapshotFromJson(
+      raw.cast<String, dynamic>());
   final targetControl =
       snapshot.queueActionControls[control.apparatus]?[control.orderId];
   final ids = snapshot.maps.map((order) => order.map.id.trim()).toList();
@@ -148,6 +157,82 @@ AdminProgressBatch _completeBootstrapProgress(
 
 bool _bootstrapStrings(Object? raw) =>
     raw is List && raw.every((value) => value is String && value.isNotEmpty);
+
+bool _bootstrapScopedSection(
+    Object? raw, AdminPrintPreflightControlState control) =>
+    raw is Map &&
+    raw['status'] == 'ready' &&
+    raw['apparatus'] == control.apparatus &&
+    raw['order_id'] == control.orderId &&
+    raw['stage_node_id'] == control.control.stageNodeId;
+
+List<AdminRawMaterialAssignment>? _bootstrapMaterialAssignments(
+    Object? section, AdminPrintPreflightControlState control) {
+  if (!_bootstrapScopedSection(section, control) || section is! Map ||
+      section['data'] is! List) {
+    return null;
+  }
+  final rows = section['data'] as List;
+  final barcodes = <String>{};
+  final result = <AdminRawMaterialAssignment>[];
+  try {
+    for (final raw in rows) {
+      if (raw is! Map || raw['order_id'] != control.orderId ||
+          raw['apparatus'] != control.apparatus ||
+          raw['barcode'] is! String ||
+          (raw['barcode'] as String).trim().isEmpty ||
+          !barcodes.add((raw['barcode'] as String).trim().toUpperCase()) ||
+          ['item_code', 'item_name', 'item_group']
+              .any((key) => raw[key] is! String)) {
+        return null;
+      }
+      result.add(AdminRawMaterialAssignment.fromJson(
+          raw.cast<String, dynamic>()));
+    }
+  } catch (_) {
+    return null;
+  }
+  return List.unmodifiable(result);
+}
+
+List<AdminProgressBatch>? _bootstrapInputProgress(
+    Object? section, AdminPrintPreflightControlState control) {
+  if (!_bootstrapScopedSection(section, control) || section is! Map ||
+      section['limit'] is! int || section['limit'] != 500 ||
+      section['status_filter'] != 'waiting' ||
+      section['data'] is! Map) {
+    return null;
+  }
+  final rows = (section['data'] as Map)['batches'];
+  if (rows is! List || rows.length > 500) return null;
+  final ids = <String>{};
+  final qrs = <String>{};
+  final result = <AdminProgressBatch>[];
+  try {
+    for (final raw in rows) {
+      if (raw is! Map || raw['order_id'] != control.orderId ||
+          raw['wip_status'] != 'waiting' ||
+          raw['batch_id'] is! String ||
+          (raw['batch_id'] as String).trim().isEmpty ||
+          !ids.add((raw['batch_id'] as String).trim()) ||
+          raw['qr_payload'] is! String ||
+          (raw['qr_payload'] as String).trim().isEmpty ||
+          !qrs.add((raw['qr_payload'] as String).trim().toUpperCase()) ||
+          raw['apparatus'] is! String || raw['uom'] is! String ||
+          raw['produced_qty'] is! num ||
+          !(raw['produced_qty'] as num).isFinite ||
+          (raw['payload_json'] != null && raw['payload_json'] is! Map)) {
+        return null;
+      }
+      result.add(AdminProgressBatch.fromJson(raw.cast<String, dynamic>()));
+    }
+  } catch (_) {
+    return null;
+  }
+  // This is the existing bounded candidate page, never a complete WIP history
+  // or authority to accept a scanned roll without its independent QR proof.
+  return List.unmodifiable(result);
+}
 
 AdminRawMaterialStartRequirements? _completeBootstrapMaterials(
   Object? raw,

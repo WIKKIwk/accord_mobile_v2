@@ -121,9 +121,15 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       // Each missing/failed/incomplete section keeps its independent reader.
       // Candidate lists and authoritative QR lookups keep existing behavior.
       await Future.wait([
-        if (materials == null) _loadMaterialAssignments(readIsCurrent: current),
+        if (materials == null) _loadMaterialAssignments(
+          readIsCurrent: current,
+          preparedAssignments: result.materialAssignments,
+        ),
         if (qolips == null) _loadQolipRequirements(readIsCurrent: current),
-        _loadInputProgressBatches(readIsCurrent: current),
+        _loadInputProgressBatches(
+          readIsCurrent: current,
+          preparedBatches: result.inputProgressBatches,
+        ),
       ]);
       if (contextCurrent() && !current()) {
         throw const MobileApiException(

@@ -33,6 +33,170 @@ void main() {
     expect(result.qolips!.requiredQolipCodes, ['MOLD1']);
     expect(result.queueContext, isNull);
     expect(result.validatedProgress, isNull);
+    expect(result.materialAssignments, isNull);
+    expect(result.inputProgressBatches, isNull);
+  });
+  test('bootstrap scoped candidate sections match independent decoders',
+      () async {
+    final body = _candidateSectionsBootstrap();
+    final sections = body['sections'] as Map;
+    final result = AdminOrderScanBootstrap.fromJson(body,
+        apparatus: scanApparatus, orderId: scanOrder);
+    await http.runWithClient(() async {
+      final assignments = await MobileApi.instance.adminRawMaterialAssignments(
+          orderId: scanOrder, apparatus: scanApparatus);
+      final batches = await MobileApi.instance.adminWipBatches(
+          orderId: scanOrder, status: 'waiting', limit: 500);
+      final assignment = result.materialAssignments!.single;
+      expect(assignment.orderId, assignments.single.orderId);
+      expect(assignment.apparatus, assignments.single.apparatus);
+      expect(assignment.barcode, assignments.single.barcode);
+      expect(assignment.itemName, assignments.single.itemName);
+      expect(assignment.stockQty, assignments.single.stockQty);
+      expect(assignment.receivedQty, assignments.single.receivedQty);
+      expect(assignment.consumedQty, assignments.single.consumedQty);
+      expect(assignment.remainingQty, assignments.single.remainingQty);
+      final batch = result.inputProgressBatches!.single;
+      expect(batch.batchId, batches.single.batchId);
+      expect(batch.orderId, batches.single.orderId);
+      expect(batch.apparatus, batches.single.apparatus);
+      expect(batch.nextApparatus, batches.single.nextApparatus);
+      expect(batch.producedQty, batches.single.producedQty);
+      expect(batch.uom, batches.single.uom);
+      expect(batch.qrPayload, batches.single.qrPayload);
+      expect(batch.payloadJson, batches.single.payloadJson);
+      expect(batch.hasInputRouteMetadata, isFalse);
+    }, () => MockClient((request) async {
+      final section = request.url.path.endsWith('/wip-batches')
+          ? 'input_progress' : 'material_assignments';
+      return http.Response(jsonEncode(sections[section]['data']), 200);
+    }));
+  });
+  test('bootstrap explicit empty scoped candidate pages can be reused', () {
+    final body = _candidateSectionsBootstrap();
+    body['sections']['material_assignments']['data'] = <Object>[];
+    body['sections']['input_progress']['data'] = {'batches': <Object>[]};
+    final result = AdminOrderScanBootstrap.fromJson(body,
+        apparatus: scanApparatus, orderId: scanOrder);
+    expect(result.materialAssignments, isEmpty);
+    expect(result.inputProgressBatches, isEmpty);
+  });
+  for (final section in ['material_assignments', 'input_progress']) {
+    for (final invalid in [
+      'missing', 'null', 'not required', 'failed', 'partial', 'missing status',
+      'wrong apparatus', 'wrong order', 'wrong stage', 'missing stage',
+      'missing data', 'malformed data',
+    ]) {
+      test('bootstrap $section independently falls back for $invalid', () {
+        final body = _candidateSectionsBootstrap();
+        final sections = body['sections'] as Map;
+        final raw = sections[section] as Map;
+        switch (invalid) {
+          case 'missing': sections.remove(section);
+          case 'null': sections[section] = null;
+          case 'not required': raw['status'] = 'not_required';
+          case 'failed': raw['status'] = 'failed';
+          case 'partial': raw['status'] = 'partial';
+          case 'missing status': raw.remove('status');
+          case 'wrong apparatus': raw['apparatus'] = 'apparatus:default:other';
+          case 'wrong order': raw['order_id'] = 'other-order';
+          case 'wrong stage': raw['stage_node_id'] = 'other-occurrence';
+          case 'missing stage': raw.remove('stage_node_id');
+          case 'missing data': raw.remove('data');
+          case 'malformed data': raw['data'] = 'not-a-list';
+        }
+        final result = AdminOrderScanBootstrap.fromJson(body,
+            apparatus: scanApparatus, orderId: scanOrder);
+        expect(section == 'material_assignments'
+            ? result.materialAssignments : result.inputProgressBatches, isNull);
+        expect(section == 'material_assignments'
+            ? result.inputProgressBatches : result.materialAssignments,
+            hasLength(1));
+        expect(result.materials, isNotNull);
+        expect(result.qolips, isNotNull);
+      });
+    }
+  }
+  for (final invalid in [
+    'non row', 'order', 'apparatus', 'empty barcode', 'barcode type',
+    'duplicate barcode', 'missing item name', 'quantity type',
+  ]) {
+    test('bootstrap rejects incomplete material assignment page: $invalid', () {
+      final body = _candidateSectionsBootstrap();
+      final rows = body['sections']['material_assignments']['data'] as List;
+      final row = rows.single as Map;
+      switch (invalid) {
+        case 'non row': rows.add(null);
+        case 'order': row['order_id'] = 'other';
+        case 'apparatus': row['apparatus'] = 'Bosma 7';
+        case 'empty barcode': row['barcode'] = '  ';
+        case 'barcode type': row['barcode'] = 1;
+        case 'duplicate barcode':
+          rows.add({...row, 'barcode': ' roll1 '});
+        case 'missing item name': row.remove('item_name');
+        case 'quantity type': row['stock_qty'] = '10';
+      }
+      final result = AdminOrderScanBootstrap.fromJson(body,
+          apparatus: scanApparatus, orderId: scanOrder);
+      expect(result.materialAssignments, isNull);
+      expect(result.inputProgressBatches, hasLength(1));
+    });
+  }
+  for (final invalid in [
+    'missing limit', 'wrong limit', 'non integer limit', 'wrong filter',
+    'missing batches', 'too many rows', 'non row', 'wrong order',
+    'used status', 'batch id type', 'empty batch id', 'QR type', 'empty QR',
+    'duplicate id', 'duplicate QR', 'apparatus', 'quantity type', 'payload type',
+  ]) {
+    test('bootstrap rejects incomplete input candidate page: $invalid', () {
+      final body = _candidateSectionsBootstrap();
+      final section = body['sections']['input_progress'] as Map;
+      final rows = section['data']['batches'] as List;
+      final row = rows.single as Map;
+      switch (invalid) {
+        case 'missing limit': section.remove('limit');
+        case 'wrong limit': section['limit'] = 50;
+        case 'non integer limit': section['limit'] = 500.0;
+        case 'wrong filter': section['status_filter'] = 'all';
+        case 'missing batches': section['data'] = <String, dynamic>{};
+        case 'too many rows':
+          section['data']['batches'] = List.generate(501, (index) => {
+            ...row, 'batch_id': 'batch-$index', 'qr_payload': 'qr-$index',
+          });
+        case 'non row': rows.add(null);
+        case 'wrong order': row['order_id'] = 'other';
+        case 'used status': row['wip_status'] = 'in_use';
+        case 'batch id type': row['batch_id'] = 123;
+        case 'empty batch id': row['batch_id'] = ' ';
+        case 'QR type': row['qr_payload'] = 123;
+        case 'empty QR': row['qr_payload'] = ' ';
+        case 'duplicate id': rows.add({...row, 'qr_payload': 'other-qr'});
+        case 'duplicate QR': rows.add({
+          ...row, 'batch_id': 'other-batch', 'qr_payload': ' ${_scanQr.toLowerCase()} ',
+        });
+        case 'apparatus': row['apparatus'] = 'Bosma 7';
+        case 'quantity type': row['produced_qty'] = '484';
+        case 'payload type': row['payload_json'] = [1, 2];
+      }
+      final result = AdminOrderScanBootstrap.fromJson(body,
+          apparatus: scanApparatus, orderId: scanOrder);
+      expect(result.inputProgressBatches, isNull);
+      expect(result.materialAssignments, hasLength(1));
+    });
+  }
+  test('bootstrap retains full bounded page without filtering or claiming proof',
+      () {
+    final body = _candidateSectionsBootstrap();
+    final raw = body['sections']['input_progress']['data']['batches'][0] as Map;
+    body['sections']['input_progress']['data']['batches'] =
+        List.generate(500, (index) => {
+      ...raw, 'batch_id': 'batch-$index', 'qr_payload': 'qr-$index',
+      'next_apparatus': 'apparatus:default:alternative',
+    });
+    final result = AdminOrderScanBootstrap.fromJson(body,
+        apparatus: scanApparatus, orderId: scanOrder);
+    expect(result.inputProgressBatches, hasLength(500));
+    expect(result.validatedProgress, isNull);
   });
   test('bootstrap context and QR proof retain current scoped data', () {
     final body = _contextBootstrap();
@@ -453,6 +617,34 @@ void main() {
 }
 
 const _scanQr = '400118DF489A8D297E68163A';
+
+Map<String, dynamic> _candidateSectionsBootstrap() {
+  final body = scanBootstrap();
+  final scope = {
+    'status': 'ready',
+    'apparatus': scanApparatus,
+    'order_id': scanOrder,
+    'stage_node_id': 'apparatus',
+  };
+  body['sections']['material_assignments'] = {
+    ...scope,
+    'data': <Object?>[{
+      ...scanAssignment(),
+      'received_qty': 12,
+      'consumed_qty': 2,
+      'remaining_qty': 10,
+    }],
+  };
+  body['sections']['input_progress'] = {
+    ...scope,
+    'limit': 500,
+    'status_filter': 'waiting',
+    'data': {'batches': [
+      _contextBootstrap()['validated_progress']['batch'],
+    ]},
+  };
+  return body;
+}
 
 Map<String, dynamic> _contextBootstrap() {
   final context = scanSequence();
