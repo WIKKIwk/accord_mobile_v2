@@ -206,6 +206,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   void _setScanBootstrapState(VoidCallback update) => setState(update);
 
+  void _setActionInFlight(bool value) => setState(() => _actionInFlight = value);
+
   void _onSharedQueueActionChanged() {
     if (!mounted) return;
     final wasPending = _sharedQueueActionInFlight;
@@ -531,7 +533,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
                 !_openingMaterialReceipt
             ? () => unawaited(_receiveMaterial())
             : null,
-        onClose: () => Navigator.of(context).pop(),
+        onClose: () {
+          dismissAdminTopNotice();
+          Navigator.of(context).pop();
+        },
         map: map,
         orderImageBytes: _orderImageBytes,
         orderImageLoading: _orderImageLoading,
@@ -986,6 +991,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   bool _materialContextIsCurrent(String orderId, String apparatus) {
     return mounted &&
+        _detailReadScope == currentSessionReadScope() &&
         widget.order.map.id.trim() == orderId &&
         (widget.apparatus?.id.trim() ?? '') == apparatus;
   }
@@ -2376,10 +2382,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<void> _runInitialAstatkaFlow() async {
+    final scope = currentSessionReadScope();
     final outcome = await _runAstatkaReport();
-    if (!mounted) return;
+    if (!mounted || scope != currentSessionReadScope()) return;
     if (outcome == _ProgressActionOutcome.completed ||
         outcome == _ProgressActionOutcome.cancelled) {
+      dismissAdminTopNotice();
       Navigator.of(context).pop(outcome == _ProgressActionOutcome.completed);
     }
   }
@@ -2394,93 +2402,243 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (widget.apparatus?.operation.trim() == 'laminate') {
       return _runIntegratedLaminationAstatka();
     }
-    if (!mounted) return _ProgressActionOutcome.cancelled;
-    AdminApparatusQueueOrderActionControl? rezkaControl;
-    if (widget.apparatus?.operation.trim() == 'cut') {
-      try {
-        rezkaControl = await _loadCurrentQueueActionControl();
-        if (!mounted) return _ProgressActionOutcome.cancelled;
-        if (rezkaControl == null ||
-            (rezkaControl.rezkaTotalWasteOnly &&
-                rezkaControl.stageNodeId.isEmpty)) {
-          throw const FormatException('Missing Rezka report stage');
-        }
-        _queueActionControl = rezkaControl;
-      } catch (_) {
-        if (mounted) {
-          _showSheetNotice(context.l10n.productionText('worker.error.sync'));
-        }
-        return _ProgressActionOutcome.failed;
-      }
-    }
-    final input = await _showProgressQtyDialogForApparatus(
-      context,
-      action: 'astatka',
-      apparatus: widget.apparatus,
-      order: widget.order,
-      astatkaReport: true,
-      rezkaTotalWasteOnlyReport: rezkaControl?.rezkaTotalWasteOnly ?? false,
-    );
-    if (!mounted || input == null) {
+    final station = widget.apparatus?.id.trim() ?? '';
+    final orderId = widget.order.map.id.trim();
+    final scope = currentSessionReadScope();
+    final actorRef = AppSession.instance.profile?.ref ?? '';
+    bool current() =>
+        scope == currentSessionReadScope() &&
+        _materialContextIsCurrent(orderId, station);
+    if (!mounted || !current() || _queueActionBusy) {
       return _ProgressActionOutcome.cancelled;
     }
+    if (widget.beginPrintPreflight?.call() == false) {
+      return _ProgressActionOutcome.failed;
+    }
+    _ownsPrintPreflight = true;
     setState(() => _actionInFlight = true);
+    var writeAttempted = false;
+    var completed = false;
     try {
-      final apparatusId = widget.apparatus?.id ?? '';
-      if (widget.apparatus?.operation.trim() == 'print') {
-        await MobileApi.instance.adminBosmaAstatkaReport(
-          apparatus: apparatusId,
-          orderId: widget.order.map.id,
-          totalWaste: input.totalWaste,
-          returnedPaintItems: input.returnedPaintItems,
-          returnedPaintImageId: input.returnedPaintImageId,
-          description: input.description,
+      if (widget.apparatus?.operation.trim() == 'cut') {
+        final outcome = await _runRezkaAstatkaReport(
+          current: current,
+          onWriteAttempt: () => writeAttempted = true,
         );
-        await ReturnedPaintDraftStore.instance
-            .clear('${returnedPaintWorkerDraftScope(
-          actorRef: AppSession.instance.profile?.ref ?? '',
-          orderId: widget.order.map.id,
-          apparatus: apparatusId,
-        )}:astatka');
-      } else if (widget.apparatus?.operation.trim() == 'cut') {
-        await MobileApi.instance.adminRezkaAstatkaReport(
-          apparatus: apparatusId,
-          orderId: widget.order.map.id,
-          stageNodeId: rezkaControl?.stageNodeId ?? '',
-          totalWasteOnly: rezkaControl?.rezkaTotalWasteOnly ?? false,
-          totalWaste: input.totalWaste,
-          finishedGoodsMeter: input.meterQty,
-          finishedGoodsKg: input.kgQty,
-          bobinaKg: input.bobinaKg,
-          rezkaBosmaWaste: input.rezkaBosmaWaste,
-          rezkaLaminationWaste: input.rezkaLaminationWaste,
-          rezkaEdgeWaste: input.rezkaEdgeWaste,
-          description: input.description,
-        );
+        if (outcome != _ProgressActionOutcome.completed) return outcome;
       } else {
-        await MobileApi.instance.adminLaminatsiyaAstatkaReport(
-          apparatus: apparatusId,
-          orderId: widget.order.map.id,
-          laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
-          laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
-          totalWaste: input.totalWaste,
-          description: input.description,
+        final input = await _showProgressQtyDialogForApparatus(
+          context,
+          action: 'astatka',
+          apparatus: widget.apparatus,
+          order: widget.order,
+          astatkaReport: true,
         );
+        if (!mounted || !current() || input == null) {
+          return _ProgressActionOutcome.cancelled;
+        }
+        writeAttempted = true;
+        if (widget.apparatus?.operation.trim() == 'print') {
+          await MobileApi.instance.adminBosmaAstatkaReport(
+            apparatus: station,
+            orderId: orderId,
+            totalWaste: input.totalWaste,
+            returnedPaintItems: input.returnedPaintItems,
+            returnedPaintImageId: input.returnedPaintImageId,
+            description: input.description,
+          );
+          // Clear the draft belonging to the submitting actor even when a
+          // different account signs in while the request is in flight.
+          await ReturnedPaintDraftStore.instance.clear(
+            '${returnedPaintWorkerDraftScope(actorRef: actorRef, orderId: orderId, apparatus: station)}:astatka',
+          );
+        } else {
+          await MobileApi.instance.adminLaminatsiyaAstatkaReport(
+            apparatus: station,
+            orderId: orderId,
+            laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
+            laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
+            totalWaste: input.totalWaste,
+            description: input.description,
+          );
+        }
       }
-      if (mounted) {
-        setState(() => _actionInFlight = false);
+      if (mounted && current()) {
         _showSheetNotice(
           context.l10n.productionText('worker.notice.astatka_recorded'),
           tone: AdminTopNoticeTone.success,
         );
       }
+      completed = true;
       return _ProgressActionOutcome.completed;
     } catch (error) {
-      if (mounted) {
-        setState(() => _actionInFlight = false);
-        _showSheetNotice(_sheetActionErrorText(error));
+      if (mounted && current()) {
+        final key = widget.apparatus?.operation.trim() == 'cut'
+            ? switch (error) {
+                MobileApiException(code: 'queue_action_not_allowed') =>
+                  'worker.rezka_astatka.changed',
+                MobileApiException(code: 'progress_input_invalid') =>
+                  'worker.rezka_astatka.conflict',
+                MobileApiException(
+                  code: 'rezka_astatka_invalid_response' ||
+                      'rezka_astatka_report_failed',
+                ) =>
+                  'worker.rezka_astatka.unconfirmed',
+                _ => '',
+              }
+            : '';
+        _showSheetNotice(
+          key.isEmpty
+              ? _sheetActionErrorText(error)
+              : context.l10n.productionText(key),
+        );
       }
       return _ProgressActionOutcome.failed;
+    } finally {
+      if (_ownsPrintPreflight) widget.endPrintPreflight?.call();
+      _ownsPrintPreflight = false;
+      if (mounted) setState(() => _actionInFlight = false);
+      // The opening flow returns success to its parent, which refreshes the
+      // canonical queue. Avoid racing a closing sheet with another local read.
+      if (writeAttempted &&
+          current() &&
+          !(completed && widget.startAstatkaOnOpen)) {
+        unawaited(_refreshQueueActionControlAfterWrite());
+      }
+    }
+  }
+
+  Future<_ProgressActionOutcome> _runRezkaAstatkaReport({
+    required bool Function() current,
+    required VoidCallback onWriteAttempt,
+  }) async {
+    final station = widget.apparatus!.id.trim();
+    final orderId = widget.order.map.id.trim();
+    final profile = AppSession.instance.profile;
+    final pendingKey =
+        'rezka_astatka_pending:${MobileApi.baseUrl}:'
+        '${profile?.role.name}:${profile?.ref}:$station:$orderId';
+    final preferences = await SharedPreferences.getInstance();
+    if (!mounted || !current()) return _ProgressActionOutcome.cancelled;
+    final saved = preferences.getString(pendingKey);
+    Map<String, dynamic>? request = saved == null
+        ? null
+        : (jsonDecode(saved) as Map).cast<String, dynamic>();
+    final snapshot = await MobileApi.instance.adminRezkaAstatkaSnapshot(
+      apparatus: station,
+      orderId: orderId,
+      requestId: request?['request_id']?.toString() ?? '',
+    );
+    if (!mounted || !current()) return _ProgressActionOutcome.cancelled;
+    if (snapshot.requestResult != null) {
+      await preferences.remove(pendingKey);
+      onWriteAttempt();
+      return _ProgressActionOutcome.completed;
+    }
+    if (request != null) {
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            context.l10n.productionText('worker.rezka.astatka.title'),
+          ),
+          content: Text(
+            context.l10n.productionText('worker.rezka_astatka.pending'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(context.l10n.productionText('worker.action.cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                context.l10n.productionText('worker.layer_remainder.retry'),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || !current() || retry != true) {
+        return _ProgressActionOutcome.cancelled;
+      }
+    } else {
+      final control = await _loadCurrentQueueActionControl();
+      if (!mounted || !current()) return _ProgressActionOutcome.cancelled;
+      if (control == null ||
+          snapshot.stageNodeId.isEmpty ||
+          (control.stageNodeId.isNotEmpty &&
+              snapshot.stageNodeId != control.stageNodeId)) {
+        throw const MobileApiException(
+          code: 'order_scan_bootstrap_stale',
+          message: '',
+        );
+      }
+      final input = await _showProgressQtyDialogForApparatus(
+        context,
+        action: 'astatka',
+        apparatus: widget.apparatus,
+        order: widget.order,
+        astatkaReport: true,
+        rezkaTotalWasteOnlyReport: control.rezkaTotalWasteOnly,
+      );
+      if (!mounted || !current() || input == null) {
+        return _ProgressActionOutcome.cancelled;
+      }
+      request = {
+        'apparatus': station,
+        'order_id': orderId,
+        'session_id': snapshot.sessionId,
+        'stage_node_id': snapshot.stageNodeId,
+        'request_id':
+            'rezka-astatka-${DateTime.now().microsecondsSinceEpoch}-'
+            '${Random.secure().nextInt(1 << 32).toRadixString(16)}',
+        'total_waste_only': control.rezkaTotalWasteOnly,
+        'total_waste': input.totalWaste,
+        'rezka_bosma_waste': input.rezkaBosmaWaste,
+        'rezka_lamination_waste': input.rezkaLaminationWaste,
+        'rezka_edge_waste': input.rezkaEdgeWaste,
+        'finished_goods_meter': input.meterQty,
+        'finished_goods_kg': input.kgQty,
+        'bobina_kg': input.bobinaKg,
+        'description': input.description,
+      };
+      if (!await preferences.setString(pendingKey, jsonEncode(request))) {
+        throw StateError('astatka_pending_not_saved');
+      }
+    }
+    if (!mounted || !current()) return _ProgressActionOutcome.cancelled;
+    try {
+      onWriteAttempt();
+      double? number(String key) => (request![key] as num?)?.toDouble();
+      await MobileApi.instance.adminRezkaAstatkaReport(
+        apparatus: request['apparatus'] as String,
+        orderId: request['order_id'] as String,
+        requestId: request['request_id'] as String,
+        sessionId: request['session_id'] as String,
+        stageNodeId: request['stage_node_id'] as String,
+        totalWasteOnly: request['total_waste_only'] == true,
+        totalWaste: number('total_waste'),
+        rezkaBosmaWaste: number('rezka_bosma_waste'),
+        rezkaLaminationWaste: number('rezka_lamination_waste'),
+        rezkaEdgeWaste: number('rezka_edge_waste'),
+        finishedGoodsMeter: number('finished_goods_meter'),
+        finishedGoodsKg: number('finished_goods_kg'),
+        bobinaKg: number('bobina_kg'),
+        description: request['description'] as String,
+      );
+      await preferences.remove(pendingKey);
+      return _ProgressActionOutcome.completed;
+    } on MobileApiException catch (error) {
+      // An uncertain response retains the immutable payload for reconciliation.
+      // Authorization, missing resources and payload conflicts can happen
+      // after an earlier commit. Only a stale-session rejection issued after
+      // server receipt lookup proves that this exact request was not recorded.
+      if (error.statusCode == 409 &&
+          error.code == 'queue_action_not_allowed') {
+        await preferences.remove(pendingKey);
+      }
+      rethrow;
     }
   }
 

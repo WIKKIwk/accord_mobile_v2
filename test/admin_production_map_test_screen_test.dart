@@ -56,6 +56,7 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_14.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_15.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_16.dart';
 part 'admin_production_map_rezka_astatka_test_part.dart';
+part 'admin_production_map_rezka_astatka_safety_test_part.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_17.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_18.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_19.dart';
@@ -204,6 +205,7 @@ void main() {
 
   _registeradmin_production_map_test_screen_testCases16();
   _registerRezkaIntermediateAstatkaTests();
+  _registerRezkaAstatkaSafetyTests();
 
   _registeradmin_production_map_test_screen_testCases17();
 

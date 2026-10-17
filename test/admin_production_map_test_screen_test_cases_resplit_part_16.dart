@@ -24,6 +24,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
         final map = _productionOrderMap(
           id: orderId,
           title: 'Rezka astatka',
+          orderNumber: '0011',
           productCode: 'RAST',
           apparatusId: _rezkaId,
           product: 'Rezka astatka',
@@ -152,8 +153,10 @@ void _registeradmin_production_map_test_screen_testCases16() {
       },
     );
   }
-  for (final paused in [false, true]) {
-    testWidgets('bosma astatka report keeps ${paused ? "paused" : "running"} work unchanged', (tester) async {
+  for (final scenario in [(paused: false, switchAccount: false),
+      (paused: true, switchAccount: false), (paused: false, switchAccount: true)]) {
+    final paused = scenario.paused;
+    testWidgets('bosma astatka ${scenario.switchAccount ? 'account switch ' : ''}report keeps ${paused ? "paused" : "running"} work unchanged', (tester) async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-bosma-astatka-widget';
       await AppSession.instance.setSession(token: 'worker-token', profile: const SessionProfile(
@@ -162,7 +165,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
         assignedApparatus: [_print8Id],
       ));
       await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
-        id: orderId, title: 'Bosma astatka', productCode: 'BAST', apparatusId: _print8Id, product: 'Bosma astatka'));
+        id: orderId, orderNumber: '0012', title: 'Bosma astatka', productCode: 'BAST', apparatusId: _print8Id, product: 'Bosma astatka'));
       await MobileApi.instance.adminSaveProductionMapSequence(apparatus: _print8Id, orderIds: [orderId]);
       await MobileApi.instance.adminApparatusQueueActionResult(apparatus: _print8Id, orderId: orderId, action: 'start');
       if (paused) {
@@ -212,9 +215,26 @@ void _registeradmin_production_map_test_screen_testCases16() {
         await tester.ensureVisible(field);
         await tester.enterText(field, entry.value);
       }
+      if (scenario.switchAccount) {
+        await AppSession.instance.setSession(token: 'other-worker-token',
+            profile: const SessionProfile(role: UserRole.aparatchi,
+                displayName: 'Other worker', legalName: '', ref: 'other-worker',
+                phone: '', avatarUrl: '',
+                capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+                assignedApparatus: [_print8Id]));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('Tasdiqlash'));
       await tester.pumpAndSettle();
       final reports = mobileApiTestModeBosmaAstatkaReports();
+      if (scenario.switchAccount) {
+        expect(reports, isEmpty);
+        expect((await ReturnedPaintDraftStore.instance.load(scope: '$baseScope:astatka'))
+            .valuesFor('rasxot:Oq', 9)[0], '9');
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        return;
+      }
       expect(reports, hasLength(1));
       expect(reports.single['total_waste'], 0);
       expect(reports.single['returned_paint_items'], hasLength(2));

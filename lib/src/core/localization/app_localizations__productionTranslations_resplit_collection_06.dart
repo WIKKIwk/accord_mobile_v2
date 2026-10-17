@@ -585,6 +585,26 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'ru':
         'Введите метраж, вес брутто и вес втулки продукции. Вес брутто должен превышать вес втулки.',
   },
+  'worker.rezka_astatka.changed': {
+    'uz': 'Bu ish holati o‘zgargan. Hisobot saqlanmadi. Oynani yoping va joriy ish uchun hisobotni qayta oching.',
+    'en': 'This work has changed. The report was not saved. Close this window and open a report for the current work.',
+    'ru': 'Состояние работы изменилось. Отчёт не сохранён. Закройте окно и откройте отчёт для текущей работы.',
+  },
+  'worker.rezka_astatka.conflict': {
+    'uz': 'Hisobot oldingi so‘rovga mos kelmadi. Hisobotni qayta ochib ma’lumotlarni tekshiring.',
+    'en': 'The report does not match the previous request. Reopen the report and check its values.',
+    'ru': 'Отчёт не соответствует предыдущему запросу. Откройте отчёт заново и проверьте данные.',
+  },
+  'worker.rezka_astatka.unconfirmed': {
+    'uz': 'Hisobot holatini tasdiqlab bo‘lmadi. Qayta ochilganda oldingi so‘rov tekshiriladi.',
+    'en': 'The report status could not be confirmed. Reopen it to check the previous request.',
+    'ru': 'Не удалось подтвердить состояние отчёта. Откройте его заново для проверки предыдущего запроса.',
+  },
+  'worker.rezka_astatka.pending': {
+    'uz': 'Oldingi chiqindi hisoboti javobi olinmagan. Qayta urinish shu hisobotni tekshiradi; chiqindi takror qo‘shilmaydi.',
+    'en': 'The previous waste report response was not received. Retry checks the same report without adding the waste twice.',
+    'ru': 'Ответ на предыдущий отчёт об отходах не получен. Повторная попытка проверит тот же отчёт без повторного учёта отходов.',
+  },
   'worker.lamination_astatka.pending': {
     'uz':
         'Oldingi Astatka so‘rovining javobi olinmagan. Qayta urinish aynan shu hisobotni tekshiradi; mahsulot va qoldiq takroriy qo‘shilmaydi.',

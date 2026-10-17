@@ -170,37 +170,56 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
   ) async {
     final station = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
-    final candidates =
-        await MobileApi.instance.adminMaterialStartDeliveryCandidates(
-      orderId: orderId,
-      apparatus: station,
-      barcode: material.barcode,
-    );
-    if (!mounted || !_materialContextIsCurrent(orderId, station)) return false;
-    if (!candidates.alreadyAtApparatus) {
-      if (candidates.deliverers.isEmpty) {
-        throw MobileApiException(
-          code: 'material_deliverer_missing',
-          message: context.l10n.productionText('worker.delivery.no_deliverers'),
-        );
-      }
-      final deliverer =
-          await _pickMaterialDeliverer(material, candidates.deliverers);
-      if (!mounted ||
-          deliverer == null ||
-          !_materialContextIsCurrent(orderId, station)) return false;
-      await MobileApi.instance.adminReceiveMaterialForStart(
-        orderId: orderId,
-        apparatus: station,
-        barcode: material.barcode,
-        deliveredBy: deliverer,
-        idempotencyKey:
-            'material-delivery:$orderId:$station:${material.barcode}:${DateTime.now().microsecondsSinceEpoch}',
-      );
-      if (!mounted || !_materialContextIsCurrent(orderId, station))
-        return false;
+    final scope = currentSessionReadScope();
+    bool current() =>
+        scope == currentSessionReadScope() &&
+        _materialContextIsCurrent(orderId, station);
+    if (!mounted ||
+        !current() ||
+        _queueActionBusy ||
+        widget.beginPrintPreflight?.call() == false) {
+      return false;
     }
-    return true;
+    _ownsPrintPreflight = true;
+    _setActionInFlight(true);
+    try {
+      final candidates = await MobileApi.instance
+          .adminMaterialStartDeliveryCandidates(
+            orderId: orderId,
+            apparatus: station,
+            barcode: material.barcode,
+          );
+      if (!mounted || !current()) return false;
+      if (!candidates.alreadyAtApparatus) {
+        if (candidates.deliverers.isEmpty) {
+          throw MobileApiException(
+            code: 'material_deliverer_missing',
+            message: context.l10n.productionText(
+              'worker.delivery.no_deliverers',
+            ),
+          );
+        }
+        final deliverer = await _pickMaterialDeliverer(
+          material,
+          candidates.deliverers,
+        );
+        if (!mounted || !current() || deliverer == null) return false;
+        await MobileApi.instance.adminReceiveMaterialForStart(
+          orderId: orderId,
+          apparatus: station,
+          barcode: material.barcode,
+          deliveredBy: deliverer,
+          idempotencyKey:
+              'material-delivery:$orderId:$station:${material.barcode}:${DateTime.now().microsecondsSinceEpoch}',
+        );
+        if (!mounted || !current()) return false;
+      }
+      return true;
+    } finally {
+      if (_ownsPrintPreflight) widget.endPrintPreflight?.call();
+      _ownsPrintPreflight = false;
+      if (mounted) _setActionInFlight(false);
+    }
   }
 
   Future<bool> _receiveScannedMaterialForStart(

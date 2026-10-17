@@ -2,9 +2,71 @@
 part of '../mobile_api.dart';
 
 extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
+  Future<AdminRezkaAstatkaSnapshot> adminRezkaAstatkaSnapshot({
+    required String apparatus,
+    required String orderId,
+    String requestId = '',
+  }) async {
+    if (!isCanonicalApparatusId(apparatus.trim()) || orderId.trim().isEmpty) {
+      throw const MobileApiException(
+          code: 'progress_input_invalid', message: '');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final snapshot = await adminProductionMapQueueSnapshot(
+          apparatus: apparatus, orderId: orderId);
+      final control = snapshot.queueActionControls[apparatus]?[orderId];
+      final stageId = control?.stageNodeId ?? '';
+      final map =
+          snapshot.maps.where((order) => order.map.id == orderId).firstOrNull;
+      return AdminRezkaAstatkaSnapshot(
+        sessionId: 'test-session-$orderId',
+        stageNodeId: stageId.isNotEmpty
+            ? stageId
+            : map?.map.nodes
+                    .where((node) => node.apparatusId == apparatus)
+                    .firstOrNull
+                    ?.id ??
+                '',
+        requestResult: requestId.isEmpty
+            ? null
+            : _testModeRezkaAstatkaReports
+                .where((report) =>
+                    report.reportId == _testModeRezkaAstatkaReportId(requestId))
+                .firstOrNull,
+      );
+    }
+    final response = await _sendAuthorized(() => _get(
+          Uri.parse(
+                  '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/rezka-astatka')
+              .replace(queryParameters: {
+            'apparatus': apparatus.trim(),
+            'order_id': orderId.trim(),
+            if (requestId.trim().isNotEmpty) 'request_id': requestId.trim(),
+          }),
+          headers: _headers(requireToken()),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(
+          response, 'rezka_astatka_report_failed');
+    }
+    final snapshot = AdminRezkaAstatkaSnapshot.fromJson(
+        await decodeJsonMapPayload(response.body));
+    final report = snapshot.requestResult;
+    if (report != null &&
+        (report.reportId.isEmpty ||
+            report.orderId != orderId.trim() ||
+            report.apparatus != apparatus.trim())) {
+      throw const MobileApiException(
+          code: 'rezka_astatka_invalid_response', message: '');
+    }
+    return snapshot;
+  }
+
   Future<AdminRezkaAstatkaReport> adminRezkaAstatkaReport({
     required String apparatus,
     required String orderId,
+    required String requestId,
+    required String sessionId,
     String stageNodeId = '',
     bool totalWasteOnly = false,
     double? totalWaste,
@@ -26,6 +88,9 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
         (totalWasteOnly && value == null) || isNonNegative(value);
     if (!isCanonicalApparatusId(normalizedApparatus) ||
         normalizedOrderId.isEmpty ||
+        requestId.trim().length < 8 ||
+        requestId.trim().length > 128 ||
+        sessionId.trim().isEmpty ||
         !isNonNegative(totalWaste) ||
         !validCategory(rezkaBosmaWaste) ||
         !validCategory(rezkaLaminationWaste) ||
@@ -50,6 +115,15 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
           message: 'Tanlangan aparat kesish apparati emas',
         );
       }
+      final reportId = _testModeRezkaAstatkaReportId(requestId);
+      final replay = _testModeRezkaAstatkaReports
+          .where((report) => report.reportId == reportId)
+          .firstOrNull;
+      if (replay != null) return replay;
+      if (sessionId != 'test-session-$normalizedOrderId') {
+        throw const MobileApiException(
+            code: 'queue_action_not_allowed', message: '');
+      }
       final previous = _testModeRezkaAstatkaReports
           .where((report) => report.orderId.trim() == normalizedOrderId)
           .fold<AdminRezkaAstatkaReport?>(null, (current, report) {
@@ -68,8 +142,7 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
       }
       final now = _testModeUnixSeconds();
       final report = AdminRezkaAstatkaReport(
-        reportId:
-            'test-rezka-astatka-${DateTime.now().microsecondsSinceEpoch}-$normalizedOrderId',
+        reportId: reportId,
         orderId: normalizedOrderId,
         apparatus: normalizedApparatus,
         fromAtUnix: fromAtUnix,
@@ -100,7 +173,10 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
         body: jsonEncode({
           'apparatus': normalizedApparatus,
           'order_id': normalizedOrderId,
-          if (stageNodeId.trim().isNotEmpty) 'stage_node_id': stageNodeId.trim(),
+          'request_id': requestId.trim(),
+          'session_id': sessionId.trim(),
+          if (stageNodeId.trim().isNotEmpty)
+            'stage_node_id': stageNodeId.trim(),
           'total_waste': totalWaste,
           if (rezkaBosmaWaste != null) 'rezka_bosma_waste': rezkaBosmaWaste,
           if (rezkaLaminationWaste != null)
@@ -122,12 +198,48 @@ extension MobileApiAdminOrderLifecycleAstPart02 on MobileApi {
     }
     final payload = await decodeJsonMapPayload(response.body);
     final rawReport = payload['report'];
-    if (rawReport is! Map) {
+    if (rawReport is! Map ||
+        rawReport['report_id']?.toString().trim().isNotEmpty != true ||
+        rawReport['order_id'] != normalizedOrderId ||
+        rawReport['apparatus'] != normalizedApparatus) {
       throw const MobileApiException(
         code: 'rezka_astatka_invalid_response',
         message: 'Rezka astatka javobi noto‘g‘ri',
       );
     }
     return AdminRezkaAstatkaReport.fromJson(rawReport.cast<String, dynamic>());
+  }
+}
+
+String _testModeRezkaAstatkaReportId(String requestId) =>
+    'test-rezka-astatka:${AppSession.instance.profile?.role.name ?? ''}:'
+    '${AppSession.instance.profile?.ref ?? ''}:$requestId';
+
+class AdminRezkaAstatkaSnapshot {
+  const AdminRezkaAstatkaSnapshot({
+    required this.sessionId,
+    required this.stageNodeId,
+    this.requestResult,
+  });
+  final String sessionId;
+  final String stageNodeId;
+  final AdminRezkaAstatkaReport? requestResult;
+
+  factory AdminRezkaAstatkaSnapshot.fromJson(Map<String, dynamic> json) {
+    final result = json['request_result'];
+    final report = result is Map ? result['report'] : null;
+    final sessionId = json['session_id']?.toString().trim() ?? '';
+    final stageNodeId = json['stage_node_id']?.toString().trim() ?? '';
+    if (report is! Map && (sessionId.isEmpty || stageNodeId.isEmpty)) {
+      throw const MobileApiException(
+          code: 'rezka_astatka_invalid_response', message: '');
+    }
+    return AdminRezkaAstatkaSnapshot(
+      sessionId: sessionId,
+      stageNodeId: stageNodeId,
+      requestResult: report is Map
+          ? AdminRezkaAstatkaReport.fromJson(report.cast<String, dynamic>())
+          : null,
+    );
   }
 }

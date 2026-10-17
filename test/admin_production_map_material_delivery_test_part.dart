@@ -16,15 +16,18 @@ void _registerMaterialDeliveryTests() {
     expect(event.actorDisplayName, 'Qabul qilgan operator');
   });
   for (final scenario in [
-    (cancel: false, qolipFirst: false, active: false, merge: false),
-    (cancel: false, qolipFirst: true, active: false, merge: false),
-    (cancel: true, qolipFirst: false, active: false, merge: false),
-    (cancel: false, qolipFirst: false, active: true, merge: false),
-    (cancel: true, qolipFirst: false, active: true, merge: false),
-    (cancel: false, qolipFirst: false, active: true, merge: true),
+    (cancel: false, qolipFirst: false, active: false, merge: false, switchAccount: false),
+    (cancel: false, qolipFirst: true, active: false, merge: false, switchAccount: false),
+    (cancel: true, qolipFirst: false, active: false, merge: false, switchAccount: false),
+    (cancel: false, qolipFirst: false, active: true, merge: false, switchAccount: false),
+    (cancel: true, qolipFirst: false, active: true, merge: false, switchAccount: false),
+    (cancel: false, qolipFirst: false, active: true, merge: true, switchAccount: false),
+    (cancel: false, qolipFirst: false, active: false, merge: false, switchAccount: true),
+    (cancel: false, qolipFirst: false, active: true, merge: false, switchAccount: true),
+    (cancel: false, qolipFirst: false, active: true, merge: true, switchAccount: true),
   ]) {
     testWidgets(
-        'material delivery: ${scenario.active ? "active ${scenario.merge ? "merge" : "intake"} ${scenario.cancel ? "cancel" : "receive"}" : scenario.cancel ? "cancel leaves material and order unchanged" : scenario.qolipFirst ? "final material receipt waits for Start" : "receive then final qolip scan waits for Start"}',
+        'material delivery: ${scenario.switchAccount ? 'account switch ' : ''}${scenario.active ? "active ${scenario.merge ? "merge" : "intake"} ${scenario.cancel ? "cancel" : "receive"}" : scenario.cancel ? "cancel leaves material and order unchanged" : scenario.qolipFirst ? "final material receipt waits for Start" : "receive then final qolip scan waits for Start"}',
         (tester) async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-material-delivery';
@@ -209,6 +212,15 @@ void _registerMaterialDeliveryTests() {
       } else {
         await tester.tap(find.text('Olib kelgan Ali'));
         await tester.pump();
+        if (scenario.switchAccount) {
+          await AppSession.instance.setSession(token: 'other-delivery-worker',
+              profile: const SessionProfile(role: UserRole.aparatchi,
+                  displayName: 'Other worker', legalName: '', ref: 'other-worker',
+                  phone: '', avatarUrl: '',
+                  capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+                  assignedApparatus: [_godexId]));
+          await tester.pumpAndSettle();
+        }
         await tester
             .tap(find.byKey(const ValueKey('material-delivery-confirm')));
         await tester.pumpAndSettle();
@@ -216,6 +228,17 @@ void _registerMaterialDeliveryTests() {
             findsNothing);
         final assets = await MobileApi.instance
             .inventoryAssets(assetKind: InventoryAssetKind.rawMaterial);
+        if (scenario.switchAccount) {
+          expect(assets.single.physicalLocation.id, warehouse.id);
+          expect(assets.single.status, 'available');
+          final assignments = await MobileApi.instance.adminRawMaterialAssignments(
+              orderId: orderId, apparatus: _godexId);
+          expect(assignments.single.receivedQty, 0);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          return;
+        }
         expect(assets.single.physicalLocation.id, state.id);
         if (scenario.active) {
           final received = await MobileApi.instance.adminRawMaterialAssignments(

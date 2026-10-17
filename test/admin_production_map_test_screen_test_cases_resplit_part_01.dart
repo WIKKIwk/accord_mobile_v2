@@ -148,6 +148,8 @@ void _registeradmin_production_map_test_screen_testCases01() {
       final astatka = await MobileApi.instance.adminRezkaAstatkaReport(
         apparatus: rezka,
         orderId: orderId,
+        requestId: 'test-rezka-astatka-request',
+        sessionId: 'test-session-$orderId',
         totalWaste: 0,
         rezkaBosmaWaste: 0,
         rezkaLaminationWaste: 0,
