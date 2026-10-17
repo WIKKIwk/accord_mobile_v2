@@ -133,15 +133,25 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     final control = _canonicalDetailControl();
     if (control == null) {
       final live = widget.currentQueueSnapshot?.call();
+      final apparatus = widget.apparatus?.id.trim() ?? '';
+      final orderId = widget.order.map.id.trim();
+      final omitted = live?.queueActionControls[apparatus]?[orderId] == null &&
+          live?.queueStates[apparatus]?[orderId] == null;
       if (_pendingDetailRevision == null && accepted != null &&
           _queueActionContractSynchronized && live?.epoch == accepted.epoch &&
-          (live?.revision ?? -1) < accepted.revision) {
-        // A scoped ACK/read is ahead of the global stream. Do not discard it
-        // while the parent recovers missing delta history in the background.
+          ((live?.revision ?? -1) < accepted.revision ||
+              (live?.revision == accepted.revision && omitted))) {
+        // A bounded projection can omit an equally fresh scoped ACK/read.
+        // It cannot invalidate that contract without a newer revision.
         return;
       }
       setState(() => _queueActionControl = null);
-      _scheduleDetailRecovery();
+      // A newer bounded projection can omit this order without removing it.
+      // Disable actions, then re-read its scoped contract immediately.
+      _scheduleDetailRecovery(
+        delay: omitted && accepted != null && live?.epoch == accepted.epoch
+            ? Duration.zero : null,
+      );
       return;
     }
     final changed = !_sameDetailControl(control);

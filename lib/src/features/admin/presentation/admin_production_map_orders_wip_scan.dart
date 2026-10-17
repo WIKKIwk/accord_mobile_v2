@@ -284,10 +284,15 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
       return null;
     }
     _wipScanHandled = true;
-    final snapshot = await MobileApi.instance
-        .adminProductionMapQueueSnapshot(
-            fresh: true, workerScope: widget.workerMode)
-        .timeout(_queueActionControlRefreshTimeout);
+    bool isCurrent() => mounted && scope == currentSessionReadScope() &&
+        _materialContextIsCurrent(openedId, openedStation);
+    final snapshot = await _loadWorkerQrSnapshot(
+      apparatus: openedStation,
+      orderId: openedId,
+      isCurrent: isCurrent,
+      currentSnapshot: widget.currentQueueSnapshot,
+    );
+    if (snapshot == null) return null;
     if (!mounted ||
         scope != currentSessionReadScope() ||
         !_materialContextIsCurrent(openedId, openedStation)) {
@@ -336,14 +341,16 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
     final sameOrder = wip.orderId == openedId;
     final targetMap = sameOrder
         ? widget.order
-        : snapshot.maps
-            .where((order) => order.map.id.trim() == wip.orderId)
-            .firstOrNull;
-    final orderLabel = targetMap != null
-        ? _busyOrderDisplayLabel(targetMap, context.l10n)
-        : widget.busyOrderTitleLookup?.call(wip.orderId)?.trim() ?? wip.label;
+        : snapshot.maps.where((order) => order.map.id.trim() == wip.orderId)
+            .firstOrNull ?? await MobileApi.instance.adminProductionMap(wip.orderId)
+            .timeout(_queueActionControlRefreshTimeout);
+    if (!mounted || !isCurrent()) return null;
+    if (targetMap.map.id.trim() != wip.orderId) {
+      throw const MobileApiException(code: 'progress_qr_invalid_response', message: '');
+    }
+    final orderLabel = _busyOrderDisplayLabel(targetMap, context.l10n);
     final progress = wip.progress;
-    final candidates = _workerWipConsumerIds(wip, targetMap?.map);
+    final candidates = _workerWipConsumerIds(wip, targetMap.map);
     final assigned =
         AppSession.instance.profile?.assignedApparatus ?? const <String>[];
     final preferred = candidates.contains(openedStation)
@@ -355,9 +362,22 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
     final station = widget.apparatusCatalog
         .where((station) => station.id == stationId)
         .firstOrNull;
-    final orderControl = snapshot.orderControlFor(wip.orderId);
-    final control = snapshot.queueActionControls[stationId]?[wip.orderId];
-    final queueState = snapshot.queueStates[stationId]?[wip.orderId];
+    var targetSnapshot = snapshot;
+    if ((!sameOrder || stationId != openedStation) && station != null &&
+        _isAssignedWatchApparatus(station, assignedApparatus: assigned)) {
+      final scoped = await _loadWorkerQrSnapshot(
+        apparatus: stationId,
+        orderId: wip.orderId,
+        isCurrent: isCurrent,
+        currentSnapshot: widget.currentQueueSnapshot,
+      );
+      if (scoped == null || !isCurrent()) return null;
+      targetSnapshot = scoped;
+    }
+    if (!mounted || !isCurrent()) return null;
+    final orderControl = targetSnapshot.orderControlFor(wip.orderId);
+    final control = targetSnapshot.queueActionControls[stationId]?[wip.orderId];
+    final queueState = targetSnapshot.queueStates[stationId]?[wip.orderId];
     String guidance;
     if (orderControl == AdminOrderControlState.frozen) {
       guidance = _workerFrozenOrderMessage(context.l10n, orderLabel);
@@ -376,7 +396,7 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
       guidance = _workerWipRouteGuidance(
         l10n: context.l10n,
         wip: wip,
-        map: targetMap?.map,
+        map: targetMap.map,
         apparatus: widget.apparatusCatalog,
         consumers: candidates,
         openedApparatus: openedStation,
@@ -403,7 +423,7 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
           : _workerWipRouteGuidance(
               l10n: context.l10n,
               wip: wip,
-              map: targetMap?.map,
+              map: targetMap.map,
               apparatus: widget.apparatusCatalog,
               consumers: candidates,
             );

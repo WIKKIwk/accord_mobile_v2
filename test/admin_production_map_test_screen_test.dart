@@ -69,6 +69,7 @@ part 'admin_production_map_worker_notices_test_part.dart';
 part 'admin_production_map_worker_material_width_notice_test_part.dart';
 part 'admin_production_map_worker_material_presentation_test_part.dart';
 part 'admin_production_map_worker_fab_qr_test_part.dart';
+part 'admin_production_map_worker_qr_window_test_part.dart';
 part 'admin_production_map_inline_wip_guidance_test_part.dart';
 part 'admin_production_map_worker_qr_errors_test_part.dart';
 part 'admin_production_map_frozen_visibility_test_part.dart';
@@ -219,6 +220,7 @@ void main() {
   _registerWorkerMaterialWidthNoticeTests();
   _registerWorkerMaterialPresentationTests();
   _registerWorkerFabQrTests();
+  _registerWorkerQrWindowTests();
   _registerInlineWipGuidanceTests();
   _registerWorkerQrErrorTests();
   _registerWipRouteContinuityTests();

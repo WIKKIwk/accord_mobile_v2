@@ -2236,10 +2236,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (targetOrderId.isEmpty) {
       return false;
     }
-    final snapshot = await MobileApi.instance
-        .adminProductionMapQueueSnapshot()
-        .timeout(_queueActionControlRefreshTimeout);
-    if (!mounted) return false;
+    final scope = currentSessionReadScope();
+    final snapshot = await _loadWorkerQrSnapshot(
+      apparatus: station,
+      orderId: targetOrderId,
+      isCurrent: () => mounted && scope == currentSessionReadScope(),
+      currentSnapshot: widget.currentQueueSnapshot,
+    );
+    if (!mounted || scope != currentSessionReadScope() || snapshot == null) return false;
     AdminApparatusQueueOrderActionControl? targetControl;
     String? targetQueueState;
     targetControl = snapshot.queueActionControls[station]?[targetOrderId];
@@ -2299,7 +2303,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           confirmButtonKey: const ValueKey('production-switch-order-confirm'),
         ) ??
         false;
-    if (!confirmed || !mounted) {
+    if (!confirmed || !mounted || scope != currentSessionReadScope()) {
       return false;
     }
     if (_queueActionControl?.allows('complete') == true) {
