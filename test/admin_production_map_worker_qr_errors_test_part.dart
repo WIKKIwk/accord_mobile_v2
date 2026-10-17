@@ -29,9 +29,19 @@ void _registerWorkerQrErrorTests() {
     'incomplete-batch': 'worker.qr.invalid_response',
     'unconfirmed': 'worker.qr.invalid_response',
     'unknown-error': 'worker.qr.lookup_failed',
+    'future-stage-visible': 'worker.qr.stage_not_reached',
+    'future-stage-hidden': 'worker.qr.stage_not_reached',
+    'future-stage-remapped': 'worker.qr.stage_not_reached',
+    'passed-stage-hidden': 'worker.qr.route_unassigned',
+    'missing-map': 'worker.qr.order_unavailable',
+    'map-read-failed': 'worker.qr.server',
   };
   for (final scenario in scenarios.entries) {
     testWidgets('worker QR precise notice: ${scenario.key}', (tester) async {
+      final futureStage = scenario.key.startsWith('future-stage');
+      final foreignStage = futureStage || scenario.key == 'passed-stage-hidden' ||
+          scenario.key == 'missing-map' || scenario.key == 'map-read-failed';
+      final hiddenOrder = foreignStage && scenario.key != 'future-stage-visible';
       await TestModeController.instance.setEnabled(false);
       final consumer = scenario.key == 'frozen-cold-glue'
           ? _coldGlueId
@@ -79,14 +89,22 @@ void _registerWorkerQrErrorTests() {
         ],
         'edges': [
           {'from': 'start', 'to': 'bosma'},
-          {'from': 'bosma', 'to': 'lamination'},
-          {'from': 'lamination', 'to': 'rezka'},
-          {'from': 'rezka', 'to': 'end'},
+          if (futureStage) ...[
+            {'from': 'bosma', 'to': 'rezka'},
+            {'from': 'rezka', 'to': 'lamination'},
+            {'from': 'lamination', 'to': 'end'},
+          ] else ...[
+            {'from': 'bosma', 'to': 'lamination'},
+            {'from': 'lamination', 'to': 'rezka'},
+            {'from': 'rezka', 'to': 'end'},
+          ],
         ],
       });
       var scanned = false;
       var scopedLookups = 0;
       var legacyControlReads = 0;
+      var mapReads = 0;
+      var workMutations = 0;
       final qrRequests = <Map<String, dynamic>>[];
       AdminOrderControlState controlState() {
         if (scenario.key == 'frozen-scoped-server') {
@@ -105,19 +123,21 @@ void _registerWorkerQrErrorTests() {
       final saved = ProductionMapSaved.fromJson(
           {'map': map.toJson(), 'program': <String, dynamic>{}});
       AdminApparatusQueueSnapshot snapshot() => AdminApparatusQueueSnapshot(
-            revision: scanned ? 2 : 1, epoch: 'qr-errors', maps: [saved],
+            revision: scanned ? 2 : 1, epoch: 'qr-errors',
+            maps: hiddenOrder ? [] : [saved],
             sequences: {
-              consumer: [orderId]
+              consumer: hiddenOrder ? [] : [orderId]
             },
             visibleOrderIds: {
-              consumer: [orderId]
+              consumer: hiddenOrder ? [] : [orderId]
             },
             queueStates: {
-              _print9Id: {
+              if (!hiddenOrder) _print9Id: {
                 orderId: controlState().isFrozen ? 'frozen' : 'in_progress'
               }
             },
-            queuePolicies: const {}, orderControls: {orderId: controlState()},
+            queuePolicies: const {},
+            orderControls: {if (!hiddenOrder) orderId: controlState()},
             // There is deliberately no downstream frozen/action-control fixture.
             queueActionControls: const {},
           );
@@ -125,23 +145,23 @@ void _registerWorkerQrErrorTests() {
             'rev': scanned ? 2 : 1,
             'epoch': 'qr-errors',
             'maps': [
-              {'map': map.toJson(), 'program': {}}
+              if (!hiddenOrder) {'map': map.toJson(), 'program': {}}
             ],
             'sequences': {
-              consumer: [orderId]
+              consumer: hiddenOrder ? [] : [orderId]
             },
             'visible_order_ids': {
-              consumer: [orderId]
+              consumer: hiddenOrder ? [] : [orderId]
             },
             'queue_states': {
-              _print9Id: {
+              if (!hiddenOrder) _print9Id: {
                 orderId: controlState().isFrozen ? 'frozen' : 'in_progress'
               }
             },
             'queue_policies': [],
             'queue_action_controls': {},
             'order_controls': {
-              orderId: {'state': controlState().apiValue}
+              if (!hiddenOrder) orderId: {'state': controlState().apiValue}
             },
             'frozen_orders_by_apparatus': {},
             'order_statuses': {},
@@ -175,8 +195,10 @@ void _registerWorkerQrErrorTests() {
               if (scenario.key != 'catalog-missing')
                 AdminApparatus(
                     id: consumer,
-                    name: 'Worker machine',
+                    name: foreignStage ? 'Laminatsiya 1' : 'Worker machine',
                     operation: 'laminate'),
+              if (foreignStage)
+                const AdminApparatus(id: _rezkaId, name: 'Rezka', operation: 'cut'),
             ],
             liveEventsLoader: () => const Stream.empty(),
           ),
@@ -191,13 +213,26 @@ void _registerWorkerQrErrorTests() {
         await tester.pump(const Duration(milliseconds: 500));
         await scan;
         await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text(l10n.productionText(scenario.value,
-            values: const {'order': 'Frozen WIP'})), findsOneWidget,
+        final message = l10n.productionText(scenario.value,
+            values: const {'order': 'Frozen WIP', 'destination': 'Rezka',
+              'current': 'Laminatsiya 1'});
+        expect(scenario.key == 'passed-stage-hidden'
+            ? find.textContaining(message) : find.text(message), findsOneWidget,
             reason: tester
                 .widgetList<Text>(find.byType(Text))
                 .map((text) => text.data)
                 .toList()
                 .toString());
+        if (futureStage || scenario.key == 'passed-stage-hidden') {
+          expect(find.text(l10n.productionText('worker.qr.order_unavailable')),
+              findsNothing);
+        }
+        if (scenario.key == 'passed-stage-hidden') {
+          expect(find.textContaining('hali sizning bosqichingizga yetib kelmagan'),
+              findsNothing);
+        }
+        expect(mapReads, hiddenOrder ? 1 : 0);
+        expect(workMutations, 0);
         expect(find.text(l10n.productionText('worker.error.assigned_machine')),
             findsNothing);
         expect(
@@ -285,15 +320,21 @@ void _registerWorkerQrErrorTests() {
                           'batch_id': 'bosma-output',
                           'order_id': orderId,
                           'apparatus':
-                              consumer == _rezkaId ? _lamination1Id : _print9Id,
-                          'next_apparatus': consumer,
+                              consumer == _rezkaId || scenario.key == 'passed-stage-hidden'
+                                  ? _lamination1Id : _print9Id,
+                          'next_apparatus': foreignStage &&
+                                  scenario.key != 'future-stage-remapped'
+                              ? _rezkaId : consumer,
                           'qr_payload': qr,
                           'wip_status': 'waiting',
                           'payload_json': {
                             'production_stage_node_id':
                                 consumer == _rezkaId ? 'lamination' : 'bosma',
                             'next_stage_node_id':
-                                consumer == _rezkaId ? 'rezka' : 'lamination'
+                                scenario.key == 'future-stage-remapped'
+                                    ? 'removed-stage'
+                                    : consumer == _rezkaId || foreignStage
+                                        ? 'rezka' : 'lamination'
                           }
                         },
                         if (scenario.key == 'frozen-before-route-error' ||
@@ -303,14 +344,29 @@ void _registerWorkerQrErrorTests() {
                         else
                           'input_route': {
                             'source_stage_node_id':
-                                consumer == _rezkaId ? 'lamination' : 'bosma',
+                                consumer == _rezkaId || scenario.key == 'passed-stage-hidden'
+                                    ? 'lamination' : 'bosma',
                             'stage_node_id':
-                                consumer == _rezkaId ? 'rezka' : 'lamination',
-                            'consumer_apparatus_ids': [consumer],
+                                consumer == _rezkaId || foreignStage ? 'rezka' : 'lamination',
+                            'consumer_apparatus_ids': [foreignStage ? _rezkaId : consumer],
                             'map_fingerprint': 'qr-errors-map',
+                            'remapped': scenario.key == 'future-stage-remapped',
                           },
                       }),
                       200);
+                }
+                if (request.url.path.endsWith('/queue-action')) workMutations++;
+                if (request.url.path.endsWith('/production-maps') &&
+                    request.url.queryParameters['id'] == orderId) {
+                  mapReads++;
+                  if (scenario.key == 'missing-map') {
+                    return http.Response('{"error":"map_not_found"}', 404);
+                  }
+                  if (scenario.key == 'map-read-failed') {
+                    return http.Response('{"error":"server_error"}', 503);
+                  }
+                  return http.Response(
+                      jsonEncode({'map': map.toJson(), 'program': {}}), 200);
                 }
                 if (request.url.path.endsWith('/sequence')) {
                   legacyControlReads++;

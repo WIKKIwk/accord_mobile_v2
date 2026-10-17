@@ -1132,16 +1132,21 @@ class _AdminProductionMapOrdersScreenState
           !_workerCatalogReady) {
         throw const MobileApiException(code: 'worker_qr_sync', message: '');
       }
-      if (targetMaps.isEmpty) {
-        await _showWorkerQrGuidance(context,
-            context.l10n.productionText('worker.qr.order_unavailable'), tone: AdminTopNoticeTone.error);
-        return;
+      final targetOrder = targetMaps.firstOrNull;
+      // Worker snapshots omit orders that have not reached their apparatus.
+      // Read this one map for route guidance; it does not grant queue actions.
+      final routeOrder = targetOrder ?? await MobileApi.instance
+          .adminProductionMap(targetOrderId)
+          .timeout(_queueActionControlRefreshTimeout);
+      if (!mounted || scope != currentSessionReadScope()) return;
+      if (routeOrder.map.id.trim() != targetOrderId) {
+        throw const MobileApiException(
+            code: 'progress_qr_invalid_response', message: '');
       }
-      final targetOrder = targetMaps.first;
       // The printed payload keeps its original node IDs after a map edit.
       // Current eligibility comes from the backend resolver. Only older
       // servers without route metadata use the existing explicit-node filter.
-      final candidates = _workerWipConsumerIds(wip, targetOrder.map);
+      final candidates = _workerWipConsumerIds(wip, routeOrder.map);
       final assigned =
           AppSession.instance.profile?.assignedApparatus ?? const <String>[];
       if (candidates.isEmpty) {
@@ -1176,13 +1181,20 @@ class _AdminProductionMapOrdersScreenState
           _workerWipRouteGuidance(
             l10n: context.l10n,
             wip: wip,
-            map: targetOrder.map,
+            map: routeOrder.map,
             apparatus: _apparatus,
             consumers: candidates,
+            assignedApparatus: assigned,
           ),
           icon: Icons.warning_amber_rounded,
           tone: AdminTopNoticeTone.error,
         );
+        return;
+      }
+      if (targetOrder == null) {
+        await _showWorkerQrGuidance(context,
+            context.l10n.productionText('worker.qr.order_unavailable'),
+            tone: AdminTopNoticeTone.error);
         return;
       }
       if (batch != null) {

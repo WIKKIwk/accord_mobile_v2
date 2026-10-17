@@ -122,6 +122,7 @@ String _workerWipRouteGuidance({
   required ProductionMapDefinition? map,
   required Iterable<AdminApparatus> apparatus,
   required List<String> consumers,
+  Iterable<String> assignedApparatus = const [],
   String openedApparatus = '',
   String expectedInputApparatus = '',
 }) {
@@ -151,6 +152,34 @@ String _workerWipRouteGuidance({
         : label(id));
   }
   final destination = destinations.join(', ');
+  if (openedApparatus.isEmpty && map != null && assignedApparatus.isNotEmpty) {
+    // Follow the concrete destination occurrence, including alternative groups.
+    // A repeated machine earlier in the route is not a future worker stage.
+    final destinationNodeId = wip.progress?.inputRoute?.stageNodeId ??
+        wip.progress?.payloadJson['next_stage_node_id']?.toString() ??
+        wip.openingRecord?.intake.resumeStageNodeId ?? '';
+    final pendingNodes = <String>[destinationNodeId];
+    final visited = <String>{};
+    final laterAssigned = <String>{};
+    for (var index = 0; index < pendingNodes.length; index++) {
+      final nodeId = pendingNodes[index];
+      if (!visited.add(nodeId)) continue;
+      for (final stage in productionMapNextWorkStagesForNode(
+          map: map, stageNodeId: nodeId)) {
+        final id = stage.apparatusId ?? '';
+        if (assignedApparatus.any((assigned) => assigned.trim() == id)) {
+          laterAssigned.add(label(id));
+        }
+        pendingNodes.add(stage.nodeId);
+      }
+    }
+    if (laterAssigned.isNotEmpty) {
+      return l10n.productionText('worker.qr.stage_not_reached', values: {
+        'destination': destination,
+        'current': laterAssigned.join(', '),
+      });
+    }
+  }
   final source = wip.progress?.apparatus.trim() ??
       wip.openingRecord?.intake.sourceApparatus.trim() ?? '';
   final route = l10n.productionText(

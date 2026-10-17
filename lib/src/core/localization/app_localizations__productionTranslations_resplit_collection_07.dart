@@ -312,6 +312,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'It cannot be used as an input roll on {current}. Scan a QR intended for this machine.',
     'ru': 'Его нельзя использовать как входящий рулон на {current}. Отсканируйте QR, предназначенный для этого аппарата.',
   },
+  'worker.qr.stage_not_reached': {
+    'uz': 'Bu buyurtmaning skanerlangan ruloni hali sizning bosqichingizga yetib kelmagan. Avval {destination} bosqichida ishlanishi kerak. {current} uchun tayyorlangan rulon QR’ini skanerlang.',
+    'en': 'The scanned roll for this order has not reached your stage yet. It must first be processed at {destination}. Scan a roll prepared for {current}.',
+    'ru': 'Отсканированный рулон этого заказа ещё не дошёл до вашего этапа. Сначала он должен пройти этап {destination}. Отсканируйте рулон, подготовленный для {current}.',
+  },
   'worker.qr.route_unassigned': {
     'uz': 'Sizga {destination} bosqichidagi apparat biriktirilmagan. Shu bosqichdagi operatorga topshiring yoki apparat biriktirilishini admin bilan tekshiring.',
     'en': 'You have no assigned machine for {destination}. Give the roll to that stage’s operator or ask an admin to check your assignment.',
