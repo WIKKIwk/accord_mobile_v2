@@ -158,10 +158,13 @@ WidgetSpan _deliveryStatus(ColorScheme scheme) {
     alignment: PlaceholderAlignment.middle,
     child: Padding(
       padding: const EdgeInsetsDirectional.only(start: 3),
-      child: Icon(
-        Icons.check_rounded,
-        size: 15,
-        color: scheme.onSurfaceVariant,
+      child: Semantics(
+        label: 'Yuborilgan',
+        child: Icon(
+          Icons.check_rounded,
+          size: 15,
+          color: scheme.onSurfaceVariant,
+        ),
       ),
     ),
   );

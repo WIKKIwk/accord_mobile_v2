@@ -3,15 +3,17 @@ part of 'chat_detail_screen.dart';
 
 extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
   Future<void> _send() async {
-    final body = controller.text.trim();
-    if (body.isEmpty || store.sending) return;
+    final draft = draftController.capture();
+    final body = draft.text.trim();
+    if (body.isEmpty || store.sending || !_isCurrentAccount) return;
     try {
       await store.sendMessage(widget.conversation.conversationId, body);
-      controller.clear();
+      draftController.markSent(draft);
+      if (!mounted || !_isCurrentAccount) return;
       store.clearSendError();
       _scrollToBottom();
     } catch (exception) {
-      if (!mounted) return;
+      if (!mounted || !_isCurrentAccount) return;
       final message = store.sendError.isNotEmpty
           ? store.sendError
           : chatFailureMessage(exception);
@@ -33,8 +35,12 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
 
   void _scrollToBottom() {
     _keepPinnedToBottom = true;
+    _newMessages = 0;
+    _scheduleScrollControls();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!scrollController.hasClients) return;
+      if (!mounted || !_keepPinnedToBottom || !scrollController.hasClients) {
+        return;
+      }
       scrollController.animateTo(
         scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 220),
@@ -44,10 +50,22 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    final userStart = notification is ScrollStartNotification &&
+        notification.dragDetails != null;
     final userUpdate = notification is ScrollUpdateNotification &&
         notification.dragDetails != null;
-    if (userUpdate || notification is ScrollEndNotification) {
-      _keepPinnedToBottom = notification.metrics.extentAfter <= 48;
+    if (userStart || userUpdate) {
+      // Metrics change during touch scrolling too. A bottom correction here
+      // would call jumpTo and cancel the ongoing drag, even on its first frame.
+      _keepPinnedToBottom = false;
+    } else if (notification is ScrollEndNotification) {
+      _keepPinnedToBottom = notification.metrics.extentAfter <= 1;
+      if (_keepPinnedToBottom) _newMessages = 0;
+    }
+    _scheduleScrollControls();
+    if (userUpdate && notification.metrics.extentBefore < 200) {
+      _scheduleOlderMessages();
     }
     return false;
   }
@@ -55,9 +73,10 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
   bool _handleScrollMetricsNotification(
     ScrollMetricsNotification notification,
   ) {
-    if (_keepPinnedToBottom) {
+    if (notification.depth == 0 && _keepPinnedToBottom) {
       _scheduleBottomCorrection();
     }
+    if (notification.depth == 0) _scheduleScrollControls();
     return false;
   }
 
@@ -76,16 +95,80 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
     });
   }
 
+  void _observeTimeline(
+    List<ChatMessage> messages,
+    List<ChatPendingMedia> pending,
+  ) {
+    final previousSequence = _lastMessageSequence;
+    final latestSequence = messages.isEmpty ? null : messages.last.sequence;
+    final hasNewMessages = latestSequence != null &&
+        (previousSequence == null || latestSequence > previousSequence);
+    if (hasNewMessages) {
+      if (!_keepPinnedToBottom && previousSequence != null) {
+        final profile = AppSession.instance.profile;
+        _newMessages += messages
+            .where((message) =>
+                message.sequence > previousSequence &&
+                (profile == null || !message.isMine(profile)))
+            .length;
+      }
+      _lastMessageSequence = latestSequence;
+    }
+    if (_keepPinnedToBottom &&
+        (hasNewMessages || pending.length > _previousPendingCount)) {
+      _scrollToBottom();
+    }
+    _previousPendingCount = pending.length;
+    _scheduleScrollControls();
+  }
+
+  void _scheduleScrollControls() {
+    if (_scrollControlsScheduled) return;
+    _scrollControlsScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollControlsScheduled = false;
+      if (!mounted) return;
+      latestButton.value = (
+        visible: scrollController.hasClients &&
+            (scrollController.position.extentAfter > 80 || _newMessages > 0),
+        unread: _newMessages,
+      );
+    });
+  }
+
+  void _scheduleOlderMessages() {
+    final id = widget.conversation.conversationId;
+    if (_historyLoadScheduled ||
+        !store.hasMoreMessages(id) ||
+        store.loadingOlderMessagesFor(id) ||
+        store.olderMessagesErrorFor(id).isNotEmpty) {
+      return;
+    }
+    _historyLoadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _historyLoadScheduled = false;
+      if (mounted && _isCurrentAccount) unawaited(store.loadOlderMessages(id));
+    });
+  }
+
   Widget _messages(
     List<ChatMessage> messages,
     List<ChatPendingMedia> pendingMedia,
   ) {
+    final id = widget.conversation.conversationId;
+    final loadError = store.messageErrorFor(id);
     if (messages.isEmpty &&
         pendingMedia.isEmpty &&
         store.loadingMessagesFor(widget.conversation.conversationId)) {
       return const Center(child: AppLoadingIndicator());
     }
     if (messages.isEmpty && pendingMedia.isEmpty) {
+      if (loadError.isNotEmpty) {
+        return _ChatLoadFailure(
+          message: loadError,
+          onRetry: () => store.loadMessages(id),
+        );
+      }
       final scheme = Theme.of(context).colorScheme;
       return Center(
         child: Padding(
@@ -101,6 +184,10 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
       );
     }
     final profile = AppSession.instance.profile;
+    if (messages.isNotEmpty &&
+        !messages.any((message) => message.messageId == _timelineAnchorId)) {
+      _timelineAnchorId = messages.first.messageId;
+    }
     final timeline = <_ChatTimelineItem>[];
     if (store.hasMoreMessages(widget.conversation.conversationId)) {
       timeline.add(const _ChatTimelineItem.loadOlder());
@@ -122,12 +209,13 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
           : DateTime.fromMillisecondsSinceEpoch(
               next.createdAtUnix * 1000,
             ).toLocal();
-      final groupedWithPrevious = _sameMessageGroup(
-        previous,
-        previousCreatedAt,
-        message,
-        createdAt,
-      );
+      final groupedWithPrevious = message.messageId != _timelineAnchorId &&
+          _sameMessageGroup(
+            previous,
+            previousCreatedAt,
+            message,
+            createdAt,
+          );
       final groupedWithNext = _sameMessageGroup(
         message,
         createdAt,
@@ -153,56 +241,148 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
     for (final pending in pendingMedia) {
       timeline.add(_ChatTimelineItem.pendingMedia(pending));
     }
+    final anchorIndex = timeline.indexWhere(
+      (item) => item.message?.messageId == _timelineAnchorId,
+    );
+    final split = anchorIndex < 0 ? 0 : anchorIndex;
+    final older = timeline.take(split).toList().reversed.toList();
+    final newer = timeline.skip(split).toList();
+    const centerKey = ValueKey('chat-timeline-center');
     return ColoredBox(
       color: Theme.of(context).colorScheme.surface,
       child: NotificationListener<ScrollMetricsNotification>(
         onNotification: _handleScrollMetricsNotification,
         child: NotificationListener<ScrollNotification>(
           onNotification: _handleScrollNotification,
-          child: ListView.builder(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            itemCount: timeline.length,
-            itemBuilder: (context, index) {
-              final item = timeline[index];
-              switch (item.kind) {
-                case _ChatTimelineItemKind.loadOlder:
-                  return Center(
-                    child: TextButton.icon(
-                      onPressed: () => store.loadOlderMessages(
-                        widget.conversation.conversationId,
+          child: Stack(
+            children: [
+              // Older history grows before the stable center, so prepending a
+              // page never moves the messages the user is currently reading.
+              CustomScrollView(
+                key: const ValueKey('chat-timeline'),
+                controller: scrollController,
+                center: centerKey,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    sliver: _timelineSliver(older),
+                  ),
+                  SliverPadding(
+                    key: centerKey,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    sliver: _timelineSliver(newer),
+                  ),
+                ],
+              ),
+              if (loadError.isNotEmpty)
+                Positioned(
+                  top: 4,
+                  left: 12,
+                  right: 12,
+                  child: _ChatLoadFailure(
+                    message: loadError,
+                    compact: true,
+                    onRetry: () => store.loadMessages(id),
+                  ),
+                ),
+              PositionedDirectional(
+                bottom: 12,
+                end: 12,
+                child: ValueListenableBuilder<({bool visible, int unread})>(
+                  valueListenable: latestButton,
+                  builder: (context, value, _) {
+                    if (!value.visible) return const SizedBox.shrink();
+                    return FloatingActionButton.small(
+                      key: const ValueKey('chat-jump-to-latest'),
+                      heroTag: null,
+                      tooltip: value.unread > 0
+                          ? '${value.unread} ta yangi xabar'
+                          : 'Oxirgi xabarga o‘tish',
+                      onPressed: _scrollToBottom,
+                      child: Badge(
+                        isLabelVisible: value.unread > 0,
+                        label:
+                            Text(value.unread > 99 ? '99+' : '${value.unread}'),
+                        child: const Icon(Icons.keyboard_arrow_down_rounded),
                       ),
-                      icon: const Icon(Icons.expand_less_rounded),
-                      label: const UrduAwareText('Oldingi xabarlar'),
-                    ),
-                  );
-                case _ChatTimelineItemKind.dateDivider:
-                  return ChatDateDivider(date: item.date!);
-                case _ChatTimelineItemKind.message:
-                  final message = item.message!;
-                  return ChatMessageBubble(
-                    key: ValueKey(message.messageId),
-                    message: message,
-                    mine: item.mine,
-                    playback: audioPlayback,
-                    compactTop: item.compactTop,
-                    isLastInGroup: item.isLastInGroup,
-                  );
-                case _ChatTimelineItemKind.pendingMedia:
-                  final pending = item.pendingMedia!;
-                  return ChatPendingMediaBubble(
-                    key: ValueKey(pending.localId),
-                    pending: pending,
-                    onRetry: () => store.retryMedia(pending.localId),
-                    onCancel: () => store.cancelMedia(pending.localId),
-                  );
-              }
-            },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _timelineSliver(List<_ChatTimelineItem> items) {
+    final indices = <Key, int>{
+      for (var index = 0; index < items.length; index++)
+        items[index].key: index,
+    };
+    return SliverList.builder(
+      itemCount: items.length,
+      findChildIndexCallback: (key) => indices[key],
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return KeyedSubtree(key: item.key, child: _timelineRow(item));
+      },
+    );
+  }
+
+  Widget _timelineRow(_ChatTimelineItem item) {
+    switch (item.kind) {
+      case _ChatTimelineItemKind.loadOlder:
+        final id = widget.conversation.conversationId;
+        if (store.loadingOlderMessagesFor(id)) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(
+                child: SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )),
+          );
+        }
+        final error = store.olderMessagesErrorFor(id);
+        return Column(
+          children: [
+            if (error.isNotEmpty)
+              UrduAwareText(error, textAlign: TextAlign.center),
+            TextButton.icon(
+              key: const ValueKey('chat-load-older'),
+              onPressed: () => store.loadOlderMessages(id),
+              icon: Icon(error.isEmpty
+                  ? Icons.expand_less_rounded
+                  : Icons.refresh_rounded),
+              label: UrduAwareText(
+                  error.isEmpty ? 'Oldingi xabarlar' : 'Qayta yuklash'),
+            ),
+          ],
+        );
+      case _ChatTimelineItemKind.dateDivider:
+        return ChatDateDivider(date: item.date!);
+      case _ChatTimelineItemKind.message:
+        return ChatMessageBubble(
+          key: ValueKey(item.message!.messageId),
+          message: item.message!,
+          mine: item.mine,
+          playback: audioPlayback,
+          compactTop: item.compactTop,
+          isLastInGroup: item.isLastInGroup,
+        );
+      case _ChatTimelineItemKind.pendingMedia:
+        final pending = item.pendingMedia!;
+        return ChatPendingMediaBubble(
+          key: ValueKey(pending.localId),
+          pending: pending,
+          onRetry: () => store.retryMedia(pending.localId),
+          onCancel: () => store.cancelMedia(pending.localId),
+        );
+    }
   }
 
   bool _sameMessageGroup(
@@ -226,13 +406,15 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
   }
 
   Future<void> _attachMedia() async {
-    if (_recordingVoice || _voiceBusy) return;
+    if (_recordingVoice || _voiceBusy || store.sending || !_isCurrentAccount) {
+      return;
+    }
     final selection = await showModalBottomSheet<_MediaPickerSelection>(
       context: context,
       showDragHandle: true,
       builder: (context) => const _ChatMediaPickerSheet(),
     );
-    if (selection == null || !mounted) return;
+    if (selection == null || !mounted || !_isCurrentAccount) return;
     try {
       final picker = ImagePicker();
       final XFile? source = switch ((selection.kind, selection.source)) {
@@ -255,7 +437,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
           ),
         (ChatMediaKind.audio, _) => null,
       };
-      if (source == null || !mounted) return;
+      if (source == null || !mounted || !_isCurrentAccount) return;
       final size = await source.length();
       final maximum = selection.kind == ChatMediaKind.image
           ? chatMediaImageMaxBytes
@@ -269,7 +451,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
           statusCode: 413,
         );
       }
-      if (!mounted) return;
+      if (!mounted || !_isCurrentAccount) return;
       final draft = await Navigator.of(context).push<ChatMediaDraft>(
         MaterialPageRoute(
           builder: (_) => ChatMediaPreviewScreen(
@@ -278,7 +460,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
           ),
         ),
       );
-      if (draft == null || !mounted) return;
+      if (draft == null || !mounted || !_isCurrentAccount) return;
       await store.queueMedia(
         conversationId: widget.conversation.conversationId,
         source: draft.source,
@@ -299,11 +481,13 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
   }
 
   Future<void> _startVoiceRecording() async {
-    if (_recordingVoice || _voiceBusy || store.sending) return;
+    if (_recordingVoice || _voiceBusy || store.sending || !_isCurrentAccount) {
+      return;
+    }
     setState(() => _voiceBusy = true);
     try {
       await voiceRecorder.start();
-      if (!mounted) {
+      if (!mounted || !_isCurrentAccount) {
         await voiceRecorder.cancel();
         return;
       }
@@ -342,7 +526,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
     var queued = false;
     try {
       recording = await voiceRecorder.stop();
-      if (!mounted) {
+      if (!mounted || !_isCurrentAccount) {
         if (recording != null) {
           await deleteChatMediaFile(recording.source.path);
         }
@@ -405,7 +589,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
   }
 
   void _showMediaError(String message) {
-    if (!mounted) return;
+    if (!mounted || !_isCurrentAccount) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));

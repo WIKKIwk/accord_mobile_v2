@@ -1,3 +1,4 @@
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -6,6 +7,7 @@ import 'package:accord_mobile_v2/src/features/chat/presentation/widgets/chat_ord
 import 'package:accord_mobile_v2/src/features/chat/state/chat_audio_playback_controller.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,7 +31,16 @@ void main() {
         AppSession.instance.profile = null;
         await TestModeController.instance.setEnabled(false);
       });
-      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SingleChildScrollView(
+      await tester.pumpWidget(const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(
         child: ChatOrderFreezeRequestCard(data: OrderFreezeRequestCardData(
           eventSequence: 1, requestId: 'freeze-1', status: OrderFreezeRequestCardStatus.pending,
           orderId: 'zakaz-1', orderNumber: '0001', orderTitle: 'Order',
@@ -53,6 +64,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ChatMessageBubble(
             message: const ChatMessage(
@@ -92,6 +111,7 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
 
     expect(find.text('Buyurtmani muzlatish so‘rovi'), findsOneWidget);
     expect(find.text('Kutilmoqda'), findsOneWidget);

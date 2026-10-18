@@ -62,6 +62,59 @@ class _ChatTimelineItem {
   final bool mine;
   final bool compactTop;
   final bool isLastInGroup;
+
+  Key get key => switch (kind) {
+        _ChatTimelineItemKind.message => ValueKey('row:${message!.messageId}'),
+        _ChatTimelineItemKind.pendingMedia =>
+          ValueKey('pending:${pendingMedia!.localId}'),
+        _ChatTimelineItemKind.dateDivider =>
+          ValueKey('day:${date!.year}-${date!.month}-${date!.day}'),
+        _ChatTimelineItemKind.loadOlder => const ValueKey('history-loader'),
+      };
+}
+
+class _ChatLoadFailure extends StatelessWidget {
+  const _ChatLoadFailure({
+    required this.message,
+    required this.onRetry,
+    this.compact = false,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: EdgeInsets.all(compact ? 12 : 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!compact) const Icon(Icons.cloud_off_outlined, size: 40),
+          const SizedBox(height: 8),
+          UrduAwareText(message, textAlign: TextAlign.center),
+          TextButton.icon(
+            key: const ValueKey('chat-retry-messages'),
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const UrduAwareText('Qayta yuklash'),
+          ),
+        ],
+      ),
+    );
+    return Semantics(
+      liveRegion: true,
+      child: compact
+          ? Material(
+              elevation: 2,
+              color: Theme.of(context).colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(12),
+              child: content,
+            )
+          : Center(child: content),
+    );
+  }
 }
 
 class _MediaPickerSelection {
@@ -173,7 +226,7 @@ class _ConversationTitle extends StatelessWidget {
               ),
         ),
         UrduAwareText(
-          connected ? 'Onlayn' : 'Ulanmoqda…',
+          connected ? 'Ulangan' : 'Qayta ulanmoqda…',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),

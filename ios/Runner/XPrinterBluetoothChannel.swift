@@ -42,6 +42,15 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let progressPackQrX = 250
   private static let progressPackQrY = 285
   private static let progressPackEpcGapDots = 16
+  private static let compactLabelWidthMm: Double = 70.0
+  private static let compactLabelWidthDots = 560
+  private static let compactLabelHeightMm: Double = 50.0
+  private static let compactLabelHeightDots = 400
+  private static let compactLabelMarginDots = 8
+  private static let compactLabelReferenceXDots: Int32 = 32
+  private static let compactLabelTextXDots = 8
+  private static let progressPackTextCodeGapDots = 24
+  private static let progressPackCodeMinY = 236
   private static let progressTextCharWidthDots = 16
   private static let progressTextLineHeightDots = 24
   private static let progressTextTopY = 36
@@ -469,13 +478,19 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private func buildLabelCommand(_ label: BluetoothLabelRequest) throws -> Data {
     var command: XTSPLCommand? = XTSPLCommand()
     command = command?.setCharEncoding(String.Encoding.ascii.rawValue)
-    command = command?.sizeMm(Self.labelWidthMm, height: Self.labelHeightMm)
+    command = command?.sizeMm(
+      label.usesCompactLabel ? Self.compactLabelWidthMm : Self.labelWidthMm,
+      height: label.usesCompactLabel ? Self.compactLabelHeightMm : Self.labelHeightMm
+    )
     command = command?.speed(4.0)
     let printDensity = label.labelKind == "material_product"
       ? Self.materialPrintDensity
       : Self.defaultPrintDensity
     command = command?.density(printDensity)
-    command = command?.referenceAt(x: Self.labelReferenceXDots, y: Int32(0))
+    command = command?.referenceAt(
+      x: label.usesCompactLabel ? Self.compactLabelReferenceXDots : Self.labelReferenceXDots,
+      y: Int32(0)
+    )
     command = command?.cls()
     command = command?.codePage(Self.labelCodePage)
 
@@ -488,9 +503,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       // Homashyo rezkachisi split chiqishi WIP uslubida (kichik o'ng-past
       // QR). Uzunliksiz generic material_product eski katta markaziy QR da.
       if label.isMaterialSplit {
-        command = appendMaterialSplitLabel(command, label: label)
+        command = try appendMaterialSplitLabel(command, label: label)
       } else {
-        command = appendLargeQr(command, label: label)
+        command = try appendLargeQr(command, label: label)
       }
     default:
       command = appendPackLabel(command, label: label)
@@ -503,165 +518,138 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     return data
   }
 
+
   private func appendQolipCell(
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest
   ) -> XTSPLCommand? {
+    let name = cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName)
     let payload = requiredPayload(label.epc)
-    let title = fitLabelText(
-      cleanLabelText(label.itemName.isEmpty ? label.itemCode : label.itemName),
-      maxLength: 16
+    let title = fitLabelText(name, maxLength: 33)
+    var result = text(
+      command, x: (Self.compactLabelWidthDots - title.count * 16) / 2,
+      y: Self.compactLabelMarginDots, font: kFNT_16_24, value: title
     )
-    let titleX = centeredLabelX(title, charWidth: 24)
-    let cellWidth = largeQrCellWidth(payload)
-    var result = command
-    result = text(result, x: titleX, y: 12, font: kFNT_16_24, value: title)
+    if label.materialDataMatrix {
+      return materialDataMatrixRow(
+        result, y: (Self.compactLabelHeightDots - Self.materialDataMatrixSizeDots) / 2,
+        bars: label.materialDataMatrixBars,
+        xOffset: (Self.compactLabelWidthDots - Self.labelWidthDots) / 2
+      )
+    }
+    let modules = qrModuleCount(payload)
+    let cellWidth = max(2, min(
+      largeQrCellWidth(payload),
+      (Self.compactLabelHeightDots - 2 * Self.compactLabelMarginDots - 40) / modules
+    ))
+    let qrSize = modules * cellWidth
     result = qr(
-      result,
-      x: centeredQrX(payload, cellWidth: cellWidth),
-      y: centeredQrY(payload, cellWidth: cellWidth),
-      value: payload,
-      cellWidth: cellWidth
+      result, x: (Self.compactLabelWidthDots - qrSize) / 2,
+      y: max(48, (Self.compactLabelHeightDots - qrSize) / 2),
+      value: payload, cellWidth: cellWidth
     )
     return result
   }
 
+
   private func appendLargeQr(
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest
-  ) -> XTSPLCommand? {
-    let payload = requiredPayload(label.epc)
-    let rawTitle = label.itemName.isEmpty ? label.itemCode : label.itemName
-    let useDataMatrix = label.materialDataMatrix && label.labelKind == "material_product"
-    let titleLines = largeQrTitleLines(label, rawTitle: rawTitle)
-    let titleFont = label.labelKind == "material_product" ? kFNT_14_19 : kFNT_12_20
-    let cellWidth = label.labelKind == "material_product"
-      ? materialQrCellWidth(payload)
-      : largeQrCellWidth(payload)
-    let qrX = centeredQrX(payload, cellWidth: cellWidth)
-    let qrSize = useDataMatrix
-      ? Self.materialDataMatrixSizeDots
-      : qrSymbolSizeDots(payload, cellWidth: cellWidth)
-    let baseQrY = useDataMatrix
-      ? (Self.labelHeightDots - qrSize) / 2
-      : centeredQrY(payload, cellWidth: cellWidth)
-    let qrY: Int
+  ) throws -> XTSPLCommand? {
+    let product = label.itemName.isEmpty ? label.itemCode : label.itemName
+    let unit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+    var fields: [(String, String)]
     if label.labelKind == "qolip_code" {
-      let latestQrY = max(
-        baseQrY,
-        Self.labelHeightDots - qrSize - Self.largeQrFooterGapDots -
-          Self.largeQrFooterHeightDots
-      )
-      let requestedQrY = qolipFieldsEndY(label, rawTitle: rawTitle) +
-        Self.qolipFieldQrGapDots
-      qrY = min(max(requestedQrY, baseQrY), latestQrY)
-    } else if label.labelKind == "material_product" {
-      let latestQrY = max(
-        baseQrY,
-        Self.labelHeightDots - qrSize - Self.largeQrFooterGapDots -
-          Self.largeQrFooterHeightDots
-      )
-      let titleEndY = Self.materialTitleTopY +
-        max(0, titleLines.count - 1) * Self.materialTitleLineHeightDots +
-        Self.materialTitleFontHeightDots
-      let requestedQrY = titleEndY + Self.materialTitleQrGapDots
-      qrY = min(max(requestedQrY, baseQrY), latestQrY)
+      fields = [("MIJOZ", label.customerName), ("MAHSULOT NOMI", product),
+                ("QOLIP RANGI", label.qolipColor)]
     } else {
-      qrY = baseQrY
-    }
-
-    var result = command
-    if label.labelKind == "qolip_code" {
-      var field = appendQolipField(
-        result,
-        y: Self.qolipFieldTopY,
-        fieldLabel: "MIJOZ",
-        value: label.customerName
-      )
-      result = field.command
-      field = appendQolipField(
-        result,
-        y: field.nextY,
-        fieldLabel: "MAHSULOT NOMI",
-        value: rawTitle
-      )
-      result = field.command
-      field = appendQolipField(
-        result,
-        y: field.nextY,
-        fieldLabel: "QOLIP RANGI",
-        value: label.qolipColor
-      )
-      result = field.command
-    } else {
-      for (index, line) in titleLines.enumerated() {
-        let titleX = Self.labelLeftMarginDots
-        let titleY = label.labelKind == "material_product"
-          ? Self.materialTitleTopY + index * Self.materialTitleLineHeightDots
-          : 6 + index * 26
-        let lineFont = label.labelKind == "paddon_code" && line.count > 25
-          ? kFNT_8_12
-          : titleFont
-        result = text(
-          result,
-          x: titleX,
-          y: titleY,
-          font: lineFont,
-          value: line
-        )
-        if label.labelKind == "material_product" {
-          result = text(
-            result,
-            x: titleX + Self.materialTextBoldOffsetDots,
-            y: titleY,
-            font: titleFont,
-            value: line
-          )
-        }
+      fields = [("MAHSULOT", product)]
+      if label.tareEnabled {
+        fields += [("BRUTTO", "\(compactLabelQty(label.grossQty)) \(unit)"),
+                   ("NETTO", "\(compactLabelQty(label.netQty)) \(unit)")]
+      } else {
+        fields.append(("NET VAZNI", "\(compactLabelQty(label.netQty)) \(unit)"))
       }
     }
+    return try appendCompactFieldsLabel(command, label: label, fields: fields)
+  }
+
+  private func appendCompactFieldsLabel(
+    _ command: XTSPLCommand?,
+    label: BluetoothLabelRequest,
+    fields: [(String, String)],
+    largeText: Bool = false
+  ) throws -> XTSPLCommand? {
+    let payload = requiredPayload(label.epc)
+    let footer = label.labelKind == "qolip_code" ? "EPC: \(payload)" : payload
+    let footerIsLarge = footer.count <= 32
+    let footerCharWidth = footerIsLarge ? 12 : 8
+    let footerLineHeight = footerIsLarge ? 24 : 16
+    let footerFont = footerIsLarge ? kFNT_12_20 : kFNT_8_12
+    let footerLines = wrapLabelText(
+      footer, width: (Self.compactLabelWidthDots - 2 * Self.compactLabelMarginDots) / footerCharWidth
+    )
+    let useDataMatrix = ["material_product", "qolip_code"].contains(label.labelKind) &&
+      label.materialDataMatrix
+    var cellWidth = max(2, min(largeQrCellWidth(payload), 174 / qrModuleCount(payload)))
+    var styles: [(font: String, charWidth: Int, lineHeight: Int)] = []
+    if largeText { styles.append((kFNT_24_32, 24, 36)) }
+    styles += [(kFNT_16_24, 16, 28), (kFNT_8_12, 8, 16)]
+    var selected: (style: (font: String, charWidth: Int, lineHeight: Int), lines: [[String]])?
+    var codeSize = 0
+    var latestCodeY = 0
+    while selected == nil {
+      codeSize = useDataMatrix ? Self.materialDataMatrixSizeDots
+        : qrSymbolSizeDots(payload, cellWidth: cellWidth)
+      latestCodeY = Self.compactLabelHeightDots - Self.compactLabelMarginDots -
+        footerLines.count * footerLineHeight - Self.progressPackEpcGapDots - codeSize
+      let availableHeight = latestCodeY - Self.compactLabelMarginDots - Self.qolipFieldQrGapDots
+      for style in styles {
+        let width = (Self.compactLabelWidthDots - Self.compactLabelTextXDots -
+          Self.compactLabelMarginDots - Self.progressBoldOffsetDots) / style.charWidth
+        let lines = fields.map { name, value in
+          let cleaned = cleanLabelText(value)
+          return wrapLabelText("\(name): \(cleaned.isEmpty ? "-" : cleaned)", width: width)
+        }
+        if lines.reduce(0, { $0 + $1.count }) * style.lineHeight +
+            (fields.count - 1) * Self.progressFieldGapDots <= availableHeight {
+          selected = (style, lines)
+          break
+        }
+      }
+      if selected != nil || useDataMatrix || cellWidth <= 2 { break }
+      cellWidth -= 1
+    }
+    guard let selected else { throw PrintError.labelTextDoesNotFit }
+    var result = command
+    var y = Self.compactLabelMarginDots
+    for (fieldIndex, lines) in selected.lines.enumerated() {
+      result = appendProgressLines(
+        result, lines: lines, y: y, lineHeight: selected.style.lineHeight,
+        font: selected.style.font, charWidth: selected.style.charWidth
+      )
+      y += lines.count * selected.style.lineHeight +
+        (fieldIndex == fields.count - 1 ? 0 : Self.progressFieldGapDots)
+    }
+    let codeY = min(latestCodeY, max(y + Self.qolipFieldQrGapDots, latestCodeY - 16))
     if useDataMatrix {
       result = materialDataMatrixRow(
-        result, y: qrY, bars: label.materialDataMatrixBars
+        result, y: codeY, bars: label.materialDataMatrixBars,
+        xOffset: (Self.compactLabelWidthDots - Self.labelWidthDots) / 2
       )
     } else {
-      result = qr(result, x: qrX, y: qrY, value: payload, cellWidth: cellWidth)
+      result = qr(
+        result, x: (Self.compactLabelWidthDots - codeSize) / 2,
+        y: codeY, value: payload, cellWidth: cellWidth
+      )
     }
-    if label.labelKind == "qolip_code" {
-      return appendQolipField(
-        result,
-        y: centeredQrFooterY(qrY: qrY, qrSize: qrSize),
-        fieldLabel: "EPC",
-        value: payload
-      ).command
+    for (index, line) in footerLines.enumerated() {
+      result = text(
+        result, x: (Self.compactLabelWidthDots - line.count * footerCharWidth) / 2,
+        y: codeY + codeSize + Self.progressPackEpcGapDots + index * footerLineHeight,
+        font: footerFont, value: line
+      )
     }
-    let footerLimit = label.labelKind == "material_product" ? 32 : 46
-    let footer = fitLabelText(
-      largeQrFooter(label, payload: payload),
-      maxLength: footerLimit
-    )
-    let footerIsLarge =
-      (label.labelKind == "material_product" ||
-        label.labelKind == "qolip_code" ||
-        label.labelKind == "paddon_code") &&
-      footer.count <= 32
-    let footerFont = footerIsLarge ? kFNT_12_20 : kFNT_8_12
-    let footerX = label.labelKind == "material_product" ||
-      label.labelKind == "qolip_code" ||
-      label.labelKind == "paddon_code"
-      ? max(
-          Self.labelLeftMarginDots,
-          centeredLabelX(footer, charWidth: footerIsLarge ? 12 : 8) -
-            Self.largeQrFooterLeftShiftDots
-        )
-      : Self.labelLeftMarginDots
-    result = text(
-      result,
-      x: footerX,
-      y: centeredQrFooterY(qrY: qrY, qrSize: qrSize),
-      font: footerFont,
-      value: footer
-    )
     return result
   }
 
@@ -741,98 +729,22 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   // pastda kattaroq QR. Matn balandligiga qarab QR pastga suriladi, lekin
   // EPC footer bilan birga yorliqdan chiqib ketmaydi. Faqat isMaterialSplit
   // uchun ishlaydi, boshqa chop etishlarga tegmaydi.
+
   private func appendMaterialSplitLabel(
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest
-  ) -> XTSPLCommand? {
-    let payload = requiredPayload(label.epc)
-    let product = cleanLabelText(
-      label.itemName.isEmpty
-        ? (label.itemCode.isEmpty ? "-" : label.itemCode)
-        : label.itemName
-    )
-    let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
+  ) throws -> XTSPLCommand? {
+    let unit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
     let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
-
-    var result = command
-    var y = Self.progressTextTopY
-    var lines = splitFieldLines("HOMASHYO", value: product, maxLines: 3)
-    result = appendSplitLines(result, lines: lines, y: y)
-    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
-
-    lines = splitFieldLines(
-      "BRUTTO",
-      value: "\(formatLabelQty(label.grossQty)) \(weightUnit)",
-      maxLines: 1
-    )
-    result = appendSplitLines(result, lines: lines, y: y)
-    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
-
-    lines = splitFieldLines(
-      "NETTO",
-      value: "\(formatLabelQty(label.netQty)) \(weightUnit)",
-      maxLines: 1
-    )
-    result = appendSplitLines(result, lines: lines, y: y)
-    y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
-
-    // Tizimga kiritilgan metraj (lengthM) bo'lsa chiqar, bo'lmasa qatorni
-    // tashlab ket — QR baribir pastda katta qoladi.
-    if let length = label.progressQty, length.isFinite, length > 0 {
-      lines = splitFieldLines(
-        "METRAJ",
-        value: "\(formatLabelQty(length)) \(meterUnit)",
-        maxLines: 1
-      )
-      result = appendSplitLines(result, lines: lines, y: y)
-      y += lines.count * Self.splitTextLineHeightDots + Self.progressFieldGapDots
+    var fields = [
+      ("HOMASHYO", label.itemName.isEmpty ? label.itemCode : label.itemName),
+      ("BRUTTO", "\(formatLabelQty(label.grossQty)) \(unit)"),
+      ("NETTO", "\(formatLabelQty(label.netQty)) \(unit)")
+    ]
+    if let length = label.progressQty, length.isFinite && length > 0 {
+      fields.append(("METRAJ", "\(formatLabelQty(length)) \(meterUnit)"))
     }
-
-    let qrCellWidth = splitQrCellWidth(payload)
-    let qrSize = label.materialDataMatrix
-      ? Self.materialDataMatrixSizeDots
-      : qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
-    // Keep the EPC where the former single QR placed it. The compact row is
-    // then positioned immediately above that stable footer instead of
-    // pulling EPC upward by the difference in symbol sizes.
-    let previousQrSize = qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
-    let previousLatestQrY = Self.labelHeightDots - Self.largeQrFooterHeightDots -
-      Self.progressPackEpcGapDots - previousQrSize
-    let previousQrY = max(Self.splitQrBaseY, min(y + 8, previousLatestQrY))
-    let epcY = min(
-      Self.labelHeightDots - 24,
-      previousQrY + previousQrSize + Self.progressPackEpcGapDots
-    )
-    let qrY = label.materialDataMatrix
-      ? max(
-          Self.splitQrBaseY,
-          epcY - Self.progressPackEpcGapDots - qrSize
-        )
-      : previousQrY
-    if label.materialDataMatrix {
-      result = materialDataMatrixRow(
-        result, y: qrY, bars: label.materialDataMatrixBars
-      )
-    } else {
-      result = qr(
-        result,
-        x: Self.progressPackQrX,
-        y: qrY,
-        value: payload,
-        cellWidth: qrCellWidth
-      )
-    }
-    let epcIsLarge = payload.count <= 32
-    let epcFont = epcIsLarge ? kFNT_12_20 : kFNT_8_12
-    let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
-    result = text(
-      result,
-      x: centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8),
-      y: epcY,
-      font: epcFont,
-      value: epcText
-    )
-    return result
+    return try appendCompactFieldsLabel(command, label: label, fields: fields, largeText: true)
   }
 
   private func splitQrCellWidth(_ value: String) -> Int {
@@ -964,7 +876,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
 
     let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
     let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
-    let fields = [
+    var fields = [
       progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 5),
       progressFieldLines("APARAT", value: apparatus, maxLines: 2),
       progressFieldLines("HOLAT", value: status, maxLines: 2),
@@ -975,16 +887,26 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       progressFieldLines("NETTO", value: "\(formatLabelQty(label.netQty)) \(weightUnit)", maxLines: 1),
       progressFieldLines("BRUTTO", value: "\(formatLabelQty(label.grossQty)) \(weightUnit)", maxLines: 1)
     ]
-    let gaps = [12, 8, 8, 4, 4, 0]
-    let availableHeight = progressCodeY(label, payload: payload) - 8 - Self.progressTextTopY
+    if !label.completedAtLabel.isEmpty {
+      fields.append(progressFieldLines("TUGATILDI", value: label.completedAtLabel, maxLines: 1))
+    }
+    let gaps = fields.indices.map { $0 == fields.count - 1 ? 0 : 4 }
+    let codeSize = label.materialDataMatrix
+      ? Self.materialDataMatrixSizeDots
+      : qrSymbolSizeDots(payload, cellWidth: packQrCellWidth(payload))
+    // Reserve top/bottom margins, the text-to-code gap, and the EPC footer
+    // inside the 50 mm WIP label using the actual printed symbol size.
+    let availableHeight = Self.compactLabelHeightDots -
+      2 * Self.compactLabelMarginDots - Self.progressPackTextCodeGapDots - codeSize -
+      Self.progressPackEpcGapDots - Self.largeQrFooterHeightDots
     let lineCount = fields.reduce(0) { $0 + $1.count }
-    let lineHeight = label.materialDataMatrix
-      ? ([24, 20, 12].first { lineCount * $0 + gaps.reduce(0, +) <= availableHeight } ?? 12)
-      : Self.progressTextLineHeightDots
+    let lineHeight = [24, 20, 12].first {
+      lineCount * $0 + gaps.reduce(0, +) <= availableHeight
+    } ?? 12
     let font = lineHeight == 24 ? kFNT_16_24 : (lineHeight == 20 ? kFNT_12_20 : kFNT_8_12)
     let charWidth = lineHeight == 24 ? 16 : (lineHeight == 20 ? 12 : 8)
     var result = command
-    var y = Self.progressTextTopY
+    var y = Self.compactLabelMarginDots
     for (fieldIndex, lines) in fields.enumerated() {
       result = appendProgressLines(
         result, lines: lines, y: y, lineHeight: lineHeight, font: font, charWidth: charWidth
@@ -992,7 +914,13 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       y += lines.count * lineHeight + gaps[fieldIndex]
     }
 
-    return appendProgressQr(result, label: label)
+    let latestCodeY = Self.compactLabelHeightDots - Self.compactLabelMarginDots -
+      codeSize - Self.progressPackEpcGapDots - Self.largeQrFooterHeightDots
+    let codeY = min(
+      latestCodeY,
+      max(Self.progressPackCodeMinY, y + Self.progressPackTextCodeGapDots)
+    )
+    return appendProgressQr(result, label: label, codeY: codeY)
   }
 
   private func progressEpcY(_ payload: String) -> Int {
@@ -1009,27 +937,39 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       : Self.progressPackQrY
   }
 
-  // Keep the identifier at its former position, with the shared three-code
-  // row immediately above it for WIP and pallet labels.
+  // WIP places its codes after the fields; pallet labels use the default position.
   private func appendProgressQr(
     _ command: XTSPLCommand?,
-    label: BluetoothLabelRequest
+    label: BluetoothLabelRequest,
+    codeY: Int? = nil
   ) -> XTSPLCommand? {
     var result = command
     let payload = requiredPayload(label.epc)
     let qrCellWidth = packQrCellWidth(payload)
-    let epcY = progressEpcY(payload)
+    let qrY = codeY ?? progressCodeY(label, payload: payload)
+    // Keep the code row centered at its existing physical position when
+    // the WIP text origin moves left to use the wider paper.
+    let xOffset = label.isProgress
+      ? Int(Self.labelReferenceXDots - Self.compactLabelReferenceXDots)
+      : 0
+    let codeSize = label.materialDataMatrix
+      ? Self.materialDataMatrixSizeDots
+      : qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
+    let epcY = codeY == nil
+      ? progressEpcY(payload)
+      : qrY + codeSize + Self.progressPackEpcGapDots
     if label.materialDataMatrix {
       result = materialDataMatrixRow(
         result,
-        y: progressCodeY(label, payload: payload),
-        bars: label.materialDataMatrixBars
+        y: qrY,
+        bars: label.materialDataMatrixBars,
+        xOffset: xOffset
       )
     } else {
       result = qr(
         result,
-        x: Self.progressPackQrX,
-        y: Self.progressPackQrY,
+        x: Self.progressPackQrX + xOffset,
+        y: qrY,
         value: payload,
         cellWidth: qrCellWidth
       )
@@ -1039,7 +979,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
     result = text(
       result,
-      x: centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8),
+      x: centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8) + xOffset,
       y: epcY,
       font: epcFont,
       value: epcText
@@ -1055,7 +995,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     Array(
       wrapLabelText(
         "\(fieldLabel): \(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "-" : value)",
-        width: Self.progressFieldWidthChars
+        width: (Self.compactLabelWidthDots - Self.compactLabelTextXDots -
+          Self.compactLabelMarginDots - Self.progressBoldOffsetDots) /
+          Self.progressTextCharWidthDots
       ).prefix(max(1, maxLines))
     )
   }
@@ -1091,7 +1033,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     guard let separator = line.firstIndex(of: ":") else {
       return appendBoldText(
         command,
-        x: Self.labelLeftMarginDots,
+        x: Self.compactLabelTextXDots,
         y: y,
         value: line,
         font: font
@@ -1103,7 +1045,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       .trimmingCharacters(in: .whitespacesAndNewlines)
     var result = text(
       command,
-      x: Self.labelLeftMarginDots,
+      x: Self.compactLabelTextXDots,
       y: y,
       font: font,
       value: labelPart
@@ -1111,7 +1053,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     if !valuePart.isEmpty {
       result = appendBoldText(
         result,
-        x: Self.labelLeftMarginDots +
+        x: Self.compactLabelTextXDots +
           (labelPart.count + 1) * charWidth,
         y: y,
         value: valuePart,
@@ -1333,11 +1275,12 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private func materialDataMatrixRow(
     _ command: XTSPLCommand?,
     y: Int,
-    bars: [[Double]]
+    bars: [[Double]],
+    xOffset: Int = 0
   ) -> XTSPLCommand? {
     let rowWidth = Self.materialDataMatrixCount * Self.materialDataMatrixSizeDots +
       (Self.materialDataMatrixCount - 1) * Self.materialDataMatrixGapDots
-    let startX = (Self.labelWidthDots - rowWidth) / 2
+    let startX = (Self.labelWidthDots - rowWidth) / 2 + xOffset
     var result = command
     for index in 0..<Self.materialDataMatrixCount {
       result = dataMatrix(
@@ -1717,9 +1660,12 @@ private struct PrintJob {
 
 private enum PrintError: LocalizedError {
   case commandGenerationFailed
+  case labelTextDoesNotFit
 
   var errorDescription: String? {
     switch self {
+    case .labelTextDoesNotFit:
+      return "Label text does not fit the 70 x 50 mm label"
     case .commandGenerationFailed:
       return "XP-P323B TSPL command generation failed"
     }
@@ -1745,6 +1691,7 @@ private struct BluetoothLabelRequest {
   let materialNameLines: [String]
   let progressQty: Double?
   let progressUnit: String
+  let completedAtLabel: String
   let paddonLabelLines: [String]
 
   init?(arguments: [String: Any]) {
@@ -1791,11 +1738,17 @@ private struct BluetoothLabelRequest {
     let progressQty = (arguments["progress_qty"] as? NSNumber)?.doubleValue
     self.progressQty = progressQty?.isFinite == true ? progressQty : nil
     progressUnit = (arguments["progress_unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    completedAtLabel = (arguments["completed_at_label"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     paddonLabelLines = (arguments["paddon_label_lines"] as? [String]) ?? []
   }
 
   var netQty: Double {
     max(0, grossQty - tareKg)
+  }
+
+  var usesCompactLabel: Bool {
+    isProgress || ["material_product", "qolip_code", "qolip_cell", "qr_center"].contains(labelKind)
   }
 
   var isProgress: Bool {

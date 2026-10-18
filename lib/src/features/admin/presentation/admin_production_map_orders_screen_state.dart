@@ -1745,7 +1745,8 @@ class _AdminProductionMapOrdersScreenState
         apparatus: apparatus, orderId: order.map.id.trim());
     final stageWork = control?.stageWork;
     final rePause = _workerRePauseControl(apparatus, order, control);
-    if (stageWork?.astatkaAvailable == true && operation != 'laminate' && rePause == null) {
+    final reclose = _workerRecloseControl(apparatus, order, control);
+    if (stageWork?.astatkaAvailable == true && operation != 'laminate' && rePause == null && reclose == null) {
       _showWatchOrderDetail(
           apparatus: apparatus, order: order, startAstatkaOnOpen: true);
       return;
@@ -1771,9 +1772,13 @@ class _AdminProductionMapOrdersScreenState
         showDragHandle: true,
         builder: (_) => _BosmaWorkerFinishSheet(
             canFinish: control?.allows('complete') == true,
-            canRePause: rePause != null),
+            canRePause: rePause != null, canReclose: reclose != null),
       );
       if (!mounted || choice == null) return;
+      if (choice == _BosmaWorkerLongPressChoice.reclose) {
+        if (reclose != null) await _runWorkerReclose(apparatus, order, reclose);
+        return;
+      }
       if (choice == _BosmaWorkerLongPressChoice.rePause) {
         if (rePause != null) await _runWorkerRePause(apparatus, order, rePause);
         return;
@@ -1787,7 +1792,7 @@ class _AdminProductionMapOrdersScreenState
               choice == _BosmaWorkerLongPressChoice.astatkaReport);
       return;
     }
-    if (isLaminatsiya && state == ApparatusQueueOrderState.paused) {
+    if (isLaminatsiya && state == ApparatusQueueOrderState.paused && reclose == null) {
       final handoffBatch = await _laminatsiyaWorkerHandoffBatch(
         apparatus: apparatus,
         order: order,
@@ -1823,6 +1828,7 @@ class _AdminProductionMapOrdersScreenState
               startAstatkaOnOpen: true,
             );
           case _LaminatsiyaWorkerLongPressChoice.rePause:
+          case _LaminatsiyaWorkerLongPressChoice.reclose:
           case null:
             break;
         }
@@ -1842,11 +1848,16 @@ class _AdminProductionMapOrdersScreenState
           isRezka: operation == 'cut',
           isLamination: operation == 'laminate',
           canRePause: rePause != null,
+          canReclose: reclose != null,
         ),
       );
       if (!mounted || choice == null) return;
       if (choice == _LaminatsiyaWorkerLongPressChoice.rePause) {
         if (rePause != null) await _runWorkerRePause(apparatus, order, rePause);
+        return;
+      }
+      if (choice == _LaminatsiyaWorkerLongPressChoice.reclose) {
+        if (reclose != null) await _runWorkerReclose(apparatus, order, reclose);
         return;
       }
       if (choice != _LaminatsiyaWorkerLongPressChoice.finishWork) return;

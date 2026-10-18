@@ -200,6 +200,7 @@ class AdminApparatusQueueOrderActionControl {
     this.workActivity,
     this.lastWorkedAtUnix = 0,
     this.rePause,
+    this.reclose,
     this.state = '',
     this.allowedActions = const {},
     this.interaction,
@@ -226,6 +227,7 @@ class AdminApparatusQueueOrderActionControl {
   final AdminQueueWorkActivity? workActivity;
   final int lastWorkedAtUnix;
   final AdminResumePauseControl? rePause;
+  final AdminReactivationRecloseControl? reclose;
   final AdminStageWorkControl? stageWork;
   final String state;
   final Set<String> allowedActions;
@@ -516,6 +518,7 @@ class AdminApparatusQueueOrderActionControl {
       workActivity: AdminQueueWorkActivity.tryFromJson(json['work_activity']),
       lastWorkedAtUnix: _positiveJsonInt(json['last_worked_at_unix']) ?? 0,
       rePause: AdminResumePauseControl.tryFromJson(json['re_pause']),
+      reclose: AdminReactivationRecloseControl.tryFromJson(json['reclose']),
       state: json['state']?.toString().trim() ?? '',
       allowedActions: Set<String>.unmodifiable(actions),
       interaction: AdminQueueWorkerInteraction.tryFromJson(json['interaction']),

@@ -53,37 +53,42 @@ class ChatMessageBubble extends StatelessWidget {
             : AlignmentDirectional.centerStart,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Container(
-            margin: EdgeInsets.only(top: compactTop ? 2 : 8),
-            padding: attachment == null
-                ? const EdgeInsetsDirectional.fromSTEB(10, 6, 8, 5)
-                : const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: mine
-                  ? scheme.primaryContainer
-                  : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(14).copyWith(
-                bottomRight:
-                    mine && isLastInGroup ? const Radius.circular(4) : null,
-                bottomLeft:
-                    !mine && isLastInGroup ? const Radius.circular(4) : null,
+          child: GestureDetector(
+            onLongPress: () => _showChatMessageActions(context, message, mine),
+            onSecondaryTap: () =>
+                _showChatMessageActions(context, message, mine),
+            child: Container(
+              margin: EdgeInsets.only(top: compactTop ? 2 : 8),
+              padding: attachment == null
+                  ? const EdgeInsetsDirectional.fromSTEB(10, 6, 8, 5)
+                  : const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: mine
+                    ? scheme.primaryContainer
+                    : scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(14).copyWith(
+                  bottomRight:
+                      mine && isLastInGroup ? const Radius.circular(4) : null,
+                  bottomLeft:
+                      !mine && isLastInGroup ? const Radius.circular(4) : null,
+                ),
               ),
+              child: attachment == null
+                  ? _MessageText(
+                      body: message.body,
+                      timeText: timeText,
+                      mine: mine,
+                    )
+                  : _MediaMessageContent(
+                      message: message,
+                      attachment: attachment,
+                      caption: message.body,
+                      timeText: timeText,
+                      mine: mine,
+                      playback: playback,
+                      heroTag: _chatMediaHeroTag(message, attachment),
+                    ),
             ),
-            child: attachment == null
-                ? _MessageText(
-                    body: message.body,
-                    timeText: timeText,
-                    mine: mine,
-                  )
-                : _MediaMessageContent(
-                    message: message,
-                    attachment: attachment,
-                    caption: message.body,
-                    timeText: timeText,
-                    mine: mine,
-                    playback: playback,
-                    heroTag: _chatMediaHeroTag(message, attachment),
-                  ),
           ),
         ),
       ),

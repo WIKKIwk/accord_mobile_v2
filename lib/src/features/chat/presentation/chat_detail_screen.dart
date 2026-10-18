@@ -12,6 +12,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../models/chat_models.dart';
 import '../models/chat_media_models.dart';
 import '../state/chat_audio_playback_controller.dart';
+import '../state/chat_draft_controller.dart';
 import '../state/chat_failure.dart';
 import '../state/chat_store.dart';
 import '../data/chat_media_file_store.dart';
@@ -40,19 +41,55 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   );
   final audioPlayback = ChatAudioPlaybackController();
   final voiceRecorder = ChatVoiceRecorder();
+  late final ChatDraftController draftController;
+  late final String _accountIdentity;
+  final latestButton = ValueNotifier<({bool visible, int unread})>(
+    (visible: false, unread: 0),
+  );
   Timer? _voiceTimer;
   bool _recordingVoice = false;
   bool _voiceBusy = false;
   Duration _voiceDuration = Duration.zero;
-  int previousMessageCount = 0;
+  int? _lastMessageSequence;
+  int _previousPendingCount = 0;
+  int _newMessages = 0;
+  String? _timelineAnchorId;
+  bool _scrollControlsScheduled = false;
+  bool _historyLoadScheduled = false;
   bool _keepPinnedToBottom = true;
   bool _bottomCorrectionScheduled = false;
+
+  String get _currentAccountIdentity {
+    final profile = AppSession.instance.profile;
+    return '${MobileApi.baseUrl}\n${profile?.role.name}\n${profile?.ref}';
+  }
+
+  bool get _isCurrentAccount =>
+      AppSession.instance.isLoggedIn &&
+      _accountIdentity == _currentAccountIdentity;
+
+  void _sessionChanged() {
+    if (!mounted || _isCurrentAccount) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    unawaited(audioPlayback.stop());
+    unawaited(_cancelVoiceRecording(showMessage: false));
+    setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
+    _accountIdentity = _currentAccountIdentity;
+    AppSession.instance.revision.addListener(_sessionChanged);
     WidgetsBinding.instance.addObserver(this);
     controller.addListener(_updateComposerHeight);
+    final profile = AppSession.instance.profile;
+    draftController = ChatDraftController(
+      textController: controller,
+      endpoint: MobileApi.baseUrl,
+      accountId: '${profile?.role.name}:${profile?.ref}',
+      conversationId: widget.conversation.conversationId,
+    );
     store.setActiveConversation(widget.conversation.conversationId);
     unawaited(store.loadMessages(widget.conversation.conversationId));
   }
@@ -65,10 +102,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   @override
   void dispose() {
+    AppSession.instance.revision.removeListener(_sessionChanged);
     WidgetsBinding.instance.removeObserver(this);
     store.setActiveConversation('');
     controller.removeListener(_updateComposerHeight);
     composerHeight.dispose();
+    draftController.dispose();
+    latestButton.dispose();
     controller.dispose();
     scrollController.dispose();
     _voiceTimer?.cancel();
@@ -93,6 +133,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!_isCurrentAccount) {
+      return AppShell(
+        title: 'Chat',
+        subtitle: '',
+        nativeTopBar: true,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const UrduAwareText('Hisob o‘zgardi. Chatni qayta oching.'),
+                TextButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: const UrduAwareText('Orqaga'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return ValueListenableBuilder<double>(
       valueListenable: composerHeight,
       child: AnimatedBuilder(
@@ -105,11 +167,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           final pending = store.pendingMediaFor(
             widget.conversation.conversationId,
           );
-          final visibleCount = messages.length + pending.length;
-          if (visibleCount > previousMessageCount) {
-            previousMessageCount = visibleCount;
-            _scrollToBottom();
-          }
+          _observeTimeline(messages, pending);
           return _messages(messages, pending);
         },
       ),

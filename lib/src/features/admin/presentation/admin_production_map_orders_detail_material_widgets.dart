@@ -1166,7 +1166,6 @@ Future<String?> _reprintAssignedMaterialStock(
   if (printer.transport.isLocal) {
     final result = await PrintService.printRps(
       prepared.printRequest,
-      materialDataMatrix: true,
       printerProfile: printer.offlinePrinter,
       bluetoothPrinter: printer.bluetoothPrinter,
       transport: printer.transport,

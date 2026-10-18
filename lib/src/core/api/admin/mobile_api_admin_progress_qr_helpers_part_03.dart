@@ -272,6 +272,7 @@ List<UsbRpsPrintRequest> _testModeProgressPrintJobs({
         executorName: batch.executorName,
         progressQty: batch.finishedGoodsMeter ?? batch.producedQty,
         progressUnit: batch.uom.isEmpty ? 'm' : batch.uom,
+        completedAtUnix: batch.completedAtUnix,
         tareEnabled: (batch.bobinaKg ?? 0) > 0,
         tareKg: batch.bobinaKg ?? 0,
         customerName: customerName.trim().isEmpty

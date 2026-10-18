@@ -1,9 +1,11 @@
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
 import 'package:accord_mobile_v2/src/features/chat/presentation/chat_participant_profile_screen.dart';
 import 'package:accord_mobile_v2/src/features/chat/presentation/widgets/chat_role_dock.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_profile_avatar.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -20,6 +22,14 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ChatParticipantProfileScreen(participant: participant),
       ),
     );
@@ -60,6 +70,14 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ChatParticipantProfileScreen(participant: participant),
       ),
     );

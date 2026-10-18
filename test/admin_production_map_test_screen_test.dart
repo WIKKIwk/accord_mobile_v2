@@ -105,6 +105,7 @@ part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
 part 'admin_production_map_resume_wip_test_part.dart';
 part 'admin_production_map_re_pause_test_part.dart';
+part 'admin_production_map_reactivation_reclose_test_part.dart';
 part 'admin_production_map_reactivation_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
@@ -172,6 +173,7 @@ void main() {
   _registerQolipAlternativeSetTests();
   _registerResumeWipTests();
   _registerRePauseTests();
+  _registerRecloseTests();
   _registerReactivationTests();
   _registerPrintMethodRoutingTests();
 

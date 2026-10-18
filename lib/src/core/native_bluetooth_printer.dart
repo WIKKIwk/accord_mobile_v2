@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import 'formatters/date_time_formatters.dart';
 import 'native_usb_printer.dart';
 import 'printing/material_data_matrix.dart';
 
@@ -37,11 +38,12 @@ class NativeBluetoothPrinter {
   static Future<Map<String, Object?>> printLabel(
     UsbRpsPrintRequest request, {
     required BluetoothPrinterProfile printer,
-    bool materialDataMatrix = false,
   }) async {
     final useDataMatrix = request.isProgressLabel ||
         request.isPaddonCodeLabel ||
-        (materialDataMatrix && request.isMaterialProductLabel);
+        request.isQolipCodeLabel ||
+        request.isQolipCellLabel ||
+        request.isMaterialProductLabel;
     final raw = await _channel.invokeMapMethod<String, Object?>(
       'printLabel',
       {
@@ -59,6 +61,10 @@ class NativeBluetoothPrinter {
 
 Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
   final payload = request.toJson();
+  if (request.isProgressLabel && request.completedAtUnix > 0) {
+    payload['completed_at_label'] =
+        formatUnixSecondsLocalDateTime(request.completedAtUnix);
+  }
   if (request.isPaddonCodeLabel && request.paddonLabelLines.isNotEmpty) {
     payload['paddon_label_lines'] =
         request.paddonLabelLines

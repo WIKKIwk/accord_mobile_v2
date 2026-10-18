@@ -36,6 +36,10 @@ class ChatStore extends ChangeNotifier {
   final Map<String, List<ChatMessage>> _messages = {};
   final Map<String, bool> _hasMoreMessages = {};
   final Set<String> _loadingMessages = {};
+  final Map<String, Future<void>> _messageLoadOperations = {};
+  final Map<String, Future<void>> _olderMessageLoadOperations = {};
+  final Map<String, String> _messageErrors = {};
+  final Map<String, String> _olderMessageErrors = {};
   final Map<String, List<ChatPendingMedia>> _pendingMedia = {};
   final Map<String, http.Client> _mediaUploadClients = {};
   final Set<String> _runningMedia = {};
@@ -47,7 +51,10 @@ class ChatStore extends ChangeNotifier {
   Timer? _mediaRetryTimer;
   DateTime? _mediaRetryAt;
   Future<void>? _syncOperation;
+  Future<void>? _sessionStartOperation;
   Future<void>? _conversationRefreshOperation;
+  int _sessionGeneration = 0;
+  int _directorySearchGeneration = 0;
   bool _conversationRefreshRequested = false;
   bool _pendingDrainRunning = false;
   bool _pendingDrainRequested = false;

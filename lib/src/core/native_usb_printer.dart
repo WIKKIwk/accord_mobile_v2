@@ -168,6 +168,7 @@ class UsbRpsPrintRequest {
     this.qolipColor = '',
     this.progressQty,
     this.progressUnit = '',
+    this.completedAtUnix = 0,
     this.paddonLabelLines = const [],
   });
 
@@ -186,6 +187,7 @@ class UsbRpsPrintRequest {
   factory UsbRpsPrintRequest.fromPrintJson(
     Map<String, dynamic> json, {
     List<String> paddonLabelLines = const [],
+    int completedAtUnix = 0,
   }) {
     final executorName = json['executor_name']?.toString().trim() ?? '';
     final apparatus = json['apparatus']?.toString().trim() ?? '';
@@ -224,6 +226,9 @@ class UsbRpsPrintRequest {
       qolipColor: json['qolip_color']?.toString() ?? '',
       progressQty: progressQty,
       progressUnit: json['progress_unit']?.toString() ?? '',
+      completedAtUnix: completedAtUnix > 0
+          ? completedAtUnix
+          : (json['completed_at_unix'] as num?)?.toInt() ?? 0,
       paddonLabelLines: normalizedLabelKind == 'paddon_code'
           ? List.unmodifiable(paddonLabelLines)
           : const [],
@@ -249,6 +254,8 @@ class UsbRpsPrintRequest {
   final String qolipColor;
   final double? progressQty;
   final String progressUnit;
+  final int completedAtUnix;
+
   /// Optional Bluetooth header from the server's current pallet print summary.
   /// Kept out of the USB/LAN printer JSON contract.
   final List<String> paddonLabelLines;
@@ -324,6 +331,7 @@ class UsbRpsPrintRequest {
       qolipColor: qolipColor,
       progressQty: progressQty,
       progressUnit: progressUnit,
+      completedAtUnix: completedAtUnix,
     );
   }
 
@@ -410,6 +418,8 @@ class UsbRpsPrintRequest {
         'qolip_color': _cleanText(qolipColor, fallback: ''),
       if (progressQty != null) 'progress_qty': progressQty!,
       if (progressUnit.trim().isNotEmpty) 'progress_unit': progressUnit.trim(),
+      if (isProgressLabel && completedAtUnix > 0)
+        'completed_at_unix': completedAtUnix,
     };
   }
 }

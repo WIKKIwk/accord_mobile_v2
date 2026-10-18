@@ -104,18 +104,19 @@ void main() {
   });
 
   for (final scenario in [
-    (kind: 'material_product', meters: false, enabled: true, expected: true),
-    (kind: 'material_product', meters: true, enabled: true, expected: true),
-    (kind: 'material_product', meters: true, enabled: false, expected: false),
-    (kind: 'qolip_code', meters: false, enabled: true, expected: false),
-    (kind: 'progress', meters: true, enabled: true, expected: true),
-    (kind: 'progress', meters: true, enabled: false, expected: true),
-    (kind: 'opening_wip', meters: true, enabled: false, expected: true),
-    (kind: 'paddon_code', meters: false, enabled: false, expected: true),
-    (kind: 'qolip_cell', meters: false, enabled: false, expected: false),
-    (kind: '', meters: false, enabled: false, expected: false),
+    (kind: 'material_product', meters: false, expected: true),
+    (kind: 'material_product', meters: true, expected: true),
+    (kind: 'qolip_code', meters: false, expected: true),
+    (kind: 'progress', meters: true, expected: true),
+    (kind: 'opening_wip', meters: true, expected: true),
+    (kind: 'paddon_code', meters: false, expected: true),
+    (kind: 'qolip_cell', meters: false, expected: true),
+    (kind: 'qr_center', meters: false, expected: true),
+    (kind: '', meters: false, expected: false),
   ]) {
-    test('Bluetooth worker Data Matrix is automatic; material is opt-in: $scenario', () async {
+    test(
+        'Bluetooth Data Matrix is selected automatically by label kind: $scenario',
+        () async {
       MethodCall? captured;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
@@ -141,13 +142,13 @@ void main() {
           address: 'printer-ios-uuid',
         ),
         transport: PrintTransport.bluetooth,
-        materialDataMatrix: scenario.enabled,
       );
 
       expect(response.ok, isTrue);
       final payload = captured!.arguments as Map;
       expect(payload['epc'], epc);
-      expect(payload['label_kind'], scenario.kind.isEmpty ? null : scenario.kind);
+      expect(
+          payload['label_kind'], scenario.kind.isEmpty ? null : scenario.kind);
       expect(payload['print_count'], 1);
       expect(payload['gross_qty'], 100);
       expect(payload['material_data_matrix'] == true, scenario.expected);
@@ -161,6 +162,106 @@ void main() {
         expect(payload['progress_qty'], 125);
         expect(payload['progress_unit'], 'M');
       }
+    });
+  }
+
+  for (final meters in <double?>[null, 6500]) {
+    test('material receipt and reprint share the Bluetooth payload: $meters',
+        () async {
+      final captured = <Map>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'printLabel');
+        captured.add(call.arguments as Map);
+        return <String, Object?>{'ok': true};
+      });
+      final receipt = UsbRpsPrintRequest(
+        epc: '30D650E44AA9E6886EC5599D',
+        itemCode: 'BOPP-855-12',
+        itemName: 'BOPP 855/12',
+        warehouse: 'Material ombor',
+        printer: 'godex',
+        printMode: 'label',
+        grossQty: 24,
+        tareEnabled: true,
+        tareKg: 2,
+        labelKind: 'material_product',
+        progressQty: meters,
+        progressUnit: meters == null ? '' : 'm',
+      );
+      final reprint = UsbRpsPrintRequest.fromPrintJson(receipt.toJson());
+      const printer = BluetoothPrinterProfile(
+        name: 'XP-P323B',
+        address: '00:11:22:33:44:55',
+      );
+
+      for (final request in [receipt, reprint]) {
+        final result = await PrintService.printRps(
+          request,
+          bluetoothPrinter: printer,
+          transport: PrintTransport.bluetooth,
+        );
+        expect(result.ok, isTrue);
+        expect(result.netQty, 22);
+      }
+
+      expect(captured, hasLength(2));
+      expect(captured.last, captured.first);
+      final payload = captured.last;
+      expect(payload['material_data_matrix'], isTrue);
+      expect(payload['material_data_matrix_bars'],
+          materialDataMatrixBars(receipt.epc));
+      expect(payload['epc'], receipt.epc);
+      expect(payload['item_code'], receipt.itemCode);
+      expect(payload['item_name'], receipt.itemName);
+      expect(payload['gross_qty'], 24);
+      expect(payload['tare_kg'], 2);
+      expect(payload['progress_qty'], meters);
+      expect(payload['progress_unit'], meters == null ? null : 'M');
+      expect(payload['print_count'], 1);
+    });
+  }
+
+  for (final kind in ['qolip_code', 'qolip_cell', 'qr_center']) {
+    test('preserves $kind text payload and metadata in automatic Data Matrix',
+        () async {
+      MethodCall? captured;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        captured = call;
+        return <String, Object?>{'ok': true};
+      });
+      final epc =
+          kind == 'qolip_code' ? 'RPS-BATCH:QOLIP-2026-001' : 'QOLIP-CELL:A-01';
+
+      await PrintService.printRps(
+        UsbRpsPrintRequest(
+          epc: epc,
+          itemCode: 'QOLIP-001',
+          itemName: 'Zizi Sponge',
+          warehouse: 'Qolip ombori',
+          printer: 'xp-p323b',
+          printMode: 'label',
+          grossQty: 0,
+          labelKind: kind,
+          customerName: 'Zizi',
+          qolipColor: 'Pantone 123 C',
+        ),
+        bluetoothPrinter: const BluetoothPrinterProfile(
+          name: 'XP-P323B',
+          address: '00:11:22:33:44:55',
+        ),
+        transport: PrintTransport.bluetooth,
+      );
+
+      final payload = captured!.arguments as Map;
+      expect(payload['epc'], epc);
+      expect(payload['label_kind'], kind);
+      expect(payload['item_name'], 'ZIZI SPONGE');
+      expect(payload['customer_name'], 'ZIZI');
+      expect(payload['qolip_color'], 'PANTONE 123 C');
+      expect(payload['material_data_matrix'], isTrue);
+      expect(payload['material_data_matrix_bars'], materialDataMatrixBars(epc));
     });
   }
 

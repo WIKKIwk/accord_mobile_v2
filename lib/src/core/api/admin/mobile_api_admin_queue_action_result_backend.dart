@@ -177,11 +177,34 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     ];
     final requestRaw = payload['completion_request'];
     final printRaw = payload['print'];
+    final legacyProgressBatch = progressRaw is Map
+        ? AdminProgressBatch.fromJson(progressRaw.cast<String, dynamic>())
+        : (progressBatches.isEmpty ? null : progressBatches.first);
+    final completedAtByQr = <String, int>{
+      for (final batch in [
+        ...progressBatches,
+        if (legacyProgressBatch != null) legacyProgressBatch,
+      ])
+        if (batch.completedAtUnix > 0)
+          batch.qrPayload.trim().toLowerCase(): batch.completedAtUnix,
+    };
+    UsbRpsPrintRequest parsePrintJob(Map rawPrint) {
+      final json = rawPrint.cast<String, dynamic>();
+      final qr = (json['epc'] ?? json['qr_payload'])
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+          '';
+      return UsbRpsPrintRequest.fromPrintJson(
+        json,
+        completedAtUnix: completedAtByQr[qr] ?? 0,
+      );
+    }
+
     final parsedPrintJobs = <UsbRpsPrintRequest>[
       if (payload['prints'] is List)
         for (final item in payload['prints'] as List)
-          if (item is Map && item['ok'] == true)
-            UsbRpsPrintRequest.fromPrintJson(item.cast<String, dynamic>()),
+          if (item is Map && item['ok'] == true) parsePrintJob(item),
     ];
     final trainingLocalPrintJobs = orderId.trim().startsWith('training-') &&
             printTransport.isLocal &&
@@ -197,11 +220,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
       ...parsedPrintJobs,
       ...trainingLocalPrintJobs,
     ];
-    final legacyProgressBatch = progressRaw is Map
-        ? AdminProgressBatch.fromJson(progressRaw.cast<String, dynamic>())
-        : (progressBatches.isEmpty ? null : progressBatches.first);
     final legacyPrintJob = printRaw is Map && printRaw['ok'] == true
-        ? UsbRpsPrintRequest.fromPrintJson(printRaw.cast<String, dynamic>())
+        ? parsePrintJob(printRaw)
         : (printJobs.isEmpty ? null : printJobs.first);
     final parsedStates = <String, String>{
       for (final entry in raw.entries)

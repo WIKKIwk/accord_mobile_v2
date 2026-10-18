@@ -1,6 +1,24 @@
 part of 'app_localizations.dart';
 
 const _workReactivationTranslations = {
+  'worker.reclose.action': {
+    'uz': 'Qayta yopish',
+    'en': 'Close again',
+    'ru': 'Закрыть повторно',
+    'ur': 'دوبارہ بند کریں',
+  },
+  'worker.reclose.success': {
+    'uz': 'Ish qayta yopildi. Oldingi hisobotlar saqlandi.',
+    'en': 'Work closed again. Previous reports were preserved.',
+    'ru': 'Работа повторно закрыта. Прежние отчёты сохранены.',
+    'ur': 'کام دوبارہ بند ہو گیا۔ پچھلی رپورٹس محفوظ ہیں۔',
+  },
+  'worker.reclose.failed': {
+    'uz': 'Qayta yopish tasdiqlanmadi. Joriy holat yangilanmoqda.',
+    'en': 'Closing was not confirmed. Refreshing the current state.',
+    'ru': 'Закрытие не подтверждено. Обновляем текущее состояние.',
+    'ur': 'بند ہونے کی تصدیق نہیں ہوئی۔ موجودہ حالت تازہ ہو رہی ہے۔',
+  },
   'worker.reactivate.reason_details': {
     'uz': 'Sababini ko‘rish',
     'en': 'View the reason',
@@ -39,29 +57,29 @@ const _workReactivationTranslations = {
   },
   "worker.reactivate.order_explanation": {
     "uz":
-        "Buyurtmaning faqat ko‘rsatilgan bosqichidagi ish qayta faollashadi. Oldin qayd etilgan metraj, kilogramm va chiqindi hisobda qoladi. Davom ettirgach faqat qo‘shimcha ishlab chiqarilgan miqdorni qayd eting. Apparat bandligi, materiallar va joriy holat tasdiqlashda qayta tekshiriladi.",
+        "Buyurtmaning ko‘rsatilgan bosqichidagi ish pauzada qaytadi. Ishlash uchun Davom ettirish tugmasini bosing; hali boshlamagan bo‘lsangiz, Qayta yopish mumkin. Oldin qayd etilgan metraj, kilogramm va chiqindi hisobda qoladi. Davom ettirgach faqat qo‘shimcha ishlab chiqarilgan miqdorni qayd eting. Apparat bandligi, materiallar va joriy holat tasdiqlashda qayta tekshiriladi.",
     "en":
-        "Work resumes only at the stage shown. Previously recorded metres, kilograms and waste remain recorded. After reopening, record only additional production. The apparatus, resources and current state are checked again when you confirm.",
+        "Work reopens paused at the stage shown. Press Resume to work, or Close again before starting. Previously recorded metres, kilograms and waste remain recorded. After reopening, record only additional production. The apparatus, resources and current state are checked again when you confirm.",
     "ru":
-        "Работа возобновится только на указанном этапе. Ранее учтённые метры, килограммы и отходы сохраняются. После возобновления указывайте только дополнительный выпуск. Занятость аппарата, материалы и текущее состояние проверяются повторно при подтверждении.",
+        "Работа вернётся на паузе на указанном этапе. Для работы нажмите «Продолжить»; до начала можно закрыть её повторно. Ранее учтённые метры, килограммы и отходы сохраняются. После возобновления указывайте только дополнительный выпуск. Занятость аппарата, материалы и текущее состояние проверяются повторно при подтверждении.",
     "ur":
-        "کام صرف دکھائے گئے مرحلے پر دوبارہ فعال ہوگا۔ پہلے درج میٹر، کلوگرام اور ضائع شدہ مقدار محفوظ رہے گی۔ دوبارہ کھولنے کے بعد صرف اضافی پیداوار درج کریں۔ تصدیق پر مشین، مواد اور موجودہ حالت دوبارہ جانچی جائے گی۔"
+        "کام دکھائے گئے مرحلے پر توقف میں واپس آئے گا۔ کام کے لیے جاری رکھیں دبائیں؛ شروع کرنے سے پہلے دوبارہ بند کر سکتے ہیں۔ پہلے درج میٹر، کلوگرام اور ضائع شدہ مقدار محفوظ رہے گی۔ دوبارہ کھولنے کے بعد صرف اضافی پیداوار درج کریں۔ تصدیق پر مشین، مواد اور موجودہ حالت دوبارہ جانچی جائے گی۔"
   },
   "worker.reactivate.wip_explanation": {
     "uz":
-        "Tanlangan WIP bilan bog‘langan aniq bosqichdagi ish va buyurtma qayta faollashadi. Bog‘langan chiqish WIP’lari ish davomida band bo‘ladi. Oldin qayd etilgan metraj, kilogramm va chiqindi saqlanadi; faqat qo‘shimcha ishlab chiqarilgan miqdorni qayd eting. WIP ishlatilmaganligi va apparat bo‘shligi tasdiqlashda qayta tekshiriladi.",
+        "Tanlangan WIP bilan bog‘langan bosqichdagi ish pauzada qaytadi. Ishlash uchun Davom ettirish tugmasini bosing; hali boshlamagan bo‘lsangiz, Qayta yopish mumkin. Bog‘langan chiqish WIP’lari ish davomida band bo‘ladi. Oldin qayd etilgan metraj, kilogramm va chiqindi saqlanadi; faqat qo‘shimcha ishlab chiqarilgan miqdorni qayd eting. WIP ishlatilmaganligi va apparat bo‘shligi tasdiqlashda qayta tekshiriladi.",
     "en":
-        "The order resumes at the exact stage linked to this WIP. Linked output WIPs are reserved while work continues. Recorded metres, kilograms and waste are retained; enter only additional production. WIP availability and apparatus occupancy are checked again when you confirm.",
+        "The order reopens paused at the exact stage linked to this WIP. Press Resume to work, or Close again before starting. Linked output WIPs are reserved while work continues. Recorded metres, kilograms and waste are retained; enter only additional production. WIP availability and apparatus occupancy are checked again when you confirm.",
     "ru":
-        "Заказ возобновится на точном этапе, связанном с этим WIP. Связанные выходные WIP будут заняты на время работы. Учтённые метры, килограммы и отходы сохраняются; вводите только дополнительный выпуск. Доступность WIP и занятость аппарата проверяются повторно при подтверждении.",
+        "Заказ вернётся на паузе на этапе этого WIP. Для работы нажмите «Продолжить»; до начала можно закрыть его повторно. Связанные выходные WIP будут заняты на время работы. Учтённые метры, килограммы и отходы сохраняются; вводите только дополнительный выпуск. Доступность WIP и занятость аппарата проверяются повторно при подтверждении.",
     "ur":
-        "آرڈر اس WIP سے منسلک عین مرحلے پر دوبارہ فعال ہوگا۔ کام کے دوران منسلک آؤٹ پٹ WIP محفوظ رکھے جائیں گے۔ پہلے درج میٹر، کلوگرام اور ضائع شدہ مقدار برقرار رہیں گے؛ صرف اضافی پیداوار درج کریں۔ تصدیق پر WIP کی دستیابی اور مشین کی مصروفیت دوبارہ جانچی جائے گی۔"
+        "آرڈر اس WIP کے مرحلے پر توقف میں واپس آئے گا۔ کام کے لیے جاری رکھیں دبائیں؛ شروع کرنے سے پہلے دوبارہ بند کر سکتے ہیں۔ کام کے دوران منسلک آؤٹ پٹ WIP محفوظ رکھے جائیں گے۔ پہلے درج میٹر، کلوگرام اور ضائع شدہ مقدار برقرار رہیں گے؛ صرف اضافی پیداوار درج کریں۔ تصدیق پر WIP کی دستیابی اور مشین کی مصروفیت دوبارہ جانچی جائے گی۔"
   },
   "worker.reactivate.success": {
-    "uz": "Ish qayta faollashtirildi",
-    "en": "Work reactivated",
-    "ru": "Работа возобновлена",
-    "ur": "کام دوبارہ فعال کر دیا گیا"
+    "uz": "Ish pauzada qayta ochildi. Ishlash uchun Davom ettirishni bosing.",
+    "en": "Work reopened paused. Press Resume to work.",
+    "ru": "Работа открыта на паузе. Для работы нажмите «Продолжить».",
+    "ur": "کام توقف میں کھل گیا۔ کام کے لیے جاری رکھیں دبائیں۔"
   },
   "worker.reactivate.unconfirmed": {
     "uz":

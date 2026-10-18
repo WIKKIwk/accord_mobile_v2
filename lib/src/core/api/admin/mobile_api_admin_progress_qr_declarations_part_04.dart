@@ -390,6 +390,7 @@ extension MobileApiAdminProgressQr on MobileApi {
         executorName: batch.executorName,
         progressQty: batch.finishedGoodsMeter ?? batch.producedQty,
         progressUnit: batch.uom.isEmpty ? 'm' : batch.uom,
+        completedAtUnix: batch.completedAtUnix,
         customerName: batch.payloadJson['customer_name']?.toString() ?? '',
       );
       return AdminProgressQrReprintResult(
@@ -435,11 +436,13 @@ extension MobileApiAdminProgressQr on MobileApi {
     final printMap = rawPrint is Map
         ? rawPrint.cast<String, dynamic>()
         : const <String, dynamic>{};
+    final batch = AdminProgressBatch.fromJson(rawBatch.cast<String, dynamic>());
     return AdminProgressQrReprintResult(
       ok: payload['ok'] == true,
-      batch: AdminProgressBatch.fromJson(rawBatch.cast<String, dynamic>()),
+      batch: batch,
       printJob: printMap['ok'] == true
-          ? UsbRpsPrintRequest.fromPrintJson(printMap)
+          ? UsbRpsPrintRequest.fromPrintJson(printMap,
+              completedAtUnix: batch.completedAtUnix)
           : null,
       printStatus: printMap['status']?.toString() ?? '',
     );

@@ -1,7 +1,10 @@
 import 'package:accord_mobile_v2/src/features/chat/presentation/widgets/chat_message_composer.dart';
 import 'package:accord_mobile_v2/src/features/chat/presentation/widgets/chat_role_dock.dart';
 import 'package:accord_mobile_v2/src/core/widgets/navigation/app_navigation_bar.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,8 +14,9 @@ void main() {
     var sends = 0;
 
     Future<void> pump({bool sending = false, String error = ''}) {
-      return tester.pumpWidget(
-        MaterialApp(
+      return _pumpApp(
+        tester,
+        _testApp(
           theme: ThemeData(useMaterial3: true),
           home: Scaffold(
             body: ChatMessageComposer(
@@ -51,8 +55,9 @@ void main() {
     addTearDown(controller.dispose);
     var retries = 0;
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await _pumpApp(
+      tester,
+      _testApp(
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           body: ChatMessageComposer(
@@ -79,8 +84,9 @@ void main() {
     var attachments = 0;
     var sends = 0;
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await _pumpApp(
+      tester,
+      _testApp(
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           body: ChatMessageComposer(
@@ -114,8 +120,9 @@ void main() {
     var cancellations = 0;
 
     Future<void> pump({bool recording = false}) {
-      return tester.pumpWidget(
-        MaterialApp(
+      return _pumpApp(
+        tester,
+        _testApp(
           theme: ThemeData(useMaterial3: true),
           home: Scaffold(
             body: ChatMessageComposer(
@@ -153,8 +160,9 @@ void main() {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await _pumpApp(
+      tester,
+      _testApp(
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           bottomNavigationBar: AppNavigationBar(
@@ -188,8 +196,9 @@ void main() {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await _pumpApp(
+      tester,
+      _testApp(
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           bottomNavigationBar: ChatRoleDock(
@@ -230,8 +239,9 @@ void main() {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await _pumpApp(
+      tester,
+      _testApp(
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           bottomNavigationBar: ChatRoleDock(
@@ -284,7 +294,7 @@ void main() {
 
   testWidgets('chat keyboard inset lifts the dock smoothly', (tester) async {
     Widget appWithInset(double inset) {
-      return MaterialApp(
+      return _testApp(
         home: MediaQuery(
           data: MediaQueryData(
             size: const Size(800, 600),
@@ -316,13 +326,13 @@ void main() {
       );
     }
 
-    await tester.pumpWidget(appWithInset(0));
+    await _pumpApp(tester, appWithInset(0));
     await tester.pumpAndSettle();
     final dock = find.byKey(const ValueKey('keyboard-aware-chat-dock'));
     expect(tester.getRect(dock).bottom, 600);
     expect(find.text('inner:0.0'), findsOneWidget);
 
-    await tester.pumpWidget(appWithInset(300));
+    await _pumpApp(tester, appWithInset(300));
     await tester.pump();
     await tester.pump(
       Duration(
@@ -337,4 +347,204 @@ void main() {
     expect(tester.getRect(dock).bottom, closeTo(300, 0.5));
     expect(tester.getSize(dock).height, ChatRoleDock.messageComposerHeight);
   });
+
+  testWidgets(
+      'sending disables attachment and voice actions without losing text',
+      (tester) async {
+    final controller = TextEditingController(text: 'Xabar');
+    addTearDown(controller.dispose);
+    var sends = 0;
+    var voiceActions = 0;
+
+    await _pumpApp(
+        tester,
+        _testApp(
+          home: Scaffold(
+            body: ChatMessageComposer(
+              controller: controller,
+              sending: true,
+              errorText: '',
+              onSend: () => sends++,
+              onDraftChanged: () {},
+              onAttach: () {},
+              onVoiceAction: () => voiceActions++,
+            ),
+          ),
+        ));
+
+    expect(
+        tester.widget<IconButton>(_iconButton('Yuborish')).onPressed, isNull);
+    expect(
+        tester.widget<IconButton>(_iconButton('Media biriktirish')).onPressed,
+        isNull);
+    await tester.enterText(find.byType(TextField), 'Yangi xabar');
+    await tester.pump();
+    expect(controller.text, 'Yangi xabar');
+    expect(voiceActions, 0);
+    expect(sends, 0);
+
+    controller.clear();
+    await tester.pump();
+    expect(
+        tester.widget<IconButton>(_iconButton('Ovozli xabar yozish')).onPressed,
+        isNull);
+  });
+
+  testWidgets('keyboard send respects modifier, sending, and IME composition',
+      (tester) async {
+    final controller = TextEditingController(text: 'Birinchi\nIkkinchi');
+    addTearDown(controller.dispose);
+    var sends = 0;
+
+    Future<void> pump({bool sending = false, bool voiceBusy = false}) {
+      return _pumpApp(
+          tester,
+          _testApp(
+            home: Scaffold(
+              body: ChatMessageComposer(
+                controller: controller,
+                sending: sending,
+                voiceBusy: voiceBusy,
+                errorText: '',
+                onSend: () => sends++,
+                onDraftChanged: () {},
+              ),
+            ),
+          ));
+    }
+
+    Future<void> sendWith(LogicalKeyboardKey modifier) async {
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(modifier);
+    }
+
+    await pump();
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField)).textInputAction,
+        TextInputAction.newline);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(sends, 0);
+    await sendWith(LogicalKeyboardKey.controlLeft);
+    await sendWith(LogicalKeyboardKey.metaLeft);
+    expect(sends, 2);
+
+    await pump(sending: true);
+    await sendWith(LogicalKeyboardKey.controlLeft);
+    expect(sends, 2);
+    await pump(voiceBusy: true);
+    await sendWith(LogicalKeyboardKey.metaLeft);
+    expect(sends, 2);
+    await pump();
+    controller.value = const TextEditingValue(
+      text: 'Composing',
+      selection: TextSelection.collapsed(offset: 9),
+      composing: TextRange(start: 0, end: 9),
+    );
+    await tester.pump();
+    await sendWith(LogicalKeyboardKey.controlLeft);
+    expect(sends, 2);
+
+    controller.clear();
+    await tester.pump();
+    await sendWith(LogicalKeyboardKey.controlLeft);
+    expect(sends, 2);
+  });
+
+  testWidgets('compact failure exposes an accessible retry inside the dock',
+      (tester) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    final controller = TextEditingController(text: 'Qayta yubor');
+    addTearDown(controller.dispose);
+    var retries = 0;
+    final semantics = tester.ensureSemantics();
+
+    await _pumpApp(
+        tester,
+        _testApp(
+          home: Scaffold(
+            bottomNavigationBar: ChatRoleDock(
+              composerController: controller,
+              messageComposer: ChatMessageComposer(
+                controller: controller,
+                sending: false,
+                errorText: 'Ulanish uzildi',
+                onSend: () => retries++,
+                onDraftChanged: () {},
+                embeddedInDock: true,
+              ),
+            ),
+          ),
+        ));
+
+    final retry = find.byTooltip('Qayta yuborish');
+    expect(retry, findsOneWidget);
+    expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
+    expect(find.bySemanticsLabel('Ulanish uzildi'), findsWidgets);
+    final dockRect =
+        tester.getRect(find.byKey(const ValueKey('app-navigation-bar-shell')));
+    expect(dockRect.contains(tester.getCenter(retry)), isTrue);
+    expect(dockRect.height, ChatRoleDock.messageComposerHeight);
+    expect(tester.takeException(), isNull);
+    await tester.tap(retry);
+    expect(retries, 1);
+    semantics.dispose();
+  });
+
+  testWidgets('near-limit feedback counts emoji as single characters',
+      (tester) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    await _pumpApp(
+        tester,
+        _testApp(
+          home: Scaffold(
+            body: ChatMessageComposer(
+              controller: controller,
+              sending: false,
+              errorText: '',
+              onSend: () {},
+              onDraftChanged: () {},
+            ),
+          ),
+        ));
+
+    await tester.enterText(find.byType(TextField), '😀' * 3600);
+    await tester.pump();
+    expect(find.text('3600/4000'), findsOneWidget);
+    expect(tester.widget<IconButton>(_iconButton('Yuborish')).onPressed,
+        isNotNull);
+    controller.text = '😀' * 4001;
+    await tester.pump();
+    expect(
+        tester.widget<IconButton>(_iconButton('Yuborish')).onPressed, isNull);
+  });
 }
+
+Widget _testApp({ThemeData? theme, required Widget home}) {
+  return MaterialApp(
+    theme: theme,
+    locale: const Locale('uz'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
+}
+
+Future<void> _pumpApp(WidgetTester tester, Widget app) async {
+  await tester.pumpWidget(app);
+  await tester.pump();
+}
+
+Finder _iconButton(String tooltip) => find.byWidgetPredicate(
+      (widget) => widget is IconButton && widget.tooltip == tooltip,
+    );

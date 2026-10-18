@@ -11,48 +11,76 @@ extension ChatStoreAstPart01 on ChatStore {
   bool loadingMessagesFor(String conversationId) =>
       _loadingMessages.contains(conversationId);
 
-  Future<void> startForCurrentSession() async {
+  String messageErrorFor(String conversationId) =>
+      _messageErrors[conversationId] ?? '';
+
+  bool loadingOlderMessagesFor(String conversationId) =>
+      _olderMessageLoadOperations.containsKey(conversationId);
+
+  String olderMessagesErrorFor(String conversationId) =>
+      _olderMessageErrors[conversationId] ?? '';
+
+  bool _isCurrentSession(String key, int generation) {
+    final session = AppSession.instance;
+    final profile = session.profile;
+    return profileKey == key &&
+        _sessionGeneration == generation &&
+        session.isLoggedIn &&
+        profile != null &&
+        ChatStore._keyFor(profile) == key;
+  }
+
+  Future<void> startForCurrentSession() {
     final profile = AppSession.instance.profile;
     if (profile == null || !AppSession.instance.isLoggedIn) {
       clearMemory();
-      return;
+      return Future<void>.value();
     }
     final nextKey = ChatStore._keyFor(profile);
     if (nextKey == profileKey) {
+      final existing = _sessionStartOperation;
+      if (existing != null) return existing;
       _ensureRealtimeStarted();
       _startReliabilityTimers();
       unawaited(_recoverChatState());
-      if (conversations.isEmpty) await refreshConversations();
-      return;
+      return conversations.isEmpty
+          ? refreshConversations()
+          : Future<void>.value();
     }
-    _realtime.stop();
-    _syncOperation = null;
-    _conversationRefreshOperation = null;
-    _conversationRefreshRequested = false;
-    loadingConversations = false;
+    clearMemory();
     profileKey = nextKey;
-    conversations = const [];
-    directory = const [];
-    _messages.clear();
-    _hasMoreMessages.clear();
-    _loadingMessages.clear();
-    activeConversationId = '';
-    error = '';
+    final generation = _sessionGeneration;
+    late final Future<void> operation;
+    operation = _startSession(nextKey, generation).whenComplete(() {
+      if (identical(_sessionStartOperation, operation)) {
+        _sessionStartOperation = null;
+      }
+    });
+    _sessionStartOperation = operation;
     notifyListeners();
+    return operation;
+  }
 
+  Future<void> _startSession(String nextKey, int generation) async {
     try {
-      conversations = (await ChatLocalStore.instance.loadConversations(nextKey))
+      final cached = await ChatLocalStore.instance.loadConversations(nextKey);
+      if (!_isCurrentSession(nextKey, generation)) return;
+      conversations = cached
           .where((conversation) => conversation.hasMessages)
           .toList(growable: false);
       notifyListeners();
     } catch (_) {}
+    if (!_isCurrentSession(nextKey, generation)) return;
     try {
-      _syncCursor = await ChatLocalStore.instance.loadSyncCursor(nextKey);
+      final cursor = await ChatLocalStore.instance.loadSyncCursor(nextKey);
+      if (!_isCurrentSession(nextKey, generation)) return;
+      _syncCursor = cursor;
     } catch (_) {
+      if (!_isCurrentSession(nextKey, generation)) return;
       _syncCursor = 0;
     }
     await _restorePendingMedia(nextKey);
-    if (profileKey != nextKey) return;
+    if (!_isCurrentSession(nextKey, generation)) return;
     _ensureRealtimeStarted();
     _startReliabilityTimers();
     unawaited(_recoverChatState());
@@ -60,6 +88,8 @@ extension ChatStoreAstPart01 on ChatStore {
   }
 
   void clearMemory() {
+    _sessionGeneration++;
+    _directorySearchGeneration++;
     _realtime.stop();
     _cancelReliabilityTimers();
     for (final client in _mediaUploadClients.values) {
@@ -71,6 +101,7 @@ extension ChatStoreAstPart01 on ChatStore {
     _pendingMedia.clear();
     _pendingSends.clear();
     _syncOperation = null;
+    _sessionStartOperation = null;
     _conversationRefreshOperation = null;
     _conversationRefreshRequested = false;
     _pendingDrainRunning = false;
@@ -87,6 +118,10 @@ extension ChatStoreAstPart01 on ChatStore {
     _messages.clear();
     _hasMoreMessages.clear();
     _loadingMessages.clear();
+    _messageLoadOperations.clear();
+    _olderMessageLoadOperations.clear();
+    _messageErrors.clear();
+    _olderMessageErrors.clear();
     activeConversationId = '';
     connected = false;
     loadingConversations = false;
@@ -115,7 +150,8 @@ extension ChatStoreAstPart01 on ChatStore {
       return existing;
     }
     late final Future<void> operation;
-    operation = _runConversationRefresh(key).whenComplete(() {
+    operation =
+        _runConversationRefresh(key, _sessionGeneration).whenComplete(() {
       if (identical(_conversationRefreshOperation, operation)) {
         _conversationRefreshOperation = null;
       }
@@ -124,7 +160,7 @@ extension ChatStoreAstPart01 on ChatStore {
     return operation;
   }
 
-  Future<void> _runConversationRefresh(String key) async {
+  Future<void> _runConversationRefresh(String key, int generation) async {
     loadingConversations = true;
     error = '';
     notifyListeners();
@@ -133,7 +169,7 @@ extension ChatStoreAstPart01 on ChatStore {
         _conversationRefreshRequested = false;
         try {
           final page = await MobileApi.instance.chatConversations();
-          if (profileKey != key) return;
+          if (!_isCurrentSession(key, generation)) return;
           conversations = page.items
               .where((conversation) => conversation.hasMessages)
               .toList(growable: false);
@@ -144,11 +180,12 @@ extension ChatStoreAstPart01 on ChatStore {
             );
           } catch (_) {}
         } catch (exception) {
-          if (profileKey == key) error = exception.toString();
+          if (_isCurrentSession(key, generation)) error = exception.toString();
         }
-      } while (_conversationRefreshRequested && profileKey == key);
+      } while (
+          _conversationRefreshRequested && _isCurrentSession(key, generation));
     } finally {
-      if (profileKey == key) {
+      if (_isCurrentSession(key, generation)) {
         loadingConversations = false;
         notifyListeners();
       }
@@ -158,18 +195,25 @@ extension ChatStoreAstPart01 on ChatStore {
   Future<void> searchDirectory(String query) async {
     final key = profileKey;
     if (key.isEmpty) return;
+    final generation = _sessionGeneration;
+    final searchGeneration = ++_directorySearchGeneration;
     loadingDirectory = true;
     error = '';
     notifyListeners();
     try {
       final page = await MobileApi.instance.chatDirectory(query: query);
-      if (profileKey == key) {
+      if (_isCurrentSession(key, generation) &&
+          _directorySearchGeneration == searchGeneration) {
         directory = page.items;
       }
     } catch (exception) {
-      if (profileKey == key) error = exception.toString();
+      if (_isCurrentSession(key, generation) &&
+          _directorySearchGeneration == searchGeneration) {
+        error = exception.toString();
+      }
     } finally {
-      if (profileKey == key) {
+      if (_isCurrentSession(key, generation) &&
+          _directorySearchGeneration == searchGeneration) {
         loadingDirectory = false;
         notifyListeners();
       }
@@ -192,73 +236,163 @@ extension ChatStoreAstPart01 on ChatStore {
     return conversation;
   }
 
-  Future<void> loadMessages(String conversationId) async {
-    await startForCurrentSession();
+  Future<void> loadMessages(String conversationId) {
+    if (conversationId.trim().isEmpty) return Future<void>.value();
+    final profile = AppSession.instance.profile;
+    final existing = _messageLoadOperations[conversationId];
+    if (existing != null &&
+        profile != null &&
+        AppSession.instance.isLoggedIn &&
+        ChatStore._keyFor(profile) == profileKey) {
+      return existing;
+    }
+    final sessionStart = startForCurrentSession();
     final key = profileKey;
-    if (key.isEmpty ||
-        conversationId.trim().isEmpty ||
-        _loadingMessages.contains(conversationId)) {
-      return;
-    }
+    if (key.isEmpty) return sessionStart;
+    final generation = _sessionGeneration;
     _loadingMessages.add(conversationId);
+    _messageErrors.remove(conversationId);
+    late final Future<void> operation;
+    operation = _loadMessagesForSession(
+      conversationId,
+      key,
+      generation,
+      sessionStart,
+    ).whenComplete(() {
+      if (identical(_messageLoadOperations[conversationId], operation)) {
+        _messageLoadOperations.remove(conversationId);
+        _loadingMessages.remove(conversationId);
+        notifyListeners();
+      }
+    });
+    _messageLoadOperations[conversationId] = operation;
     notifyListeners();
-    if (!_messages.containsKey(conversationId)) {
-      try {
-        final cached = await ChatLocalStore.instance.loadMessages(
-          key,
-          conversationId,
-        );
-        if (profileKey == key) {
-          _messages[conversationId] = List<ChatMessage>.unmodifiable(cached);
-          notifyListeners();
-        }
-      } catch (_) {}
-    }
+    return operation;
+  }
+
+  Future<void> _loadMessagesForSession(
+    String conversationId,
+    String key,
+    int generation,
+    Future<void> sessionStart,
+  ) async {
     try {
+      await sessionStart;
+      if (!_isCurrentSession(key, generation)) return;
+      if (!_messages.containsKey(conversationId)) {
+        try {
+          final cached = await ChatLocalStore.instance.loadMessages(
+            key,
+            conversationId,
+          );
+          if (!_isCurrentSession(key, generation)) return;
+          _messages[conversationId] = ChatStore._mergeMessages(
+            cached,
+            _messages[conversationId] ?? const [],
+          );
+          notifyListeners();
+        } catch (_) {}
+      }
+      if (!_isCurrentSession(key, generation)) return;
       final page = await MobileApi.instance.chatMessages(conversationId);
-      if (profileKey != key) return;
+      if (!_isCurrentSession(key, generation)) return;
+      final current = _messages[conversationId] ?? const <ChatMessage>[];
+      // A refresh of the newest page says nothing about older pages already
+      // loaded. Keep their pagination state, including an exhausted history.
+      final retainsOlderHistory = current.isNotEmpty &&
+          page.items.isNotEmpty &&
+          current.first.sequence <
+              page.items.map((message) => message.sequence).reduce(min);
+      if (!retainsOlderHistory ||
+          !_hasMoreMessages.containsKey(conversationId)) {
+        _hasMoreMessages[conversationId] = page.hasMore;
+      }
       _messages[conversationId] = ChatStore._mergeMessages(
-        _messages[conversationId] ?? const [],
+        current,
         page.items,
       );
-      _hasMoreMessages[conversationId] = page.hasMore;
       try {
         await ChatLocalStore.instance.saveMessages(
           key,
           _messages[conversationId]!,
         );
       } catch (_) {}
-      if (profileKey != key) return;
+      if (!_isCurrentSession(key, generation)) return;
       await markRead(conversationId);
+      if (!_isCurrentSession(key, generation)) return;
       unawaited(_drainPendingMessages());
     } catch (exception) {
-      if (profileKey == key) error = exception.toString();
-    } finally {
-      _loadingMessages.remove(conversationId);
+      if (_isCurrentSession(key, generation)) {
+        _messageErrors[conversationId] = _messageLoadFailureMessage(exception);
+      }
     }
-    notifyListeners();
   }
 
-  Future<void> loadOlderMessages(String conversationId) async {
+  Future<void> loadOlderMessages(String conversationId) {
     final key = profileKey;
-    if (key.isEmpty) return;
-    if (!hasMoreMessages(conversationId)) return;
-    final existing = _messages[conversationId] ?? const <ChatMessage>[];
-    if (existing.isEmpty) return;
-    final page = await MobileApi.instance.chatMessages(
+    final generation = _sessionGeneration;
+    if (key.isEmpty || !_isCurrentSession(key, generation)) {
+      return Future<void>.value();
+    }
+    final existing = _olderMessageLoadOperations[conversationId];
+    if (existing != null) return existing;
+    if (!hasMoreMessages(conversationId)) return Future<void>.value();
+    final current = _messages[conversationId] ?? const <ChatMessage>[];
+    if (current.isEmpty) return Future<void>.value();
+    _olderMessageErrors.remove(conversationId);
+    late final Future<void> operation;
+    operation = _loadOlderMessagesForSession(
       conversationId,
-      beforeSequence: existing.first.sequence,
-    );
-    if (profileKey != key) return;
-    _messages[conversationId] = ChatStore._mergeMessages(page.items, existing);
-    _hasMoreMessages[conversationId] = page.hasMore;
-    if (profileKey == key) {
+      key,
+      generation,
+      current.first.sequence,
+    ).whenComplete(() {
+      if (identical(_olderMessageLoadOperations[conversationId], operation)) {
+        _olderMessageLoadOperations.remove(conversationId);
+        notifyListeners();
+      }
+    });
+    _olderMessageLoadOperations[conversationId] = operation;
+    notifyListeners();
+    return operation;
+  }
+
+  Future<void> _loadOlderMessagesForSession(
+    String conversationId,
+    String key,
+    int generation,
+    int beforeSequence,
+  ) async {
+    try {
+      final page = await MobileApi.instance.chatMessages(
+        conversationId,
+        beforeSequence: beforeSequence,
+      );
+      if (!_isCurrentSession(key, generation)) return;
+      _messages[conversationId] = ChatStore._mergeMessages(
+        page.items,
+        _messages[conversationId] ?? const [],
+      );
+      _hasMoreMessages[conversationId] = page.hasMore;
       try {
         await ChatLocalStore.instance.saveMessages(key, page.items);
       } catch (_) {}
+    } catch (exception) {
+      if (_isCurrentSession(key, generation)) {
+        _olderMessageErrors[conversationId] =
+            _messageLoadFailureMessage(exception);
+      }
     }
-    if (profileKey != key) return;
-    notifyListeners();
+  }
+
+  String _messageLoadFailureMessage(Object exception) {
+    if (exception is MobileApiException &&
+        (exception.code == 'authentication_required' ||
+            exception.code == 'chat_not_found')) {
+      return chatFailureMessage(exception);
+    }
+    return 'Xabarlarni yuklab bo‘lmadi. Internet aloqasini tekshirib, '
+        'qayta urinib ko‘ring.';
   }
 
   Future<void> sendMessage(String conversationId, String rawBody) async {

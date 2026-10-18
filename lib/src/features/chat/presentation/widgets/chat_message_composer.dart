@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'chat_role_dock.dart';
 import '../../../../core/localization/urdu_aware_text.dart';
@@ -76,10 +77,18 @@ class ChatMessageComposer extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (errorText.isNotEmpty) ...[
-                _SendError(
-                  message: errorText,
-                  retrying: sending,
-                  onRetry: onSend,
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (context, value, _) => _SendError(
+                    message: errorText,
+                    onRetry: !sending &&
+                            !voiceBusy &&
+                            !recordingVoice &&
+                            value.text.trim().isNotEmpty &&
+                            value.text.characters.length <= 4000
+                        ? onSend
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -140,117 +149,159 @@ class _ComposerRow extends StatelessWidget {
       valueListenable: controller,
       builder: (context, value, _) {
         final hasText = value.text.trim().isNotEmpty;
+        final textLength = value.text.characters.length;
         final voiceAvailable = onVoiceAction != null;
-        final canSend = hasText && !sending && !recordingVoice;
+        final canSend = hasText &&
+            textLength <= 4000 &&
+            !sending &&
+            !voiceBusy &&
+            !recordingVoice;
+        final showRetry = errorText.isNotEmpty && hasText && !recordingVoice;
+        void sendFromKeyboard() {
+          if (canSend && value.composing.isCollapsed) onSend();
+        }
+
         final inputPadding = EdgeInsets.symmetric(
           horizontal: compact ? 16 : 18,
           vertical: compact ? 10 : 13,
         );
         final buttonSize = compact ? 42.0 : 50.0;
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: recordingVoice
-                  ? _VoiceRecordingField(
-                      duration: voiceDuration,
-                      onCancel: voiceBusy ? null : onCancelVoice,
-                      compact: compact,
-                    )
-                  : TextField(
-                      controller: controller,
-                      minLines: 1,
-                      maxLines: compact ? 5 : 6,
-                      maxLength: 4000,
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline,
-                      textCapitalization: TextCapitalization.sentences,
-                      autocorrect: true,
-                      enableSuggestions: true,
-                      buildCounter: (
-                        _, {
-                        required currentLength,
-                        required isFocused,
-                        maxLength,
-                      }) =>
-                          null,
-                      decoration: InputDecoration(
-                        hintText: 'Xabar yozing',
-                        prefixIcon: onAttach == null
-                            ? null
-                            : IconButton(
-                                tooltip: 'Media biriktirish',
-                                onPressed: voiceBusy ? null : onAttach,
-                                icon: const Icon(Icons.attach_file_rounded),
-                              ),
-                        filled: true,
-                        fillColor: scheme.surfaceContainerHighest,
-                        isDense: compact,
-                        contentPadding: inputPadding,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(26),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(26),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(26),
-                          borderSide: BorderSide(
-                            color: scheme.primary,
-                            width: 1.5,
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.enter, control: true):
+                sendFromKeyboard,
+            const SingleActivator(LogicalKeyboardKey.enter, meta: true):
+                sendFromKeyboard,
+          },
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: recordingVoice
+                    ? _VoiceRecordingField(
+                        duration: voiceDuration,
+                        onCancel: voiceBusy || sending ? null : onCancelVoice,
+                        compact: compact,
+                      )
+                    : TextField(
+                        controller: controller,
+                        minLines: 1,
+                        maxLines: compact ? 5 : 6,
+                        maxLength: 4000,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        textCapitalization: TextCapitalization.sentences,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        buildCounter: (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) =>
+                            null,
+                        decoration: InputDecoration(
+                          hintText: 'Xabar yozing',
+                          prefixIcon: onAttach == null
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Media biriktirish',
+                                  onPressed:
+                                      voiceBusy || sending ? null : onAttach,
+                                  icon: const Icon(Icons.attach_file_rounded),
+                                ),
+                          suffix: textLength >= 3600
+                              ? Text(
+                                  '$textLength/4000',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: textLength >= 4000
+                                            ? scheme.error
+                                            : scheme.onSurfaceVariant,
+                                      ),
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: scheme.surfaceContainerHighest,
+                          isDense: compact,
+                          contentPadding: inputPadding,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(26),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(26),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(26),
+                            borderSide: BorderSide(
+                              color: scheme.primary,
+                              width: 1.5,
+                            ),
                           ),
                         ),
+                        onChanged: (_) => onDraftChanged(),
                       ),
-                      onChanged: (_) => onDraftChanged(),
-                    ),
-            ),
-            const SizedBox(width: 8),
-            if (compact && errorText.isNotEmpty) ...[
-              Tooltip(
-                message: errorText,
-                child: Icon(
-                  Icons.error_outline_rounded,
-                  color: scheme.error,
-                  size: 20,
-                ),
               ),
               const SizedBox(width: 8),
-            ],
-            SizedBox.square(
-              dimension: buttonSize,
-              child: IconButton.filled(
-                tooltip: recordingVoice
-                    ? 'Ovozli xabarni yuborish'
-                    : hasText || !voiceAvailable
-                        ? 'Yuborish'
-                        : 'Ovozli xabar yozish',
-                onPressed: voiceBusy
-                    ? null
-                    : recordingVoice
-                        ? onVoiceAction
-                        : canSend
-                            ? onSend
-                            : onVoiceAction,
-                icon: sending || voiceBusy
-                    ? SizedBox.square(
-                        dimension: compact ? 18 : 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: scheme.onPrimary,
+              if (compact && errorText.isNotEmpty) ...[
+                Semantics(
+                  liveRegion: true,
+                  label: errorText,
+                  child: Tooltip(
+                    message: errorText,
+                    child: Icon(
+                      Icons.error_outline_rounded,
+                      color: scheme.error,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              SizedBox.square(
+                dimension: buttonSize,
+                child: IconButton.filled(
+                  tooltip: recordingVoice
+                      ? 'Ovozli xabarni yuborish'
+                      : showRetry
+                          ? 'Qayta yuborish'
+                          : hasText || !voiceAvailable
+                              ? 'Yuborish'
+                              : 'Ovozli xabar yozish',
+                  onPressed: voiceBusy || sending
+                      ? null
+                      : recordingVoice
+                          ? onVoiceAction
+                          : hasText
+                              ? canSend
+                                  ? onSend
+                                  : null
+                              : onVoiceAction,
+                  icon: sending || voiceBusy
+                      ? SizedBox.square(
+                          dimension: compact ? 18 : 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: scheme.onPrimary,
+                          ),
+                        )
+                      : Icon(
+                          recordingVoice
+                              ? Icons.stop_rounded
+                              : showRetry
+                                  ? Icons.refresh_rounded
+                                  : hasText || !voiceAvailable
+                                      ? Icons.send_rounded
+                                      : Icons.mic_rounded,
                         ),
-                      )
-                    : Icon(
-                        recordingVoice
-                            ? Icons.stop_rounded
-                            : hasText || !voiceAvailable
-                                ? Icons.send_rounded
-                                : Icons.mic_rounded,
-                      ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -310,41 +361,42 @@ String _voiceDuration(Duration duration) {
 class _SendError extends StatelessWidget {
   const _SendError({
     required this.message,
-    required this.retrying,
     required this.onRetry,
   });
 
   final String message;
-  final bool retrying;
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onErrorContainer,
-                    ),
+    return Semantics(
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.errorContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onErrorContainer,
+                      ),
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: retrying ? null : onRetry,
-              child: const UrduAwareText('Qayta yuborish'),
-            ),
-          ],
+              TextButton(
+                onPressed: onRetry,
+                child: const UrduAwareText('Qayta yuborish'),
+              ),
+            ],
+          ),
         ),
       ),
     );

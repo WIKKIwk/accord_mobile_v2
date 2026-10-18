@@ -278,7 +278,6 @@ Future<void> _printAstatkaLocalJob(
   if (job == null || job.epc != qr) throw StateError('print_identity_mismatch');
   final printed = await PrintService.printRps(
     job,
-    materialDataMatrix: true,
     printerProfile: printer.offlinePrinter,
     bluetoothPrinter: printer.bluetoothPrinter,
     transport: printer.transport,

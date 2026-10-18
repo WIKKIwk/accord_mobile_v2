@@ -1010,14 +1010,16 @@ enum _LaminatsiyaWorkerLongPressChoice {
   continueRoll,
   removeRoll,
   rePause,
+  reclose,
 }
 
-enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport, rePause }
+enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport, rePause, reclose }
 
 class _BosmaWorkerFinishSheet extends StatelessWidget {
-  const _BosmaWorkerFinishSheet({required this.canFinish, this.canRePause = false});
+  const _BosmaWorkerFinishSheet({required this.canFinish, this.canRePause = false, this.canReclose = false});
 
   final bool canFinish;
+  final bool canReclose;
   final bool canRePause;
 
   @override
@@ -1038,6 +1040,9 @@ class _BosmaWorkerFinishSheet extends StatelessWidget {
             if (canRePause)
               _WorkerRePauseButton(onPressed: () => Navigator.of(context)
                   .pop(_BosmaWorkerLongPressChoice.rePause)),
+            if (canReclose)
+              _WorkerRecloseButton(onPressed: () => Navigator.of(context)
+                  .pop(_BosmaWorkerLongPressChoice.reclose)),
             OutlinedButton.icon(
               onPressed: () => Navigator.of(context)
                   .pop(_BosmaWorkerLongPressChoice.astatkaReport),
@@ -1067,10 +1072,12 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
     this.isRezka = false,
     this.isLamination = false,
     this.canRePause = false,
+    this.canReclose = false,
   });
 
   final bool canRePause;
   final bool isRezka;
+  final bool canReclose;
   final bool isLamination;
 
   @override
@@ -1109,6 +1116,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
             if (canRePause)
               _WorkerRePauseButton(onPressed: () => Navigator.of(context)
                   .pop(_LaminatsiyaWorkerLongPressChoice.rePause)),
+            if (canReclose)
+              _WorkerRecloseButton(onPressed: () => Navigator.of(context)
+                  .pop(_LaminatsiyaWorkerLongPressChoice.reclose)),
             FilledButton.icon(
               onPressed: () => Navigator.of(context).pop(
                 _LaminatsiyaWorkerLongPressChoice.finishWork,

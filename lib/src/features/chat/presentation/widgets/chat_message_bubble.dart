@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/api/mobile_api.dart';
 import '../../../../core/widgets/display/image_fade.dart';
@@ -15,3 +16,4 @@ import 'chat_inventory_transfer_request_card.dart';
 
 part 'chat_message_bubble_declarations_part_01.dart';
 part 'chat_message_bubble_declarations_part_02.dart';
+part 'chat_message_bubble_actions.dart';

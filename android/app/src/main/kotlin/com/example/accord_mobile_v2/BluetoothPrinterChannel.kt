@@ -59,6 +59,15 @@ class BluetoothPrinterChannel(
         private const val PROGRESS_PACK_QR_X = 250
         private const val PROGRESS_PACK_QR_Y = 285
         private const val PROGRESS_PACK_EPC_GAP_DOTS = 16
+        private const val COMPACT_LABEL_WIDTH_MM = 70.0
+        private const val COMPACT_LABEL_WIDTH_DOTS = 560
+        private const val COMPACT_LABEL_HEIGHT_MM = 50.0
+        private const val COMPACT_LABEL_HEIGHT_DOTS = 400
+        private const val COMPACT_LABEL_MARGIN_DOTS = 8
+        private const val COMPACT_LABEL_REFERENCE_X_DOTS = 32
+        private const val COMPACT_LABEL_TEXT_X_DOTS = 8
+        private const val PROGRESS_PACK_TEXT_CODE_GAP_DOTS = 24
+        private const val PROGRESS_PACK_CODE_MIN_Y = 236
         private const val PROGRESS_TEXT_CHAR_WIDTH_DOTS = 16
         private const val PROGRESS_TEXT_LINE_HEIGHT_DOTS = 24
         private const val PROGRESS_TEXT_TOP_Y = 36
@@ -347,7 +356,10 @@ class BluetoothPrinterChannel(
     ) {
         printer.setCharSet(LABEL_CHARSET)
         printer
-            .sizeMm(LABEL_WIDTH_MM, LABEL_HEIGHT_MM)
+            .sizeMm(
+                if (label.usesCompactLabel) COMPACT_LABEL_WIDTH_MM else LABEL_WIDTH_MM,
+                if (label.usesCompactLabel) COMPACT_LABEL_HEIGHT_MM else LABEL_HEIGHT_MM,
+            )
             .speed(4.0)
             .density(
                 if (label.isMaterialProduct) {
@@ -357,7 +369,10 @@ class BluetoothPrinterChannel(
                 },
             )
             .direction(TSPLConst.DIRECTION_FORWARD)
-            .reference(LABEL_REFERENCE_X_DOTS, 0)
+            .reference(
+                if (label.usesCompactLabel) COMPACT_LABEL_REFERENCE_X_DOTS else LABEL_REFERENCE_X_DOTS,
+                0,
+            )
             .cls()
             .codePage(LABEL_CODE_PAGE)
 
@@ -370,22 +385,40 @@ class BluetoothPrinterChannel(
         }
     }
 
+
     private fun printQolipCell(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
     ) {
-        val name = cleanLabelText(
-            label.itemName.ifBlank { label.itemCode },
-        )
+        val name = cleanLabelText(label.itemName.ifBlank { label.itemCode })
         val payload = requiredPayload(label.epc)
-        val title = fitLabelText(name, 16)
-        val titleX = centeredLabelX(title, charWidth = 24)
-        sdkText(printer, titleX, 12, TSPLConst.FNT_16_24, title)
-        val cellSize = largeQrCellSize(payload)
+        val title = fitLabelText(name, 33)
+        sdkText(
+            printer,
+            (COMPACT_LABEL_WIDTH_DOTS - title.length * 16) / 2,
+            COMPACT_LABEL_MARGIN_DOTS,
+            TSPLConst.FNT_16_24,
+            title,
+        )
+        if (label.materialDataMatrix) {
+            sdkMaterialDataMatrixRow(
+                printer,
+                (COMPACT_LABEL_HEIGHT_DOTS - MATERIAL_DATA_MATRIX_SIZE_DOTS) / 2,
+                label.materialDataMatrixBars,
+                xOffset = (COMPACT_LABEL_WIDTH_DOTS - LABEL_WIDTH_DOTS) / 2,
+            )
+            return
+        }
+        val modules = qrModuleCount(payload)
+        val cellSize = minOf(
+            largeQrCellSize(payload),
+            (COMPACT_LABEL_HEIGHT_DOTS - 2 * COMPACT_LABEL_MARGIN_DOTS - 40) / modules,
+        ).coerceAtLeast(2)
+        val qrSize = modules * cellSize
         sdkQr(
             printer,
-            centeredQrX(payload, cellSize),
-            centeredQrY(payload, cellSize),
+            (COMPACT_LABEL_WIDTH_DOTS - qrSize) / 2,
+            maxOf(48, (COMPACT_LABEL_HEIGHT_DOTS - qrSize) / 2),
             payload,
             cellSize = cellSize,
         )
@@ -426,139 +459,112 @@ class BluetoothPrinterChannel(
         printProgressQr(printer, label)
     }
 
+
     private fun printLargeQr(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
     ) {
+        val product = label.itemName.ifBlank { label.itemCode }
+        val unit = cleanLabelText(label.unit.ifBlank { "kg" })
+        val fields = if (label.isQolipProductCode) {
+            listOf(
+                "MIJOZ" to label.customerName,
+                "MAHSULOT NOMI" to product,
+                "QOLIP RANGI" to label.qolipColor,
+            )
+        } else {
+            buildList {
+                add("MAHSULOT" to product)
+                if (label.tareEnabled) {
+                    add("BRUTTO" to "${compactLabelQty(label.grossQty)} $unit")
+                    add("NETTO" to "${compactLabelQty(label.netQty)} $unit")
+                } else {
+                    add("NET VAZNI" to "${compactLabelQty(label.netQty)} $unit")
+                }
+            }
+        }
+        printCompactFieldsLabel(printer, label, fields)
+    }
+
+    private fun printCompactFieldsLabel(
+        printer: TSPLPrinter,
+        label: BluetoothLabelRequest,
+        fields: List<Pair<String, String>>,
+        largeText: Boolean = false,
+    ) {
         val payload = requiredPayload(label.epc)
-        val rawTitle = label.itemName.ifBlank { label.itemCode }
-        val useDataMatrix = label.materialDataMatrix && label.isMaterialProduct
-        val titleLines = largeQrTitleLines(label, rawTitle)
-        val titleFont = if (label.isMaterialProduct) {
-            TSPLConst.FNT_14_19
-        } else {
-            TSPLConst.FNT_12_20
-        }
-        val cellSize = if (label.isMaterialProduct) {
-            materialQrCellSize(payload)
-        } else {
-            largeQrCellSize(payload)
-        }
-        val qrX = centeredQrX(payload, cellSize)
-        val qrSize = if (useDataMatrix) {
-            MATERIAL_DATA_MATRIX_SIZE_DOTS
-        } else {
-            qrSymbolSizeDots(payload, cellSize)
-        }
-        val baseQrY = if (useDataMatrix) {
-            (LABEL_HEIGHT_DOTS - qrSize) / 2
-        } else {
-            centeredQrY(payload, cellSize)
-        }
-        val latestQrY = (LABEL_HEIGHT_DOTS - qrSize -
-            LARGE_QR_FOOTER_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS)
-            .coerceAtLeast(baseQrY)
-        val qrY = when {
-            label.isQolipProductCode -> {
-                val requestedQrY = qolipFieldsEndY(label, rawTitle) +
-                    QOLIP_FIELD_QR_GAP_DOTS
-                requestedQrY.coerceIn(baseQrY, latestQrY)
-            }
-            label.isMaterialProduct -> {
-                val titleEndY = MATERIAL_TITLE_TOP_Y +
-                    (titleLines.size - 1).coerceAtLeast(0) *
-                    MATERIAL_TITLE_LINE_HEIGHT_DOTS + MATERIAL_TITLE_FONT_HEIGHT_DOTS
-                val requestedQrY = titleEndY + MATERIAL_TITLE_QR_GAP_DOTS
-                requestedQrY.coerceIn(baseQrY, latestQrY)
-            }
-            else -> baseQrY
-        }
-        if (label.isQolipProductCode) {
-            var fieldY = QOLIP_FIELD_TOP_Y
-            fieldY = printQolipField(
-                printer,
-                fieldY,
-                "MIJOZ",
-                label.customerName,
-            )
-            fieldY = printQolipField(
-                printer,
-                fieldY,
-                "MAHSULOT NOMI",
-                rawTitle,
-            )
-            printQolipField(
-                printer,
-                fieldY,
-                "QOLIP RANGI",
-                label.qolipColor,
-            )
-        } else {
-            titleLines.forEachIndexed { index, line ->
-                val titleX = LABEL_LEFT_MARGIN_DOTS
-                val titleY = if (label.isMaterialProduct) {
-                    MATERIAL_TITLE_TOP_Y + index * MATERIAL_TITLE_LINE_HEIGHT_DOTS
-                } else {
-                    6 + index * 26
-                }
-                if (label.isMaterialProduct) {
-                    sdkText(printer, titleX, titleY, titleFont, line)
-                    sdkText(
-                        printer,
-                        titleX + MATERIAL_TEXT_BOLD_OFFSET_DOTS,
-                        titleY,
-                        titleFont,
-                        line,
-                    )
-                } else {
-                    val lineFont = if (label.labelKind == "paddon_code" && line.length > 25) {
-                        TSPLConst.FNT_8_12
-                    } else {
-                        titleFont
-                    }
-                    sdkText(printer, titleX, titleY, lineFont, line)
-                }
-            }
-        }
-        if (useDataMatrix) {
-            sdkMaterialDataMatrixRow(printer, qrY, label.materialDataMatrixBars)
-        } else {
-            sdkQr(printer, qrX, qrY, payload, cellSize = cellSize)
-        }
-        if (label.isQolipProductCode) {
-            printQolipField(
-                printer,
-                centeredQrFooterY(qrY, qrSize),
-                "EPC",
-                payload,
-            )
-            return
-        }
-        val footer = fitLabelText(
-            largeQrFooter(label, payload),
-            if (label.isMaterialProduct) 32 else 46,
-        )
-        val footerIsLarge =
-            (label.isMaterialProduct || label.isQolipCode) && footer.length <= 32
-        val footerFont = if (footerIsLarge) {
-            TSPLConst.FNT_12_20
-        } else {
-            TSPLConst.FNT_8_12
-        }
-        val footerX = if (label.isMaterialProduct || label.isQolipCode) {
-            (centeredLabelX(footer, if (footerIsLarge) 12 else 8) -
-                LARGE_QR_FOOTER_LEFT_SHIFT_DOTS)
-                .coerceAtLeast(LABEL_LEFT_MARGIN_DOTS)
-        } else {
-            LABEL_LEFT_MARGIN_DOTS
-        }
-        sdkText(
-            printer,
-            footerX,
-            centeredQrFooterY(qrY, qrSize),
-            footerFont,
+        val footer = if (label.isQolipProductCode) "EPC: $payload" else payload
+        val footerIsLarge = footer.length <= 32
+        val footerCharWidth = if (footerIsLarge) 12 else 8
+        val footerLineHeight = if (footerIsLarge) 24 else 16
+        val footerFont = if (footerIsLarge) TSPLConst.FNT_12_20 else TSPLConst.FNT_8_12
+        val footerLines = wrapLabelText(
             footer,
+            (COMPACT_LABEL_WIDTH_DOTS - 2 * COMPACT_LABEL_MARGIN_DOTS) / footerCharWidth,
         )
+        val useDataMatrix = (label.isMaterialProduct || label.isQolipProductCode) &&
+            label.materialDataMatrix
+        var cellSize = minOf(largeQrCellSize(payload), 174 / qrModuleCount(payload))
+            .coerceAtLeast(2)
+        val styles = buildList {
+            if (largeText) add(Triple(TSPLConst.FNT_24_32, 24, 36))
+            add(Triple(TSPLConst.FNT_16_24, 16, 28))
+            add(Triple(TSPLConst.FNT_8_12, 8, 16))
+        }
+        var codeSize: Int
+        var latestCodeY: Int
+        var selected: Pair<Triple<String, Int, Int>, List<List<String>>>?
+        while (true) {
+            codeSize = if (useDataMatrix) MATERIAL_DATA_MATRIX_SIZE_DOTS
+                else qrSymbolSizeDots(payload, cellSize)
+            latestCodeY = COMPACT_LABEL_HEIGHT_DOTS - COMPACT_LABEL_MARGIN_DOTS -
+                footerLines.size * footerLineHeight - PROGRESS_PACK_EPC_GAP_DOTS - codeSize
+            val availableHeight = latestCodeY - COMPACT_LABEL_MARGIN_DOTS - QOLIP_FIELD_QR_GAP_DOTS
+            selected = styles.asSequence().map { style ->
+                val width = (COMPACT_LABEL_WIDTH_DOTS - COMPACT_LABEL_TEXT_X_DOTS -
+                    COMPACT_LABEL_MARGIN_DOTS - PROGRESS_BOLD_OFFSET_DOTS) / style.second
+                style to fields.map { (name, value) ->
+                    wrapLabelText("$name: ${cleanLabelText(value).ifBlank { "-" }}", width)
+                }
+            }.firstOrNull { (style, lines) ->
+                lines.sumOf { it.size } * style.third +
+                    (fields.size - 1) * PROGRESS_FIELD_GAP_DOTS <= availableHeight
+            }
+            if (selected != null || useDataMatrix || cellSize <= 2) break
+            cellSize--
+        }
+        val (style, wrappedFields) = selected
+            ?: throw IllegalArgumentException("Label text does not fit the 70 x 50 mm label")
+        val (font, charWidth, lineHeight) = style
+        var y = COMPACT_LABEL_MARGIN_DOTS
+        wrappedFields.forEachIndexed { fieldIndex, lines ->
+            lines.forEachIndexed { index, line ->
+                sdkProgressLine(printer, y + index * lineHeight, line, font, charWidth)
+            }
+            y += lines.size * lineHeight +
+                if (fieldIndex == fields.lastIndex) 0 else PROGRESS_FIELD_GAP_DOTS
+        }
+        val codeY = maxOf(y + QOLIP_FIELD_QR_GAP_DOTS, latestCodeY - 16)
+            .coerceAtMost(latestCodeY)
+        if (useDataMatrix) {
+            sdkMaterialDataMatrixRow(
+                printer,
+                codeY,
+                label.materialDataMatrixBars,
+                xOffset = (COMPACT_LABEL_WIDTH_DOTS - LABEL_WIDTH_DOTS) / 2,
+            )
+        } else {
+            sdkQr(printer, (COMPACT_LABEL_WIDTH_DOTS - codeSize) / 2, codeY, payload, cellSize)
+        }
+        footerLines.forEachIndexed { index, line ->
+            sdkText(
+                printer,
+                (COMPACT_LABEL_WIDTH_DOTS - line.length * footerCharWidth) / 2,
+                codeY + codeSize + PROGRESS_PACK_EPC_GAP_DOTS + index * footerLineHeight,
+                footerFont,
+                line,
+            )
+        }
     }
 
     private fun printPackLabel(
@@ -643,89 +649,22 @@ class BluetoothPrinterChannel(
     // pastda kattaroq QR. Matn balandligiga qarab QR pastga suriladi, lekin
     // EPC footer bilan birga yorliqdan chiqib ketmaydi. Faqat
     // isMaterialSplit uchun ishlaydi, boshqa chop etishlarga tegmaydi.
+
     private fun printMaterialSplitLabel(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
     ) {
-        val payload = requiredPayload(label.epc)
-        val product = cleanLabelText(
-            label.itemName.ifBlank { label.itemCode }.ifBlank { "-" },
-        )
-        val weightUnit = cleanLabelText(label.unit.ifBlank { "kg" })
+        val unit = cleanLabelText(label.unit.ifBlank { "kg" })
         val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
-        val lengthM = label.progressQty?.takeIf { it.isFinite() && it > 0.0 }
-        var y = PROGRESS_TEXT_TOP_Y
-        y = printSplitField(printer, y, "HOMASHYO", product, maxLines = 3)
-        y = printSplitField(
-            printer,
-            y,
-            "BRUTTO",
-            "${formatLabelQty(label.grossQty)} $weightUnit",
-        )
-        y = printSplitField(
-            printer,
-            y,
-            "NETTO",
-            "${formatLabelQty(label.netQty)} $weightUnit",
-        )
-        // Tizimga kiritilgan metraj (lengthM) bo'lsa chiqar, bo'lmasa qatorni
-        // tashlab ket — QR baribir pastda katta qoladi.
-        if (lengthM != null) {
-            y = printSplitField(
-                printer,
-                y,
-                "METRAJ",
-                "${formatLabelQty(lengthM)} $meterUnit",
-            )
+        val fields = buildList {
+            add("HOMASHYO" to label.itemName.ifBlank { label.itemCode })
+            add("BRUTTO" to "${formatLabelQty(label.grossQty)} $unit")
+            add("NETTO" to "${formatLabelQty(label.netQty)} $unit")
+            label.progressQty?.takeIf { it.isFinite() && it > 0.0 }?.let {
+                add("METRAJ" to "${formatLabelQty(it)} $meterUnit")
+            }
         }
-
-        val qrCellSize = splitQrCellWidth(payload)
-        val qrSize = if (label.materialDataMatrix) {
-            MATERIAL_DATA_MATRIX_SIZE_DOTS
-        } else {
-            qrSymbolSizeDots(payload, qrCellSize)
-        }
-        // Preserve the EPC position from the former single-QR layout. Put
-        // the compact row immediately above that stable footer so the smaller
-        // symbols do not make EPC jump upward.
-        val previousQrSize = qrSymbolSizeDots(payload, qrCellSize)
-        val previousLatestQrY = LABEL_HEIGHT_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS -
-            PROGRESS_PACK_EPC_GAP_DOTS - previousQrSize
-        val previousQrY = maxOf(SPLIT_QR_BASE_Y, minOf(y + 8, previousLatestQrY))
-        val epcY = (previousQrY + previousQrSize + PROGRESS_PACK_EPC_GAP_DOTS)
-            .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
-        val qrY = if (label.materialDataMatrix) {
-            maxOf(
-                SPLIT_QR_BASE_Y,
-                epcY - PROGRESS_PACK_EPC_GAP_DOTS - qrSize,
-            )
-        } else {
-            previousQrY
-        }
-        if (label.materialDataMatrix) {
-            sdkMaterialDataMatrixRow(printer, qrY, label.materialDataMatrixBars)
-        } else {
-            sdkQr(
-                printer,
-                PROGRESS_PACK_QR_X,
-                qrY,
-                payload,
-                cellSize = qrCellSize,
-            )
-        }
-        val epcFont = if (payload.length <= 32) {
-            TSPLConst.FNT_12_20
-        } else {
-            TSPLConst.FNT_8_12
-        }
-        val epcText = fitLabelText(payload, if (epcFont == TSPLConst.FNT_12_20) 32 else 46)
-        sdkText(
-            printer,
-            centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8),
-            epcY,
-            epcFont,
-            epcText,
-        )
+        printCompactFieldsLabel(printer, label, fields, largeText = true)
     }
 
     private fun splitQrCellWidth(value: String): Int {
@@ -821,7 +760,7 @@ class BluetoothPrinterChannel(
         val status = progressStatusLabel(rawProduct)
         val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
         val weightUnit = cleanLabelText(label.unit.ifBlank { "kg" })
-        val fields = listOf(
+        val fields = mutableListOf(
             progressFieldLines("MAHSULOT NOMI", product, maxLines = 5),
             progressFieldLines("APARAT", apparatus, maxLines = 2),
             progressFieldLines("HOLAT", status, maxLines = 2),
@@ -833,20 +772,30 @@ class BluetoothPrinterChannel(
             progressFieldLines("NETTO", "${formatLabelQty(label.netQty)} $weightUnit", maxLines = 1),
             progressFieldLines("BRUTTO", "${formatLabelQty(label.grossQty)} $weightUnit", maxLines = 1),
         )
-        val gaps = intArrayOf(4, 12, 8, 4, 4, 0)
-        val availableHeight = progressCodeY(label, payload) - 8 - PROGRESS_TEXT_TOP_Y
-        val lineCount = fields.sumOf { it.size }
-        val lineHeight = if (label.materialDataMatrix) {
-            listOf(24, 20, 12).first { lineCount * it + gaps.sum() <= availableHeight }
+        if (label.completedAtLabel.isNotBlank()) {
+            fields.add(progressFieldLines("TUGATILDI", label.completedAtLabel, maxLines = 1))
+        }
+        val gaps = IntArray(fields.size) { if (it == fields.lastIndex) 0 else 4 }
+        val codeSize = if (label.materialDataMatrix) {
+            MATERIAL_DATA_MATRIX_SIZE_DOTS
         } else {
-            PROGRESS_TEXT_LINE_HEIGHT_DOTS
+            qrSymbolSizeDots(payload, packQrCellSize(payload))
+        }
+        // Reserve top/bottom margins, the text-to-code gap, and the EPC footer
+        // inside the 50 mm WIP label using the actual printed symbol size.
+        val availableHeight = COMPACT_LABEL_HEIGHT_DOTS -
+            2 * COMPACT_LABEL_MARGIN_DOTS - PROGRESS_PACK_TEXT_CODE_GAP_DOTS - codeSize -
+            PROGRESS_PACK_EPC_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS
+        val lineCount = fields.sumOf { it.size }
+        val lineHeight = listOf(24, 20, 12).first {
+            lineCount * it + gaps.sum() <= availableHeight
         }
         val (font, charWidth) = when (lineHeight) {
             24 -> TSPLConst.FNT_16_24 to 16
             20 -> TSPLConst.FNT_12_20 to 12
             else -> TSPLConst.FNT_8_12 to 8
         }
-        var y = PROGRESS_TEXT_TOP_Y
+        var y = COMPACT_LABEL_MARGIN_DOTS
         fields.forEachIndexed { fieldIndex, lines ->
             lines.forEachIndexed { lineIndex, line ->
                 sdkProgressLine(printer, y + lineIndex * lineHeight, line, font, charWidth)
@@ -854,7 +803,11 @@ class BluetoothPrinterChannel(
             y += lines.size * lineHeight + gaps[fieldIndex]
         }
 
-        printProgressQr(printer, label)
+        val latestCodeY = COMPACT_LABEL_HEIGHT_DOTS - COMPACT_LABEL_MARGIN_DOTS -
+            codeSize - PROGRESS_PACK_EPC_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS
+        val codeY = maxOf(PROGRESS_PACK_CODE_MIN_Y, y + PROGRESS_PACK_TEXT_CODE_GAP_DOTS)
+            .coerceAtMost(latestCodeY)
+        printProgressQr(printer, label, codeY = codeY)
     }
 
     private fun progressEpcY(payload: String): Int {
@@ -871,23 +824,40 @@ class BluetoothPrinterChannel(
         }
     }
 
-    // Keep the identifier at its former position, with the shared three-code
-    // row immediately above it for WIP and pallet labels.
-    private fun printProgressQr(printer: TSPLPrinter, label: BluetoothLabelRequest) {
+    // WIP places its codes after the fields; pallet labels use the default position.
+    private fun printProgressQr(
+        printer: TSPLPrinter,
+        label: BluetoothLabelRequest,
+        codeY: Int? = null,
+    ) {
         val payload = requiredPayload(label.epc)
         val qrCellSize = packQrCellSize(payload)
-        val epcY = progressEpcY(payload)
+        val qrY = codeY ?: progressCodeY(label, payload)
+        // Keep the code row centered at its existing physical position when
+        // the WIP text origin moves left to use the wider paper.
+        val xOffset = if (label.isProgress) {
+            LABEL_REFERENCE_X_DOTS - COMPACT_LABEL_REFERENCE_X_DOTS
+        } else {
+            0
+        }
+        val epcY = if (codeY != null) {
+            qrY + (if (label.materialDataMatrix) MATERIAL_DATA_MATRIX_SIZE_DOTS
+                else qrSymbolSizeDots(payload, qrCellSize)) + PROGRESS_PACK_EPC_GAP_DOTS
+        } else {
+            progressEpcY(payload)
+        }
         if (label.materialDataMatrix) {
             sdkMaterialDataMatrixRow(
                 printer,
-                progressCodeY(label, payload),
+                qrY,
                 label.materialDataMatrixBars,
+                xOffset = xOffset,
             )
         } else {
             sdkQr(
                 printer,
-                PROGRESS_PACK_QR_X,
-                PROGRESS_PACK_QR_Y,
+                PROGRESS_PACK_QR_X + xOffset,
+                qrY,
                 payload,
                 cellSize = qrCellSize,
             )
@@ -900,7 +870,7 @@ class BluetoothPrinterChannel(
         val epcText = fitLabelText(payload, if (epcFont == TSPLConst.FNT_12_20) 32 else 46)
         sdkText(
             printer,
-            centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8),
+            centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8) + xOffset,
             epcY,
             epcFont,
             epcText,
@@ -914,7 +884,9 @@ class BluetoothPrinterChannel(
     ): List<String> {
         return wrapLabelText(
             "$fieldLabel: ${value.trim().ifBlank { "-" }}",
-            PROGRESS_FIELD_WIDTH_CHARS,
+            (COMPACT_LABEL_WIDTH_DOTS - COMPACT_LABEL_TEXT_X_DOTS -
+                COMPACT_LABEL_MARGIN_DOTS - PROGRESS_BOLD_OFFSET_DOTS) /
+                PROGRESS_TEXT_CHAR_WIDTH_DOTS,
         ).take(maxLines.coerceAtLeast(1))
     }
 
@@ -927,14 +899,14 @@ class BluetoothPrinterChannel(
     ) {
         val separator = line.indexOf(':')
         if (separator < 0) {
-            sdkBoldText(printer, LABEL_LEFT_MARGIN_DOTS, y, line, font)
+            sdkBoldText(printer, COMPACT_LABEL_TEXT_X_DOTS, y, line, font)
             return
         }
         val labelPart = line.take(separator + 1)
         val valuePart = line.drop(separator + 1).trimStart()
         sdkText(
             printer,
-            LABEL_LEFT_MARGIN_DOTS,
+            COMPACT_LABEL_TEXT_X_DOTS,
             y,
             font,
             labelPart,
@@ -942,7 +914,7 @@ class BluetoothPrinterChannel(
         if (valuePart.isNotEmpty()) {
             sdkBoldText(
                 printer,
-                LABEL_LEFT_MARGIN_DOTS +
+                COMPACT_LABEL_TEXT_X_DOTS +
                     (labelPart.length + 1) * charWidth,
                 y,
                 valuePart,
@@ -1148,10 +1120,11 @@ class BluetoothPrinterChannel(
         printer: TSPLPrinter,
         y: Int,
         bars: List<List<Double>>,
+        xOffset: Int = 0,
     ) {
         val rowWidth = MATERIAL_DATA_MATRIX_COUNT * MATERIAL_DATA_MATRIX_SIZE_DOTS +
             (MATERIAL_DATA_MATRIX_COUNT - 1) * MATERIAL_DATA_MATRIX_GAP_DOTS
-        val startX = (LABEL_WIDTH_DOTS - rowWidth) / 2
+        val startX = (LABEL_WIDTH_DOTS - rowWidth) / 2 + xOffset
         repeat(MATERIAL_DATA_MATRIX_COUNT) { index ->
             sdkDataMatrix(
                 printer,
@@ -1534,10 +1507,14 @@ private data class BluetoothLabelRequest(
     val materialNameLines: List<String>,
     val progressQty: Double?,
     val progressUnit: String,
+    val completedAtLabel: String,
     val paddonLabelLines: List<String>,
 ) {
     val netQty: Double
         get() = (grossQty - tareKg).coerceAtLeast(0.0)
+
+    val usesCompactLabel: Boolean
+        get() = isProgress || isMaterialProduct || isQolipProductCode || isQolipCell
 
     val isProgress: Boolean
         get() = labelKind == "progress" || labelKind == "opening_wip"
@@ -1612,6 +1589,7 @@ private data class BluetoothLabelRequest(
                 progressQty = call.argument<Number>("progress_qty")?.toDouble()
                     ?.takeIf { it.isFinite() },
                 progressUnit = call.argument<String>("progress_unit").orEmpty().trim(),
+                completedAtLabel = call.argument<String>("completed_at_label").orEmpty().trim(),
                 paddonLabelLines = call.argument<List<String>>("paddon_label_lines").orEmpty(),
             )
         }
