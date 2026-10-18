@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -27,6 +28,7 @@ import 'qolip_home_screen.dart'
         showQolipPrinterPicker,
         showQolipProductSpecSheet;
 import 'qolip_color_picker.dart';
+import 'qolip_product_pdf.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
@@ -53,6 +55,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   final Set<String> _selectedQolipCodes = <String>{};
   bool _deleting = false;
   bool _printing = false;
+  String? _sharingContainerKey;
 
   @override
   void initState() {
@@ -173,6 +176,11 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                       container.key,
                     ),
                     selectedQolipCodes: _selectedQolipCodes,
+                    sharing: _sharingContainerKey == container.key,
+                    onShare: _sharingContainerKey == null
+                        ? (originContext) =>
+                            _shareProductPdf(container, originContext)
+                        : null,
                     onToggle: () {
                       if (_selectionMode == _QolipSelectionMode.containers) {
                         _toggleContainerSelection(container);
@@ -194,6 +202,51 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _shareProductPdf(
+    QolipProductContainer container,
+    BuildContext originContext,
+  ) async {
+    if (_sharingContainerKey != null) return;
+    final l10n = context.l10n;
+    final box = originContext.findRenderObject() as RenderBox?;
+    final origin = box != null && box.hasSize
+        ? box.localToGlobal(Offset.zero) & box.size
+        : null;
+    setState(() => _sharingContainerKey = container.key);
+    try {
+      // Exact product lookup includes every set and extension, independent of
+      // the search filter and the catalog page's result limit.
+      final molds = await MobileApi.instance.qolipProductMolds(container.code);
+      if (!mounted) return;
+      final product = molds.first;
+      final bytes = await QolipProductPdf.build(
+        productCode: container.code,
+        productName: product.name,
+        molds: molds,
+        l10n: l10n,
+      );
+      if (!mounted) return;
+      final filename = QolipProductPdf.filename(product.name, product.code);
+      await SharePlus.instance.share(
+        ShareParams(
+          title: product.name,
+          subject: l10n.qolipProductPdfText('title'),
+          files: [XFile.fromData(bytes, mimeType: 'application/pdf')],
+          fileNameOverrides: [filename],
+          sharePositionOrigin: origin,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.qolipProductPdfText('error'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharingContainerKey = null);
+    }
   }
 
   Future<void> _copyQolipCode(QolipProduct product) async {

@@ -86,6 +86,7 @@ import 'widgets/admin_catalog_search_field.dart';
 import 'widgets/admin_navigation_drawer.dart';
 import 'widgets/admin_drawer_navigation.dart';
 import 'widgets/admin_expandable_filter_chip.dart';
+import 'widgets/admin_sequence_apparatus_filter.dart';
 import 'widgets/admin_top_notice.dart';
 import 'widgets/opened_order_edit_error_dialog.dart';
 import 'progress_printer_picker.dart';

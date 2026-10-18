@@ -148,6 +148,8 @@ class _QolipProductContainerCard extends StatelessWidget {
     required this.qolipSelectionMode,
     required this.selectedContainer,
     required this.selectedQolipCodes,
+    required this.sharing,
+    required this.onShare,
     required this.onToggle,
     required this.onLongPress,
     required this.onToggleQolip,
@@ -165,6 +167,8 @@ class _QolipProductContainerCard extends StatelessWidget {
   final bool qolipSelectionMode;
   final bool selectedContainer;
   final Set<String> selectedQolipCodes;
+  final bool sharing;
+  final ValueChanged<BuildContext>? onShare;
   final VoidCallback onToggle;
   final VoidCallback onLongPress;
   final ValueChanged<QolipProduct> onToggleQolip;
@@ -272,6 +276,34 @@ class _QolipProductContainerCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 2),
                           ],
+                          if (containerSelectionMode && selectedContainer)
+                            Builder(
+                              builder: (buttonContext) => GestureDetector(
+                                // A disabled button must not pass its tap to
+                                // the product row and change the selection.
+                                onTap: onShare == null ? () {} : null,
+                                excludeFromSemantics: true,
+                                behavior: HitTestBehavior.opaque,
+                                child: IconButton(
+                                  key: ValueKey(
+                                    'qolip-product-share-${container.key}',
+                                  ),
+                                  tooltip: l10n.qolipProductPdfText('share'),
+                                  onPressed: onShare == null
+                                      ? null
+                                      : () => onShare!(buttonContext),
+                                  icon: sharing
+                                      ? const SizedBox.square(
+                                          dimension: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.ios_share_rounded,
+                                          size: 20),
+                                ),
+                              ),
+                            ),
                           AnimatedRotation(
                             turns: expanded ? 0.5 : 0,
                             duration: const Duration(milliseconds: 180),

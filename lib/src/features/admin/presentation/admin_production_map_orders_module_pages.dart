@@ -111,6 +111,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.moveOrdersForApparatus,
     required this.canMoveTo,
     required this.onSelectSequenceApparatus,
+    required this.sequenceReorderEnabled,
     required this.onReorder,
     required this.onPickMoveTop,
     required this.onPickMoveBottom,
@@ -168,6 +169,7 @@ class _AdminModulesBody extends StatelessWidget {
     required AdminApparatus source,
   }) canMoveTo;
   final ValueChanged<AdminApparatus> onSelectSequenceApparatus;
+  final bool sequenceReorderEnabled;
   final ReorderCallback onReorder;
   final VoidCallback onPickMoveTop;
   final VoidCallback onPickMoveBottom;
@@ -254,6 +256,8 @@ class _AdminModulesBody extends StatelessWidget {
                       orders: sequenceOrders,
                       searchQuery: searchQuery,
                       readOnly: readOnly || searchQuery.trim().isNotEmpty,
+                      reorderEnabled: sequenceReorderEnabled,
+                      stageStatesByOrderId: stageStatesByOrderId,
                       onSelectApparatus: onSelectSequenceApparatus,
                       onReorder: onReorder,
                       customerNameByMapId: customerNameByMapId,
@@ -747,6 +751,7 @@ class _WorkerWatchBody extends StatelessWidget {
       apparatus: item,
       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
       sequenceByApparatus: sequenceByApparatus,
+      queuePoliciesByApparatus: queuePoliciesByApparatus,
       queueStatesByApparatus: queueStatesByApparatus,
       stageStatesByOrderId: stageStatesByOrderId,
       queueActionControlsByApparatus: queueActionControlsByApparatus,
@@ -756,15 +761,7 @@ class _WorkerWatchBody extends StatelessWidget {
       excludeFrozen: true,
       query: searchQuery,
     );
-    return _workerDisplayOrderSequence(
-      orders: visibleOrders,
-      policy: _queuePolicyForApparatus(
-        item,
-        queuePoliciesByApparatus: queuePoliciesByApparatus,
-      ),
-      queueStates: queueStatesByApparatus[item.id.trim()] ?? const {},
-      controls: queueActionControlsByApparatus[item.id.trim()] ?? const {},
-    ).take(queueLimit).toList(growable: false);
+    return visibleOrders.take(queueLimit).toList(growable: false);
   }
 
   @override
@@ -977,7 +974,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                               orderControlsByOrderId,
                               orders[index].map.id.trim(),
                             ),
-                            apparatusState: _workerApparatusOrderCardState(
+                            apparatusState: _apparatusOrderCardState(
                               map: orders[index].map,
                               apparatusId: apparatus.id,
                               queueState: apparatusQueueOrderStateFromRaw(

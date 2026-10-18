@@ -109,6 +109,7 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   required AdminApparatus apparatus,
   required Map<String, List<String>> visibleOrderIdsByApparatus,
   required Map<String, List<String>> sequenceByApparatus,
+  required Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus,
   required Map<String, Map<String, String>> queueStatesByApparatus,
   required Map<String, Map<String, String>> stageStatesByOrderId,
   required Map<String, Map<String, AdminApparatusQueueOrderActionControl>> queueActionControlsByApparatus,
@@ -127,6 +128,11 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     apparatus,
     queueStatesByApparatus: queueStatesByApparatus,
   );
+  final freePick =
+      _queuePolicyForApparatus(
+        apparatus,
+        queuePoliciesByApparatus: queuePoliciesByApparatus,
+      ) == ApparatusQueuePolicy.freePick;
   final queueOrders = visibleOrders.where(
     (order) {
       final orderId = order.map.id.trim();
@@ -137,6 +143,15 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
         queueActionControlsByApparatus: queueActionControlsByApparatus,
         orderStatusesByOrderId: orderStatusesByOrderId,
       )) {
+        return false;
+      }
+      final status = orderStatusesByOrderId[orderId];
+      if (workerMode &&
+          freePick &&
+          orderControlsByOrderId[orderId] !=
+              AdminOrderControlState.freezeRequested &&
+          (status?.orderStatus == 'completed_with_issue' ||
+              (status?.completedWithIssueCount ?? 0) > 0)) {
         return false;
       }
       final lifecycle = orderStatusesByOrderId[orderId]?.lifecycleStatus;
@@ -172,13 +187,17 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
     sequenceByApparatus: sequenceByApparatus,
   );
   final queueOrderIds = queueOrders.map((order) => order.map.id).toList();
-  final ordered = _applyApparatusOrderSequence(
-    orders: queueOrders,
-    sequence: effectiveQueueSequence(
-      sequence: sequence,
-      visibleOrderIds: queueOrderIds,
-    ),
-  );
+  // Free queues follow the server's shared display order, before either role's
+  // visibility/search filters. Strict queues retain manual sequence changes.
+  final ordered = freePick
+      ? queueOrders
+      : _applyApparatusOrderSequence(
+          orders: queueOrders,
+          sequence: effectiveQueueSequence(
+            sequence: sequence,
+            visibleOrderIds: queueOrderIds,
+          ),
+        );
   if (!workerMode) {
     return ordered;
   }
@@ -194,7 +213,7 @@ bool _apparatusStageCompleted(
     (control?.stageNodeId == nodeId &&
         control?.stageWork?.localCompleted == true);
 
-ApparatusQueueOrderState _workerApparatusOrderCardState({
+ApparatusQueueOrderState _apparatusOrderCardState({
   required ProductionMapDefinition map,
   required String apparatusId,
   required ApparatusQueueOrderState queueState,

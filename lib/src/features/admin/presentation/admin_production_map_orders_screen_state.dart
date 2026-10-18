@@ -597,6 +597,13 @@ class _AdminProductionMapOrdersScreenState
                                   closedOrders: _closedOrders,
                                   onSetModule: _setModule,
                                   ordersForApparatus: _ordersForApparatus,
+                                  sequenceReorderEnabled:
+                                      _selectedApparatus != null &&
+                                      _queuePolicyForApparatus(
+                                        _selectedApparatus!,
+                                        queuePoliciesByApparatus:
+                                            _queuePoliciesByApparatus,
+                                      ) == ApparatusQueuePolicy.strictSequence,
                                   moveOrdersForApparatus:
                                       _moveOrdersForApparatus,
                                   canMoveTo: _canMoveOrderToApparatus,
@@ -2368,6 +2375,7 @@ class _AdminProductionMapOrdersScreenState
       apparatus: apparatus,
       visibleOrderIdsByApparatus: _visibleOrderIdsByApparatus,
       sequenceByApparatus: _displaySequenceByApparatus,
+      queuePoliciesByApparatus: _queuePoliciesByApparatus,
       queueStatesByApparatus: _queueStatesByApparatus,
       stageStatesByOrderId: _stageStatesByOrderId,
       queueActionControlsByApparatus: _queueActionControlsByApparatus,

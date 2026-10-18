@@ -37,6 +37,30 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'en': 'Not selected',
     'ru': 'Не выбран',
   },
+  'admin.apparatus_filter_order.edit': {
+    'uz': 'Tartibni tahrirlash',
+    'en': 'Edit order',
+    'ru': 'Изменить порядок',
+    'ur': 'ترتیب میں ترمیم کریں',
+  },
+  'admin.apparatus_filter_order.drag_hint': {
+    'uz': 'Aparatni yoki o‘ngdagi belgini ushlab, kerakli joyga torting.',
+    'en': 'Drag a machine or its handle to the desired position.',
+    'ru': 'Перетащите аппарат или значок справа на нужное место.',
+    'ur': 'مشین یا دائیں طرف کے ہینڈل کو پکڑ کر مطلوبہ جگہ پر لے جائیں۔',
+  },
+  'admin.apparatus_filter_order.reset': {
+    'uz': 'Standart tartibga qaytarish',
+    'en': 'Restore default order',
+    'ru': 'Восстановить исходный порядок',
+    'ur': 'پہلے سے طے شدہ ترتیب بحال کریں',
+  },
+  'admin.apparatus_filter_order.save_failed': {
+    'uz': 'Filtr tartibi saqlanmadi. Qayta urinib ko‘ring.',
+    'en': 'Could not save the filter order. Try again.',
+    'ru': 'Не удалось сохранить порядок фильтра. Повторите попытку.',
+    'ur': 'فلٹر کی ترتیب محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔',
+  },
   'worker.queue.orders_count': {
     'uz': '{count} ta buyurtma',
     'en': '{count} orders',

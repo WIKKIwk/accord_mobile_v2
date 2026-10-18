@@ -51,12 +51,23 @@ void _registerWorkerQueueOrderingTests() {
       var policy = scenario == 'strict'
           ? ApparatusQueuePolicy.strictSequence
           : ApparatusQueuePolicy.freePick;
+      // The server owns the display order, independently of its stored queue.
+      var displayIds = scenario == 'legacy'
+          ? [ids[99], ids[97], ...ids.take(96), ids[98], ids[96]]
+          : [ids[99], ids[97], ids[98], ...ids.take(96), ids[96]];
       AdminProductionMapLiveSnapshot snapshot() =>
           AdminProductionMapLiveSnapshot(
             workerShowAllApparatusTabs: scenario == 'free',
             maps: maps,
             sequences: {_lamination1Id: List.of(ids)},
-            visibleOrderIds: {_lamination1Id: List.of(ids)},
+            visibleOrderIds: {
+              _lamination1Id: List.of(
+                policy == ApparatusQueuePolicy.freePick &&
+                        scenario != 'missing-policy'
+                    ? displayIds
+                    : ids,
+              ),
+            },
             queueStates: {
               _lamination1Id: Map.of(states),
               _lamination2Id: {ids.first: 'in_progress'},
@@ -135,7 +146,7 @@ void _registerWorkerQueueOrderingTests() {
           .toList();
       final unchanged = ids.where((id) => id != ids[96]).toList();
       final expected = switch (scenario) {
-        'free' => [ids[99], ids[97], ids[98], ...ids.take(96)],
+        'free' || 'admin' => [ids[99], ids[97], ids[98], ...ids.take(96)],
         'legacy' => [ids[99], ids[97], ...ids.take(96), ids[98]],
         _ => unchanged,
       };
@@ -155,6 +166,10 @@ void _registerWorkerQueueOrderingTests() {
       }
 
       expectInitialOrder();
+      if (!workerMode) {
+        expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+        expect(find.byType(ReorderableListView), findsNothing);
+      }
       if (workerMode) {
         expect(
           displayedIds().length,
@@ -175,16 +190,109 @@ void _registerWorkerQueueOrderingTests() {
       await tester.pumpAndSettle();
       await mount();
       expectInitialOrder();
+      if (!workerMode) {
+        policy = ApparatusQueuePolicy.strictSequence;
+        current = snapshot();
+        events.add(current);
+        // Admin test mode refreshes over its existing polling path.
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expect(displayedIds(), unchanged.take(displayedIds().length));
+        expect(find.byType(ReorderableListView), findsOneWidget);
+        expect(find.byIcon(Icons.drag_handle_rounded), findsWidgets);
+        final staleReorder = tester
+            .widget<ReorderableListView>(find.byType(ReorderableListView))
+            .onReorderItem!;
+        policy = ApparatusQueuePolicy.freePick;
+        current = snapshot();
+        events.add(current);
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expectInitialOrder();
+        expect(find.byType(ReorderableListView), findsNothing);
+        expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+        staleReorder(0, 2);
+        await tester.pumpAndSettle();
+        expectInitialOrder();
+
+        void expectCurrentIndices() {
+          final list = tester.widget<ListView>(
+            find.byKey(const ValueKey('sequence-list-$_lamination1Id')),
+          );
+          final delegate = list.childrenDelegate as SliverChildBuilderDelegate;
+          final visible = displayIds
+              .where((id) => states[id] != 'completed')
+              .toList();
+          for (final (index, id) in visible.indexed) {
+            expect(
+              delegate.findChildIndexCallback!(
+                ValueKey('sequence-$_lamination1Id-$id'),
+              ),
+              index,
+            );
+          }
+          expect(
+            delegate.findChildIndexCallback!(
+              const ValueKey('sequence-$_lamination1Id-missing'),
+            ),
+            isNull,
+          );
+          expect(displayedIds(), visible.take(displayedIds().length));
+        }
+
+        expectCurrentIndices();
+        final retainedId = ids.first;
+        final removedId = ids[1];
+        final retainedRow = find.byKey(ValueKey('$prefix$retainedId'));
+        final retainedElement = tester.element(retainedRow);
+        displayIds.remove(removedId);
+        displayIds.remove(retainedId);
+        displayIds.insert(4, retainedId);
+        current = snapshot();
+        events.add(current);
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expectCurrentIndices();
+        expect(tester.element(retainedRow), same(retainedElement));
+        expect(find.byKey(ValueKey('$prefix$removedId')), findsNothing);
+        final delegate =
+            tester
+                    .widget<ListView>(
+                      find.byKey(
+                        const ValueKey('sequence-list-$_lamination1Id'),
+                      ),
+                    )
+                    .childrenDelegate
+                as SliverChildBuilderDelegate;
+        expect(
+          delegate.findChildIndexCallback!(
+            ValueKey('sequence-$_lamination1Id-$removedId'),
+          ),
+          isNull,
+        );
+
+        displayIds.insert(3, removedId);
+        current = snapshot();
+        events.add(current);
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expectCurrentIndices();
+        expect(tester.element(retainedRow), same(retainedElement));
+        expect(find.byKey(ValueKey('$prefix$removedId')), findsOneWidget);
+        expect(current.sequences[_lamination1Id], ids);
+      }
       if (scenario == 'free') {
         // Only recency changes: no local action or queue-state change.
         times[ids[98]] = 400;
         current = snapshot();
         events.add(current);
         await tester.pumpAndSettle();
-        expect(displayedIds().take(4), [ids[99], ids[98], ids[97], ids.first]);
+        expect(displayedIds().take(4), [ids[99], ids[97], ids[98], ids.first],
+            reason: 'recent neutral work never precedes paused work');
         // Start/resume of an order deep in the queue moves it to the top live.
         states[ids[99]] = 'paused';
         states[ids[98]] = 'in_progress';
+        displayIds = [ids[98], ids[97], ids[99], ...ids.take(96), ids[96]];
         current = snapshot();
         events.add(current);
         await tester.pumpAndSettle();
@@ -286,6 +394,221 @@ void _registerWorkerQueueOrderingTests() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'free queue shares status colors across admin and worker shifts',
+    (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      const ids = [
+        'zakaz-green',
+        'zakaz-yellow',
+        'zakaz-white',
+        'zakaz-repeat',
+        'zakaz-issue',
+        'zakaz-frozen',
+        'zakaz-stop',
+      ];
+      final maps = <ProductionMapSaved>[];
+      for (final id in ids) {
+        maps.add(
+          await MobileApi.instance.adminSaveProductionMap(
+            id == 'zakaz-repeat'
+                ? ProductionMapDefinition.fromJson({
+                    'id': id,
+                    'title': id,
+                    'product_code': id,
+                    'nodes': [
+                      {'id': 'start', 'kind': 'start', 'title': 'Start'},
+                      {
+                        'id': 'first',
+                        'kind': 'apparatus',
+                        'title': 'First',
+                        'apparatus_id': _lamination1Id,
+                      },
+                      {
+                        'id': 'middle',
+                        'kind': 'apparatus',
+                        'title': 'Middle',
+                        'apparatus_id': _print7Id,
+                      },
+                      {
+                        'id': 'later',
+                        'kind': 'apparatus',
+                        'title': 'Later',
+                        'apparatus_id': _lamination1Id,
+                      },
+                      {'id': 'end', 'kind': 'end', 'title': 'End'},
+                    ],
+                    'edges': [
+                      {'from': 'start', 'to': 'first'},
+                      {'from': 'first', 'to': 'middle'},
+                      {'from': 'middle', 'to': 'later'},
+                      {'from': 'later', 'to': 'end'},
+                    ],
+                  })
+                : _productionOrderMap(
+                    id: id,
+                    title: id,
+                    productCode: id,
+                    product: id,
+                    apparatusId: _lamination1Id,
+                  ),
+          ),
+        );
+      }
+      final catalog = await MobileApi.instance.adminApparatus(limit: 200);
+      final snapshot = AdminProductionMapLiveSnapshot(
+        maps: maps,
+        sequences: {_lamination1Id: ids.reversed.toList()},
+        visibleOrderIds: const {_lamination1Id: ids},
+        queueStates: const {
+          _lamination1Id: {
+            'zakaz-green': 'in_progress',
+            'zakaz-yellow': 'paused',
+            'zakaz-white': 'pending',
+            'zakaz-repeat': 'completed',
+            'zakaz-issue': 'pending',
+            'zakaz-frozen': 'frozen',
+            'zakaz-stop': 'in_progress',
+          },
+        },
+        stageStates: const {
+          'zakaz-repeat': {
+            'first': 'completed',
+            'middle': 'pending',
+            'later': 'pending',
+          },
+        },
+        queuePolicies: const {
+          _lamination1Id: AdminApparatusQueuePolicy(
+            apparatus: _lamination1Id,
+            policy: ApparatusQueuePolicy.freePick,
+          ),
+        },
+        orderControls: const {
+          'zakaz-frozen': AdminOrderControlState.frozen,
+          'zakaz-stop': AdminOrderControlState.freezeRequested,
+        },
+        orderStatuses: const {
+          'zakaz-issue': AdminProductionOrderStatusDetail(
+            orderStatus: 'completed_with_issue',
+            completedWithIssueCount: 1,
+          ),
+        },
+        queueActionControls: const {
+          _lamination1Id: {
+            'zakaz-green': AdminApparatusQueueOrderActionControl(
+              state: 'in_progress',
+              workActivity: AdminQueueWorkActivity(
+                workerRole: 'aparatchi',
+                workerRef: 'shift-one',
+                state: 'in_progress',
+              ),
+            ),
+            'zakaz-repeat': AdminApparatusQueueOrderActionControl(
+              state: 'completed',
+              stageNodeId: 'first',
+              stageWork: AdminStageWorkControl(
+                completed: true,
+                localCompleted: true,
+                upstreamClosed: true,
+              ),
+            ),
+          },
+        },
+        completedOrders: const [],
+        completionRequests: const [],
+        completionRequestDecisions: const [],
+      );
+      await _usePhoneViewport(tester);
+      tester.view.physicalSize = const Size(430, 1800);
+      final theme = ThemeData(useMaterial3: true);
+      Color tint(Color color) => Color.alphaBlend(
+        color.withValues(alpha: .16),
+        theme.colorScheme.surfaceContainerLowest,
+      );
+      final colors = [
+        tint(const Color(0xFF2E7D32)),
+        tint(const Color(0xFFF9A825)),
+        theme.colorScheme.surfaceContainerLowest,
+        theme.colorScheme.surfaceContainerLowest,
+        ...List.filled(3, tint(const Color(0xFFC62828))),
+      ];
+      for (final (workerMode, workerRef) in [
+        (false, 'admin'),
+        (true, 'shift-one'),
+        (true, 'shift-two'),
+      ]) {
+        AppSession.instance.profile = SessionProfile(
+          role: workerMode ? UserRole.aparatchi : UserRole.admin,
+          displayName: workerRef,
+          legalName: '',
+          ref: workerRef,
+          phone: '',
+          avatarUrl: '',
+          capabilities: const [
+            'admin.access',
+            'apparatus.queue.read',
+            'apparatus.queue.manage',
+          ],
+          assignedApparatus: const [_lamination1Id],
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: AdminProductionMapOrdersScreen(
+              readOnly: workerMode,
+              workerMode: workerMode,
+              apparatusLoader: () async =>
+                  catalog.where((item) => item.id == _lamination1Id).toList(),
+              queueSnapshotLoader: () async => snapshot,
+              liveEventsLoader: () => const Stream.empty(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final prefix = workerMode
+            ? 'worker-order-'
+            : 'sequence-row-$_lamination1Id-';
+        final rows = tester.widgetList(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget.key is ValueKey<String> &&
+                (widget.key! as ValueKey<String>).value.startsWith(prefix),
+          ),
+        );
+        final expected = workerMode ? [...ids.take(4), ids.last] : ids;
+        expect(
+          rows.map(
+            (row) =>
+                (row.key! as ValueKey<String>).value.substring(prefix.length),
+          ),
+          expected,
+        );
+        for (final id in expected) {
+          final row = find.byKey(ValueKey('$prefix$id'));
+          final color = tester
+              .widget<Material>(
+                find.descendant(of: row, matching: find.byType(Material)).first,
+              )
+              .color;
+          expect(color, colors[ids.indexOf(id)], reason: '$workerRef: $id');
+        }
+        expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   test('queue recency is optional nonnegative server metadata', () {
     for (final raw in [null, -1, 0, 'bad', {}, 1.5]) {

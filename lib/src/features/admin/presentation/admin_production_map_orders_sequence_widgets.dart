@@ -9,6 +9,8 @@ class _SequenceModulePage extends StatefulWidget {
     required this.orders,
     required this.searchQuery,
     required this.readOnly,
+    required this.reorderEnabled,
+    required this.stageStatesByOrderId,
     required this.customerNameByMapId,
     required this.queueStates,
     required this.queueActionControls,
@@ -27,6 +29,8 @@ class _SequenceModulePage extends StatefulWidget {
   final List<ProductionMapSaved> orders;
   final String searchQuery;
   final bool readOnly;
+  final bool reorderEnabled;
+  final Map<String, Map<String, String>> stageStatesByOrderId;
   final Map<String, String> customerNameByMapId;
   final Map<String, String> queueStates;
   final Map<String, AdminApparatusQueueOrderActionControl> queueActionControls;
@@ -82,16 +86,28 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
       required ProductionMapSaved order,
       required Key key,
     }) {
-      final apparatusState = apparatusQueueOrderStateFromRaw(
+      final queueState = apparatusQueueOrderStateFromRaw(
         widget.queueStates[order.map.id.trim()],
       );
+      final apparatusState = !widget.reorderEnabled && selected != null
+          ? _apparatusOrderCardState(
+              map: order.map,
+              apparatusId: selected.id,
+              queueState: queueState,
+              stageStates:
+                  widget.stageStatesByOrderId[order.map.id.trim()] ?? const {},
+              control: widget.queueActionControls[order.map.id.trim()],
+            )
+          : queueState;
       final isFrozen = adminProductionMapOrderControlFor(
             widget.orderControlsByOrderId,
             order.map.id.trim(),
           ).isFrozen ||
           apparatusState == ApparatusQueueOrderState.frozen;
-      final canReorder =
-          !widget.readOnly && !apparatusState.isActive && !isFrozen;
+      final canReorder = widget.reorderEnabled &&
+          !widget.readOnly &&
+          !apparatusState.isActive &&
+          !isFrozen;
 
       return _SequenceOrderRow(
         key: key,
@@ -129,6 +145,13 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
     }
 
     if (!widget.readOnly && selected != null && orders.isNotEmpty) {
+      final indexByKey = widget.reorderEnabled
+          ? const <Key, int>{}
+          : <Key, int>{
+              for (var index = 0; index < orders.length; index++)
+                ValueKey('sequence-${selected.id}-${orders[index].map.id}'):
+                    index,
+            };
       return ColoredBox(
         color: AppTheme.shellStart(context),
         child: Column(
@@ -170,30 +193,62 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
               ),
             ),
             Expanded(
-              child: M3SequenceList(
-                listKey: ValueKey('sequence-list-${selected.id}'),
-                padding: EdgeInsets.fromLTRB(
-                  _openedOrderPanelCardGap,
-                  8,
-                  _openedOrderPanelCardGap,
-                  widget.bottomPadding,
-                ),
-                itemCount: orders.length,
-                itemKey: (index) => ValueKey(
-                  'sequence-${selected.id}-${orders[index].map.id}',
-                ),
-                onReorder: widget.onReorder,
-                itemBuilder: (context, index) {
-                  final order = orders[index];
-                  return buildOrderRow(
-                    index: index,
-                    order: order,
-                    key: ValueKey(
-                      'sequence-row-${selected.id}-${order.map.id}',
+              child: !widget.reorderEnabled
+                  ? ListView.builder(
+                      key: ValueKey('sequence-list-${selected.id}'),
+                      padding: EdgeInsets.fromLTRB(
+                        _openedOrderPanelCardGap,
+                        8,
+                        _openedOrderPanelCardGap,
+                        widget.bottomPadding,
+                      ),
+                      itemCount: orders.length,
+                      findChildIndexCallback: (key) => indexByKey[key],
+                      itemBuilder: (context, index) {
+                        final order = orders[index];
+                        return Padding(
+                          key: ValueKey(
+                            'sequence-${selected.id}-${order.map.id}',
+                          ),
+                          padding: EdgeInsets.only(
+                            bottom: index < orders.length - 1
+                                ? M3SegmentedListGeometry.gap
+                                : 0,
+                          ),
+                          child: buildOrderRow(
+                            index: index,
+                            order: order,
+                            key: ValueKey(
+                              'sequence-row-${selected.id}-${order.map.id}',
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : M3SequenceList(
+                      listKey: ValueKey('sequence-list-${selected.id}'),
+                      padding: EdgeInsets.fromLTRB(
+                        _openedOrderPanelCardGap,
+                        8,
+                        _openedOrderPanelCardGap,
+                        widget.bottomPadding,
+                      ),
+                      itemCount: orders.length,
+                      itemKey: (index) => ValueKey(
+                        'sequence-${selected.id}-${orders[index].map.id}',
+                      ),
+                      onReorder: widget.onReorder,
+                      itemBuilder: (context, index) {
+                        final order = orders[index];
+                        return buildOrderRow(
+                          index: index,
+                          order: order,
+                          key: ValueKey(
+                            'sequence-row-${selected.id}-${order.map.id}',
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),
@@ -295,36 +350,18 @@ class _SequenceHeaderSelectors extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final selectedValue = apparatus?.id.trim();
+    final profile = AppSession.instance.profile;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AdminExpandableFilterChip<String>(
-          label: context.l10n.productionText('worker.queue.filter.apparatus'),
-          emptyLabel: context.l10n.productionText(
-            'worker.queue.filter.unselected',
-          ),
-          icon: Icons.precision_manufacturing_rounded,
-          selectedValue: selectedValue?.isEmpty == true ? null : selectedValue,
-          options: [
-            for (final item in availableApparatus)
-              if (item.id.trim().isNotEmpty && item.name.trim().isNotEmpty)
-                AdminFilterChipOption(
-                  value: item.id.trim(),
-                  label: item.name.trim(),
-                ),
-          ],
+        AdminSequenceApparatusFilter(
+          apparatus: availableApparatus,
+          selectedId: apparatus?.id,
+          editableProfileRef:
+              profile?.role == UserRole.admin ? profile?.ref : null,
           expanded: expanded,
           onToggle: onToggleExpanded,
-          onSelect: (value) {
-            for (final item in availableApparatus) {
-              if (item.id.trim() == value) {
-                onSelectApparatus(item);
-                return;
-              }
-            }
-          },
-          padding: EdgeInsets.zero,
+          onSelect: onSelectApparatus,
         ),
         if (orderCount > 0)
           Padding(

@@ -183,6 +183,12 @@ extension _AdminProductionMapOrdersMoveState
     if (apparatus == null) {
       return;
     }
+    if (_queuePolicyForApparatus(
+          apparatus,
+          queuePoliciesByApparatus: _queuePoliciesByApparatus,
+        ) == ApparatusQueuePolicy.freePick) {
+      return;
+    }
     final orders = List<ProductionMapSaved>.from(
       _ordersForApparatus(apparatus),
     );
@@ -314,6 +320,11 @@ extension _AdminProductionMapOrdersMoveState
       while (mounted) {
         final pending = _pendingSequenceMoves[apparatus];
         if (pending == null || pending.isEmpty) break;
+        if (_queuePoliciesByApparatus[apparatus]?.policy ==
+            ApparatusQueuePolicy.freePick) {
+          _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
+          break;
+        }
         final move = pending.first;
         if (move.scope != _sequenceWriteScope) {
           _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));

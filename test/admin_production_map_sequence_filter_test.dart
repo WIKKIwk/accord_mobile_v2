@@ -2,7 +2,10 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_sequence_list.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_expandable_filter_chip.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/admin_apparatus_filter_order_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_apparatus_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -77,6 +80,28 @@ void main() {
       // 2. User selects '9 ta rangli bosma aparat'
       await tester.tap(find.text('Aparat: Godex aparat - DEMO'));
       await tester.pumpAndSettle();
+      await tester.longPress(
+        find.byKey(const ValueKey('admin-filter-option-9 ta rangli bosma aparat')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('apparatus-filter-order-edit')),
+      );
+      await tester.pumpAndSettle();
+      final editor = tester.widget<M3SequenceList>(find.byType(M3SequenceList).last);
+      final printIndex = [
+        for (var index = 0; index < editor.itemCount; index++) index,
+      ].firstWhere((index) => editor.itemKey(index) ==
+          const ValueKey('apparatus-filter-order-row-$_print9Id'));
+      editor.onReorder(printIndex, 0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('apparatus-filter-order-save')));
+      await tester.pumpAndSettle();
+      expect(find.text('Aparat: Godex aparat - DEMO'), findsOneWidget);
+      expect(
+        (await AdminApparatusFilterOrderStore.load('ADMIN-001')).first,
+        _print9Id,
+      );
       await tester.tap(
         find.byKey(const ValueKey('admin-filter-option-9 ta rangli bosma aparat')),
       );
@@ -115,6 +140,10 @@ void main() {
 
       // It should IMMEDIATELY have '9 ta rangli bosma aparat' selected!
       expect(find.text('Aparat: 9 ta rangli bosma aparat'), findsOneWidget);
+      final filter = tester.widget<AdminExpandableFilterChip<String>>(
+        find.byType(AdminExpandableFilterChip<String>),
+      );
+      expect(filter.options.first.value, _print9Id);
     },
   );
 

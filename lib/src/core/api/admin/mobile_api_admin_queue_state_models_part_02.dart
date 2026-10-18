@@ -60,7 +60,7 @@ extension MobileApiAdminQueueState on MobileApi {
       final snapshot = AdminApparatusQueueSnapshot(
         sequenceVersions: {for (final id in _testModeEffectiveQueueSequences().keys) id: '0' * 64},
         sequences: _testModeEffectiveQueueSequences(),
-        visibleOrderIds: _testModeVisibleOrderIdsByApparatus(),
+        visibleOrderIds: _testModeDisplayOrderIdsByApparatus(),
         queueStates: {
           for (final entry in _testModeApparatusQueueStates.entries)
             entry.key: Map<String, String>.unmodifiable(entry.value),

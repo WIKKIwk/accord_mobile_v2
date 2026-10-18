@@ -228,6 +228,42 @@ Map<String, List<AdminFrozenQueueOrder>> _testModeFrozenOrdersByApparatus() {
   };
 }
 
+// Simulate the backend's shared display projection; never change stored queues.
+Map<String, List<String>> _testModeDisplayOrderIdsByApparatus() {
+  final visible = _testModeVisibleOrderIdsByApparatus();
+  final sequences = _testModeEffectiveQueueSequences();
+  for (final entry in visible.entries.toList()) {
+    if (entry.value.isEmpty ||
+        _testModeApparatusQueuePolicies[entry.key]?.policy !=
+            ApparatusQueuePolicy.freePick) {
+      continue;
+    }
+    final ids = effectiveQueueSequence(
+      sequence: sequences[entry.key] ?? const [],
+      visibleOrderIds: entry.value,
+    );
+    final positions = {for (final (i, id) in ids.indexed) id: i};
+    int priority(String id) {
+      final state = _testModeApparatusQueueStates[entry.key]?[id];
+      final control =
+          _testModeOrderControls[id] ?? AdminOrderControlState.active;
+      if (control != AdminOrderControlState.active || state == 'frozen') {
+        return 3;
+      }
+      if (state == 'in_progress' || state == 'print_preflight') return 0;
+      if (state == 'paused') return 1;
+      return 2;
+    }
+
+    ids.sort((a, b) {
+      final rank = priority(a).compareTo(priority(b));
+      return rank != 0 ? rank : positions[a]!.compareTo(positions[b]!);
+    });
+    visible[entry.key] = List.unmodifiable(ids);
+  }
+  return visible;
+}
+
 Map<String, List<String>> _testModeEffectiveQueueSequences() {
   final visible = _testModeVisibleOrderIdsByApparatus();
   final frozenIds = _frozenOrderIds(_testModeOrderControls);
