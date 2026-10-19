@@ -241,6 +241,11 @@ void _registeradmin_production_map_test_screen_testCases13() {
       ),
     );
     await _usePhoneViewport(tester);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+    tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetPadding);
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
@@ -262,6 +267,11 @@ void _registeradmin_production_map_test_screen_testCases13() {
     final boundary = find.byKey(
       const ValueKey('move-boundary-apparatus-picker'),
     );
+    final panelBottom = tester.getBottomLeft(find.byType(TabBarView)).dy;
+    final transferBottom = tester.getBottomLeft(find.byType(TwoPaneTransfer)).dy;
+    // The shell already reserves the navbar; the list should reach the panel's
+    // bottom edge with only a small card gap, including on notched iPhones.
+    expect(panelBottom - transferBottom, inInclusiveRange(0, 8));
     final before = tester.getTopLeft(boundary).dy;
     final gesture = await tester.startGesture(tester.getCenter(boundary));
     await gesture.moveBy(const Offset(0, 160));
@@ -269,5 +279,6 @@ void _registeradmin_production_map_test_screen_testCases13() {
     await tester.pumpAndSettle();
 
     expect(tester.getTopLeft(boundary).dy, greaterThan(before + 40));
-  });
+    expect(tester.getBottomLeft(find.byType(TwoPaneTransfer)).dy, transferBottom);
+  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 }

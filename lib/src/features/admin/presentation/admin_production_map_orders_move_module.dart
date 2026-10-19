@@ -98,20 +98,15 @@ class _MoveModulePageState extends State<_MoveModulePage> {
         message: context.l10n.adminText('production.move.no_equipment'),
       );
     }
-    final viewMetrics = MediaQueryData.fromView(View.of(context));
     final allowUnassignedAlternativeMove =
         !_isMoveUnassignedApparatus(top) && !_isMoveUnassignedApparatus(bottom);
-    final dockInset = dockLayoutBottomInset(
-      viewMetrics,
-      thinGestureBottom: DockGestureOverlayScope.thinGestureBottomOf(context),
-    );
-    final bottomInset = 60 + dockInset;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
+      // AppShell already reserves the dock and system gesture area.
+      padding: const EdgeInsets.fromLTRB(
         _openedOrderPanelCardGap,
         _openedOrderPanelTopGap,
         _openedOrderPanelCardGap,
-        bottomInset,
+        _openedOrderPanelCardGap,
       ),
       child: TwoPaneTransfer(
         topHeader: _MoveApparatusHeader(

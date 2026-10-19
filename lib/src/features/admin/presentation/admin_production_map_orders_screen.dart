@@ -29,8 +29,6 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/lists/m3_sequence_list.dart';
 import '../../../core/widgets/transfer/two_pane_transfer.dart';
 import '../../../core/widgets/transfer/transfer_list.dart';
-import '../../../core/widgets/navigation/dock_gesture_overlay.dart';
-import '../../../core/widgets/navigation/dock_system_bottom_inset.dart';
 import '../../../core/widgets/display/app_info_row.dart';
 import '../../../core/widgets/display/image_fade.dart';
 import '../../../core/widgets/display/marquee_text.dart';
