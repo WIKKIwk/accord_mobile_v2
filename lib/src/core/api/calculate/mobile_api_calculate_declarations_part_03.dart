@@ -27,6 +27,7 @@ class CalculateOrderProductionOptions {
 
 class CalculateOrderTemplate {
   const CalculateOrderTemplate({
+    this.products = const [],
     this.productionOptions,
     required this.id,
     required this.code,
@@ -89,6 +90,7 @@ class CalculateOrderTemplate {
       fallback: widthMm > 0 ? 1 : 0,
     );
     return CalculateOrderTemplate(
+      products: OrderProduct.listFromJson(json['products']),
       productionOptions: json['production_options'] is Map
           ? CalculateOrderProductionOptions.fromJson(
               (json['production_options'] as Map).cast<String, dynamic>())
@@ -134,6 +136,7 @@ class CalculateOrderTemplate {
     );
   }
 
+  final List<OrderProduct> products;
   final String id;
   final CalculateOrderProductionOptions? productionOptions;
   final String code;
@@ -220,6 +223,7 @@ class CalculateOrderTemplate {
       'order_number': orderNumber.trim(),
       'customer_ref': customerRef.trim(),
       'customer': customer.trim(),
+      if (products.isNotEmpty) 'products': products.map((p) => p.toJson()).toList(),
       'item_code': itemCode.trim(),
       'product': product.trim(),
       'status': status.trim(),
@@ -253,6 +257,7 @@ class CalculateOrderTemplate {
   }
 
   CalculateOrderTemplate copyWith({
+    List<OrderProduct>? products,
     CalculateOrderProductionOptions? productionOptions,
     String? id,
     String? code,
@@ -292,6 +297,7 @@ class CalculateOrderTemplate {
     String? variantId,
   }) {
     return CalculateOrderTemplate(
+      products: products ?? this.products,
       productionOptions: productionOptions ?? this.productionOptions,
       id: id ?? this.id,
       code: code ?? this.code,
@@ -374,6 +380,7 @@ CalculateOrderTemplate _testModeUpsertCalculateOrderTemplate(
       : 'test-co-${DateTime.now().microsecondsSinceEpoch}');
   final code = template.code.trim().isNotEmpty ? template.code.trim() : 'Z-$id';
   final saved = CalculateOrderTemplate(
+    products: template.products,
     productionOptions: template.productionOptions,
     id: id,
     code: code,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import '../../../app/app_router.dart';
@@ -34,6 +35,7 @@ part 'admin_calculate_screen__AdminCalculateScreenState_methods_01.dart';
 part 'admin_calculate_screen__AdminCalculateScreenState_methods_02.dart';
 part 'admin_calculate_screen__AdminCalculateScreenState_methods_03.dart';
 part 'admin_calculate_screen__AdminCalculateScreenState_methods_04.dart';
+part 'admin_calculate_screen_products.dart';
 part 'admin_calculate_screen_models_part_01.dart';
 part 'admin_calculate_screen_widgets_part_02.dart';
 part 'admin_calculate_screen_declarations_part_03.dart';
@@ -47,6 +49,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _imagePicker = ImagePicker();
   final _customer = TextEditingController();
   final _product = TextEditingController();
+  bool _multipleProducts = false;
+  final List<_ProductControllers> _products = [];
   String _orderType = 'Rulon';
   CalculateOrderProductionOptions? _productionOptions =
       const CalculateOrderProductionOptions(
@@ -92,6 +96,14 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   String _lastCalculatedSignature = '';
   String _error = '';
 
+  OpenedOrderEditRestrictions get _orderEditRestrictions =>
+      widget.openedOrder?.restrictions ?? const OpenedOrderEditRestrictions();
+  bool get _orderEditDimensionsLocked => _orderEditRestrictions.dimensionsLocked;
+  bool get _orderEditLayerStructureLocked =>
+      _orderEditRestrictions.layerStructureLocked;
+  bool _orderEditLayerLocked(int index) =>
+      _orderEditRestrictions.lockedLayerIndices.contains(index);
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +126,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
     _calculationListenersAttached = false;
     _customer.dispose();
     _product.dispose();
+    for (final row in _products) { row.dispose(); }
     _color.dispose();
     _kg.dispose();
     _frameProductSizeMm.dispose();
@@ -200,7 +213,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-    final children = _editingAllFields
+    final children = _editingAllFields || _multipleProducts
         ? _fullEditChildren(l10n)
         : _compactTemplateChildren(l10n);
     final resolvedName = _resolvedOrderName().trim();

@@ -107,6 +107,21 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'en': 'Open the training order from the machine screen',
     'ru': 'Откройте учебный заказ из экрана аппарата',
   },
+  'admin.calculate.material_lock_hint': {
+    'uz': 'Xomashyo ulangan qatlamlar qulflangan. Ulanmagan qatlamning turi va mikronini o‘zgartirish mumkin. Kadr o‘lchamlari va qatlamlar soni saqlanadi.',
+    'en': 'Layers with assigned material are locked. You can change the material and micron of unassigned layers. Frame dimensions and the number of layers are fixed.',
+    'ru': 'Слои с привязанным сырьём заблокированы. Материал и микрон свободных слоёв можно менять. Размеры кадра и число слоёв зафиксированы.',
+  },
+  'admin.calculate.material_lock_unknown': {
+    'uz': 'Ulangan xomashyoning qatlamini aniq ajratib bo‘lmadi. Xavfsizlik uchun barcha qatlamlar va kadr o‘lchamlari qulflangan. KG va izohni tahrirlash mumkin.',
+    'en': 'The assigned material could not be matched to a layer. All layers and frame dimensions are locked for safety. KG and notes can still be edited.',
+    'ru': 'Не удалось однозначно определить слой привязанного сырья. Все слои и размеры кадра заблокированы. КГ и примечание можно редактировать.',
+  },
+  'admin.calculate.material_layer_locked': {
+    'uz': 'Xomashyo bog‘langan qatlam: material turi va mikron qulflangan',
+    'en': 'Material is assigned: material type and micron are locked',
+    'ru': 'Сырьё привязано: материал и микрон заблокированы',
+  },
   'admin.calculate.training_order_opening': {
     'uz': 'Training order ochilmoqda…',
     'en': 'Opening training order…',
@@ -381,5 +396,70 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'uz': '{microns} mkr • o‘chirilgan',
     'en': '{microns} μm • inactive',
     'ru': '{microns} мкм • отключено',
+  },
+  'admin.calculate.multiple_products': {
+    'uz': 'Bir necha xil mahsulot',
+    'en': 'Multiple products',
+    'ru': 'Несколько продуктов',
+  },
+  'admin.calculate.add_product': {
+    'uz': 'Mahsulot qo‘shish',
+    'en': 'Add product',
+    'ru': 'Добавить продукт',
+  },
+  'admin.calculate.products_order_hint': {
+    'uz': 'Mahsulotlarni qolipdagi chapdan o‘ngga tartibda kiriting. Kadr soni — eni bo‘yicha yonma-yon joylashgan kadrlar.',
+    'en': 'Add products from left to right on the layout. Frame count means lanes placed side by side across the width.',
+    'ru': 'Добавляйте продукты слева направо на макете. Количество кадров — число кадров рядом по ширине.',
+  },
+  'admin.calculate.remove_product': {
+    'uz': 'Mahsulotni olib tashlash',
+    'en': 'Remove product',
+    'ru': 'Удалить продукт',
+  },
+  'admin.calculate.product_number': {
+    'uz': '{number}-mahsulot',
+    'en': 'Product {number}',
+    'ru': 'Продукт {number}',
+  },
+  'admin.calculate.product_width': {
+    'uz': '1 ta kadrning eni',
+    'en': 'Width of one lane',
+    'ru': 'Ширина одного кадра',
+  },
+  'admin.calculate.product_left': {
+    'uz': 'Qolipda chaproqqa',
+    'en': 'Move left on the layout',
+    'ru': 'Левее на макете',
+  },
+  'admin.calculate.product_right': {
+    'uz': 'Qolipda o‘ngroqqa',
+    'en': 'Move right on the layout',
+    'ru': 'Правее на макете',
+  },
+  'admin.calculate.products_customer': {
+    'uz': 'Avval mijozni tanlang',
+    'en': 'Select the customer first',
+    'ru': 'Сначала выберите клиента',
+  },
+  'admin.calculate.products_invalid': {
+    'uz': 'Har bir mahsulot, kadr eni va butun kadr sonini kiriting. Jami 1–1024 kadr.',
+    'en': 'Select every product and enter its width and whole lane count. Total: 1–1024 lanes.',
+    'ru': 'Выберите каждый продукт, ширину и целое число кадров. Всего: 1–1024 кадра.',
+  },
+  'admin.calculate.products_total': {
+    'uz': 'Jami: {count} kadr · foydali en {width} mm',
+    'en': 'Total: {count} lanes · useful width {width} mm',
+    'ru': 'Всего: {count} кадров · полезная ширина {width} мм',
+  },
+  'admin.calculate.products_output': {
+    'uz': 'Mahsulotlar bo‘yicha taxminiy chiqish',
+    'en': 'Estimated output by product',
+    'ru': 'Ожидаемый выход по продуктам',
+  },
+  'admin.calculate.total_kg': {
+    'uz': 'Umumiy KG',
+    'en': 'Total weight',
+    'ru': 'Общий вес',
   },
 };

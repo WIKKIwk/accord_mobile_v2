@@ -104,6 +104,7 @@ import '../../../core/localization/urdu_aware_text.dart';
 part 'admin_production_map_orders_wip_scan.dart';
 part 'admin_production_map_orders_helpers.dart';
 part 'admin_production_map_orders_detail_widgets.dart';
+part 'admin_production_map_orders_summary_details.dart';
 part 'admin_production_map_orders_read_only_sheet.dart';
 part 'admin_production_map_orders_material_delivery.dart';
 part 'admin_production_map_orders_scan_bootstrap.dart';

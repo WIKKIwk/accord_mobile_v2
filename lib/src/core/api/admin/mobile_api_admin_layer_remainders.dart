@@ -191,12 +191,14 @@ class AdminLaminationAstatkaSnapshot {
     required this.sessionId,
     required this.sessionStatus,
     this.sources = const [],
+    this.allowEmptySources = false,
     this.requestResult,
   });
 
   final String sessionId;
   final String sessionStatus;
   final List<AdminLayerRemainderSource> sources;
+  final bool allowEmptySources;
   final AdminLaminationAstatkaResult? requestResult;
   bool get outputRequired => sessionStatus == 'active';
 
@@ -206,6 +208,7 @@ class AdminLaminationAstatkaSnapshot {
     return AdminLaminationAstatkaSnapshot(
       sessionId: session is Map ? session['session_id']?.toString() ?? '' : '',
       sessionStatus: session is Map ? session['status']?.toString() ?? '' : '',
+      allowEmptySources: json['allow_empty_sources'] == true,
       sources: [
         if (json['sources'] is List)
           for (final source in json['sources'] as List)

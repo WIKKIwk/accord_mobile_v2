@@ -45,6 +45,18 @@ void main() {
   });
   tearDown(() => AppSession.instance.token = null);
 
+  test('empty layer reports follow only the server material policy', () {
+    for (final policy in [true, false, null, 'true']) {
+      final snapshot = AdminLaminationAstatkaSnapshot.fromJson({
+        'session': {'session_id': 'optional-session', 'status': 'active'},
+        'sources': [],
+        if (policy != null) 'allow_empty_sources': policy,
+      });
+      expect(snapshot.allowEmptySources, policy == true);
+      expect(snapshot.sources, isEmpty);
+    }
+  });
+
   test('net weight ratio estimates 600 m without counting the core', () {
     expect(source.estimateMeter(20), 600);
     expect(source.estimateMeter(0), isNull);

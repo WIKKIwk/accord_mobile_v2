@@ -12,6 +12,7 @@ class _PickerInput extends StatelessWidget {
     this.required = false,
     this.dense = false,
     this.height = _calculateFieldHeight,
+    this.enabled = true,
   });
 
   final String label;
@@ -21,6 +22,7 @@ class _PickerInput extends StatelessWidget {
   final bool dense;
   final double height;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +48,7 @@ class _PickerInput extends StatelessWidget {
       borderRadius: 30,
       contentPadding: contentPadding,
     ).copyWith(
+      enabled: enabled,
       floatingLabelBehavior: FloatingLabelBehavior.always,
       labelStyle: theme.textTheme.labelMedium?.copyWith(
         color: labelColor,
@@ -65,7 +68,7 @@ class _PickerInput extends StatelessWidget {
       padding: EdgeInsets.only(bottom: dense ? 2 : 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         child: SizedBox(
           height: height,
           child: InputDecorator(
@@ -105,7 +108,7 @@ class _PickerInput extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Icon(
-                  Icons.keyboard_arrow_down_rounded,
+                  enabled ? Icons.keyboard_arrow_down_rounded : Icons.lock_outline_rounded,
                   color: scheme.onSurfaceVariant,
                 ),
               ],
@@ -114,7 +117,10 @@ class _PickerInput extends StatelessWidget {
         ),
       ),
     );
-    return field;
+    return Semantics(
+      enabled: enabled,
+      child: Opacity(opacity: enabled ? 1 : 0.55, child: field),
+    );
   }
 }
 
@@ -281,6 +287,7 @@ class _LayerInputs extends StatelessWidget {
     required this.micronKey,
     required this.onMaterialTap,
     this.onRemove,
+    this.enabled = true,
   });
 
   final TextEditingController material;
@@ -290,6 +297,7 @@ class _LayerInputs extends StatelessWidget {
   final Key micronKey;
   final VoidCallback onMaterialTap;
   final VoidCallback? onRemove;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -301,6 +309,7 @@ class _LayerInputs extends StatelessWidget {
           flex: 3,
           child: _PickerInput(
             label: materialLabel,
+            enabled: enabled,
             value: material.text,
             required: true,
             dense: true,
@@ -312,6 +321,7 @@ class _LayerInputs extends StatelessWidget {
           flex: 2,
           child: TextFormField(
             key: micronKey,
+            enabled: enabled,
             controller: micron,
             focusNode: micronFocusNode,
             keyboardType: TextInputType.number,
@@ -321,6 +331,10 @@ class _LayerInputs extends StatelessWidget {
               context,
               labelText: l10n.adminText('calculate.micron'),
               suffixText: l10n.adminText('calculate.micron_suffix'),
+              suffixIcon: enabled ? null : Tooltip(
+                message: l10n.adminText('calculate.material_layer_locked'),
+                child: const Icon(Icons.lock_outline_rounded, size: 18),
+              ),
               borderRadius: 30,
             ),
             validator: (value) => _requiredPositiveNumber(value, l10n),

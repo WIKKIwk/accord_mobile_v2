@@ -7,11 +7,61 @@ class OpenedOrderEditSource {
       : original = json,
         template = CalculateOrderTemplate.fromJson(
           (json['template'] as Map).cast<String, dynamic>(),
-        );
+        ),
+        restrictions = OpenedOrderEditRestrictions.fromJson(json['restrictions']) {
+    if (restrictions.lockedLayerIndices.any(
+        (index) => index >= template.effectiveLayers.length) ||
+        (restrictions.unresolvedMaterials &&
+            restrictions.lockedLayerIndices.length != template.effectiveLayers.length)) {
+      throw const FormatException('Invalid order edit layer restrictions');
+    }
+  }
 
   final Map<String, dynamic> original;
   final CalculateOrderTemplate template;
+  final OpenedOrderEditRestrictions restrictions;
   String get orderId => (original['map'] as Map)['id'] as String;
+}
+
+class OpenedOrderEditRestrictions {
+  const OpenedOrderEditRestrictions({
+    this.lockedLayerIndices = const {},
+    this.dimensionsLocked = false,
+    this.layerStructureLocked = false,
+    this.unresolvedMaterials = false,
+  });
+
+  factory OpenedOrderEditRestrictions.fromJson(dynamic value) {
+    // Old servers enforce the original blanket gate and have no field policy.
+    if (value == null) return const OpenedOrderEditRestrictions();
+    if (value is! Map ||
+        value['locked_layer_indices'] is! List ||
+        value['dimensions_locked'] is! bool ||
+        value['layer_structure_locked'] is! bool ||
+        value['unresolved_materials'] is! bool) {
+      throw const FormatException('Invalid order edit restrictions');
+    }
+    final indices = value['locked_layer_indices'] as List;
+    if (indices.any((index) => index is! int || index < 0)) {
+      throw const FormatException('Invalid order edit layer restrictions');
+    }
+    if (value['dimensions_locked'] != value['layer_structure_locked'] ||
+        ((indices.isNotEmpty || value['unresolved_materials'] == true) &&
+            value['layer_structure_locked'] != true)) {
+      throw const FormatException('Inconsistent order edit restrictions');
+    }
+    return OpenedOrderEditRestrictions(
+      lockedLayerIndices: Set.unmodifiable(indices.cast<int>()),
+      dimensionsLocked: value['dimensions_locked'] as bool,
+      layerStructureLocked: value['layer_structure_locked'] as bool,
+      unresolvedMaterials: value['unresolved_materials'] as bool,
+    );
+  }
+
+  final Set<int> lockedLayerIndices;
+  final bool dimensionsLocked;
+  final bool layerStructureLocked;
+  final bool unresolvedMaterials;
 }
 
 extension MobileApiOpenedOrderEdit on MobileApi {

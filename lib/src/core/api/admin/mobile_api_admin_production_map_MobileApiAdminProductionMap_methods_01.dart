@@ -290,6 +290,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           if (template.kg > 0) {
             final calculation = await calculate(
               CalculateRequest(
+                products: template.products,
                 product: template.product,
                 kg: template.kg,
                 frameProductSizeMm: template.frameProductSizeMm,
@@ -301,6 +302,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
               ),
             );
             orderMap = orderMap.copyWith(
+              products: template.products,
               widthMm: calculation.widthMm,
               orderKg: calculation.kg,
               baseLength: calculation.results.first.roundedLength,
@@ -408,6 +410,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final map = ProductionMapDefinition(
+        products: template.products,
         id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
         productCode: template.itemCode.trim().isEmpty
             ? template.product.trim()

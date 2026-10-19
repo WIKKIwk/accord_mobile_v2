@@ -3,6 +3,7 @@ part of '../mobile_api.dart';
 
 class CalculateRequest {
   const CalculateRequest({
+    this.products = const [],
     this.orderNumber = '',
     this.customer = '',
     this.product = '',
@@ -22,6 +23,7 @@ class CalculateRequest {
     this.note = '',
   });
 
+  final List<OrderProduct> products;
   final String orderNumber;
   final String customer;
   final String product;
@@ -40,11 +42,13 @@ class CalculateRequest {
   final CalculateLayerInput thirdLayer;
   final String note;
 
-  double get widthMm =>
-      _deriveCalculateWidthMm(frameProductSizeMm, frameCount, edgeAllowanceMm);
+  double get widthMm => products.isEmpty
+      ? _deriveCalculateWidthMm(frameProductSizeMm, frameCount, edgeAllowanceMm)
+      : products.fold<double>(0, (sum, p) => sum + p.widthMm) + edgeAllowanceMm;
 
   double get minMoldSizeMm =>
-      _deriveCalculateMinMoldSizeMm(frameProductSizeMm, frameCount);
+      products.isEmpty ? _deriveCalculateMinMoldSizeMm(frameProductSizeMm, frameCount)
+          : products.fold<double>(0, (sum, p) => sum + p.widthMm) + kCalculateMinMoldExtraMm;
 
   List<CalculateLayerInput> get effectiveLayers {
     if (layers.isNotEmpty) {
@@ -68,6 +72,7 @@ class CalculateRequest {
       if (materialDisplay.trim().isNotEmpty)
         'material_display': materialDisplay.trim(),
       if (color.trim().isNotEmpty) 'color': color.trim(),
+      if (products.isNotEmpty) 'products': products.map((p) => p.toJson()).toList(),
       'kg': kg,
       'frame_product_size_mm': frameProductSizeMm,
       'frame_count': frameCount,
@@ -204,6 +209,7 @@ class CalculateMaterial {
 
 class CalculateResponse {
   const CalculateResponse({
+    this.products = const [],
     required this.ok,
     required this.kg,
     required this.frameProductSizeMm,
@@ -238,6 +244,7 @@ class CalculateResponse {
       fallback: widthMm > 0 ? 1 : 0,
     );
     return CalculateResponse(
+      products: OrderProduct.listFromJson(json['products']),
       ok: json['ok'] == true,
       kg: _calculateNumber(json['kg']),
       frameProductSizeMm: frameProductSizeMm,
@@ -258,6 +265,7 @@ class CalculateResponse {
     );
   }
 
+  final List<OrderProduct> products;
   final bool ok;
   final double kg;
   final double frameProductSizeMm;

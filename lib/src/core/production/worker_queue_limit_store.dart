@@ -1,7 +1,9 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class WorkerQueueLimitStore {
-  static const choices = [5, 10, 20, 50];
+  // The queue API uses 0 for an explicitly unlimited worker view.
+  static const allLimit = 0;
+  static const choices = [5, 10, 20, 50, allLimit];
   static const defaultLimit = 10;
 
   static String _key(String account) => 'worker_queue_limit_v1:$account';

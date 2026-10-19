@@ -53,6 +53,27 @@ void main() {
   });
   tearDown(() => AppSession.instance.token = null);
 
+  test('multi-product rezka report preserves product identities and widths', () {
+    final report = AdminRezkaOutputReport.tryFromJson({
+      'cycle_id': 'mixed-cycle',
+      'frames': <dynamic>[],
+      'layout_outputs': [
+        {'name': 'Normavitus · №1001/1', 'width_mm': 115,
+          'lanes': [{'product_id': 'zakaz-1001:product:p1', 'item_code': 'SKU-1'}]},
+        {'name': 'Collagen · №1001/2', 'width_mm': 80,
+          'lanes': [{'product_id': 'zakaz-1001:product:p2', 'item_code': 'SKU-2'}]},
+      ],
+    });
+    expect(report!.layoutOutputs.map((row) => row['width_mm']), [115, 80]);
+    expect(report.layoutOutputs[1]['name'], 'Collagen · №1001/2');
+    expect(report.layoutOutputs[1]['lanes'][0]['item_code'], 'SKU-2');
+    final restored = AdminRezkaOutputReport.fromSession({
+      'session_id': 'mixed-cycle',
+      'payload_json': {'rezka_layout_outputs': report.layoutOutputs},
+    });
+    expect(restored!.layoutOutputs, report.layoutOutputs);
+  });
+
   test('narrow report uses one scoped GET and preserves saved rolls and issues',
       () async {
     final requests = <http.Request>[];

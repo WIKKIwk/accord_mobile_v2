@@ -1,5 +1,7 @@
 import '../../features/admin/logic/apparatus_queue_state.dart';
 import '../session/session_read_scope.dart';
+import '../models/order_product.dart';
+export '../models/order_product.dart';
 import '../../features/admin/logic/canonical_apparatus_groups.dart';
 import '../../features/admin/logic/production_map_chain.dart';
 import '../../features/admin/logic/production_map_pechat_rules.dart';
@@ -56,6 +58,7 @@ part 'admin/mobile_api_admin_layer_remainders.dart';
 part 'admin/mobile_api_admin_production_map.dart';
 part 'admin/mobile_api_pending_orders.dart';
 part 'admin/mobile_api_opened_order_edit.dart';
+part 'admin/mobile_api_admin_order_summary.dart';
 part 'admin/mobile_api_admin_capacity_schedule.dart';
 part 'admin/mobile_api_admin_queue_state.dart';
 part 'admin/mobile_api_admin_sequence_move.dart';

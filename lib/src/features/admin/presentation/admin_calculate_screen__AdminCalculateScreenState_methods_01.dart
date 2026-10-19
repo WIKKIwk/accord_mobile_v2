@@ -33,6 +33,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
   }
 
   void _addLayer() {
+    if (_orderEditLayerStructureLocked) return;
     final layer = _LayerControllers();
     if (_calculationListenersAttached) {
       layer.addListener(_handleCalculationInputChanged);
@@ -41,6 +42,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
   }
 
   void _removeLayer(int index) {
+    if (_orderEditLayerStructureLocked) return;
     if (_layers.length == 1 || index < 0 || index >= _layers.length) {
       return;
     }
@@ -80,6 +82,8 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _customer.text = template.customer;
       _itemCode = template.itemCode;
       _product.text = template.product;
+      _replaceProducts(template.products);
+      if (_multipleProducts) _editingAllFields = true;
       _orderType = const ['rulon', 'paket']
               .contains(template.status.trim().toLowerCase())
           ? template.status.trim()
@@ -155,6 +159,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
   }
 
   Future<void> _openLayerMaterialPicker(int index) async {
+    if (_orderEditLayerLocked(index)) return;
     if (!mounted || index < 0 || index >= _layers.length) {
       return;
     }
@@ -257,11 +262,12 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
         final source = await MobileApi.instance.adminProductionMap(sourceMapId);
         final cleanSourceMap = source.map.withoutAlternativeAssignments();
         savedMap = cleanSourceMap.copyWith(
+          products: _activeProducts,
           id: _templateIsFork ? 'template-$_templateId' : cleanSourceMap.id,
           title: _resolvedOrderName(),
           imageId: _imageId.trim(),
-          productCode: _itemCode.trim().isNotEmpty
-              ? _itemCode.trim()
+          productCode: _activeItemCode.trim().isNotEmpty
+              ? _activeItemCode.trim()
               : cleanSourceMap.productCode,
           rollCount: _parseOptionalDouble(_rollCount.text),
           widthMm: _derivedWidthMm(),
@@ -351,8 +357,8 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       templateId: _templateId,
       orderCode: _orderCode,
       orderName: _resolvedOrderName(),
-      productName: _product.text,
-      itemCode: _itemCode,
+      productName: _resolvedOrderName(),
+      itemCode: _activeItemCode,
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
       printValSizeMm: _activePrintValSizeMm,

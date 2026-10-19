@@ -41,6 +41,7 @@ extension __AdminProductionMapTestGraphStateAstPart03
       builder: (context) => _RezkaNodeEditSheet(
         node: node,
         frameCount: frameCount,
+        products: widget.orderContext?.templateDraft?.products ?? widget.savedMap?.products ?? const [],
       ),
     );
   }

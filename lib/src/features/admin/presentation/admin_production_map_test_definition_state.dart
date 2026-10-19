@@ -109,7 +109,8 @@ extension _AdminProductionMapTestDefinitionState
     if (_savingMap) {
       return;
     }
-    if (_orderMode && !_orderNumberLocked) {
+    final creatingOrder = _orderMode && !_orderNumberLocked;
+    if (creatingOrder) {
       final confirmed = await _requestOrderConfirmation();
       if (!mounted || !confirmed) {
         return;
@@ -146,7 +147,11 @@ extension _AdminProductionMapTestDefinitionState
           _savedOrderMapId = result.saved.map.id.trim();
           _orderNumber = result.saved.map.orderNumber.trim();
         }
-        showAdminTopNotice(context, 'Production map va zakaz saqlandi', tone: AdminTopNoticeTone.success);
+        showAdminTopNotice(
+          context,
+          _mapSavedMessage(result.saved.map, creatingOrder),
+          tone: AdminTopNoticeTone.success,
+        );
         if (widget.orderContext?.pendingOrderId.isNotEmpty ?? false) {
           Navigator.of(context).pop(savedTemplate);
           return;
@@ -162,7 +167,11 @@ extension _AdminProductionMapTestDefinitionState
           _savedOrderMapId = saved.map.id.trim();
           _orderNumber = saved.map.orderNumber.trim();
         }
-        showAdminTopNotice(context, 'Production map saqlandi', tone: AdminTopNoticeTone.success);
+        showAdminTopNotice(
+          context,
+          _mapSavedMessage(saved.map, creatingOrder),
+          tone: AdminTopNoticeTone.success,
+        );
       }
     } catch (error) {
       if (!mounted) {
@@ -228,17 +237,32 @@ extension _AdminProductionMapTestDefinitionState
     return showProductionMapOrderConfirmationSheet(context);
   }
 
-  ProductionMapDefinition _currentMapDefinition({String? orderNumber}) {
+  String _mapSavedMessage(ProductionMapDefinition saved, bool creatingOrder) {
+    final number = saved.orderNumber.trim();
+    if (_orderMode && number.isNotEmpty) {
+      return creatingOrder
+          ? 'Map saqlandi. №$number buyurtmasi ochildi.'
+          : 'Map saqlandi. №$number buyurtmasi yangilandi.';
+    }
+    return 'Production map saqlandi';
+  }
+
+  String get _mapTitle {
     final context = widget.orderContext;
     final savedMap = widget.savedMap;
-    final normalizedOrderNumber = (orderNumber ?? _orderNumber).trim();
-    final title = context == null
+    return context == null
         ? (savedMap?.title.trim().isNotEmpty ?? false)
             ? savedMap!.title.trim()
             : 'Production map test'
         : (context.orderName.trim().isEmpty
             ? 'Zakaz'
             : context.orderName.trim());
+  }
+
+  ProductionMapDefinition _currentMapDefinition({String? orderNumber}) {
+    final context = widget.orderContext;
+    final savedMap = widget.savedMap;
+    final normalizedOrderNumber = (orderNumber ?? _orderNumber).trim();
     final productCode = context == null
         ? (savedMap?.productCode.trim().isNotEmpty ?? false)
             ? savedMap!.productCode.trim()
@@ -250,6 +274,7 @@ extension _AdminProductionMapTestDefinitionState
             context.templateId,
           ]);
     return ProductionMapDefinition(
+      products: context?.templateDraft?.products ?? savedMap?.products ?? const [],
       id: widget.templateOnly
           ? _templateMapId(context, savedMap)
           : _orderMode
@@ -262,7 +287,7 @@ extension _AdminProductionMapTestDefinitionState
                       : 'production-map-test'
                   : _orderMapId(context, normalizedOrderNumber)),
       productCode: productCode,
-      title: title,
+      title: _mapTitle,
       code: widget.templateOnly
           ? (savedMap?.code.trim() ?? '')
           : _orderMode && normalizedOrderNumber.isNotEmpty

@@ -227,6 +227,9 @@ bool productionMapApparatusMatchesOrder(
 double? _productionMapOrderProfileWidth(ProductionMapOrderContext context) {
   if (context.printValSizeMm != null) return context.printValSizeMm;
   final template = context.templateDraft;
+  if (template != null && template.products.isNotEmpty) {
+    return template.products.fold<double>(0, (sum, row) => sum + row.widthMm);
+  }
   if (template != null &&
       template.frameProductSizeMm.isFinite &&
       template.frameProductSizeMm > 0 &&
@@ -264,6 +267,21 @@ bool _productionMapLaminatsiyaMatchesCurrentMap(
     }
     final frameCount = _productionMapRezkaFrameCount(node);
     if (frameCount <= 0) {
+      continue;
+    }
+    final products = orderContext?.templateDraft?.products ?? const <OrderProduct>[];
+    if (products.isNotEmpty) {
+      final widths = [for (final p in products) for (var i = 0; i < p.frameCount; i++) p.frameProductSizeMm];
+      final groups = node.rezkaFrameGroups.isEmpty ? List<int>.filled(widths.length, 1) : node.rezkaFrameGroups;
+      var offset = 0;
+      var fits = true;
+      for (final count in groups) {
+        if (count <= 0 || offset + count > widths.length) { fits = false; break; }
+        final width = widths.sublist(offset, offset + count).fold<double>(0, (a, b) => a + b);
+        if (!_productionMapWidthFitsLaminatsiya(apparatus, width)) fits = false;
+        offset += count;
+      }
+      if (fits && offset == widths.length) return true;
       continue;
     }
     if (node.rezkaFrameGroups.isEmpty) {

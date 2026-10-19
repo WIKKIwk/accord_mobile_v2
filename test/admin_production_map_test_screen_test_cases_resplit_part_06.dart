@@ -18,7 +18,7 @@ void _registeradmin_production_map_test_screen_testCases06() {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapTestScreen(
+        home: AdminProductionMapTestScreen(
           orderContext: ProductionMapOrderContext(
             templateId: 'ORDER-1',
             orderName: 'Zenit order',
@@ -26,17 +26,31 @@ void _registeradmin_production_map_test_screen_testCases06() {
             itemCode: 'ITEM-001',
             rollCount: 7,
             widthMm: 650,
+            templateDraft: CalculateOrderTemplate.fromJson({
+              'id': 'ORDER-1',
+              'code': 'ORDER-1',
+              'name': 'Zenit order',
+              'product': 'zenit frutto ninja 70gr',
+              'item_code': 'ITEM-001',
+              'width_mm': 650,
+              'roll_count': 7,
+            }),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('Zenit order')),
+      findsOneWidget,
+    );
+    expect(find.text('Production map test'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('production-map-save')));
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Zakaz ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.'),
+      find.byKey(const ValueKey('production-map-order-confirm')),
       findsOneWidget,
     );
     expect(
@@ -48,25 +62,28 @@ void _registeradmin_production_map_test_screen_testCases06() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Production map saqlandi'), findsOneWidget);
+    expect(find.text('Map saqlandi. №0001 buyurtmasi ochildi.'), findsOneWidget);
     final maps = await MobileApi.instance.adminProductionMaps();
-    final saved = maps.singleWhere((item) => item.map.title == 'Zenit order');
+    final saved = maps.singleWhere(
+      (item) => item.map.title == 'Zenit order' && item.map.id == 'zakaz-0001',
+    );
     expect(saved.map.orderNumber, '0001');
     expect(saved.map.id, 'zakaz-0001');
     expect(saved.map.rollCount, 7);
     expect(saved.map.widthMm, 650);
     await tester.tap(find.byKey(const ValueKey('production-map-save')));
     await tester.pumpAndSettle();
+    expect(find.text('Map saqlandi. №0001 buyurtmasi yangilandi.'), findsOneWidget);
     final afterResave = await MobileApi.instance.adminProductionMaps();
     expect(
       afterResave.where((item) => item.map.orderNumber == '0001'),
       hasLength(1),
     );
     expect(
-      find.text('Zakaz ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.'),
+      find.byKey(const ValueKey('production-map-order-confirm')),
       findsNothing,
     );
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('production map order number is allocated after existing orders',
@@ -116,13 +133,13 @@ void _registeradmin_production_map_test_screen_testCases06() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Production map saqlandi'), findsOneWidget);
+    expect(find.text('Map saqlandi. №9877 buyurtmasi ochildi.'), findsOneWidget);
     final maps = await MobileApi.instance.adminProductionMaps();
     final newOrder = maps.singleWhere((item) => item.map.title == 'New zakaz');
     expect(newOrder.map.orderNumber, '9877');
     expect(maps.where((item) => item.map.orderNumber == '9876'), hasLength(1));
     // Let the top notice auto-dismiss timer finish.
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('opened production map orders page lists saved zakaz', (

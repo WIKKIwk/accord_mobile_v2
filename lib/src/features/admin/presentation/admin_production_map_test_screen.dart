@@ -179,7 +179,7 @@ class _AdminProductionMapTestScreenState
           }
         },
       ),
-      title: 'Production map test',
+      title: _mapTitle,
       subtitle: '',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),

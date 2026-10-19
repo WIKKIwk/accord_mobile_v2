@@ -67,7 +67,8 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
         if (!contextCurrent() || retry != true)
           return _ProgressActionOutcome.cancelled;
       } else if ((completeStage || snapshot.sessionStatus == 'active') &&
-          snapshot.sources.isEmpty) {
+          snapshot.sources.isEmpty &&
+          !snapshot.allowEmptySources) {
         _showSheetNotice(context.l10n
             .productionText('worker.lamination_astatka.sources_missing'));
         return _ProgressActionOutcome.failed;
@@ -75,7 +76,8 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
           !const {'active', 'paused', 'roll_detached', 'completed'}
               .contains(snapshot.sessionStatus) ||
           (const {'paused', 'roll_detached'}.contains(snapshot.sessionStatus) &&
-              snapshot.sources.isEmpty)) {
+              snapshot.sources.isEmpty &&
+              !snapshot.allowEmptySources)) {
         // Historical labels remain available after the stage is completed.
         await _showLaminationAstatkaLabels(
             resumeGuidance: const {'paused', 'roll_detached'}

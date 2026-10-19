@@ -42,6 +42,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
               ? null
               : _viewProductionMap,
         ),
+        if (_multipleProducts) _productResult(freshResult, l10n),
         if (widget.openedOrder != null) ...[
           const SizedBox(height: 18),
           FilledButton.icon(
@@ -135,6 +136,8 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
 
   String _calculationSignature() {
     return [
+      _multipleProducts.toString(),
+      jsonEncode(_activeProducts.map((p) => p.toJson()).toList()),
       _product.text.trim(),
       _kg.text.trim(),
       _frameProductSizeMm.text.trim(),

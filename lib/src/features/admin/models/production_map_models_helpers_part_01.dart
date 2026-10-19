@@ -3,6 +3,7 @@ part of 'production_map_models.dart';
 
 class ProductionMapDefinition {
   const ProductionMapDefinition({
+    this.products = const [],
     required this.id,
     required this.productCode,
     required this.title,
@@ -19,6 +20,8 @@ class ProductionMapDefinition {
     required this.edges,
   });
 
+  final List<OrderProduct> products;
+  List<double> get layoutWidths => [for (final p in products) for (var i = 0; i < p.frameCount; i++) p.frameProductSizeMm];
   final String id;
   final String productCode;
   final String title;
@@ -38,6 +41,7 @@ class ProductionMapDefinition {
 
   factory ProductionMapDefinition.fromJson(Map<String, dynamic> json) {
     return ProductionMapDefinition(
+      products: OrderProduct.listFromJson(json['products']),
       id: json['id'] as String? ?? '',
       productCode: json['product_code'] as String? ?? '',
       title: json['title'] as String? ?? '',
@@ -65,6 +69,7 @@ class ProductionMapDefinition {
 
   Map<String, dynamic> toJson() {
     return {
+      if (products.isNotEmpty) 'products': products.map((p) => p.toJson()).toList(),
       'id': id,
       'product_code': productCode,
       'title': title,
@@ -83,6 +88,7 @@ class ProductionMapDefinition {
   }
 
   ProductionMapDefinition copyWith({
+    List<OrderProduct>? products,
     String? id,
     String? productCode,
     String? title,
@@ -100,6 +106,7 @@ class ProductionMapDefinition {
     List<ProductionMapEdge>? edges,
   }) {
     return ProductionMapDefinition(
+      products: products ?? this.products,
       id: id ?? this.id,
       productCode: productCode ?? this.productCode,
       title: title ?? this.title,

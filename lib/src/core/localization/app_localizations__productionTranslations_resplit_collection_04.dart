@@ -407,6 +407,86 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'en': 'Shafts',
     'ru': 'Валы',
   },
+  'worker.summary.material_width': {
+    'uz': 'Xomashyo eni',
+    'en': 'Material width',
+    'ru': 'Ширина сырья',
+  },
+  'worker.summary.frame_count': {
+    'uz': 'Kadr soni',
+    'en': 'Frame count',
+    'ru': 'Количество кадров',
+  },
+  'worker.summary.frame_count_value': {
+    'uz': '{count} ta',
+    'en': '{count}',
+    'ru': '{count} шт.',
+  },
+  'worker.summary.frame_width': {
+    'uz': 'Bitta kadr eni',
+    'en': 'Single frame width',
+    'ru': 'Ширина одного кадра',
+  },
+  'worker.summary.waste_percent': {
+    'uz': 'Atxod zaxirasi',
+    'en': 'Waste allowance',
+    'ru': 'Запас на отходы',
+  },
+  'worker.summary.planned_explanation': {
+    'uz': 'Metraj har bir qatlam uchun atxod zaxirasi bilan ko‘rsatilgan. Og‘irlik — buyurtma qilingan tayyor mahsulot miqdori.',
+    'en': 'The length includes the waste allowance for each layer. The weight is the ordered finished product quantity.',
+    'ru': 'Метраж каждой плёнки указан с запасом на отходы. Вес — заказанное количество готовой продукции.',
+  },
+  'worker.summary.materials': {
+    'uz': 'Kerakli xomashyolar',
+    'en': 'Required materials',
+    'ru': 'Необходимое сырьё',
+  },
+  'worker.summary.layer': {
+    'uz': '{index}-qatlam',
+    'en': 'Layer {index}',
+    'ru': 'Слой {index}',
+  },
+  'worker.summary.micron_value': {
+    'uz': '{value} mikron',
+    'en': '{value} micron',
+    'ru': '{value} мкм',
+  },
+  'worker.summary.materials_missing': {
+    'uz': 'Buyurtmaning xomashyo tarkibi saqlanmagan',
+    'en': 'The material composition was not saved for this order',
+    'ru': 'Состав сырья для этого заказа не сохранён',
+  },
+  'worker.summary.product_frames': {
+    'uz': 'Mahsulotlar bo‘yicha kadrlar',
+    'en': 'Frames by product',
+    'ru': 'Кадры по продукции',
+  },
+  'worker.summary.product_frame_value': {
+    'uz': '{code} · {count} ta kadr × {width} mm',
+    'en': '{code} · {count} frames × {width} mm',
+    'ru': '{code} · {count} кадр(а) × {width} мм',
+  },
+  'worker.summary.note': {
+    'uz': 'Buyurtma izohi',
+    'en': 'Order note',
+    'ru': 'Примечание к заказу',
+  },
+  'worker.summary.calculation_loading': {
+    'uz': 'Buyurtma tarkibi yuklanmoqda…',
+    'en': 'Loading order composition…',
+    'ru': 'Загрузка состава заказа…',
+  },
+  'worker.summary.calculation_unavailable': {
+    'uz': 'Buyurtmaning saqlangan hisob-kitobini yuklab bo‘lmadi. Xomashyo va kadr ma’lumotlari hozir mavjud emas.',
+    'en': 'The saved order calculation could not be loaded. Material and frame details are currently unavailable.',
+    'ru': 'Не удалось загрузить сохранённый расчёт заказа. Данные о сырье и кадрах сейчас недоступны.',
+  },
+  'worker.summary.calculation_retry': {
+    'uz': 'Qayta yuklash',
+    'en': 'Retry',
+    'ru': 'Повторить',
+  },
   'worker.summary.shaft_value': {
     'uz': '{count} ta {width} mm eniga ega bo‘lgan val ishlatiladi',
     'en': '{count} shaft(s) with a width of {width} mm will be used',

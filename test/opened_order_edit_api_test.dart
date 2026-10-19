@@ -69,6 +69,33 @@ void main() {
     expect(methods, ['GET', 'PUT']);
   });
 
+  test('opened order material restrictions round trip with the exact snapshot', () {
+    final payload = <String, dynamic>{
+      ...json,
+      'restrictions': {
+        'locked_layer_indices': [0],
+        'dimensions_locked': true,
+        'layer_structure_locked': true,
+        'unresolved_materials': false,
+      },
+    };
+    final source = OpenedOrderEditSource.fromJson(payload);
+    expect(source.original, payload);
+    expect(source.restrictions.lockedLayerIndices, {0});
+    expect(source.restrictions.dimensionsLocked, isTrue);
+    expect(source.restrictions.layerStructureLocked, isTrue);
+    expect(OpenedOrderEditSource.fromJson(json).restrictions.lockedLayerIndices, isEmpty);
+    for (final indices in [[-1], [3], ['0']]) {
+      final invalid = {...payload, 'restrictions': {
+        ...(payload['restrictions'] as Map<String, dynamic>),
+        'locked_layer_indices': indices,
+      }};
+      expect(() => OpenedOrderEditSource.fromJson(invalid), throwsFormatException);
+    }
+    expect(() => OpenedOrderEditSource.fromJson({...payload, 'restrictions': {}}),
+        throwsFormatException);
+  });
+
   for (final method in ['GET', 'PUT']) {
     test(
         '$method conflict remains blocked without retries or creating an order',

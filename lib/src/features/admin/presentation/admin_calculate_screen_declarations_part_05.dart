@@ -46,6 +46,7 @@ class _NumberInput extends StatelessWidget {
     this.required = false,
     this.allowZero = false,
     this.validator,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
@@ -53,6 +54,7 @@ class _NumberInput extends StatelessWidget {
   final String suffixText;
   final bool required;
   final bool allowZero;
+  final bool enabled;
   final FormFieldValidator<String>? validator;
 
   @override
@@ -63,6 +65,7 @@ class _NumberInput extends StatelessWidget {
         height: _calculateFieldHeight,
         child: TextFormField(
           controller: controller,
+          enabled: enabled,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),

@@ -2,7 +2,13 @@
 part of 'admin_calculate_screen.dart';
 
 extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
-  Future<void> _openProductPicker() async {
+  Future<void> _openProductPicker({_ProductControllers? target}) async {
+    if (target != null && _orderEditDimensionsLocked) return;
+    if (target != null && _customerRef.isEmpty) {
+      showAdminTopNotice(context, context.l10n.adminText('calculate.products_customer'), tone: AdminTopNoticeTone.error);
+      return;
+    }
+    final pickerCustomerRef = _customerRef;
     final pickerCustomerName = _customer.text.trim();
     final canCreateProduct = AppSession.instance.can('catalog.item.create');
     var openProductCreate = false;
@@ -71,6 +77,15 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     }
     final picked = selection;
     if (picked == null || !mounted) {
+      return;
+    }
+    if (target != null) {
+      if (!_products.contains(target) || pickerCustomerRef != _customerRef) return;
+      setState(() {
+        _forkLayoutTemplate();
+        target.itemCode = picked.code;
+        target.product.text = picked.name.trim().isEmpty ? picked.code : picked.name.trim();
+      });
       return;
     }
     final existingTemplate = _findExistingQuickOrderForProduct(picked);
@@ -169,16 +184,16 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
   }
 
   String _resolvedOrderName() {
-    final product = _product.text.trim();
+    final product = _multipleProducts
+        ? _activeProducts.map((p) => p.product).where((p) => p.isNotEmpty).join(' + ')
+        : _product.text.trim();
     return product.isEmpty
         ? context.l10n.adminText('calculate.order')
         : product;
   }
 
   double _derivedWidthMm() {
-    return _parseRequiredDouble(_frameProductSizeMm.text) *
-            _parseRequiredDouble(_frameCount.text) +
-        _activeEdgeAllowanceMm;
+    return _usefulWidth + _activeEdgeAllowanceMm;
   }
 
   bool get _isFlexo => _productionOptions?.printMethod == 'flexo';
@@ -202,6 +217,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           _NumberInput(
             key: const ValueKey('calculate-edge-allowance'),
             controller: _edgeAllowanceMm,
+            enabled: !_orderEditDimensionsLocked,
             label: l10n.adminText('calculate.edge_allowance'),
             suffixText: 'mm',
             required: true,
@@ -247,9 +263,12 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
 
   String? _templateValidationError() {
     final checks = <String?>[
-      _requiredText(_product.text),
-      _requiredPositiveNumber(_frameProductSizeMm.text),
-      _requiredPositiveNumber(_frameCount.text),
+      if (_multipleProducts) _productsValidationError(),
+      if (!_multipleProducts) ...[
+        _requiredText(_product.text),
+        _requiredPositiveNumber(_frameProductSizeMm.text),
+        _requiredPositiveNumber(_frameCount.text),
+      ],
       if (_isFlexo) _edgeAllowanceValidationError(_edgeAllowanceMm.text),
       if (_calculateByVal) _printValSizeValidationError(_printValSizeMm.text),
       _requiredNonNegativeNumber(_wastePercent.text),
@@ -267,7 +286,12 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
 
   Future<void> _calculate() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    if (_product.text.trim().isEmpty) {
+    final productError = _productsValidationError();
+    if (productError != null) {
+      showAdminTopNotice(context, productError, tone: AdminTopNoticeTone.error);
+      return;
+    }
+    if (!_multipleProducts && _product.text.trim().isEmpty) {
       showAdminTopNotice(
         context,
         context.l10n.adminText('calculate.product_select'),
@@ -291,15 +315,16 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     try {
       final result = await MobileApi.instance.calculate(
         CalculateRequest(
+          products: _activeProducts,
           orderNumber: '',
           customer: _customer.text,
-          product: _product.text,
+          product: _resolvedOrderName(),
           status: _orderType,
           materialDisplay: '',
           color: '',
           kg: _parseRequiredDouble(_kg.text),
-          frameProductSizeMm: _parseRequiredDouble(_frameProductSizeMm.text),
-          frameCount: _parseRequiredDouble(_frameCount.text),
+          frameProductSizeMm: _activeFrameSize,
+          frameCount: _activeFrameCount,
           edgeAllowanceMm: _activeEdgeAllowanceMm,
           wastePercent: _parseRequiredDouble(_wastePercent.text),
           rollCount: _parseOptionalDouble(_rollCount.text),
@@ -410,15 +435,31 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
 
   List<Widget> _fullEditChildren(AppLocalizations l10n) {
     return [
+      if (_orderEditLayerStructureLocked)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(l10n.adminText(_orderEditRestrictions.unresolvedMaterials
+              ? 'calculate.material_lock_unknown'
+              : 'calculate.material_lock_hint')),
+        ),
+      Material(type: MaterialType.transparency, child: SwitchListTile.adaptive(
+        key: const ValueKey('calculate-multiple-products'),
+        contentPadding: EdgeInsets.zero,
+        title: Text(l10n.adminText('calculate.multiple_products')),
+        value: _multipleProducts,
+        onChanged: _orderEditDimensionsLocked || _calculating || _openingAutomaticOrder || _openingSavedOrder || _savingOpenedOrder
+            ? null : _setMultipleProducts,
+      )),
       _SectionHeader(title: l10n.adminText('calculate.order_section')),
       _PickerInput(
         label: l10n.adminText('label.customer'),
+        enabled: !(_multipleProducts && _orderEditDimensionsLocked),
         value: _customer.text,
         dense: true,
         height: _calculateFieldHeight,
         onTap: _openCustomerPicker,
       ),
-      _PickerInput(
+      if (!_multipleProducts) _PickerInput(
         label: l10n.adminText('calculate.product_select'),
         value: _product.text,
         required: true,
@@ -428,6 +469,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       ),
       _PickerInput(
         label: l10n.adminText('calculate.order_type_input'),
+        enabled: !_orderEditDimensionsLocked,
         value: _calculateOrderTypeDisplay(_orderType),
         dense: true,
         height: _calculateFieldHeight,
@@ -435,6 +477,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       ),
       _PickerInput(
         label: l10n.adminText('calculate.production_type_input'),
+        enabled: !_orderEditDimensionsLocked,
         value: _isFlexo ? 'Flexo' : 'Temir',
         dense: true,
         height: _calculateFieldHeight,
@@ -453,18 +496,21 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       _SectionHeader(title: l10n.adminText('calculate.accounting_section')),
       _NumberInput(
         controller: _kg,
-        label: l10n.adminText('calculate.kg_input'),
+        label: l10n.adminText(_multipleProducts ? 'calculate.total_kg' : 'calculate.kg_input'),
         suffixText: 'kg',
         required: true,
       ),
-      _NumberInput(
+      if (_multipleProducts) ..._productChildren(l10n),
+      if (!_multipleProducts) _NumberInput(
         controller: _frameProductSizeMm,
+        enabled: !_orderEditDimensionsLocked,
         label: l10n.adminText('calculate.frame_size'),
         suffixText: 'mm',
         required: true,
       ),
-      _NumberInput(
+      if (!_multipleProducts) _NumberInput(
         controller: _frameCount,
+        enabled: !_orderEditDimensionsLocked,
         label: l10n.adminText('calculate.frame_count'),
         suffixText: l10n.adminText('calculate.pieces_suffix'),
         required: true,
@@ -499,6 +545,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       ),
       for (var index = 0; index < _layers.length; index++)
         _LayerInputs(
+          enabled: !_orderEditLayerLocked(index),
           material: _layers[index].material,
           micron: _layers[index].micron,
           micronFocusNode: _layers[index].micronFocusNode,
@@ -508,11 +555,12 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           ),
           micronKey: ValueKey('calculate-layer-micron-$index'),
           onMaterialTap: () => _openLayerMaterialPicker(index),
-          onRemove: index == 0 ? null : () => _removeLayer(index),
+          onRemove: index == 0 || _orderEditLayerStructureLocked
+              ? null : () => _removeLayer(index),
         ),
       SpringPressable(
         child: FilledButton.icon(
-          onPressed: _addLayer,
+          onPressed: _orderEditLayerStructureLocked ? null : _addLayer,
           icon: const Icon(Icons.add_rounded),
           label: Text(l10n.adminText('calculate.add_layer')),
           style: FilledButton.styleFrom(

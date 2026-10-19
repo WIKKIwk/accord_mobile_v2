@@ -10,10 +10,11 @@ class _NodeEditSheet extends StatefulWidget {
 }
 
 class _RezkaNodeEditSheet extends StatefulWidget {
-  const _RezkaNodeEditSheet({required this.node, required this.frameCount});
+  const _RezkaNodeEditSheet({required this.node, required this.frameCount, this.products = const []});
 
   final ProductionMapNode node;
   final int frameCount;
+  final List<OrderProduct> products;
 
   @override
   State<_RezkaNodeEditSheet> createState() => _RezkaNodeEditSheetState();
@@ -97,6 +98,7 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
       return const UrduAwareText(
           'Saqlangan kadr guruhlari kadr soniga mos emas. Rezka sozlamasini qayta yarating.');
     }
+    final lanes = [for (final p in widget.products) for (var i = 0; i < p.frameCount; i++) p];
     var cursor = 1;
     final children = <Widget>[];
     for (var index = 0; index < _frameGroups.length; index++) {
@@ -105,7 +107,10 @@ class _RezkaNodeEditSheetState extends State<_RezkaNodeEditSheet> {
       final end = cursor + count - 1;
       children.add(
         _RezkaFrameCard(
-          label: start == end ? 'Kadr $start' : 'Kadr $start-$end',
+          label: lanes.length >= end
+              ? '${lanes.sublist(start - 1, end).map((p) => p.product).toSet().join(' + ')} · '
+                '${lanes.sublist(start - 1, end).fold<double>(0, (sum, p) => sum + p.frameProductSizeMm)} mm'
+              : start == end ? 'Kadr $start' : 'Kadr $start-$end',
           merged: count > 1,
           onSplit: count > 1 ? () => _splitFrameGroup(index) : null,
         ),

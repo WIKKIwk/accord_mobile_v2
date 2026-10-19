@@ -18,10 +18,11 @@ class AdminRecordedRezkaFrame {
 }
 
 class AdminRezkaOutputReport {
-  const AdminRezkaOutputReport({required this.cycleId, this.frames = const []});
+  const AdminRezkaOutputReport({required this.cycleId, this.frames = const [], this.layoutOutputs = const []});
 
   final String cycleId;
   final List<AdminRecordedRezkaFrame> frames;
+  final List<Map<String, dynamic>> layoutOutputs;
 
   AdminRecordedRezkaFrame? frameAt(int zeroBasedIndex) {
     for (final frame in frames) {
@@ -36,6 +37,7 @@ class AdminRezkaOutputReport {
     return tryFromJson({
       'cycle_id': payload['rezka_output_cycle'] ?? session['session_id'],
       'frames': payload['rezka_output_report'] ?? const [],
+      'layout_outputs': payload['rezka_layout_outputs'],
     });
   }
 
@@ -77,7 +79,9 @@ class AdminRezkaOutputReport {
       ));
     }
     return AdminRezkaOutputReport(
-        cycleId: cycle, frames: List.unmodifiable(frames));
+        cycleId: cycle, frames: List.unmodifiable(frames),
+        layoutOutputs: (raw['layout_outputs'] is List ? raw['layout_outputs'] as List : const [])
+            .whereType<Map>().map((item) => Map<String, dynamic>.unmodifiable(item.cast<String, dynamic>())).toList(growable: false));
   }
 }
 

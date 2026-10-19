@@ -42,8 +42,14 @@ class _WorkerQueueLimitFilterState extends State<WorkerQueueLimitFilter> {
           for (final count in WorkerQueueLimitStore.choices)
             AdminFilterChipOption(
               value: count,
-              label: context.l10n
-                  .qolipText('tasks.count', values: {'count': count}),
+              label: count == WorkerQueueLimitStore.allLimit
+                  ? switch (language) {
+                      'ru' => 'Все',
+                      'en' => 'All',
+                      _ => 'Barchasi',
+                    }
+                  : context.l10n
+                      .qolipText('tasks.count', values: {'count': count}),
             ),
         ],
         expanded: _expanded,

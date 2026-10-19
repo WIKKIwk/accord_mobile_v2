@@ -1041,6 +1041,13 @@ extension _AdminProductionMapOrdersLiveState
     if (!widget.workerMode) {
       return;
     }
+    if (_workerQueueLimit == WorkerQueueLimitStore.allLimit &&
+        _canonicalQueueSnapshot is AdminProductionMapLiveSnapshot) {
+      // The legacy history endpoint is capped. Keep the all-orders view on
+      // the same revisioned snapshot as its maps and live updates.
+      await _refreshQueueSnapshot();
+      return;
+    }
     final generation = ++_workerCompletedOrdersGeneration;
     try {
       final completed = await _loadCompletedProductionMapOrders();

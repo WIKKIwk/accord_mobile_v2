@@ -80,6 +80,7 @@ CalculateRequest _calculateRequestForOrder({
   final frameCount = template.frameCount > 0 ? template.frameCount : 1.0;
   final kg = template.kg > 0 ? template.kg : (map.orderKg ?? 0);
   return CalculateRequest(
+    products: template.products,
     orderNumber: template.orderNumber.isNotEmpty
         ? template.orderNumber
         : map.orderNumber,

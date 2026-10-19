@@ -107,6 +107,7 @@ part 'admin_production_map_resume_wip_test_part.dart';
 part 'admin_production_map_re_pause_test_part.dart';
 part 'admin_production_map_reactivation_reclose_test_part.dart';
 part 'admin_production_map_reactivation_test_part.dart';
+part 'admin_production_map_order_summary_test_part.dart';
 
 const _godexId = 'apparatus:test:godex-demo';
 const _print7Id = 'apparatus:default:bosma_7';
@@ -176,6 +177,7 @@ void main() {
   _registerRecloseTests();
   _registerReactivationTests();
   _registerPrintMethodRoutingTests();
+  _registerOrderSummaryTests();
 
   _registeradmin_production_map_test_screen_testCases02();
 

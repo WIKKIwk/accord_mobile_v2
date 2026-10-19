@@ -745,6 +745,12 @@ class _WorkerWatchBody extends StatelessWidget {
     return tab.apparatus!.name.trim();
   }
 
+  List<T> _limitOrders<T>(Iterable<T> orders) =>
+      (queueLimit == WorkerQueueLimitStore.allLimit
+              ? orders
+              : orders.take(queueLimit))
+          .toList(growable: false);
+
   List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item) {
     final visibleOrders = _productionMapOrdersForApparatus(
       orders: orders,
@@ -761,7 +767,7 @@ class _WorkerWatchBody extends StatelessWidget {
       excludeFrozen: true,
       query: searchQuery,
     );
-    return visibleOrders.take(queueLimit).toList(growable: false);
+    return _limitOrders(visibleOrders);
   }
 
   @override
@@ -794,7 +800,7 @@ class _WorkerWatchBody extends StatelessWidget {
                 Builder(
                   builder: (context) => tab.isCompleted
                       ? _AparatchiCompletedOrdersPage(
-                          orders: _workerCompletedOrders(
+                          orders: _limitOrders(_workerCompletedOrders(
                             orders: orders,
                             completedOrders: completedOrders,
                             apparatus: apparatus,
@@ -805,7 +811,7 @@ class _WorkerWatchBody extends StatelessWidget {
                                 queueActionControlsByApparatus,
                             orderStatusesByOrderId: orderStatusesByOrderId,
                             query: searchQuery,
-                          ).take(queueLimit).toList(growable: false),
+                          )),
                           bottomPadding: bottomPadding,
                           onTapOrder: onTapCompletedOrder,
                           onLongPressOrder: onLongPressCompletedOrder,

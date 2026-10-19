@@ -861,6 +861,8 @@ class _OrderSummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final rows = <Widget>[];
+    final showCalculationDetails = !workerMode &&
+        AppSession.instance.profile?.role == UserRole.admin;
     final baseLength = baseMetraj ?? map.baseLength;
     if (baseLength != null && baseLength > 0) {
       final roundedMetraj = ((baseLength / 500).ceil() * 500).toString();
@@ -907,7 +909,7 @@ class _OrderSummaryCard extends StatelessWidget {
         ),
       );
     }
-    if (rows.isEmpty) {
+    if (rows.isEmpty && !showCalculationDetails) {
       return const SizedBox.shrink();
     }
     return _orderDetailSurfaceCard(
@@ -970,7 +972,14 @@ class _OrderSummaryCard extends StatelessWidget {
             child: expanded
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                    child: Column(children: rows),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ...rows,
+                        if (showCalculationDetails)
+                          _OrderCalculationDetails(map: map),
+                      ],
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),

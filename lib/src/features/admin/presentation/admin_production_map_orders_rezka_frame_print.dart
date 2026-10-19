@@ -1,6 +1,14 @@
 part of 'admin_production_map_orders_screen.dart';
 
 extension _RezkaFramePrint on _ProgressQtyDialogState {
+  String _rezkaLayoutLabel(int index) {
+    final outputs = _rezkaReport?.layoutOutputs ?? const <Map<String, dynamic>>[];
+    if (index < 0 || index >= outputs.length) return '';
+    final output = outputs[index];
+    final width = output['width_mm'];
+    return '${output['name'] ?? ''} · ${width is num ? formatRawQuantity(width.toDouble()) : ''} mm';
+  }
+
   bool get _canPrintRezkaFrames =>
       _showRezkaFrameInputs &&
       _rezkaReport != null &&
@@ -27,6 +35,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
   }
 
   void _autofillRezkaFrames(AdminRezkaOutputReport report) {
+    if (widget.order.map.products.isNotEmpty) return;
     if (!_showRezkaFrameInputs || _rezkaAutofillReference != null) return;
     for (var index = 0; index < _rezkaFrameControllers.length; index++) {
       final saved = report.frameAt(index);
@@ -59,6 +68,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
   }
 
   void _updateRezkaMeterFromWeight(int index, String value) {
+    if (widget.order.map.products.isNotEmpty) return;
     final reference = _rezkaAutofillReference;
     if (reference == null ||
         _rezkaSyncRequired ||

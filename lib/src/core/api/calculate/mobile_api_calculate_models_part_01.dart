@@ -363,6 +363,7 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
   final otherCoeff = (totalGsm - firstGsm) * 0.06;
   final coeffSum = totalGsm * 0.06;
   return CalculateResponse(
+    products: request.products,
     ok: true,
     kg: request.kg,
     frameProductSizeMm: request.frameProductSizeMm,

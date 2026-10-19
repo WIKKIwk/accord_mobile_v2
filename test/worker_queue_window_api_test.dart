@@ -25,6 +25,10 @@ void main() {
     expect(await WorkerQueueLimitStore.load('server-a/worker-a'), 10);
     await WorkerQueueLimitStore.save('server-a/worker-a', 5);
     expect(await WorkerQueueLimitStore.load('server-a/worker-a'), 5);
+    await WorkerQueueLimitStore.save(
+        'server-a/worker-a', WorkerQueueLimitStore.allLimit);
+    expect(await WorkerQueueLimitStore.load('server-a/worker-a'),
+        WorkerQueueLimitStore.allLimit);
     expect(await WorkerQueueLimitStore.load('server-a/worker-b'), 10);
     expect(await WorkerQueueLimitStore.load('server-b/worker-a'), 10);
     await expectLater(WorkerQueueLimitStore.save('server-a/worker-a', 999),
@@ -34,51 +38,54 @@ void main() {
     expect(await WorkerQueueLimitStore.load('server-a/worker-a'), 10);
   });
 
-  test('REST and websocket carry the same bounded search window', () async {
-    await http.runWithClient(() async {
-      await MobileApi.instance.adminProductionMapQueueSnapshot(
-        workerScope: true,
-        queueLimit: 5,
+  for (final limit in [5, WorkerQueueLimitStore.allLimit]) {
+    test('REST and websocket carry the same search window with limit $limit',
+        () async {
+      await http.runWithClient(() async {
+        await MobileApi.instance.adminProductionMapQueueSnapshot(
+          workerScope: true,
+          queueLimit: limit,
+          queueSearch: 'old order',
+        );
+      },
+          () => MockClient((request) async {
+                expect(request.url.queryParameters, {
+                  'worker_scope': 'true',
+                  'queue_limit': '$limit',
+                  'queue_search': 'old order',
+                });
+                return http.Response(
+                    jsonEncode({
+                      'ok': true,
+                      'epoch': 'server',
+                      'rev': 1,
+                      'scope': 'window-5',
+                      'maps': [],
+                      'sequences': {},
+                      'visible_order_ids': {},
+                      'queue_states': {},
+                      'queue_policies': [],
+                      'queue_action_controls': {},
+                      'stage_states': {},
+                      'order_controls': {},
+                      'order_statuses': {},
+                      'frozen_orders_by_apparatus': {},
+                    }),
+                    200);
+              }));
+      final uri = MobileApi.instance.adminProductionMapLiveUri(
+        stateDelta: true,
+        queueLimit: limit,
         queueSearch: 'old order',
       );
-    },
-        () => MockClient((request) async {
-              expect(request.url.queryParameters, {
-                'worker_scope': 'true',
-                'queue_limit': '5',
-                'queue_search': 'old order',
-              });
-              return http.Response(
-                  jsonEncode({
-                    'ok': true,
-                    'epoch': 'server',
-                    'rev': 1,
-                    'scope': 'window-5',
-                    'maps': [],
-                    'sequences': {},
-                    'visible_order_ids': {},
-                    'queue_states': {},
-                    'queue_policies': [],
-                    'queue_action_controls': {},
-                    'stage_states': {},
-                    'order_controls': {},
-                    'order_statuses': {},
-                    'frozen_orders_by_apparatus': {},
-                  }),
-                  200);
-            }));
-    final uri = MobileApi.instance.adminProductionMapLiveUri(
-      stateDelta: true,
-      queueLimit: 5,
-      queueSearch: 'old order',
-    );
-    expect(uri.queryParameters['queue_limit'], '5');
-    expect(uri.queryParameters['queue_search'], 'old order');
-    expect(uri.queryParameters['worker_scope'], 'true');
-    expect(uri.queryParameters['protocol'], 'state_delta_v1');
-    final legacy = MobileApi.instance.adminProductionMapLiveUri(delta: true);
-    expect(legacy.queryParameters.containsKey('queue_limit'), isFalse);
-  });
+      expect(uri.queryParameters['queue_limit'], '$limit');
+      expect(uri.queryParameters['queue_search'], 'old order');
+      expect(uri.queryParameters['worker_scope'], 'true');
+      expect(uri.queryParameters['protocol'], 'state_delta_v1');
+      final legacy = MobileApi.instance.adminProductionMapLiveUri(delta: true);
+      expect(legacy.queryParameters.containsKey('queue_limit'), isFalse);
+    });
+  }
 
   test('concurrent reads for different limits never coalesce', () async {
     final requests = <http.Request>[];
@@ -88,9 +95,11 @@ void main() {
           .adminProductionMapQueueSnapshot(workerScope: true, queueLimit: 5);
       final ten = MobileApi.instance
           .adminProductionMapQueueSnapshot(workerScope: true, queueLimit: 10);
+      final all = MobileApi.instance.adminProductionMapQueueSnapshot(
+          workerScope: true, queueLimit: WorkerQueueLimitStore.allLimit);
       await Future<void>.delayed(Duration.zero);
       release.complete();
-      await Future.wait([five, ten]);
+      await Future.wait([five, ten, all]);
     },
         () => MockClient((request) async {
               requests.add(request);
@@ -116,14 +125,14 @@ void main() {
                   200);
             }));
     expect(requests.map((r) => r.url.queryParameters['queue_limit']).toSet(),
-        {'5', '10'});
+        {'5', '10', '0'});
   });
 
   test('a delta from a previous limit cannot mutate the new window', () {
     const current = AdminApparatusQueueSnapshot(
       epoch: 'server',
       revision: 7,
-      scope: 'window-5',
+      scope: 'window-0',
       sequences: {},
       visibleOrderIds: {},
       queueStates: {},

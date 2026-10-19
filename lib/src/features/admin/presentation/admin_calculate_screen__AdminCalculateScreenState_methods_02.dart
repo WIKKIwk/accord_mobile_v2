@@ -48,13 +48,14 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           ? _result!.results.first.roundedLength
           : null;
       final clonedMap = sourceMap.copyWith(
+        products: _activeProducts,
         id: _savedOrderRequestId,
         title: _resolvedOrderName(),
         imageId: currentDraft.imageId.trim(),
         code: '',
         orderNumber: '',
-        productCode: _itemCode.trim().isNotEmpty
-            ? _itemCode.trim()
+        productCode: _activeItemCode.trim().isNotEmpty
+            ? _activeItemCode.trim()
             : sourceMap.productCode,
         rollCount: _parseOptionalDouble(_rollCount.text),
         widthMm: _derivedWidthMm(),
@@ -217,10 +218,10 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final saved =
           await MobileApi.instance.adminSaveTrainingProductionMapWithOrder(
         map: ProductionMapDefinition(
+          products: _activeProducts,
           id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
           productCode: _firstNonEmpty([
-            _itemCode,
-            _product.text,
+            _activeItemCode,
             _resolvedOrderName(),
           ]),
           title: _resolvedOrderName(),
@@ -310,7 +311,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           template.id.trim() == currentTemplateId) {
         continue;
       }
-      if (template.itemCode.trim() == sku) {
+      if (template.products.isEmpty && template.itemCode.trim() == sku) {
         return template;
       }
     }
@@ -330,6 +331,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     final secondLayer = _legacyLayer(1);
     final thirdLayer = _legacyLayer(2);
     return CalculateOrderTemplate(
+      products: _activeProducts,
       productionOptions: _productionOptions,
       id: _templateId,
       code: _orderCode,
@@ -340,8 +342,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           (widget.pendingOrderId.isNotEmpty ? widget.template!.orderNumber : ''),
       customerRef: _customerRef,
       customer: _customer.text.trim(),
-      itemCode: _itemCode,
-      product: _product.text.trim(),
+      itemCode: _activeItemCode,
+      product: _resolvedOrderName(),
       status: _orderType.trim(),
       materialDisplay: '',
       color: _color.text.trim(),
@@ -350,8 +352,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       imageMime: _imageMime,
       imageSizeBytes: _imageSizeBytes,
       imageUrl: _imageUrl,
-      frameProductSizeMm: _parseRequiredDouble(_frameProductSizeMm.text),
-      frameCount: _parseRequiredDouble(_frameCount.text),
+      frameProductSizeMm: _activeFrameSize,
+      frameCount: _activeFrameCount,
       printValSizeMm: _activePrintValSizeMm,
       edgeAllowanceMm: _activeEdgeAllowanceMm,
       widthMm: _derivedWidthMm(),
@@ -413,6 +415,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           picked.name.trim().isEmpty ? picked.ref : picked.name.trim();
       _itemCode = '';
       _product.clear();
+      for (final row in _products) { row.itemCode = ''; row.product.clear(); }
     });
   }
 
