@@ -38,6 +38,9 @@ void main() {
   late bool workerVisibility;
   late bool failWrite;
   late int writes;
+  late bool mandatoryUpdates;
+  late bool failUpdateRead;
+  late int updateWrites;
   late MockClient client;
   setUp(() {
     AppSession.instance.token = 'token';
@@ -46,9 +49,28 @@ void main() {
     workerVisibility = false;
     failWrite = false;
     writes = 0;
+    mandatoryUpdates = false;
+    failUpdateRead = false;
+    updateWrites = 0;
     client = MockClient((request) async {
-      expect(request.url.path.endsWith('/paddons/management-settings'), isTrue);
       expect(request.headers['Authorization'], 'Bearer token');
+      if (request.url.path.endsWith('/app-update/settings')) {
+        if (request.method == 'PUT') {
+          updateWrites++;
+          if (failWrite) return http.Response('{}', 500);
+          mandatoryUpdates = (jsonDecode(request.body)
+              as Map)['mandatory_updates_enabled'] as bool;
+        } else if (failUpdateRead) {
+          return http.Response('{}', 503);
+        }
+        return http.Response(
+            jsonEncode({
+              'ok': true,
+              'settings': {'mandatory_updates_enabled': mandatoryUpdates},
+            }),
+            200);
+      }
+      expect(request.url.path.endsWith('/paddons/management-settings'), isTrue);
       if (request.method == 'PUT') {
         writes++;
         if (failWrite) return http.Response('{"error":"store_failed"}', 500);
@@ -82,6 +104,71 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isTrue);
     AppSession.instance.profile = _profile(UserRole.aparatchi);
     expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isFalse);
+  });
+
+  testWidgets('admin can persist and disable mandatory updates independently',
+      (tester) async {
+    enabled = true;
+    workerVisibility = true;
+    const key = ValueKey('mandatory-app-update-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      expect(find.text('Majburiy yangilash'), findsOneWidget);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(mandatoryUpdates, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(mandatoryUpdates, isFalse);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
+      expect(updateWrites, 2);
+      expect(writes, 0);
+      expect(enabled, isTrue);
+      expect(workerVisibility, isTrue);
+    }, () => client);
+  });
+
+  testWidgets('failed mandatory update save retains the server value',
+      (tester) async {
+    mandatoryUpdates = true;
+    failWrite = true;
+    const key = ValueKey('mandatory-app-update-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(mandatoryUpdates, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      expect(find.text('Yangilash sozlamasi saqlanmadi. Qayta urinib ko‘ring.'),
+          findsOneWidget);
+    }, () => client);
+  });
+
+  testWidgets('failed mandatory setting load disables the switch and can retry',
+      (tester) async {
+    failUpdateRead = true;
+    mandatoryUpdates = true;
+    const key = ValueKey('mandatory-app-update-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).onChanged, isNull);
+      failUpdateRead = false;
+      await tester.tap(find.text('Qayta urinish'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      expect(
+          tester.widget<SwitchListTile>(find.byKey(key)).onChanged, isNotNull);
+      expect(updateWrites, 0);
+    }, () => client);
   });
 
   testWidgets('admin confirms enable and can disable the shared server setting',
@@ -185,8 +272,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SwitchListTile), findsNothing);
       expect(writes, 0);
-    }, () => MockClient((_) async =>
-        throw StateError('worker must not load admin settings')));
+    },
+        () => MockClient((_) async =>
+            throw StateError('worker must not load admin settings')));
   });
 
   testWidgets('failed save keeps the authoritative server value',

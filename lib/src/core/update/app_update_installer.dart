@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_update_models.dart';
 
@@ -97,9 +98,19 @@ class NativeAppUpdatePlatform implements AppUpdatePlatform {
   @override
   Future<AppInstallationInfo> currentAppInfo() async {
     if (!isSupported) {
-      throw const AppUpdateException(
-        code: 'unsupported_platform',
-        message: 'Bu platformada APK update ishlamaydi',
+      final package = await PackageInfo.fromPlatform();
+      final versionCode = int.tryParse(package.buildNumber);
+      if (versionCode == null || versionCode <= 0 || package.version.isEmpty) {
+        throw const AppUpdateException(
+          code: 'app_info_failed',
+          message: 'Ilova versiyasi aniqlanmadi',
+        );
+      }
+      return AppInstallationInfo(
+        packageName: package.packageName,
+        versionCode: versionCode,
+        versionName: package.version,
+        signerSha256: '',
       );
     }
     final Map<Object?, Object?>? result;
@@ -120,7 +131,9 @@ class NativeAppUpdatePlatform implements AppUpdatePlatform {
       );
     }
     final info = AppInstallationInfo.fromMap(result);
-    if (info.packageName.isEmpty || info.versionCode <= 0) {
+    if (info.packageName.isEmpty ||
+        info.versionCode <= 0 ||
+        info.versionName.isEmpty) {
       throw const AppUpdateException(
         code: 'app_info_failed',
         message: 'Ilova versiyasi aniqlanmadi',

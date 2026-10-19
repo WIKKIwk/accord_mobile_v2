@@ -10,6 +10,51 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  for (final releaseVersion in [4, 5]) {
+    test(
+        'non-Android device checks version $releaseVersion without downloading APK',
+        () async {
+      final directory =
+          await Directory.systemTemp.createTemp('accord-version-check-');
+      addTearDown(() => directory.delete(recursive: true));
+      final platform = _FakeUpdatePlatform(
+        apkBytes: [],
+        downloadDirectory: directory,
+        supported: false,
+      );
+      final client = MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.path, '/v1/mobile/app-update/android');
+        return http.Response(
+            jsonEncode({
+              'version_code': releaseVersion,
+              'version_name': '1.0.$releaseVersion',
+              'apk_url': '/accord.apk',
+              'sha256': 'a' * 64,
+              'size_bytes': 1024,
+            }),
+            200);
+      });
+      addTearDown(client.close);
+      final service = AppUpdateService(
+          client: client,
+          platform: platform,
+          baseUri: Uri.parse('https://erp.example/'));
+      final result = await service.check();
+      expect(result.current.versionCode, 4);
+      expect(result.manifest!.versionCode, releaseVersion);
+      expect(result.updateAvailable, releaseVersion > 4);
+      await expectLater(
+          service.downloadAndInstall(result),
+          throwsA(
+            isA<AppUpdateException>()
+                .having((error) => error.code, 'code', 'unsupported_platform'),
+          ));
+      expect(platform.downloadStarts, 0);
+      expect(platform.installCalls, 0);
+    });
+  }
+
   test('checks, verifies, caches, and launches a valid APK', () async {
     final apkBytes = utf8.encode('signed-accord-apk');
     final checksum = sha256.convert(apkBytes).toString();
@@ -290,6 +335,7 @@ class _FakeUpdatePlatform implements AppUpdatePlatform {
     this.initialStatus = AppUpdateDownloadStatus.missing,
     this.initialReceivedBytes = 0,
     this.failFirstQuery = false,
+    this.supported = true,
   })  : _status = initialStatus,
         _runningQueriesRemaining =
             initialStatus == AppUpdateDownloadStatus.running ? 1 : 0;
@@ -299,6 +345,7 @@ class _FakeUpdatePlatform implements AppUpdatePlatform {
   final AppUpdateDownloadStatus initialStatus;
   final int initialReceivedBytes;
   final bool failFirstQuery;
+  final bool supported;
   late AppUpdateDownloadStatus _status;
   int _runningQueriesRemaining;
   bool _queryFailureReturned = false;
@@ -310,7 +357,7 @@ class _FakeUpdatePlatform implements AppUpdatePlatform {
   String get downloadPath => '${downloadDirectory.path}/accord-5.apk';
 
   @override
-  bool get isSupported => true;
+  bool get isSupported => supported;
 
   @override
   Future<AppInstallationInfo> currentAppInfo() async {

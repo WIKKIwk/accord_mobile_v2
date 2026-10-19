@@ -2,6 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+const m3DialogInsetPadding = EdgeInsets.symmetric(horizontal: 24, vertical: 24);
+const double m3DialogMaxWidth = 420;
+
 ({ButtonStyle cancel, ButtonStyle confirm}) m3ConfirmDialogActionStyles({
   required BuildContext context,
   bool destructive = false,
@@ -93,7 +96,7 @@ Future<bool?> showM3ConfirmDialog({
             );
 
       Widget dialog = Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        insetPadding: m3DialogInsetPadding,
         backgroundColor: scheme.surfaceContainerHigh,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(dialogRadius),
@@ -104,7 +107,7 @@ Future<bool?> showM3ConfirmDialog({
         child: ConstrainedBox(
           constraints: BoxConstraints(
             minWidth: verticalActions ? 320 : 0,
-            maxWidth: 420,
+            maxWidth: m3DialogMaxWidth,
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),

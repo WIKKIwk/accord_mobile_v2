@@ -50,6 +50,7 @@ part 'admin/mobile_api_order_alert.dart';
 part 'admin/mobile_api_push_config.dart';
 part 'admin/mobile_api_order_images.dart';
 part 'admin/mobile_api_admin_settings_monitor.dart';
+part 'admin/mobile_api_admin_app_update_settings.dart';
 part 'admin/mobile_api_admin_production_queue_runtime.dart';
 part 'admin/mobile_api_admin_queue_models.dart';
 part 'admin/mobile_api_admin_order_lifecycle.dart';

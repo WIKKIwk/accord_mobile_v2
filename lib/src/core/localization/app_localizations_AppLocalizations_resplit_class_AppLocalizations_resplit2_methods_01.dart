@@ -425,6 +425,30 @@ extension AppLocalizationsAstPartResplit2_01 on AppLocalizations {
         'Требуется обновление',
       );
 
+  String get appUpdateMandatorySettingTitle => _t(
+        'Majburiy yangilash',
+        'Require app updates',
+        'Обязательное обновление',
+      );
+
+  String get appUpdateMandatorySettingBody => _t(
+        'Yoqilsa, yangi versiya chiqqanda barcha rollardagi Android foydalanuvchilari ilovani yangilashi kerak bo‘ladi. Yangilash oynasini yopish yoki keyinga qoldirish mumkin bo‘lmaydi.',
+        'When enabled, Android users in all roles must install new versions. The update dialog cannot be closed or postponed.',
+        'Если включено, пользователи Android со всеми ролями должны устанавливать новые версии. Окно обновления нельзя закрыть или отложить.',
+      );
+
+  String get appUpdateSettingsLoadFailed => _t(
+        'Yangilash sozlamasi yuklanmadi. Qayta urinib ko‘ring.',
+        'Could not load update settings. Try again.',
+        'Не удалось загрузить настройку обновления. Повторите попытку.',
+      );
+
+  String get appUpdateSettingsSaveFailed => _t(
+        'Yangilash sozlamasi saqlanmadi. Qayta urinib ko‘ring.',
+        'Could not save update settings. Try again.',
+        'Не удалось сохранить настройку обновления. Повторите попытку.',
+      );
+
   String get appUpdateReleaseNotes =>
       _t('Nimalar yangilandi', 'What changed', 'Что изменилось');
 
@@ -440,10 +464,37 @@ extension AppLocalizationsAstPartResplit2_01 on AppLocalizations {
         'У вас уже установлена последняя версия.',
       );
 
+  String get appUpdateCurrentTitle => _t(
+        'Siz so‘nggi versiyadasiz',
+        'You are up to date',
+        'У вас последняя версия',
+      );
+
+  String get appUpdateInstalledVersion => _t(
+        'Joriy versiya',
+        'Installed version',
+        'Текущая версия',
+      );
+
+  String get appUpdateLatestVersion => _t(
+        'So‘nggi versiya',
+        'Latest version',
+        'Последняя версия',
+      );
+
+  String get appUpdateFileSize =>
+      _t('Yuklash hajmi', 'Download size', 'Размер загрузки');
+
+  String get appUpdateCheckRetryHint => _t(
+        'Internet aloqasini tekshiring va qayta urining. Ilovani ishlatishda davom etishingiz mumkin.',
+        'Check your connection and try again. You can continue using the app.',
+        'Проверьте подключение и повторите попытку. Вы можете продолжать пользоваться приложением.',
+      );
+
   String get appUpdateUnsupported => _t(
-        'APK update faqat Android ilovasida ishlaydi.',
-        'APK updates are only available in the Android app.',
-        'Обновление APK доступно только в приложении Android.',
+        'Yangi versiya mavjud, lekin bu qurilmada APK faylini o‘rnatib bo‘lmaydi. APK orqali yangilash Android ilovasida ishlaydi.',
+        'A new version is available, but this device cannot install APK files. APK updates are available in the Android app.',
+        'Доступна новая версия, но это устройство не может устанавливать APK. Обновление через APK доступно в приложении Android.',
       );
 
   String get appUpdateCheckFailed => _t(

@@ -58,14 +58,13 @@ class AppUpdateService {
 
   bool get isSupported => _platform.isSupported;
 
+  AppInstallationInfo? _currentAppInfo;
+
+  Future<AppInstallationInfo> currentAppInfo() async => _currentAppInfo ??=
+      await _platform.currentAppInfo().timeout(_manifestReadTimeout);
+
   Future<AppUpdateCheckResult> check() async {
-    if (!isSupported) {
-      throw const AppUpdateException(
-        code: 'unsupported_platform',
-        message: 'Bu platformada APK update ishlamaydi',
-      );
-    }
-    final current = await _platform.currentAppInfo();
+    final current = await currentAppInfo();
     final endpoint = _baseUri.resolve('/v1/mobile/app-update/android');
     final http.StreamedResponse response;
     try {
@@ -147,6 +146,12 @@ class AppUpdateService {
     AppUpdateProgress? onProgress,
     AppUpdateCancellation? cancellation,
   }) async {
+    if (!isSupported) {
+      throw const AppUpdateException(
+        code: 'unsupported_platform',
+        message: 'Bu qurilmada APK faylini o‘rnatib bo‘lmaydi',
+      );
+    }
     final manifest = update.manifest;
     if (manifest == null || !update.updateAvailable) {
       throw const AppUpdateException(
