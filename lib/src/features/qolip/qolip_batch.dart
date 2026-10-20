@@ -1,4 +1,4 @@
-const int qolipBatchMaxCount = 100;
+const int qolipBatchMaxCount = 9;
 
 class QolipBatchCodeDraft {
   const QolipBatchCodeDraft({
@@ -16,7 +16,7 @@ class QolipBatchCodeDraft {
 
 QolipBatchCodeDraft? parseQolipBatchCode(String raw) {
   final input = raw.trim();
-  if (input.isEmpty) {
+  if (input.isEmpty || input.endsWith('0')) {
     return null;
   }
 
@@ -32,21 +32,19 @@ QolipBatchCodeDraft? parseQolipBatchCode(String raw) {
 
   final prefix = match.group(1)!.trim();
   final suffix = match.group(2)!;
-  final count = int.tryParse(suffix);
-  if (prefix.isEmpty ||
-      count == null ||
-      count <= 0 ||
-      count > qolipBatchMaxCount) {
+  final count = int.parse(suffix[suffix.length - 1]);
+  if (prefix.isEmpty || count <= 0 || count > qolipBatchMaxCount) {
     return null;
   }
 
+  // Only the last digit is the count; retain the rest of the mold code.
+  final codePrefix = '$prefix-${suffix.substring(0, suffix.length - 1)}';
   return QolipBatchCodeDraft(
     input: input,
-    prefix: '$prefix-',
+    prefix: codePrefix,
     count: count,
     codes: [
-      for (var index = 1; index <= count; index++)
-        '$prefix-${index.toString().padLeft(suffix.length, '0')}',
+      for (var index = 1; index <= count; index++) '$codePrefix$index',
     ],
   );
 }

@@ -53,9 +53,9 @@ const _app_localizations_declarations__productionTranslations_resplitPart14 = {
     'ru': 'Введите корректный размер',
   },
   'qolip.home.code_range': {
-    'uz': 'Qolip code oxirgi qismi 1–100 oralig‘ida bo‘lishi kerak',
-    'en': 'The last part of the mold code must be between 1 and 100',
-    'ru': 'Последняя часть кода формы должна быть от 1 до 100',
+    'uz': 'Qolip kodining oxirgi raqami 1–9 oralig‘ida bo‘lishi kerak',
+    'en': 'The last digit of the mold code must be between 1 and 9',
+    'ru': 'Последняя цифра кода формы должна быть от 1 до 9',
   },
   'qolip.home.colors_required': {
     'uz': '{count} ta qolip uchun {count} ta rang tanlang',

@@ -74,14 +74,15 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
 
   bool get _canAddPanton {
     final draft = _batchDraft;
-    return draft == null || _pantonNumbers.length < draft.count;
+    return draft != null && _pantonNumbers.length < draft.count;
   }
 
   bool get _canSave {
     if (_createsMolds) {
       return _savedProductSpecs.isEmpty &&
           (_createsStandaloneSet || _product != null) &&
-          _qolipCode.text.trim().isNotEmpty;
+          _qolipCode.text.trim().isNotEmpty &&
+          (!_createsStandaloneSet || _batchDraft != null);
     }
     return _block != null &&
         _selectedProducts.isNotEmpty &&
@@ -97,6 +98,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final productSpecSaved = _savedProductSpecs.isNotEmpty;
     final batchDraft = _batchDraft;
+    final colorCount =
+        productSpecSaved ? _savedProductSpecs.length : batchDraft?.count ?? 0;
     final sheet = Padding(
       padding: EdgeInsets.fromLTRB(8, 0, 8, bottomInset + 8),
       child: DecoratedBox(
@@ -227,7 +230,12 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     labelText: l10n.qolipText('home.mold_code_label'),
                   ),
                   textInputAction: TextInputAction.next,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => setState(() {
+                    final count = _batchDraft?.count ?? 0;
+                    if (_selectedColors.length > count) {
+                      _selectedColors.removeRange(count, _selectedColors.length);
+                    }
+                  }),
                 ),
                 if (!_createsStandaloneSet)
                   OutlinedButton.icon(
@@ -318,7 +326,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     'home.color_label',
                     values: {
                       'selected': _selectedColors.length,
-                      'total': batchDraft?.count ?? 1,
+                      'total': colorCount,
                     },
                   ),
                   style: Theme.of(context).textTheme.labelLarge,
@@ -327,8 +335,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 QolipColorPicker(
                   selectedColors: _selectedColors,
                   pantonNumbers: _pantonNumbers,
-                  maxSelectedColors: batchDraft?.count ?? 1,
-                  enabled: !productSpecSaved && !_saving,
+                  maxSelectedColors: colorCount,
+                  enabled: !productSpecSaved && !_saving && batchDraft != null,
                   onAddPanton:
                       !productSpecSaved && _canAddPanton ? _addPanton : null,
                   onColorsChanged: (colors) => setState(() {
