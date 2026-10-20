@@ -170,6 +170,7 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
     try {
       await widget.onSave(QolipMoldDraft(
           code: _code.text.trim(),
+          existingOnly: _existing,
           size: _existing ? 0 : size,
           color: _existing ? '' : _color!));
       if (mounted) Navigator.of(context).pop(true);

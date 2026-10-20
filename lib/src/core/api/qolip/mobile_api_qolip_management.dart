@@ -1,13 +1,22 @@
 part of '../mobile_api.dart';
 
 class QolipMoldDraft {
-  const QolipMoldDraft({required this.code, this.size = 0, this.color = ''});
+  const QolipMoldDraft(
+      {required this.code,
+      this.size = 0,
+      this.color = '',
+      this.existingOnly = false});
   final String code;
   final int size;
   final String color;
+  final bool existingOnly;
 
-  Map<String, dynamic> toJson() =>
-      {'qolip_code': code.trim(), 'size': size, 'color': color.trim()};
+  Map<String, dynamic> toJson() => {
+        'qolip_code': code.trim(),
+        'size': size,
+        'color': color.trim(),
+        'existing_only': existingOnly
+      };
 }
 
 class QolipManagedSet {
@@ -37,8 +46,17 @@ extension MobileApiQolipManagement on MobileApi {
         if (_testModeLocalSetIds.contains(mold.setId)) continue;
         final snapshot = await qolipResolveSet(mold.setId);
         if (snapshot == null) continue;
-        _testModeManagedSets[mold.setId] =
-            QolipManagedSet(set: snapshot, source: mold);
+        final targets = _testModeQolipSetLinks[mold.setId]?.values ?? [mold];
+        _testModeManagedSets[mold.setId] = QolipManagedSet(
+          set: QolipSharedSet(
+            id: snapshot.id,
+            code: snapshot.code,
+            fingerprint: snapshot.fingerprint,
+            members: snapshot.members,
+            productLabels: targets.map((p) => '${p.name} (${p.code})').toList(),
+          ),
+          source: mold,
+        );
       }
       final result = _testModeManagedSets.values.toList()
         ..sort((a, b) => a.set.code.compareTo(b.set.code));
@@ -204,11 +222,20 @@ extension MobileApiQolipManagement on MobileApi {
           var mold = physical
               .where((m) => m.qolipCode.toLowerCase() == code.toLowerCase())
               .firstOrNull;
+          final existingOnly = raw['existing_only'] == true;
+          if (mold != null && !existingOnly) {
+            throw const MobileApiException(
+                code: 'qolip_code_conflict', message: 'qolip_code_conflict');
+          }
+          if (mold == null && existingOnly) {
+            throw const MobileApiException(
+                code: 'qolip_code_not_found', message: 'qolip_code_not_found');
+          }
           if (mold == null) {
             if ((raw['size'] as int) <= 0 ||
                 (change['warehouse'] as String).isEmpty) {
               throw const MobileApiException(
-                  code: 'invalid_size', message: 'invalid_size');
+                  code: 'size_invalid', message: 'size_invalid');
             }
             mold = QolipProduct(
               qolipSetId:
