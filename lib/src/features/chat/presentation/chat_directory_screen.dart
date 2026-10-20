@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/shell/progressive_fade.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../shared/models/app_models.dart';
 import '../models/chat_models.dart';
@@ -29,12 +31,15 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
   final searchFocusNode = FocusNode();
   Timer? debounce;
   String openingRef = '';
+  UserRole? selectedRole;
+  bool roleFilterExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(
-        store.startForCurrentSession().then((_) => store.searchDirectory('')));
+    unawaited(store.startForCurrentSession().then((_) {
+      if (mounted) return _loadDirectory();
+    }));
   }
 
   @override
@@ -49,8 +54,38 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
     debounce?.cancel();
     debounce = Timer(
       const Duration(milliseconds: 300),
-      () => store.searchDirectory(value),
+      () => store.searchDirectory(value, role: selectedRole),
     );
+  }
+
+  Future<void> _loadDirectory() =>
+      store.searchDirectory(searchController.text, role: selectedRole);
+
+  void _selectRole(UserRole? role) {
+    debounce?.cancel();
+    setState(() {
+      selectedRole = role;
+      roleFilterExpanded = false;
+    });
+    unawaited(_loadDirectory());
+  }
+
+  String _roleLabel(UserRole role) {
+    final l10n = context.l10n;
+    return switch (role) {
+      UserRole.supplier => l10n.adminText('users.kind.supplier'),
+      UserRole.werka => l10n.adminText('users.kind.werka'),
+      UserRole.customer => l10n.adminText('users.kind.customer'),
+      UserRole.aparatchi => l10n.adminText('users.kind.worker'),
+      UserRole.qolipchi => l10n.adminText('users.kind.mold_maker'),
+      UserRole.boyoqchi => l10n.adminText('users.kind.painter'),
+      UserRole.materialTaminotchi =>
+        l10n.adminText('users.kind.material_supplier'),
+      UserRole.admin => l10n.adminRoleName,
+      UserRole.tayyorlovMasteri ||
+      UserRole.homashyoRezkachi =>
+        userRoleLabel(role),
+    };
   }
 
   Future<void> _open(ChatDirectoryEntry target) async {
@@ -97,27 +132,61 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
         },
       ),
       contentPadding: EdgeInsets.zero,
-      child: AnimatedBuilder(
-        animation: store,
-        builder: (context, _) => _directoryList(),
+      child: Column(
+        children: [
+          AdminExpandableFilterChip<UserRole?>(
+            chipKey: const ValueKey('chat-directory-role-filter'),
+            label: context.l10n.adminText('users.role'),
+            emptyLabel: context.l10n.adminText('users.all_roles'),
+            icon: Icons.person_outline_rounded,
+            selectedValue: selectedRole,
+            expanded: roleFilterExpanded,
+            onToggle: () =>
+                setState(() => roleFilterExpanded = !roleFilterExpanded),
+            onSelect: _selectRole,
+            options: [
+              AdminFilterChipOption(
+                value: null,
+                label: context.l10n.adminText('users.all_roles'),
+                key: const ValueKey('chat-directory-role-option-all'),
+              ),
+              for (final role in UserRole.values)
+                AdminFilterChipOption(
+                  value: role,
+                  label: _roleLabel(role),
+                  key: ValueKey(
+                    'chat-directory-role-option-${userRoleToJson(role)}',
+                  ),
+                ),
+            ],
+          ),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: store,
+              builder: (context, _) => _directoryList(),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _directoryList() {
-    if (store.loadingDirectory && store.directory.isEmpty) {
+    final entries = store.directory
+        .where((entry) => selectedRole == null || entry.role == selectedRole)
+        .toList(growable: false);
+    if (store.loadingDirectory && entries.isEmpty) {
       return const Center(child: AppLoadingIndicator());
     }
-    if (store.error.isNotEmpty && store.directory.isEmpty) {
+    if (store.error.isNotEmpty && entries.isEmpty) {
       return Center(
         child: FilledButton.tonalIcon(
-          onPressed: () => store.searchDirectory(searchController.text),
+          onPressed: _loadDirectory,
           icon: const Icon(Icons.refresh_rounded),
           label: const UrduAwareText('Qayta qidirish'),
         ),
       );
     }
-    final entries = store.directory;
     if (entries.isEmpty) {
       return const Center(child: UrduAwareText('Foydalanuvchi topilmadi'));
     }

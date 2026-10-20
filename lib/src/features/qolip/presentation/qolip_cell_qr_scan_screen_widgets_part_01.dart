@@ -64,7 +64,10 @@ class _QolipQrScanScreenState extends State<_QolipQrScanScreen> {
       _scannerSession = ReliableScannerSession(
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.noDuplicates,
-        formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
+        formats: const <BarcodeFormat>[
+          BarcodeFormat.qrCode,
+          BarcodeFormat.dataMatrix,
+        ],
       );
     }
   }

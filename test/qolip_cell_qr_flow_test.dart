@@ -3,9 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
+import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_cell_qr_scan_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -178,6 +183,119 @@ void main() {
         createHttpClient: (_) =>
             _QolipCellQrHttpClient(seenRequests, seenBodies));
   });
+
+  for (final mode in ['raw', 'universal', 'cell']) {
+    for (final format in [BarcodeFormat.dataMatrix, BarcodeFormat.qrCode]) {
+      testWidgets('$mode qolip scanner reads $format from the camera',
+          (tester) async {
+        final originalPlatform = MobileScannerPlatform.instance;
+        final camera = _QolipScannerPlatform();
+        MobileScannerPlatform.instance = camera;
+        addTearDown(() async {
+          MobileScannerPlatform.instance = originalPlatform;
+          await camera.captures.close();
+        });
+        final payload = mode == 'cell' ? 'CELL-QR-A3' : 'QOLIP-0007';
+        final seenRequests = <String>[];
+        Object? result;
+
+        await HttpOverrides.runZoned(() async {
+          await tester.pumpWidget(MaterialApp(
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(builder: (context) {
+              return TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context).push<Object>(
+                    MaterialPageRoute(builder: (_) => switch (mode) {
+                      'raw' => const QolipRawQrScanScreen(),
+                      'universal' => const QolipUniversalQrScanScreen(),
+                      _ => const QolipCellQrScanScreen(),
+                    }),
+                  );
+                },
+                child: const Text('Open scanner'),
+              );
+            }),
+          ));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Open scanner'));
+          await tester.pumpAndSettle();
+
+          expect(camera.running, isTrue);
+          camera.scan(format, payload);
+          await tester.pumpAndSettle();
+
+          if (mode == 'cell') {
+            expect(result, isA<QolipCellQr>());
+            expect((result as QolipCellQr).qrPayload, payload);
+            expect(seenRequests,
+                contains('GET /v1/mobile/qolip/cell-qr?qr=$payload'));
+          } else {
+            expect(result, payload);
+          }
+          expect(find.byType(MobileScanner), findsNothing);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        }, createHttpClient: (_) => _QolipCellQrHttpClient(seenRequests));
+      });
+    }
+  }
+}
+
+class _QolipScannerPlatform extends MobileScannerPlatform {
+  final captures = StreamController<BarcodeCapture?>.broadcast();
+  List<BarcodeFormat> formats = const [];
+  bool running = false;
+
+  void scan(BarcodeFormat format, String payload) {
+    // Match the native scanner's format filter before delivering a capture.
+    if (running && (formats.isEmpty || formats.contains(format))) {
+      captures.add(BarcodeCapture(barcodes: [
+        Barcode(rawValue: payload, format: format),
+      ]));
+    }
+  }
+
+  @override
+  Stream<BarcodeCapture?> get barcodesStream => captures.stream;
+
+  @override
+  Stream<TorchState> get torchStateStream =>
+      Stream.value(TorchState.unavailable);
+
+  @override
+  Stream<double> get zoomScaleStateStream => Stream.value(1);
+
+  @override
+  Future<MobileScannerViewAttributes> start(StartOptions startOptions) async {
+    formats = startOptions.formats;
+    running = true;
+    return const MobileScannerViewAttributes(
+      cameraDirection: CameraFacing.back,
+      currentTorchMode: TorchState.unavailable,
+      size: Size(640, 480),
+      numberOfCameras: 1,
+    );
+  }
+
+  @override
+  Future<void> stop() async => running = false;
+
+  @override
+  Future<void> updateScanWindow(Rect? window) async {}
+
+  @override
+  Future<void> dispose() async => running = false;
+
+  @override
+  Widget buildCameraView() => const SizedBox.expand();
 }
 
 class _QolipCellQrHttpClient implements HttpClient {

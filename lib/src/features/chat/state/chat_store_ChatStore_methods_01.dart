@@ -192,7 +192,7 @@ extension ChatStoreAstPart01 on ChatStore {
     }
   }
 
-  Future<void> searchDirectory(String query) async {
+  Future<void> searchDirectory(String query, {UserRole? role}) async {
     final key = profileKey;
     if (key.isEmpty) return;
     final generation = _sessionGeneration;
@@ -201,7 +201,10 @@ extension ChatStoreAstPart01 on ChatStore {
     error = '';
     notifyListeners();
     try {
-      final page = await MobileApi.instance.chatDirectory(query: query);
+      final page = await MobileApi.instance.chatDirectory(
+        query: query,
+        role: role,
+      );
       if (_isCurrentSession(key, generation) &&
           _directorySearchGeneration == searchGeneration) {
         directory = page.items;

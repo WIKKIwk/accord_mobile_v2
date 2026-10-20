@@ -28,12 +28,16 @@ extension MobileApiChat on MobileApi {
     _requireChatSuccess(response, 'chat_device_unregister_failed');
   }
 
-  Future<ChatDirectoryPage> chatDirectory({String query = ''}) async {
+  Future<ChatDirectoryPage> chatDirectory({
+    String query = '',
+    UserRole? role,
+  }) async {
     final response = await _sendAuthorized(
       () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/chat/directory').replace(
           queryParameters: {
             if (query.trim().isNotEmpty) 'q': query.trim(),
+            if (role != null) 'role': userRoleToJson(role),
             'limit': '100',
           },
         ),

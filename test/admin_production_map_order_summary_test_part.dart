@@ -77,7 +77,7 @@ Future<void> _openExpectedOrderSummary(WidgetTester tester) async {
 
 void _registerOrderSummaryTests() {
   testWidgets(
-      'admin expected summary shows all material layers and frame dimensions',
+      'admin expected summary shows material layers without shaft and frame metrics',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance
@@ -85,12 +85,13 @@ void _registerOrderSummaryTests() {
     await _openExpectedOrderSummary(tester);
     expect(find.text('18000 metr'), findsOneWidget);
     expect(find.text('400 kg'), findsOneWidget);
+    for (final label in ['Val', 'Kadr soni', 'Bitta kadr eni']) {
+      expect(find.text(label), findsNothing);
+    }
     final details =
         find.byKey(const ValueKey('production-order-calculation-details'));
     for (final value in [
       '415 mm',
-      '2 ta',
-      '200 mm',
       '5 %',
       'PET · 12 mikron',
       'BOPP · 20 mikron',
@@ -101,6 +102,10 @@ void _registerOrderSummaryTests() {
     ]) {
       expect(find.descendant(of: details, matching: find.text(value)),
           findsOneWidget);
+    }
+    for (final value in ['2 ta', '200 mm']) {
+      expect(find.descendant(of: details, matching: find.text(value)),
+          findsNothing);
     }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -114,7 +119,7 @@ void _registerOrderSummaryTests() {
       _summaryCalculation(multipleProducts: true),
     );
     await _openExpectedOrderSummary(tester);
-    expect(find.text('4 ta'), findsOneWidget);
+    expect(find.text('4 ta'), findsNothing);
     expect(find.text('First product'), findsOneWidget);
     expect(find.text('SKU-A · 2 ta kadr × 80 mm'), findsOneWidget);
     expect(find.text('Second product'), findsOneWidget);

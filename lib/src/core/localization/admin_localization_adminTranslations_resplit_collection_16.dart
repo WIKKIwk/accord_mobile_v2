@@ -349,6 +349,12 @@ const _admin_localization_adminTranslations_resplitPart16 = {
     'en': 'Role',
     'ru': 'Роль',
   },
+  'admin.users.all_roles': {
+    'uz': 'Barcha rollar',
+    'en': 'All roles',
+    'ru': 'Все роли',
+    'ur': 'تمام کردار',
+  },
   'admin.users.none_selected': {
     'uz': 'Tanlanmagan',
     'en': 'Not selected',

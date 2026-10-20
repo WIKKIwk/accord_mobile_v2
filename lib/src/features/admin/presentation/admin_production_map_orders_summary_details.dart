@@ -72,11 +72,6 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
     }
     final calculation = _calculation!;
     final products = calculation.products;
-    final frameCount = products.isEmpty
-        ? calculation.frameCount
-        : products
-            .fold<int>(0, (sum, product) => sum + product.frameCount)
-            .toDouble();
     final layers = calculation.effectiveLayers;
     final width = widget.map.widthMm ?? calculation.widthMm;
     return Column(
@@ -88,20 +83,6 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
             label: text('material_width'),
             value: '${formatRawQuantity(width)} mm',
             icon: Icons.width_normal_outlined,
-          ),
-        if (frameCount.isFinite && frameCount > 0)
-          AppInfoRow(
-            label: text('frame_count'),
-            value: text('frame_count_value', {
-              'count': formatRawQuantity(frameCount),
-            }),
-            icon: Icons.view_week_outlined,
-          ),
-        if (products.isEmpty && calculation.frameProductSizeMm > 0)
-          AppInfoRow(
-            label: text('frame_width'),
-            value: '${formatRawQuantity(calculation.frameProductSizeMm)} mm',
-            icon: Icons.straighten_rounded,
           ),
         AppInfoRow(
           label: text('waste_percent'),

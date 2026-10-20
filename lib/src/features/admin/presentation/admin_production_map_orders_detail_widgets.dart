@@ -892,7 +892,7 @@ class _OrderSummaryCard extends StatelessWidget {
     }
     final rollCount = map.rollCount;
     final widthMm = map.widthMm;
-    if (rollCount != null && rollCount > 0) {
+    if (!showCalculationDetails && rollCount != null && rollCount > 0) {
       rows.add(
         AppInfoRow(
           label: context.l10n.productionText('worker.summary.shafts'),
