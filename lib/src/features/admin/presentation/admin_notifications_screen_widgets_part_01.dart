@@ -2,114 +2,177 @@
 part of 'admin_notifications_screen.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
-  const AdminNotificationsScreen({super.key});
+  const AdminNotificationsScreen({super.key,
+    this.requestsLoader, this.apparatusLoader, this.liveEventsLoader});
+  final Future<List<AdminCompletionRequestNotification>> Function()? requestsLoader;
+  final Future<List<AdminApparatus>> Function()? apparatusLoader;
+  final Stream<List<AdminCompletionRequestNotification>> Function()? liveEventsLoader;
 
   @override
   State<AdminNotificationsScreen> createState() =>
       _AdminNotificationsScreenState();
 }
 
-class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
+class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> with WidgetsBindingObserver {
   var _loading = true;
   Object? _error;
   List<AdminCompletionRequestNotification> _requests = const [];
   List<AdminApparatus> _apparatusCatalog = const [];
   String? _expandedRequestId;
   final Set<String> _decidingRequestIds = {};
-  StreamSubscription<AdminProductionMapLiveSnapshot>? _liveSubscription;
+  StreamSubscription<List<AdminCompletionRequestNotification>>? _liveSubscription;
+  Completer<void>? _liveFinished;
+  Timer? _retryTimer;
+  Completer<void>? _retryFinished;
+  bool _foreground = true;
+  bool _catalogLoaded = false;
+  int _requestsVersion = 0;
+  int _retryAttempt = 0;
+  Future<void>? _loadingFuture;
   int _liveGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_load());
     _startLiveStream();
   }
 
   @override
   void dispose() {
-    _liveGeneration++;
-    unawaited(_liveSubscription?.cancel());
+    WidgetsBinding.instance.removeObserver(this);
+    _stopLiveStream();
     super.dispose();
   }
 
-  Future<void> _load() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) {
+      _startLiveStream();
+    } else {
+      _stopLiveStream();
+    }
+  }
+
+  Future<void> _load() => _loadingFuture ??= _readOnce().whenComplete(() {
+    _loadingFuture = null;
+  });
+
+  Future<void> _readOnce() async {
+    final scope = currentSessionReadScope();
+    final version = _requestsVersion;
     try {
       final results = await Future.wait<Object>([
-        MobileApi.instance.adminProductionMapCompletionRequests(),
-        MobileApi.instance.adminApparatus(limit: 10000),
+        (widget.requestsLoader ?? MobileApi.instance.adminProductionMapCompletionRequests)(),
+        _catalogLoaded ? Future.value(_apparatusCatalog) :
+          widget.apparatusLoader?.call() ?? MobileApi.instance.adminApparatus(limit: 10000),
       ]);
-      final requests = results[0] as List<AdminCompletionRequestNotification>;
-      final apparatus = results[1] as List<AdminApparatus>;
-      if (!mounted) {
-        return;
-      }
+      if (!mounted || scope != currentSessionReadScope()) return;
       setState(() {
-        _requests = requests;
-        _apparatusCatalog = apparatus;
+        // A slow HTTP read cannot resurrect a request removed by live updates.
+        if (version == _requestsVersion) {
+          _requests = results[0] as List<AdminCompletionRequestNotification>;
+        }
+        _apparatusCatalog = results[1] as List<AdminApparatus>;
+        _catalogLoaded = true;
         _loading = false;
         _error = null;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _loading = false;
-        _error = error;
-      });
+      if (!mounted || scope != currentSessionReadScope() || version != _requestsVersion) return;
+      setState(() { _loading = false; _error = error; });
     }
+  }
+
+  void _stopLiveStream() {
+    _liveGeneration++;
+    unawaited(_liveSubscription?.cancel());
+    _liveSubscription = null;
+    final finished = _liveFinished;
+    if (finished != null && !finished.isCompleted) finished.complete();
+    _liveFinished = null;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    final retry = _retryFinished;
+    if (retry != null && !retry.isCompleted) retry.complete();
+    _retryFinished = null;
   }
 
   void _startLiveStream() {
-    _liveGeneration++;
-    unawaited(_runLiveStream(_liveGeneration));
+    _stopLiveStream();
+    if (_foreground) unawaited(_runLiveStream(_liveGeneration));
   }
 
   Future<void> _runLiveStream(int generation) async {
-    while (mounted && generation == _liveGeneration) {
+    final scope = currentSessionReadScope();
+    bool active() => mounted && _foreground && generation == _liveGeneration &&
+        scope == currentSessionReadScope();
+    while (active()) {
       try {
-        await _connectLiveStreamOnce(generation);
-      } catch (_) {
-        await _load();
+        await _connectLiveStreamOnce(generation, scope);
+      } catch (error) {
+        if (!active()) return;
+        if (error is MobileApiException &&
+            (error.statusCode == 401 || error.statusCode == 403 ||
+              const {'forbidden', 'unauthorized', 'permission_denied'}.contains(error.code))) {
+          setState(() { _error = error; _loading = false; });
+          return;
+        }
       }
-      if (!mounted || generation != _liveGeneration) {
-        return;
-      }
-      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!active()) return;
+      final base = productionMapLiveReconnectDelay(_retryAttempt++);
+      final delay = Duration(milliseconds:
+          (base.inMilliseconds * (0.5 + Random().nextDouble() * 0.5)).round());
+      final retry = Completer<void>();
+      _retryFinished = retry;
+      _retryTimer = Timer(delay, retry.complete);
+      await retry.future;
+      if (!active()) return;
+      // Bounded HTTP fallback only while disconnected; catalog is cached.
+      unawaited(_load());
     }
   }
 
-  Future<void> _connectLiveStreamOnce(int generation) async {
+  Future<void> _connectLiveStreamOnce(int generation, String scope) async {
     final completer = Completer<void>();
-
-    await _liveSubscription?.cancel();
-    _liveSubscription =
-        MobileApi.instance.adminProductionMapLiveEvents().listen(
-      (snapshot) {
-        if (!mounted || generation != _liveGeneration) {
-          return;
-        }
-        setState(() {
-          _requests = snapshot.completionRequests;
-          _loading = false;
-          _error = null;
-        });
+    _liveFinished = completer;
+    final first = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) completer.completeError(TimeoutException('Notification stream'));
+    });
+    unawaited(_liveSubscription?.cancel());
+    late final StreamSubscription<List<AdminCompletionRequestNotification>> subscription;
+    try {
+      subscription = (widget.liveEventsLoader?.call() ??
+        MobileApi.instance.adminProductionMapNotificationEvents()).listen(
+      (requests) {
+        if (!mounted || generation != _liveGeneration || scope != currentSessionReadScope()) return;
+        first.cancel();
+        _retryAttempt = 0;
+        _requestsVersion++;
+        setState(() { _requests = requests; _loading = false; _error = null; });
       },
-      onError: (error, _) {
-        if (!completer.isCompleted) {
-          completer.completeError(error);
-        }
+      onError: (Object error, StackTrace stack) {
+        if (!completer.isCompleted) completer.completeError(error, stack);
       },
-      onDone: () {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      cancelOnError: true,
+      onDone: () { if (!completer.isCompleted) completer.complete(); },
+      cancelOnError: false,
     );
-
-    await completer.future;
+    } catch (_) {
+      first.cancel();
+      if (identical(_liveFinished, completer)) _liveFinished = null;
+      rethrow;
+    }
+    _liveSubscription = subscription;
+    try {
+      await completer.future;
+    } finally {
+      first.cancel();
+      if (identical(_liveSubscription, subscription)) _liveSubscription = null;
+      if (identical(_liveFinished, completer)) _liveFinished = null;
+      unawaited(subscription.cancel());
+    }
   }
 
   void _openDrawerRoute(String routeName) {
@@ -136,6 +199,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       if (!mounted) {
         return;
       }
+      _requestsVersion++;
       setState(() {
         _requests =
             _requests.where((item) => item.eventId.trim() != eventId).toList();
