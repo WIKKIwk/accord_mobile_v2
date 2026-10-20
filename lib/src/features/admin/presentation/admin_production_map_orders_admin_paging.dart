@@ -1,7 +1,9 @@
 part of 'admin_production_map_orders_screen.dart';
 
 class _AdminOrderWindow {
-  _AdminOrderWindow(this.request, this.account);
+  _AdminOrderWindow(this.request, this.account, this.liveId);
+  final String liveId;
+  bool awaitingLive = false;
   final AdminProductionOrderPageRequest request;
   final String account;
   final storage = PageStorageBucket();
@@ -55,7 +57,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
                 apparatus: apparatus,
                 target: target,
                 search: _adminPageSearch),
-            account));
+            account, 'w${++_adminWindowSerial}'));
   }
 
   List<_AdminOrderWindow> _adminModuleWindows(_OpenedOrderModule module) =>
@@ -128,6 +130,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       if (!mounted) return;
       if (!window.loaded || refresh || window.dirty) await _loadAdminWindow(window);
     }
+    if (module == _module) _scheduleAdminWindowSubscription();
   }
 
   Future<void> _refreshAdminPagedView() async {
@@ -160,6 +163,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     if (mounted) _updateScreenState(() {});
     return future.whenComplete(() {
       window.inFlight = null;
+      _scheduleAdminWindowSubscription();
       if (mounted) _updateScreenState(() {});
     });
   }
@@ -531,7 +535,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       );
     }
     _queueSnapshotNeedsReconcile = _sequenceNeedsSnapshot.isNotEmpty ||
-        _adminModuleWindows(_module).any((window) => !window.loaded || window.dirty);
+        _adminModuleWindows(_module).any((window) => !window.loaded || window.dirty || window.awaitingLive);
     _resumeSequenceMoves();
   }
 

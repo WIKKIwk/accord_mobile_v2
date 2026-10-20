@@ -176,4 +176,100 @@ void _registerStreamEfficiencyTests() {
     expect(reads, 2);
     await disposeStream(tester);
   });
+
+  testWidgets('stream efficiency: paged color delta avoids HTTP and preserves unchanged cards',
+      (tester) async {
+    final fixture = await _prepareScanBootstrapFixture(tester);
+    final apparatus = fixture.apparatus.firstWhere((a) => a.id == scanApparatus);
+    await AdminSequenceApparatusStore.instance.saveApparatus(apparatus);
+    final events = StreamController<Object>.broadcast();
+    addTearDown(events.close);
+    var reads = 0;
+    var revision = 7;
+    var state = 'pending';
+    const other = 'other-window-order';
+    final second = fixture.order.map.copyWith(id: other, title: 'Other unchanged card');
+    Map<String, dynamic> payload() => {
+      ...scanSequence(), 'version': 'v$revision', 'epoch': 'scan-server', 'rev': revision,
+      'offset': 0, 'total': 2, 'next_cursor': null,
+      'order_ids': [scanOrder, other],
+      'maps': [
+        {'map': fixture.order.map.toJson(), 'program': <String, dynamic>{}},
+        {'map': second.toJson(), 'program': <String, dynamic>{}},
+      ],
+      'sequences': {scanApparatus: [scanOrder, other]},
+      'visible_order_ids': {scanApparatus: [scanOrder, other]},
+      'queue_states': {scanApparatus: {scanOrder: state, other: 'pending'}},
+      'queue_action_controls': {scanApparatus: {
+        scanOrder: _syncControl(state), other: _syncControl('pending')}},
+    };
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('uz'),
+      localizationsDelegates: const [AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate, GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: AdminProductionMapOrdersScreen(
+        apparatusLoader: () async => [apparatus],
+        completionRequestsLoader: () async => [],
+        queueSnapshotLoader: () => throw StateError('full snapshot requested'),
+        orderPageLoader: (request) async {
+          reads++;
+          if (request.view == 'sequence') return AdminProductionOrderPage.fromJson(payload());
+          return AdminProductionOrderPage.fromJson({
+            'version': 'empty$revision', 'epoch': 'scan-server', 'rev': revision,
+            'offset': 0, 'total': 0, 'next_cursor': null, 'closed_orders': [],
+          });
+        },
+        liveEventsLoader: () => events.stream,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    events.add(AdminProductionMapPageWindowMessage.fromJson({
+      'type': 'page_window_ready', 'window': 'w1', 'epoch': 'scan-server',
+      'rev': 7, 'version': 'v7', 'resync': false,
+    }));
+    await tester.pumpAndSettle();
+    Material material(String id) => tester.widget<Material>(find.descendant(
+      of: find.byWidgetPredicate((widget) => widget.runtimeType.toString() == '_SequenceOrderRow' &&
+          (widget as dynamic).order.map.id == id), matching: find.byType(Material)).first);
+    final untouched = material(other);
+    final changed = material(scanOrder);
+    final beforeReads = reads;
+    revision = 8;
+    state = 'in_progress';
+    events.add(AdminProductionMapPageWindowMessage.fromJson({
+      'type': 'page_window_delta', 'window': 'w1', 'epoch': 'scan-server',
+      'rev': 8, 'base_version': 'v7', 'version': 'v8', 'page_count': 1,
+      'changes': [{'index': 0, 'ops': [
+        {'op': 'set', 'path': ['version'], 'value': 'v8'},
+        {'op': 'set', 'path': ['rev'], 'value': 8},
+        {'op': 'set', 'path': ['queue_states', scanApparatus, scanOrder], 'value': state},
+        {'op': 'set', 'path': ['queue_action_controls', scanApparatus, scanOrder], 'value': _syncControl(state)},
+      ]}],
+    }));
+    await tester.pumpAndSettle();
+    expect(reads, beforeReads, reason: 'A color update must not reload the prefix');
+    expect(identical(material(other), untouched), isTrue,
+        reason: 'Unchanged image/title/marquee subtree must be reused');
+    expect(identical(material(scanOrder), changed), isFalse);
+    final after = material(scanOrder);
+    events.add(AdminProductionMapPageWindowMessage.fromJson({
+      'type': 'page_window_checkpoint', 'window': 'w1', 'epoch': 'scan-server',
+      'rev': 9, 'base_version': 'v8', 'version': 'v9', 'next_cursors': [null],
+    }));
+    await tester.pumpAndSettle();
+    expect(identical(material(scanOrder), after), isTrue);
+    expect(reads, beforeReads);
+    // A gap disables controls and repairs only the affected prefix.
+    revision = 10;
+    events.add(AdminProductionMapPageWindowMessage.fromJson({
+      'type': 'page_window_checkpoint', 'window': 'w1', 'epoch': 'scan-server',
+      'rev': 10, 'base_version': 'missing', 'version': 'v10', 'next_cursors': [null],
+    }));
+    await tester.pumpAndSettle();
+    expect(reads, beforeReads + 1);
+    await disposeStream(tester);
+  });
+
 }

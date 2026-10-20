@@ -410,7 +410,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
   }
 }
 
-class _SequenceOrderRow extends StatelessWidget {
+class _SequenceOrderRow extends StatefulWidget {
   const _SequenceOrderRow({
     super.key,
     required this.slot,
@@ -450,7 +450,18 @@ class _SequenceOrderRow extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   @override
-  Widget build(BuildContext context) {
+  State<_SequenceOrderRow> createState() => _SequenceOrderRowState();
+
+  Object get _visualIdentity => (
+    slot, order.map, index, readOnly, canReorder, customerName, apparatusLabel,
+    tone, backgroundColor, titleColor, secondaryColor, statusLabel,
+    statusBackgroundColor, statusForegroundColor,
+    onTap != null, onInfo != null, onLongPress != null,
+  );
+
+  Widget _buildVisual(BuildContext context, {
+    required VoidCallback? tap, required VoidCallback? longPress,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final map = order.map;
@@ -485,8 +496,8 @@ class _SequenceOrderRow extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap ?? onInfo,
-        onLongPress: onLongPress,
+        onTap: tap,
+        onLongPress: longPress,
         child: Stack(
           children: [
             if (resolvedGradient != null)
@@ -587,4 +598,32 @@ class _SequenceOrderRow extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Stable descendants avoid rebuilding image/title/marquee trees when only a
+/// different order changes. Callback forwarding always reads the current row.
+class _SequenceOrderRowState extends State<_SequenceOrderRow> {
+  Widget? _visual;
+
+  @override
+  void didUpdateWidget(covariant _SequenceOrderRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget._visualIdentity != widget._visualIdentity) _visual = null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visual = null;
+  }
+
+  void _tap() => (widget.onTap ?? widget.onInfo)?.call();
+  void _longPress() => widget.onLongPress?.call();
+
+  @override
+  Widget build(BuildContext context) => _visual ??= widget._buildVisual(context,
+    tap: widget.onTap == null && widget.onInfo == null ? null : _tap,
+    longPress: widget.onLongPress == null ? null : _longPress,
+  );
 }

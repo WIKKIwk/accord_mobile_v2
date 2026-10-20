@@ -1,14 +1,231 @@
 part of 'admin_production_map_orders_screen.dart';
 
 extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
+  void _stopAdminNotifications() {
+    _adminNotificationGeneration++;
+    _adminNotificationRetry?.cancel();
+    _adminNotificationRetry = null;
+    unawaited(_adminNotificationSubscription?.cancel());
+    _adminNotificationSubscription = null;
+    final finished = _adminNotificationFinished;
+    if (finished != null && !finished.isCompleted) finished.complete();
+    _adminNotificationFinished = null;
+  }
+
+  void _startAdminNotifications() {
+    _stopAdminNotifications();
+    if (widget.liveEventsLoader != null && widget.notificationEventsLoader == null) return;
+    unawaited(_runAdminNotifications(_adminNotificationGeneration));
+  }
+
+  Future<void> _runAdminNotifications(int generation) async {
+    if (widget.notificationEventsLoader == null && await TestModeController.instance.isEnabled()) return;
+    final scope = currentSessionReadScope();
+    bool active() => mounted && _adminForeground && generation == _adminNotificationGeneration &&
+        scope == currentSessionReadScope();
+    var attempt = 0;
+    while (active()) {
+      final finished = Completer<void>();
+      _adminNotificationFinished = finished;
+      final first = Timer(const Duration(seconds: 10), () {
+        if (!finished.isCompleted) finished.completeError(TimeoutException('Notifications'));
+      });
+      StreamSubscription<List<AdminCompletionRequestNotification>>? subscription;
+      try {
+        subscription = (widget.notificationEventsLoader?.call() ??
+          MobileApi.instance.adminProductionMapNotificationEvents()).listen((requests) {
+            if (!active()) return;
+            first.cancel();
+            attempt = 0;
+            _updateScreenState(() {
+              _completionRequestsGeneration++;
+              _completionRequests = requests;
+              _completionRequestsErrorMessage = null;
+              _reconnectingOrderReads.remove(_OrdersReadSection.completionRequests);
+            });
+          }, onError: (Object error, StackTrace stack) {
+            if (!finished.isCompleted) finished.completeError(error, stack);
+          }, onDone: () { if (!finished.isCompleted) finished.complete(); });
+        _adminNotificationSubscription = subscription;
+        await finished.future;
+      } catch (error) {
+        if (!active()) return;
+        if (error is MobileApiException && (error.statusCode == 401 || error.statusCode == 403 ||
+            const {'forbidden', 'unauthorized', 'permission_denied'}.contains(error.code))) return;
+      } finally {
+        first.cancel();
+        unawaited(subscription?.cancel());
+        if (identical(_adminNotificationSubscription, subscription)) {
+          _adminNotificationSubscription = null;
+        }
+      }
+      if (!active()) return;
+      final delay = productionMapLiveReconnectDelay(attempt++);
+      final retry = Completer<void>();
+      _adminNotificationFinished = retry;
+      _adminNotificationRetry = Timer(Duration(milliseconds:
+        (delay.inMilliseconds * (0.5 + Random().nextDouble() * 0.5)).round()), retry.complete);
+      await retry.future;
+      if (active()) unawaited(_refreshCompletionRequests());
+    }
+  }
+
   Future<void> _restartAdminPagedLive() async {
     _stopWorkerLiveStream();
     final generation = _liveStreamGeneration;
-    if (await TestModeController.instance.isEnabled()) return;
+    _adminSubscriptionFingerprint = _adminWindowFingerprint();
+    if (await TestModeController.instance.isEnabled() &&
+        (widget.liveEventsLoader == null || _adminLiveDescriptors().isEmpty)) return;
     if (!mounted || !_adminForeground || generation != _liveStreamGeneration) {
       return;
     }
+    _adminSubscriptionFingerprint = _adminWindowFingerprint();
+    final descriptors = _adminLiveDescriptors();
+    if (descriptors.isNotEmpty) {
+      _updateScreenState(() {
+        for (final window in _adminModuleWindows(_module)) {
+          window.awaitingLive = true;
+        }
+        _queueSnapshotNeedsReconcile = true;
+      });
+    }
     unawaited(_runWorkerLiveStream(generation));
+  }
+
+
+  List<Map<String, Object?>> _adminLiveDescriptors() {
+    if (_adminWindowLiveFallback) return const [];
+    final windows = _adminModuleWindows(_module);
+    if (windows.isEmpty || windows.any((w) => !w.loaded ||
+        w.pages.any((p) => p.wireValue == null))) return const [];
+    return [for (final window in windows) {
+      'id': window.liveId, 'view': window.request.view,
+      'apparatus': window.request.apparatus, 'target': window.request.target,
+      'search': window.request.search, 'length': max(20, window.length),
+      'version': window.pages.first.version,
+    }];
+  }
+
+  String _adminWindowFingerprint() => jsonEncode([
+    _adminPageAccount, _adminWindowLiveFallback,
+    for (final descriptor in _adminLiveDescriptors())
+      {...descriptor}..remove('version'),
+  ]);
+
+  void _scheduleAdminWindowSubscription() {
+    if (!_adminLiveStarted || !_adminForeground || !_adminPaging || !mounted) return;
+    if (_adminSubscriptionFingerprint != _adminWindowFingerprint() &&
+        _adminLiveDescriptors().isNotEmpty) {
+      _updateScreenState(() {
+        for (final window in _adminModuleWindows(_module)) {
+          window.awaitingLive = true;
+        }
+        _queueSnapshotNeedsReconcile = true;
+      });
+    }
+    _adminSubscriptionTimer?.cancel();
+    _adminSubscriptionTimer = Timer(const Duration(milliseconds: 30), () {
+      if (!mounted || !_adminForeground) return;
+      if (_adminSubscriptionFingerprint != _adminWindowFingerprint()) {
+        unawaited(_restartAdminPagedLive());
+      }
+    });
+  }
+
+  void _queueAdminWindowLive(AdminProductionMapPageWindowMessage message, int generation) {
+    final account = _adminPageAccount;
+    _adminWindowEvents = _adminWindowEvents.then((_) async {
+      if (!mounted || generation != _liveStreamGeneration || account != _adminPageAccount) return;
+      final window = _adminModuleWindows(_module)
+          .where((window) => window.liveId == message.window).firstOrNull;
+      if (window == null || !window.loaded || _retiredSnapshotEpochs.contains(message.epoch)) return;
+      final before = window.pages;
+      if (message.epoch == before.first.epoch &&
+          message.revision < (before.first.revision ?? -1)) return;
+      try {
+        if (message.type == 'page_window_ready') {
+          if (message.value['resync'] != false || message.version != before.first.version ||
+              message.epoch != before.first.epoch || message.revision != before.first.revision) {
+            throw StateError('page window needs reconciliation');
+          }
+          _updateScreenState(() {
+            window.awaitingLive = false;
+            window.validated = window.invalidation;
+            window.error = null;
+            _rebuildAdminPageState();
+          });
+          return;
+        }
+        if (message.type == 'page_window_resync') throw StateError('page history unavailable');
+        // Duplicate frames are harmless; applying a second patch would not be.
+        if (message.version == before.first.version &&
+            message.epoch == before.first.epoch && message.revision == before.first.revision) return;
+        final next = await applyAdminOrderPageWindow(before, message);
+        if (!mounted || generation != _liveStreamGeneration || account != _adminPageAccount) return;
+        if (!identical(window.pages, before)) {
+          // A concurrent HTTP append or mutation reconciliation owns the newer
+          // baseline. Re-subscribe from it rather than applying an old patch.
+          await _restartAdminPagedLive();
+          return;
+        }
+        _adminLiveEpoch = message.epoch;
+        _adminLiveRevision = max(_adminLiveRevision, message.revision);
+        window.pages = next;
+        window.validated = window.invalidation;
+        window.error = null;
+        if (message.type == 'page_window_checkpoint' && !window.awaitingLive &&
+            !_queueSnapshotNeedsReconcile) {
+          // Certify the shared action snapshot only through the oldest active
+          // window. A checkpoint must never authorize rows from another tab.
+          final current = _canonicalQueueSnapshot;
+          final active = [for (final w in _adminModuleWindows(_module))
+            for (final page in w.pages) if (page.snapshot != null) page.snapshot!];
+          if (current != null && active.isNotEmpty &&
+              active.every((snapshot) => snapshot.epoch == current.epoch)) {
+            final revision = active.map((snapshot) => snapshot.revision ?? 0).reduce(min);
+            if (revision > (current.revision ?? -1)) {
+              final advanced = AdminProductionMapLiveStateDelta(
+                epoch: current.epoch, scope: current.scope,
+                baseRevision: current.revision!, revision: revision, patch: const {},
+              ).applyTo(current);
+              _canonicalQueueSnapshot = advanced;
+              _rememberSnapshotVersion(advanced);
+              _sheetQueueSnapshot.value = advanced;
+            }
+          }
+          return;
+        }
+        _updateScreenState(() {
+          window.awaitingLive = false;
+          if (window.request.view == 'sequence') {
+            _sequenceNeedsSnapshot.remove(window.request.apparatus);
+          }
+          _rebuildAdminPageState();
+          _clearOrdersLoadError();
+        });
+        for (var index = 0; index < next.length; index++) {
+          final page = next[index];
+          if (index >= before.length ||
+              !identical(page.snapshot?.maps, before[index].snapshot?.maps) ||
+              !identical(page.wireValue?['calculation_templates'],
+                  before[index].wireValue?['calculation_templates'])) {
+            unawaited(_loadAdminPageMetrics(page, account));
+          }
+        }
+        _scheduleAdminWindowSubscription();
+      } catch (_) {
+        if (!mounted || generation != _liveStreamGeneration || account != _adminPageAccount) return;
+        _updateScreenState(() {
+          window.invalidation = ++_adminPageInvalidation;
+          window.awaitingLive = true;
+          _queueSnapshotNeedsReconcile = true;
+        });
+        await _loadAdminWindow(window, force: true);
+        if (mounted && generation == _liveStreamGeneration && account == _adminPageAccount) {
+          await _restartAdminPagedLive();
+        }
+      }
+    });
   }
 
   void _applyAdminPageLive(Object message) {

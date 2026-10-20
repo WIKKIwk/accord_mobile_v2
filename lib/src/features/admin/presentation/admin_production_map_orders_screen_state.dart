@@ -12,6 +12,16 @@ class _AdminProductionMapOrdersScreenState
   String _adminLiveEpoch = '';
   int _adminLiveRevision = -1;
   int _adminPageInvalidation = 0;
+  int _adminWindowSerial = 0;
+  bool _adminLiveStarted = false;
+  bool _adminWindowLiveFallback = false;
+  String _adminSubscriptionFingerprint = '';
+  Future<void> _adminWindowEvents = Future.value();
+  Timer? _adminSubscriptionTimer;
+  int _adminNotificationGeneration = 0;
+  StreamSubscription<List<AdminCompletionRequestNotification>>? _adminNotificationSubscription;
+  Completer<void>? _adminNotificationFinished;
+  Timer? _adminNotificationRetry;
   final Map<String, _AdminOrderWindow> _adminWindows = {};
   final Map<String, int> _adminMetricSignatures = {};
   final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
@@ -200,7 +210,7 @@ class _AdminProductionMapOrdersScreenState
     if (!_adminPaging && !widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
       unawaited(_refreshPendingOrders());
       _pendingOrderTimer = Timer.periodic(
-          const Duration(seconds: 10), (_) => _refreshPendingOrders());
+          const Duration(seconds: 10), (_) { if (_adminForeground) unawaited(_refreshPendingOrders()); });
     }
     if (widget.supplyViewerMode) {
       _module = _OpenedOrderModule.sequence;
@@ -239,6 +249,8 @@ class _AdminProductionMapOrdersScreenState
   @override
   void dispose() {
     _adminSearchDebounce?.cancel();
+    _adminSubscriptionTimer?.cancel();
+    _stopAdminNotifications();
     _workerQueueSearchDebounce?.cancel();
     _queueActionReconcileTimer?.cancel();
     _sheetQueueSnapshot.dispose();
@@ -279,9 +291,11 @@ class _AdminProductionMapOrdersScreenState
       _adminForeground = state == AppLifecycleState.resumed;
       if (_adminForeground) {
         unawaited(_restartAdminPagedLive());
-        unawaited(_ensureAdminModule(_module, refresh: true));
+        _startAdminNotifications();
+        unawaited(_ensureAdminModule(_module, refresh: _adminLiveDescriptors().isEmpty));
         unawaited(_prefetchAdminFirstPages());
       } else {
+        _stopAdminNotifications();
         _stopWorkerLiveStream();
       }
     }

@@ -172,6 +172,16 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _startAdminLive() async {
+    if (!_adminPaging && _liveRecoverySupported && _workerCatalogReady &&
+        _snapshotReadScope == currentSessionReadScope() &&
+        _canonicalQueueSnapshot?.revision != null &&
+        (_canonicalQueueSnapshot?.epoch.isNotEmpty ?? false)) {
+      _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
+      _startQueueSnapshotPolling();
+      _stopWorkerLiveStream();
+      unawaited(_runWorkerLiveStream(_liveStreamGeneration));
+      return;
+    }
     if (_adminPaging && widget.orderPageLoader == null &&
         await TestModeController.instance.isEnabled()) {
       // The offline demo retains its in-memory queue fixture.
@@ -185,7 +195,13 @@ extension _AdminProductionMapOrdersLiveState
     if (!mounted) {
       return;
     }
-    if (!_adminPaging) _startQueueSnapshotPolling();
+    if (_adminPaging) {
+      _adminLiveStarted = true;
+      _startAdminNotifications();
+      await _restartAdminPagedLive();
+      return;
+    }
+    _startQueueSnapshotPolling();
     if (_adminPaging && !_adminForeground) return;
     if ((_adminPaging || widget.liveEventsLoader == null) &&
         await TestModeController.instance.isEnabled()) {
@@ -283,12 +299,23 @@ extension _AdminProductionMapOrdersLiveState
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
+        if (_adminPaging && (error is TimeoutException ||
+            (error is MobileApiException && const {'order_page_changed', 'production_map_snapshot_contract_invalid'}.contains(error.code)))) {
+          _updateScreenState(() {
+            for (final window in _adminModuleWindows(_module)) {
+              window.invalidation = ++_adminPageInvalidation;
+            }
+            _queueSnapshotNeedsReconcile = true;
+          });
+          await _ensureAdminModule(_module);
+        }
         final wasLoading = _loading;
         // Keep the last good state on screen. Fall back to the canonical
         // REST snapshot (revision-guarded) instead of clearing the list.
         if (!_adminPaging && !widget.workerMode && wasLoading) {
           await _refreshLive(initial: true);
-        } else if (!_adminPaging && !widget.workerMode) {
+        } else if (!_adminPaging && !widget.workerMode &&
+            (!_liveRecoverySupported || error is TimeoutException)) {
           await _refreshQueueSnapshot();
         }
       }
@@ -296,10 +323,20 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       if (_adminPaging) {
+        if (streamError is MobileApiException &&
+            const {'page_live_window_too_large', 'paged_live_required'}.contains(streamError.code)) {
+          _adminWindowLiveFallback = true;
+          for (final window in _adminWindows.values) {
+            window.awaitingLive = false;
+          }
+        }
         _workerLiveHealthy = false;
         _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
       }
       _workerLiveHealthy = false;
+      if (!_adminPaging && !widget.workerMode) {
+        _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
+      }
       if (widget.workerMode) {
         _workerLiveHealthy = false;
         final error = streamError ?? const MobileApiException(
@@ -335,10 +372,14 @@ extension _AdminProductionMapOrdersLiveState
         completer.completeError(TimeoutException('First production snapshot'));
       }
     });
-    final subscription =
+    late final StreamSubscription<Object> subscription;
+    try {
+      subscription =
         (widget.liveEventsLoader?.call() ??
             MobileApi.instance.adminProductionMapLiveStream(
-              stateDelta: widget.workerMode,
+              stateDelta: !_adminPaging,
+              workerScope: widget.workerMode,
+              pageWindows: _adminPaging ? _adminLiveDescriptors() : const [],
               paged: _adminPaging,
               queueLimit: widget.workerMode ? _workerQueueLimit : null,
               queueSearch: widget.workerMode ? _workerServerSearch : '',
@@ -353,6 +394,7 @@ extension _AdminProductionMapOrdersLiveState
         }
         if (_adminPaging &&
             message is! AdminProductionMapPageChange &&
+            message is! AdminProductionMapPageWindowMessage &&
             !(message is AdminProductionMapLiveDelta &&
                 message.epoch.isNotEmpty && (message.snapshotRevision ?? -1) >= 0)) {
           if (!completer.isCompleted) {
@@ -367,7 +409,11 @@ extension _AdminProductionMapOrdersLiveState
         _stopWorkerHttpFallbackWait();
         _liveReconnectAttempt = 0;
         if (_adminPaging) {
-          _applyAdminPageLive(message);
+          if (message is AdminProductionMapPageWindowMessage) {
+            _queueAdminWindowLive(message, generation);
+          } else {
+            _applyAdminPageLive(message);
+          }
         } else if (message is AdminProductionMapLiveSnapshot) {
           _applyCanonicalLiveSnapshot(message);
         } else if (message is AdminProductionMapLiveDelta) {
@@ -405,6 +451,11 @@ extension _AdminProductionMapOrdersLiveState
       // error. Deliver it now, and cancel without awaiting cleanup below.
       cancelOnError: false,
     );
+    } catch (_) {
+      firstSnapshotTimer.cancel();
+      if (identical(_liveStreamFinished, completer)) _liveStreamFinished = null;
+      rethrow;
+    }
     _liveStreamSubscription = subscription;
     try {
       await completer.future;

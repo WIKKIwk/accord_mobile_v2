@@ -86,4 +86,91 @@ void main() {
           .having((e) => e.code, 'code', 'paged_live_required')),
     );
   });
+
+  test('page-window protocol carries only local subscription descriptors', () async {
+    final descriptor = <String, Object?>{'id': 'w1', 'view': 'sequence',
+      'apparatus': 'press', 'target': '', 'search': 'label', 'length': 40, 'version': 'v1'};
+    server.listen((request) async {
+      expect(request.uri.queryParameters['protocol'], 'page_delta_v1');
+      expect(jsonDecode(request.uri.queryParameters['pages']!), [descriptor]);
+      expect(request.uri.queryParameters['pages'], isNot(contains('socket-test-token')));
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {});
+      socket.add(jsonEncode({'ok': true, 'type': 'page_window_ready',
+        'window': 'w1', 'epoch': 'server', 'rev': 1, 'version': 'v1', 'resync': false}));
+    });
+    final message = await MobileApi.instance.adminProductionMapLiveStream(
+      paged: true, pageWindows: [descriptor]).first.timeout(const Duration(seconds: 5));
+    expect(message, isA<AdminProductionMapPageWindowMessage>());
+  });
+
+  test('nonworker state protocol retains global scope and recovery cursor', () async {
+    server.listen((request) async {
+      expect(request.uri.queryParameters['protocol'], 'state_delta_v1');
+      expect(request.uri.queryParameters['worker_scope'], 'false');
+      expect(request.uri.queryParameters['scope'], '');
+      expect(request.uri.queryParameters['rev'], '8');
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {});
+      socket.add(jsonEncode({'ok': true, 'type': 'state_ready',
+        'epoch': 'server', 'rev': 8, 'scope': '', 'resync': false, 'recovered': true}));
+    });
+    final message = await MobileApi.instance.adminProductionMapLiveStream(
+      stateDelta: true, workerScope: false, epoch: 'server', revision: 8).first
+      .timeout(const Duration(seconds: 5));
+    expect((message as AdminProductionMapLiveStateReady).recovered, isTrue);
+  });
+
+  test('notification protocol decodes only request list', () async {
+    server.listen((request) async {
+      expect(request.uri.queryParameters['protocol'], 'notifications_v1');
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {});
+      socket.add(jsonEncode({'ok': true, 'type': 'notifications_snapshot',
+        'epoch': 'server', 'rev': 9, 'completion_requests': []}));
+    });
+    final requests = await MobileApi.instance.adminProductionMapNotificationEvents()
+      .first.timeout(const Duration(seconds: 5));
+    expect(requests, isEmpty);
+  });
+
+
+  test('concurrent notification consumers share socket and replay latest list', () async {
+    var connections = 0;
+    final closed = Completer<void>();
+    server.listen((request) async {
+      connections++;
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {}, onDone: () { if (!closed.isCompleted) closed.complete(); });
+      socket.add(jsonEncode({'ok': true, 'type': 'notifications_snapshot',
+        'epoch': 'server', 'rev': 9, 'completion_requests': []}));
+    });
+    final first = Completer<void>();
+    final one = MobileApi.instance.adminProductionMapNotificationEvents().listen((_) {
+      if (!first.isCompleted) first.complete();
+    });
+    await first.future.timeout(const Duration(seconds: 5));
+    final replay = Completer<void>();
+    var secondEvents = 0;
+    final changed = Completer<void>();
+    final two = MobileApi.instance.adminProductionMapNotificationEvents().listen((_) {
+      secondEvents++;
+      if (!replay.isCompleted) replay.complete();
+      if (secondEvents == 2) changed.complete();
+    });
+    await replay.future.timeout(const Duration(seconds: 5));
+    expect(connections, 1);
+    await one.cancel();
+    sockets.single.add(jsonEncode({'ok': true, 'type': 'notifications_snapshot',
+      'epoch': 'server', 'rev': 10, 'completion_requests': []}));
+    await changed.future.timeout(const Duration(seconds: 5));
+    expect(connections, 1);
+    await two.cancel();
+    await closed.future.timeout(const Duration(seconds: 5));
+  });
+
 }
