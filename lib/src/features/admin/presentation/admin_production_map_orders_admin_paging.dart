@@ -616,7 +616,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
 }
 
 /// Layout notifications and offscreen tabs never start pagination. Only user
-/// scrolling (or the explicit button) requests the next bounded page.
+/// scrolling requests the next bounded page.
 class _AdminOrderPageViewport extends StatefulWidget {
   const _AdminOrderPageViewport(
       {super.key,
@@ -664,25 +664,19 @@ class _AdminOrderPageViewportState extends State<_AdminOrderPageViewport> {
       },
       child: Column(children: [
         Expanded(
-            child: !window.loaded && window.inFlight != null
-                ? const Center(child: CircularProgressIndicator())
+            child: !window.loaded
+                ? const SizedBox.expand()
                 : PageStorage(
                     bucket: window.storage,
                     child: KeyedSubtree(
                         key: const PageStorageKey('admin-order-window'),
                         child: widget.child))),
-        if (window.inFlight != null && window.loaded)
-          const LinearProgressIndicator(),
         if (window.error != null)
           ListTile(
               dense: true,
               title: Text(window.error!),
               trailing: IconButton(
-                  onPressed: widget.onRetry, icon: const Icon(Icons.refresh)))
-        else if (window.cursor != null && window.inFlight == null)
-          TextButton(
-              onPressed: widget.onMore,
-              child: Text('${window.length} / ${window.total} · Yana 20 ta')),
+                  onPressed: widget.onRetry, icon: const Icon(Icons.refresh))),
       ]),
     );
   }

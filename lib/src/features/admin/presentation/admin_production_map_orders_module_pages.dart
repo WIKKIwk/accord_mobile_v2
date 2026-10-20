@@ -89,6 +89,7 @@ class _OrdersModulePage extends StatelessWidget {
 
 class _AdminModulesBody extends StatelessWidget {
   const _AdminModulesBody({
+    this.pageLoading = false,
     this.pageWrapper,
     this.movePageWrapper,
     this.pagedOrders,
@@ -144,6 +145,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onInfoSequenceOrder,
     required this.onLongPressOrder,
   });
+  final bool pageLoading;
   final List<_OpenedOrderModule> modules;
   final Widget Function(_OpenedOrderModule, Widget)? pageWrapper;
   final Widget Function(bool, Widget)? movePageWrapper;
@@ -254,6 +256,7 @@ class _AdminModulesBody extends StatelessWidget {
               ],
             ),
           ),
+        if (pageLoading) const _OrdersConnectionProgress(),
         Expanded(
           child: TabBarView(
             controller: tabController,

@@ -595,6 +595,9 @@ class _AdminProductionMapOrdersScreenState
                           : widget.qolipTasksMode || widget.materialTasksMode
                               ? _buildQolipTasks(bottomPadding)
                               : _AdminModulesBody(
+                                  pageLoading: _adminPaging &&
+                                      _adminModuleWindows(_module)
+                                          .any((window) => window.inFlight != null),
                                   pageWrapper: _adminPaging ? _wrapAdminModule : null,
                                   movePageWrapper: _adminPaging ? _wrapAdminMovePane : null,
                                   pagedOrders: _adminPaging ? _adminWindow('orders').orders : null,
@@ -2381,7 +2384,7 @@ class _AdminProductionMapOrdersScreenState
         _module = module;
         if (_adminPaging) _rebuildAdminPageState();
       });
-      if (module == _OpenedOrderModule.closed) {
+      if (!_adminPaging && module == _OpenedOrderModule.closed) {
         unawaited(_refreshClosedOrders());
       }
     }
@@ -2396,10 +2399,10 @@ class _AdminProductionMapOrdersScreenState
         curve: Curves.easeOutCubic,
       );
     }
-    if (module == _OpenedOrderModule.audit) {
+    if (_adminPaging) {
+      unawaited(_ensureAdminModule(module));
+    } else if (module == _OpenedOrderModule.audit) {
       unawaited(_refreshWorkflowAudit());
-    } else if (_adminPaging) {
-      unawaited(_ensureAdminModule(module, refresh: true));
     }
   }
 
@@ -2410,14 +2413,14 @@ class _AdminProductionMapOrdersScreenState
         _module = module;
         if (_adminPaging) _rebuildAdminPageState();
       });
-      if (_adminPaging && module != _OpenedOrderModule.audit) {
-        unawaited(_ensureAdminModule(module, refresh: true));
+      if (_adminPaging) {
+        unawaited(_ensureAdminModule(module));
       }
-      if (module == _OpenedOrderModule.closed) {
+      if (!_adminPaging && module == _OpenedOrderModule.closed) {
         unawaited(_refreshClosedOrders());
       }
     }
-    if (module == _OpenedOrderModule.audit) {
+    if (!_adminPaging && module == _OpenedOrderModule.audit) {
       unawaited(_refreshWorkflowAudit());
     }
   }
