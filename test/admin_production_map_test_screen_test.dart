@@ -103,6 +103,7 @@ part 'admin_production_map_order_alert_test_part.dart';
 part 'admin_production_map_scan_bootstrap_test_part.dart';
 part 'admin_production_map_worker_sync_optimization_test_part.dart';
 part 'admin_production_map_stream_efficiency_test_part.dart';
+part 'admin_production_map_page_stream_races_test_part.dart';
 part 'admin_production_map_material_delivery_test_part.dart';
 part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
@@ -174,6 +175,7 @@ void main() {
   _registerScanBootstrapTests();
   _registerWorkerSyncOptimizationTests();
   _registerStreamEfficiencyTests();
+  _registerPageStreamRaceTests();
   _registerMaterialDeliveryTests();
   _registerLaminationAstatkaScopeTests();
   _registerQolipAlternativeSetTests();

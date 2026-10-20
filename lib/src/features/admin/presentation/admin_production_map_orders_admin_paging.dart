@@ -335,6 +335,16 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     }
   }
 
+  bool _adminActiveWindowVersionsMatch() {
+    final pages = [
+      for (final window in _adminModuleWindows(_module)) ...window.pages,
+    ];
+    if (pages.isEmpty) return false;
+    final first = pages.first;
+    return pages.every((page) =>
+        page.epoch == first.epoch && page.revision == first.revision);
+  }
+
   void _rebuildAdminPageState() {
     // Windows keep their own ordered membership. The shared dictionaries only
     // cache card/detail data, with newer revisions winning for the same order.
@@ -535,6 +545,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       );
     }
     _queueSnapshotNeedsReconcile = _sequenceNeedsSnapshot.isNotEmpty ||
+        !_adminActiveWindowVersionsMatch() ||
         _adminModuleWindows(_module).any((window) => !window.loaded || window.dirty || window.awaitingLive);
     _resumeSequenceMoves();
   }

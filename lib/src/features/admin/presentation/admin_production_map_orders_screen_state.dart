@@ -39,6 +39,8 @@ class _AdminProductionMapOrdersScreenState
   Timer? _workerRecoveryTimer;
   bool _workerLiveHealthy = false;
   bool _liveRecoverySupported = false;
+  bool _stateDeltaLiveSupported = false;
+  bool _nonWorkerStateDeltaFallback = false;
   String? _snapshotReadScope;
   int _workerHttpFallbackGeneration = -1;
   Timer? _workerHttpFallbackTimer;
@@ -669,7 +671,10 @@ class _AdminProductionMapOrdersScreenState
                                       ) == ApparatusQueuePolicy.strictSequence,
                                   moveOrdersForApparatus:
                                       _moveOrdersForApparatus,
-                                  canMoveTo: _canMoveOrderToApparatus,
+                                  canMoveTo: (order, target, {required source}) =>
+                                      (!_adminPaging || (!_queueSnapshotNeedsReconcile &&
+                                          !_queueSnapshotContractError)) &&
+                                      _canMoveOrderToApparatus(order, target, source: source),
                                   onSelectSequenceApparatus: (apparatus) {
                                     _userChangedSequenceApparatus = true;
                                     unawaited(

@@ -132,20 +132,28 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
     });
   }
 
-  void _queueAdminWindowLive(AdminProductionMapPageWindowMessage message, int generation) {
+  void _queueAdminWindowLive(AdminProductionMapPageWindowMessage message, int generation,
+      {required int? subscribedLength}) {
     final account = _adminPageAccount;
     _adminWindowEvents = _adminWindowEvents.then((_) async {
       if (!mounted || generation != _liveStreamGeneration || account != _adminPageAccount) return;
       final window = _adminModuleWindows(_module)
           .where((window) => window.liveId == message.window).firstOrNull;
       if (window == null || !window.loaded || _retiredSnapshotEpochs.contains(message.epoch)) return;
+      if (subscribedLength == null || max(20, window.length) != subscribedLength) {
+        // An HTTP append changes the subscribed prefix before the debounced
+        // reconnect. Never let its old shorter stream erase newly loaded rows.
+        _scheduleAdminWindowSubscription();
+        return;
+      }
       final before = window.pages;
       if (message.epoch == before.first.epoch &&
           message.revision < (before.first.revision ?? -1)) return;
       try {
         if (message.type == 'page_window_ready') {
           if (message.value['resync'] != false || message.version != before.first.version ||
-              message.epoch != before.first.epoch || message.revision != before.first.revision) {
+              message.epoch != before.first.epoch || message.revision != before.first.revision ||
+              before.any((page) => page.snapshot != null && _snapshotBehindSequenceMoves(page.snapshot!))) {
             throw StateError('page window needs reconciliation');
           }
           _updateScreenState(() {
@@ -168,13 +176,17 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
           await _restartAdminPagedLive();
           return;
         }
+        if (next.any((page) => page.snapshot != null &&
+            _snapshotBehindSequenceMoves(page.snapshot!))) {
+          throw StateError('page window precedes confirmed sequence move');
+        }
         _adminLiveEpoch = message.epoch;
         _adminLiveRevision = max(_adminLiveRevision, message.revision);
         window.pages = next;
         window.validated = window.invalidation;
         window.error = null;
         if (message.type == 'page_window_checkpoint' && !window.awaitingLive &&
-            !_queueSnapshotNeedsReconcile) {
+            !_queueSnapshotNeedsReconcile && _adminActiveWindowVersionsMatch()) {
           // Certify the shared action snapshot only through the oldest active
           // window. A checkpoint must never authorize rows from another tab.
           final current = _canonicalQueueSnapshot;
@@ -261,6 +273,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
       }
       // A move does not certify updated start/action permissions.
       _queueSnapshotNeedsReconcile = _sequenceNeedsSnapshot.isNotEmpty ||
+          !_adminActiveWindowVersionsMatch() ||
           _adminModuleWindows(_module)
               .any((window) => !window.loaded || window.dirty);
     });

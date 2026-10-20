@@ -42,6 +42,11 @@ void _registerStreamEfficiencyTests() {
       expect(connects, 1);
       events.add(snapshot);
       await tester.pump();
+      events.add(AdminProductionMapLiveStateReady.fromJson({
+        'epoch': snapshot.epoch, 'rev': snapshot.revision, 'scope': snapshot.scope,
+        'resync': false, 'recovered': true,
+      }));
+      await tester.pump();
       final initialReads = reads;
       for (var n = 0; n < 5; n++) {
         await tester.pump(const Duration(seconds: 2));
@@ -61,11 +66,56 @@ void _registerStreamEfficiencyTests() {
       events.add(snapshot);
       await tester.pump();
       final resumedReads = reads;
+      expect(resumedReads, initialReads,
+          reason: 'Negotiated resume reuses the canonical cursor');
       await tester.pump(const Duration(seconds: 6));
       expect(reads, resumedReads);
       await disposeStream(tester);
     });
   }
+
+  testWidgets('stream efficiency: old global ready retains full snapshot fallback',
+      (tester) async {
+    final fixture = await _prepareScanBootstrapFixture(tester);
+    final events = StreamController<Object>.broadcast();
+    addTearDown(events.close);
+    final snapshot = _syncLive(fixture.order, 7, 'pending');
+    var reads = 0;
+    var connects = 0;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate, GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate, GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: AdminProductionMapOrdersScreen(
+        readOnly: true,
+        queueSnapshotLoader: () async { reads++; return snapshot; },
+        apparatusLoader: () async => fixture.apparatus,
+        closedOrdersLoader: () async => [],
+        completionRequestsLoader: () async => [],
+        liveEventsLoader: () { connects++; return events.stream; },
+      ),
+    ));
+    await tester.pumpAndSettle();
+    events.add(AdminProductionMapLiveStateReady(
+      epoch: snapshot.epoch, revision: snapshot.revision!, scope: snapshot.scope,
+      resync: false,
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(connects, 2,
+        reason: 'An old global cursor cannot certify omitted request/history sections');
+    events.add(snapshot);
+    await tester.pumpAndSettle();
+    final beforePoll = reads;
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(reads, greaterThan(beforePoll),
+        reason: 'Legacy snapshots retain compatibility polling');
+    await disposeStream(tester);
+  });
 
   testWidgets('stream efficiency: worker resumes negotiated cursor without GET',
       (tester) async {

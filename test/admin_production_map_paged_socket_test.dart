@@ -115,12 +115,14 @@ void main() {
       sockets.add(socket);
       socket.listen((_) {});
       socket.add(jsonEncode({'ok': true, 'type': 'state_ready',
-        'epoch': 'server', 'rev': 8, 'scope': '', 'resync': false, 'recovered': true}));
+        'epoch': 'server', 'rev': 8, 'scope': '', 'resync': false,
+        'recovered': true, 'recovery_supported': true}));
     });
     final message = await MobileApi.instance.adminProductionMapLiveStream(
       stateDelta: true, workerScope: false, epoch: 'server', revision: 8).first
       .timeout(const Duration(seconds: 5));
     expect((message as AdminProductionMapLiveStateReady).recovered, isTrue);
+    expect(message.recoverySupported, isTrue);
   });
 
   test('notification protocol decodes only request list', () async {
@@ -153,7 +155,7 @@ void main() {
     final one = MobileApi.instance.adminProductionMapNotificationEvents().listen((_) {
       if (!first.isCompleted) first.complete();
     });
-    await first.future.timeout(const Duration(seconds: 5));
+    await first.future.timeout(const Duration(seconds: 5), onTimeout: () => throw StateError('first signal timed out'));
     final replay = Completer<void>();
     var secondEvents = 0;
     final changed = Completer<void>();
@@ -162,15 +164,47 @@ void main() {
       if (!replay.isCompleted) replay.complete();
       if (secondEvents == 2) changed.complete();
     });
-    await replay.future.timeout(const Duration(seconds: 5));
+    await replay.future.timeout(const Duration(seconds: 5), onTimeout: () => throw StateError('replay signal timed out'));
     expect(connections, 1);
     await one.cancel();
     sockets.single.add(jsonEncode({'ok': true, 'type': 'notifications_snapshot',
       'epoch': 'server', 'rev': 10, 'completion_requests': []}));
-    await changed.future.timeout(const Duration(seconds: 5));
+    await changed.future.timeout(const Duration(seconds: 5), onTimeout: () => throw StateError('changed signal timed out'));
     expect(connections, 1);
     await two.cancel();
-    await closed.future.timeout(const Duration(seconds: 5));
+    await closed.future.timeout(const Duration(seconds: 5), onTimeout: () => throw StateError('closed signal timed out'));
+  });
+
+
+  for (final started in [false, true]) {
+    test('retained notification stream refuses changed account (started=$started)', () async {
+      var connections = 0;
+      server.listen((request) async {
+        connections++;
+        final socket = await WebSocketTransformer.upgrade(request);
+        sockets.add(socket);
+        socket.listen((_) {});
+        socket.add(jsonEncode({'ok': true, 'type': 'notifications_snapshot',
+          'epoch': 'server', 'rev': 9, 'completion_requests': []}));
+      });
+      final retained = MobileApi.instance.adminProductionMapNotificationEvents();
+      if (started) await retained.first.timeout(const Duration(seconds: 5));
+      AppSession.instance.token = 'different-account';
+      await expectLater(retained, emitsError(isA<MobileApiException>()
+          .having((error) => error.code, 'code', 'session_changed')));
+      expect(connections, started ? 1 : 0);
+    });
+  }
+
+
+  test('notification account change during setup opens no cross-account socket', () async {
+    var connections = 0;
+    server.listen((request) async { connections++; await request.response.close(); });
+    final first = MobileApi.instance.adminProductionMapNotificationEvents().first;
+    AppSession.instance.token = 'account-changed-before-connect';
+    await expectLater(first, throwsA(isA<MobileApiException>()
+        .having((error) => error.code, 'code', 'session_changed')));
+    expect(connections, 0);
   });
 
 }

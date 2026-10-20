@@ -49,6 +49,7 @@ extension _AdminProductionMapOrdersLiveState
       _OrdersReadSection.queue,
     });
     if (_reconnectingOrderReads.isNotEmpty) _scheduleWorkerRecovery();
+    _stopHealthyAdminPolling();
   }
 
   void _markOrdersReadConnectionError(_OrdersReadSection section, Object error) {
@@ -58,6 +59,9 @@ extension _AdminProductionMapOrdersLiveState
                 (error.statusCode ?? 0) >= 500));
     if (retryable) {
       _reconnectingOrderReads.add(section);
+      if (!widget.workerMode && !_adminPaging && _adminForeground) {
+        _startQueueSnapshotPolling();
+      }
     } else {
       _reconnectingOrderReads.remove(section);
     }
@@ -79,6 +83,7 @@ extension _AdminProductionMapOrdersLiveState
       ]);
     } finally {
       _sectionRecoveryInFlight = false;
+      _stopHealthyAdminPolling();
     }
   }
 
@@ -212,8 +217,18 @@ extension _AdminProductionMapOrdersLiveState
     unawaited(_runWorkerLiveStream(_liveStreamGeneration));
   }
 
+  void _stopHealthyAdminPolling() {
+    if (!widget.workerMode && !_adminPaging && _stateDeltaLiveSupported && _workerLiveHealthy &&
+        !_queueSnapshotNeedsReconcile && _workerCatalogReady &&
+        _loadError == null && !_queueSnapshotContractError &&
+        _reconnectingOrderReads.isEmpty) {
+      _queueSnapshotPollTimer?.cancel();
+      _queueSnapshotPollTimer = null;
+    }
+  }
+
   void _startQueueSnapshotPolling() {
-    _queueSnapshotPollTimer?.cancel();
+    if (_queueSnapshotPollTimer != null) return;
     _queueSnapshotPollTimer = Timer.periodic(
       const Duration(seconds: 2),
       (_) {
@@ -221,7 +236,7 @@ extension _AdminProductionMapOrdersLiveState
           return;
         }
         unawaited(_recoverOrdersSectionReads());
-        if (_workerLiveHealthy && !_queueSnapshotNeedsReconcile &&
+        if (_stateDeltaLiveSupported && _workerLiveHealthy && !_queueSnapshotNeedsReconcile &&
             _workerCatalogReady && _loadError == null &&
             !_queueSnapshotContractError) return;
         if (!_workerCatalogReady || _loadError != null) {
@@ -230,9 +245,12 @@ extension _AdminProductionMapOrdersLiveState
           }
           return;
         }
+        if (_queueSnapshotContractError &&
+            !_reconnectingOrderReads.contains(_OrdersReadSection.queue)) return;
         unawaited(_refreshQueueSnapshot());
       },
     );
+    _stopHealthyAdminPolling();
   }
 
   void _stopWorkerLiveStream() {
@@ -299,6 +317,21 @@ extension _AdminProductionMapOrdersLiveState
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
+        if (!widget.workerMode && !_adminPaging &&
+            error is MobileApiException && error.code == 'state_delta_upgrade_required') {
+          _nonWorkerStateDeltaFallback = true;
+          _stateDeltaLiveSupported = false;
+          _liveRecoverySupported = false;
+        }
+        if (!widget.workerMode && error is MobileApiException &&
+            (error.statusCode == 401 || error.statusCode == 403 ||
+                const {'forbidden', 'unauthorized', 'permission_denied'}.contains(error.code))) {
+          _workerLiveHealthy = false;
+          _queueSnapshotPollTimer?.cancel();
+          _queueSnapshotPollTimer = null;
+          _invalidateQueueSnapshotContract(error.message, retryRead: false);
+          return;
+        }
         if (_adminPaging && (error is TimeoutException ||
             (error is MobileApiException && const {'order_page_changed', 'production_map_snapshot_contract_invalid'}.contains(error.code)))) {
           _updateScreenState(() {
@@ -336,6 +369,7 @@ extension _AdminProductionMapOrdersLiveState
       _workerLiveHealthy = false;
       if (!_adminPaging && !widget.workerMode) {
         _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
+        _startQueueSnapshotPolling();
       }
       if (widget.workerMode) {
         _workerLiveHealthy = false;
@@ -365,6 +399,7 @@ extension _AdminProductionMapOrdersLiveState
     unawaited(_liveStreamSubscription?.cancel());
     if (!mounted || generation != _liveStreamGeneration) return;
     final readScope = currentSessionReadScope();
+    final pageWindows = _adminPaging ? _adminLiveDescriptors() : const <Map<String, Object?>>[];
     final completer = Completer<void>();
     _liveStreamFinished = completer;
     final firstSnapshotTimer = Timer(const Duration(seconds: 10), () {
@@ -377,9 +412,10 @@ extension _AdminProductionMapOrdersLiveState
       subscription =
         (widget.liveEventsLoader?.call() ??
             MobileApi.instance.adminProductionMapLiveStream(
-              stateDelta: !_adminPaging,
+              stateDelta: !_adminPaging &&
+                  (widget.workerMode || !_nonWorkerStateDeltaFallback),
               workerScope: widget.workerMode,
-              pageWindows: _adminPaging ? _adminLiveDescriptors() : const [],
+              pageWindows: pageWindows,
               paged: _adminPaging,
               queueLimit: widget.workerMode ? _workerQueueLimit : null,
               queueSearch: widget.workerMode ? _workerServerSearch : '',
@@ -388,8 +424,22 @@ extension _AdminProductionMapOrdersLiveState
               scope: _canonicalQueueSnapshot?.scope ?? '',
             )).listen(
       (message) {
-        if (!mounted || generation != _liveStreamGeneration ||
+        if (!mounted || completer.isCompleted || generation != _liveStreamGeneration ||
             readScope != currentSessionReadScope()) {
+          return;
+        }
+        if (!widget.workerMode && !_adminPaging &&
+            message is AdminProductionMapLiveStateReady &&
+            !message.recoverySupported && !message.recovered) {
+          // Older global HTTP snapshots omit actor-specific history and
+          // requests. Their state-ready cursor cannot certify those sections.
+          // Use their full live snapshots until the server advertises parity.
+          if (!completer.isCompleted) {
+            completer.completeError(const MobileApiException(
+              code: 'state_delta_upgrade_required',
+              message: 'Global state stream requires snapshot parity',
+            ));
+          }
           return;
         }
         if (_adminPaging &&
@@ -406,11 +456,17 @@ extension _AdminProductionMapOrdersLiveState
         // A fresh message means the stream is healthy: reset backoff.
         firstSnapshotTimer.cancel();
         _workerLiveHealthy = true;
+        if (message is AdminProductionMapLiveStateReady ||
+            message is AdminProductionMapLiveStateDelta) {
+          _stateDeltaLiveSupported = true;
+        }
         _stopWorkerHttpFallbackWait();
         _liveReconnectAttempt = 0;
         if (_adminPaging) {
           if (message is AdminProductionMapPageWindowMessage) {
-            _queueAdminWindowLive(message, generation);
+            _queueAdminWindowLive(message, generation,
+                subscribedLength: pageWindows.where((window) => window['id'] == message.window)
+                    .firstOrNull?['length'] as int?);
           } else {
             _applyAdminPageLive(message);
           }
@@ -942,6 +998,9 @@ extension _AdminProductionMapOrdersLiveState
     if (!mounted) {
       return;
     }
+    if (reconnecting && !widget.workerMode && !_adminPaging && _adminForeground) {
+      _startQueueSnapshotPolling();
+    }
     if (_queueSnapshotContractError && !_loading &&
         _queueSnapshotErrorMessage == message &&
         _reconnectingOrderReads.contains(_OrdersReadSection.queue) == reconnecting) {
@@ -960,6 +1019,9 @@ extension _AdminProductionMapOrdersLiveState
       _loading = false;
     });
     if (retryRead) _scheduleWorkerRecovery();
+    if (reconnecting && !widget.workerMode && !_adminPaging && _adminForeground) {
+      _startQueueSnapshotPolling();
+    }
   }
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {

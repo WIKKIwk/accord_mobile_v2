@@ -553,6 +553,10 @@ extension _AdminProductionMapOrdersMoveState
     required AdminApparatus from,
     required AdminApparatus to,
   }) async {
+    if (_adminPaging &&
+        (_queueSnapshotNeedsReconcile || _queueSnapshotContractError)) {
+      return;
+    }
     if (_isMoveUnassignedApparatus(from) && !_isMoveUnassignedApparatus(to)) {
       await _assignAlternativeOrdersToApparatus(orders: orders, apparatus: to);
       return;
