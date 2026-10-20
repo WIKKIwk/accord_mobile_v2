@@ -1,9 +1,13 @@
 part of 'admin_production_map_orders_screen.dart';
 
 class _OrderCalculationDetails extends StatefulWidget {
-  const _OrderCalculationDetails({required this.map});
+  const _OrderCalculationDetails({
+    required this.map,
+    required this.summaryRows,
+  });
 
   final ProductionMapDefinition map;
+  final List<Widget> summaryRows;
 
   @override
   State<_OrderCalculationDetails> createState() =>
@@ -50,16 +54,34 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
     final theme = Theme.of(context);
     String text(String key, [Map<String, Object> values = const {}]) =>
         l10n.productionText('worker.summary.$key', values: values);
+    final summaryRows = <Widget>[
+      Text(
+        text('expected.subtitle'),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      const SizedBox(height: 6),
+      ...widget.summaryRows,
+    ];
     if (_loading) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text(text('calculation_loading')),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...summaryRows,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(text('calculation_loading')),
+          ),
+        ],
       );
     }
     if (_failed) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ...summaryRows,
           const Divider(height: 24),
           Text(text('calculation_unavailable')),
           TextButton.icon(
@@ -78,27 +100,6 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
       key: const ValueKey('production-order-calculation-details'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (width.isFinite && width > 0)
-          AppInfoRow(
-            label: text('material_width'),
-            value: '${formatRawQuantity(width)} mm',
-            icon: Icons.width_normal_outlined,
-          ),
-        AppInfoRow(
-          label: text('waste_percent'),
-          value: '${formatRawQuantity(calculation.wastePercent)} %',
-          icon: Icons.percent_rounded,
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            text('planned_explanation'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        const Divider(height: 24),
         Text(text('materials'), style: theme.textTheme.titleSmall),
         const SizedBox(height: 6),
         if (layers.isEmpty)
@@ -115,6 +116,28 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
               ].join(' · '),
               icon: Icons.layers_outlined,
             ),
+        if (width.isFinite && width > 0)
+          AppInfoRow(
+            label: text('material_width'),
+            value: '${formatRawQuantity(width)} mm',
+            icon: Icons.width_normal_outlined,
+          ),
+        const Divider(height: 24),
+        ...summaryRows,
+        AppInfoRow(
+          label: text('waste_percent'),
+          value: '${formatRawQuantity(calculation.wastePercent)} %',
+          icon: Icons.percent_rounded,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            text('planned_explanation'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
         if (products.isNotEmpty) ...[
           const Divider(height: 24),
           Text(text('product_frames'), style: theme.textTheme.titleSmall),

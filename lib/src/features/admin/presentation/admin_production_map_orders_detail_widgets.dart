@@ -939,16 +939,18 @@ class _OrderSummaryCard extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          context.l10n.productionText(
-                            'worker.summary.expected.subtitle',
+                        if (!showCalculationDetails) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            context.l10n.productionText(
+                              'worker.summary.expected.subtitle',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -975,9 +977,10 @@ class _OrderSummaryCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ...rows,
                         if (showCalculationDetails)
-                          _OrderCalculationDetails(map: map),
+                          _OrderCalculationDetails(map: map, summaryRows: rows)
+                        else
+                          ...rows,
                       ],
                     ),
                   )

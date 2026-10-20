@@ -77,7 +77,7 @@ Future<void> _openExpectedOrderSummary(WidgetTester tester) async {
 
 void _registerOrderSummaryTests() {
   testWidgets(
-      'admin expected summary shows material layers without shaft and frame metrics',
+      'admin expected summary shows materials and width before estimated metrics',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance
@@ -107,6 +107,24 @@ void _registerOrderSummaryTests() {
       expect(find.descendant(of: details, matching: find.text(value)),
           findsNothing);
     }
+    final materialsTitle = find.text('Kerakli xomashyolar');
+    final lastLayer = find.text('CPP · 25 mikron');
+    final materialWidth = find.text('Xomashyo eni');
+    final separator =
+        find.descendant(of: details, matching: find.byType(Divider)).first;
+    final estimatedSubtitle =
+        find.text('Buyurtma bo‘yicha taxminiy ma’lumotlar');
+    final length = find.text('18000 metr');
+    expect(tester.getBottomLeft(materialsTitle).dy,
+        lessThan(tester.getTopLeft(find.text('PET · 12 mikron')).dy));
+    expect(tester.getBottomLeft(lastLayer).dy,
+        lessThan(tester.getTopLeft(materialWidth).dy));
+    expect(tester.getBottomLeft(materialWidth).dy,
+        lessThan(tester.getTopLeft(separator).dy));
+    expect(tester.getBottomLeft(separator).dy,
+        lessThanOrEqualTo(tester.getTopLeft(estimatedSubtitle).dy));
+    expect(tester.getBottomLeft(estimatedSubtitle).dy,
+        lessThan(tester.getTopLeft(length).dy));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
