@@ -8,6 +8,9 @@ class _AdminOrderWindow {
   List<AdminProductionOrderPage> pages = [];
   Future<void>? inFlight;
   String? error;
+  int invalidation = 0;
+  int validated = 0;
+  bool get dirty => validated < invalidation;
   bool get loaded => pages.isNotEmpty;
   String? get cursor => pages.lastOrNull?.nextCursor;
   int get total => pages.firstOrNull?.total ?? 0;
@@ -109,7 +112,10 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       // A selected tab takes priority over the next background page.
       await _ensureAdminModule(_module);
       if (!mounted || !_adminForeground) return;
-      await _ensureAdminModule(module);
+      for (final window in _adminModuleWindows(module)) {
+        if (!mounted || !_adminForeground) return;
+        if (!window.loaded) await _loadAdminWindow(window);
+      }
     }
   }
 
@@ -120,7 +126,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         .removeWhere((_, window) => window.account != _adminPageAccount);
     for (final window in _adminModuleWindows(module)) {
       if (!mounted) return;
-      if (!window.loaded || refresh) await _loadAdminWindow(window);
+      if (!window.loaded || refresh || window.dirty) await _loadAdminWindow(window);
     }
   }
 
@@ -140,7 +146,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       {bool append = false, bool force = false}) {
     if (!mounted || window.account != _adminPageAccount) return Future.value();
     if (window.inFlight != null) {
-      // A mutation's reconciliation must read after an older polling request.
+      // A mutation's reconciliation must read after an older request.
       // Otherwise a 304 from before the write could leave queued moves waiting.
       return force
           ? window.inFlight!.then((_) => _loadAdminWindow(window, force: true))
@@ -166,6 +172,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     final wanted = window.length + (append ? 20 : 0);
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
+        final invalidation = window.invalidation;
         var cursor = appendRead ? window.cursor : null;
         final staged =
             appendRead ? [...window.pages] : <AdminProductionOrderPage>[];
@@ -180,17 +187,27 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
                     cursor == null &&
                     attempt == 0 &&
                     !force &&
+                    !window.dirty &&
                     window.loaded
                 ? window.pages.first.version
                 : null,
           ));
           if (!mounted || window.account != _adminPageAccount) return;
           if (page == null) {
+            if (window.invalidation != invalidation) {
+              throw const MobileApiException(
+                  code: 'order_page_changed', message: 'Navbat yangilandi');
+            }
             window.error = null;
             return;
           }
           final snapshot = page.snapshot;
           if (_retiredSnapshotEpochs.contains(page.epoch) ||
+              (_adminLiveEpoch == page.epoch &&
+                  (page.revision ?? -1) < _adminLiveRevision) ||
+              (_adminLiveEpoch.isNotEmpty &&
+                  _adminLiveEpoch != _lastAppliedSnapshotEpoch &&
+                  page.epoch == _lastAppliedSnapshotEpoch) ||
               (snapshot != null && _snapshotBehindSequenceMoves(snapshot))) {
             throw const MobileApiException(
                 code: 'order_page_changed', message: 'Navbat yangilandi');
@@ -236,8 +253,13 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
             _sequenceVersions.clear();
             _adminSequenceAcks.clear();
             _lastAppliedSnapshotEpoch = epoch;
+            if (_retiredSnapshotEpochs.contains(_adminLiveEpoch)) {
+              _adminLiveEpoch = epoch;
+              _adminLiveRevision = staged.first.revision ?? -1;
+            }
           }
           window.pages = staged;
+          window.validated = window.invalidation;
           window.error = null;
           if (window.request.view == 'sequence') {
             _sequenceNeedsSnapshot.remove(window.request.apparatus);
@@ -487,7 +509,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         epoch: snapshots.last.epoch,
       );
     }
-    _queueSnapshotNeedsReconcile = false;
+    _queueSnapshotNeedsReconcile = _sequenceNeedsSnapshot.isNotEmpty ||
+        _adminModuleWindows(_module).any((window) => !window.loaded || window.dirty);
     _resumeSequenceMoves();
   }
 

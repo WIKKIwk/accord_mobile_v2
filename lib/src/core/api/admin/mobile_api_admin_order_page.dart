@@ -1,5 +1,25 @@
 part of '../mobile_api.dart';
 
+/// The existing delta socket's paged bootstrap/invalidation has no order bodies.
+class AdminProductionMapPageChange implements AdminProductionMapLiveMessage {
+  const AdminProductionMapPageChange({
+    required this.epoch, required this.revision, this.ready = false,
+  });
+  final String epoch;
+  final int revision;
+  final bool ready;
+
+  factory AdminProductionMapPageChange.fromJson(Map<String, dynamic> json) {
+    final epoch = json['epoch'];
+    final revision = json['rev'];
+    if (epoch is! String || epoch.isEmpty || revision is! int || revision < 0) {
+      throw _productionMapQueueContractException('invalid page live cursor');
+    }
+    return AdminProductionMapPageChange(
+        epoch: epoch, revision: revision, ready: json['type'] == 'page_ready');
+  }
+}
+
 /// An admin page is a read projection, never a replacement for a whole queue.
 class AdminProductionOrderPage {
   const AdminProductionOrderPage({

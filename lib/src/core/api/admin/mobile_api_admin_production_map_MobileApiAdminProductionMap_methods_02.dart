@@ -268,6 +268,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
   }
 
   Uri adminProductionMapLiveUri({bool delta = false, bool stateDelta = false,
+    bool paged = false,
     String epoch = '', int? revision, String scope = '',
     int? queueLimit, String queueSearch = ''}) {
     final Uri base = Uri.parse(MobileApi.baseUrl);
@@ -283,6 +284,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
       if (revision != null) query['rev'] = revision.toString();
     } else if (delta) {
       query['protocol'] = 'delta';
+      if (paged) query['paged'] = 'true';
     }
     return base.replace(
       scheme: scheme,
@@ -317,6 +319,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
   Stream<AdminProductionMapLiveMessage> adminProductionMapLiveStream({
     bool enableDelta = true,
     bool stateDelta = false,
+    bool paged = false,
     String epoch = '',
     int? revision,
     String scope = '',
@@ -328,16 +331,26 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     }
     await for (final event in connectWarehouseLive(
       adminProductionMapLiveUri(delta: enableDelta, stateDelta: stateDelta,
+        paged: paged,
         epoch: epoch, revision: revision, scope: scope,
         queueLimit: queueLimit, queueSearch: queueSearch),
     )) {
       if (event['ok'] == true) {
         final type = event['type']?.toString();
-        if (type == 'state_ready' || type == 'state_resync') {
+        if (paged && !const {'page_ready', 'page_invalidated', 'delta'}.contains(type)) {
+          throw const MobileApiException(code: 'paged_live_required',
+              message: 'Buyurtmalar uchun server yangilanishi kerak.');
+        }
+        if (type == 'page_ready' || type == 'page_invalidated') {
+          yield AdminProductionMapPageChange.fromJson(event);
+        } else if (type == 'state_ready' || type == 'state_resync') {
           yield AdminProductionMapLiveStateReady.fromJson(event);
         } else if (type == 'state_delta') {
           yield AdminProductionMapLiveStateDelta.fromJson(event);
         } else if (type == 'delta') {
+          if (paged && (event['snapshot_rev'] is! int || (event['snapshot_rev'] as int) < 0)) {
+            throw _productionMapQueueContractException('invalid paged delta cursor');
+          }
           yield AdminProductionMapLiveDelta.fromJson(event);
         } else {
           final maps = event['maps'];

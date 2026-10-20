@@ -110,6 +110,7 @@ part 'admin_production_map_orders_scan_bootstrap.dart';
 part 'admin_production_map_orders_detail_sync.dart';
 part 'admin_production_map_orders_live_state.dart';
 part 'admin_production_map_orders_admin_paging.dart';
+part 'admin_production_map_orders_admin_live.dart';
 part 'admin_production_map_orders_move_state.dart';
 part 'admin_production_map_orders_detail_material_widgets.dart';
 part 'admin_production_map_orders_detail_map_widgets.dart';

@@ -169,6 +169,7 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
     if (!_adminPaging) _startQueueSnapshotPolling();
+    if (_adminPaging && !_adminForeground) return;
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
@@ -251,6 +252,7 @@ extension _AdminProductionMapOrdersLiveState
 
   Future<void> _runWorkerLiveStream(int generation) async {
     while (mounted && generation == _liveStreamGeneration &&
+        (!_adminPaging || _adminForeground) &&
         (!widget.workerMode || _workerRetryAllowed)) {
       Object? streamError;
       try {
@@ -263,14 +265,18 @@ extension _AdminProductionMapOrdersLiveState
         final wasLoading = _loading;
         // Keep the last good state on screen. Fall back to the canonical
         // REST snapshot (revision-guarded) instead of clearing the list.
-        if (!widget.workerMode && wasLoading) {
+        if (!_adminPaging && !widget.workerMode && wasLoading) {
           await _refreshLive(initial: true);
-        } else if (!widget.workerMode) {
+        } else if (!_adminPaging && !widget.workerMode) {
           await _refreshQueueSnapshot();
         }
       }
       if (!mounted || generation != _liveStreamGeneration) {
         return;
+      }
+      if (_adminPaging) {
+        _workerLiveHealthy = false;
+        _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
       }
       if (widget.workerMode) {
         _workerLiveHealthy = false;
@@ -310,6 +316,7 @@ extension _AdminProductionMapOrdersLiveState
         (widget.liveEventsLoader?.call() ??
             MobileApi.instance.adminProductionMapLiveStream(
               stateDelta: widget.workerMode,
+              paged: _adminPaging,
               queueLimit: widget.workerMode ? _workerQueueLimit : null,
               queueSearch: widget.workerMode ? _workerServerSearch : '',
               epoch: _lastAppliedSnapshotEpoch,
@@ -320,12 +327,24 @@ extension _AdminProductionMapOrdersLiveState
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
+        if (_adminPaging &&
+            message is! AdminProductionMapPageChange &&
+            !(message is AdminProductionMapLiveDelta &&
+                message.epoch.isNotEmpty && (message.snapshotRevision ?? -1) >= 0)) {
+          if (!completer.isCompleted) {
+            completer.completeError(const MobileApiException(
+                code: 'paged_live_required', message: 'Invalid paged live event'));
+          }
+          return;
+        }
         // A fresh message means the stream is healthy: reset backoff.
         firstSnapshotTimer.cancel();
         _workerLiveHealthy = true;
         _stopWorkerHttpFallbackWait();
         _liveReconnectAttempt = 0;
-        if (message is AdminProductionMapLiveSnapshot) {
+        if (_adminPaging) {
+          _applyAdminPageLive(message);
+        } else if (message is AdminProductionMapLiveSnapshot) {
           _applyCanonicalLiveSnapshot(message);
         } else if (message is AdminProductionMapLiveDelta) {
           _applyCanonicalLiveDelta(message);

@@ -7,13 +7,20 @@ class _AdminPagingHarness {
   final List<AdminApparatus> apparatus;
   final calls = <AdminProductionOrderPageRequest>[];
   int revision = 1;
+  String epoch = 'page-server';
   bool conflictOnAppend = false;
   bool reverseOnRevision = true;
   Completer<AdminProductionOrderPage?>? delayed;
+  Completer<AdminProductionOrderPage?>? nextRead;
 
   Future<AdminProductionOrderPage?> read(
       AdminProductionOrderPageRequest request) async {
     calls.add(request);
+    if (nextRead != null) {
+      final read = nextRead!;
+      nextRead = null;
+      return read.future;
+    }
     if (request.search == 'delayed' && delayed != null) return delayed!.future;
     if (request.cursor != null && conflictOnAppend) {
       conflictOnAppend = false;
@@ -22,7 +29,7 @@ class _AdminPagingHarness {
           code: 'order_page_changed', message: 'Navbat yangilandi');
     }
     final version =
-        '$revision-${request.view}-${request.apparatus}-${request.search}';
+        '$epoch-$revision-${request.view}-${request.apparatus}-${request.search}';
     if (request.ifVersion == version) return null;
     final source =
         revision == 1 || !reverseOnRevision ? orders : orders.reversed.toList();
@@ -40,7 +47,7 @@ class _AdminPagingHarness {
       version: version,
       total: matching.length,
       offset: offset,
-      epoch: 'page-server',
+      epoch: epoch,
       revision: revision,
       nextCursor: offset + slice.length < matching.length
           ? '${offset + slice.length}'
@@ -57,7 +64,7 @@ class _AdminPagingHarness {
       snapshot: request.view == 'closed' || request.view == 'audit'
           ? null
           : AdminApparatusQueueSnapshot(
-              epoch: 'page-server',
+              epoch: epoch,
               revision: revision,
               maps: slice,
               sequences: {_print8Id: ids},
@@ -263,7 +270,10 @@ void _registerAdminPagingTests() {
   testWidgets('admin paging uses the original delta socket without polling',
       (tester) async {
     final harness = await prepare();
+    harness.reverseOnRevision = false;
     final events = StreamController<AdminProductionMapLiveMessage>();
+    events.add(AdminProductionMapPageChange(
+        epoch: harness.epoch, revision: harness.revision, ready: true));
     addTearDown(events.close);
     var connections = 0;
     await TestModeController.instance.setEnabled(false);
@@ -273,12 +283,19 @@ void _registerAdminPagingTests() {
     });
     expect(connections, 1);
     expect(harness.calls, hasLength(6));
+    events.add(const AdminProductionMapPageChange(
+        epoch: 'page-server', revision: 1, ready: true));
+    await tester.pumpAndSettle();
+    expect(harness.calls, hasLength(6));
     final ids = harness.orders.map((order) => order.map.id).toList();
+    harness.orders.insert(1, harness.orders.removeAt(0));
+    harness.revision = 2;
     final delta = AdminProductionMapLiveDelta(
       epoch: 'page-server',
       apparatus: _print8Id,
       baseRevision: 1,
       revision: 2,
+      snapshotRevision: 2,
       baseVersion: '0' * 64,
       version: '1' * 64,
       ops: [
@@ -297,11 +314,200 @@ void _registerAdminPagingTests() {
     await tester.pump(const Duration(seconds: 12));
     await tester.pumpAndSettle();
     expect(connections, 1);
-    expect(harness.calls, hasLength(6),
+    expect(harness.calls, hasLength(7),
         reason: 'Socket events must not start periodic HTTP reads');
     expect(find.text('20 / 65 · Yana 20 ta').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('admin paging delta brings an unseen order into only the loaded prefix',
+      (tester) async {
+    final harness = await prepare();
+    harness.reverseOnRevision = false;
+    final events = StreamController<AdminProductionMapLiveMessage>();
+    events.add(AdminProductionMapPageChange(
+        epoch: harness.epoch, revision: harness.revision, ready: true));
+    addTearDown(events.close);
+    await TestModeController.instance.setEnabled(false);
+    await harness.mount(tester, liveEventsLoader: () => events.stream);
+    final first = harness.orders.first.map.id;
+    final last = harness.orders.removeLast();
+    harness.orders.insert(0, last);
+    harness.revision = 2;
+    events.add(AdminProductionMapLiveDelta(
+      epoch: harness.epoch, apparatus: _print8Id,
+      baseRevision: 1, revision: 2, snapshotRevision: 2,
+      baseVersion: '0' * 64, version: '1' * 64,
+      ops: [AdminProductionMapDeltaOp(type: 'move', id: last.map.id, beforeId: first)],
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
+    expect(find.text('20 / 65 · Yana 20 ta').hitTestable(), findsOneWidget);
+    expect(harness.calls.skip(6).map((r) => r.view), ['sequence']);
+    expect(harness.calls.every((r) => r.cursor == null), isTrue);
+    await tester.tap(find.text('Buyurtmalar').hitTestable());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ketma-ketlik').hitTestable());
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('admin paging applies an in-window delta before its HTTP reconciliation',
+      (tester) async {
+    final harness = await prepare();
+    harness.reverseOnRevision = false;
+    final events = StreamController<AdminProductionMapLiveMessage>();
+    events.add(AdminProductionMapPageChange(
+        epoch: harness.epoch, revision: harness.revision, ready: true));
+    addTearDown(events.close);
+    await TestModeController.instance.setEnabled(false);
+    await harness.mount(tester, liveEventsLoader: () => events.stream);
+    final ids = harness.orders.map((o) => o.map.id).toList();
+    harness.orders.insert(1, harness.orders.removeAt(0));
+    harness.revision = 2;
+    final fresh = await harness.read(const AdminProductionOrderPageRequest(
+        view: 'sequence', apparatus: _print8Id));
+    final blocked = Completer<AdminProductionOrderPage?>();
+    harness.nextRead = blocked;
+    events.add(AdminProductionMapLiveDelta(
+        epoch: harness.epoch, apparatus: _print8Id,
+        baseRevision: 1, revision: 2, snapshotRevision: 2,
+        baseVersion: '0' * 64, version: '1' * 64,
+        ops: [AdminProductionMapDeltaOp(
+            type: 'move', id: ids[0], afterId: ids[1], beforeId: ids[2])]));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(blocked.isCompleted, isFalse);
+    expect(tester.getTopLeft(find.textContaining('Page product 0001').first).dy,
+        lessThan(tester.getTopLeft(find.textContaining('Page product 0000').first).dy));
+    blocked.complete(fresh);
+    await tester.pumpAndSettle();
+    expect(find.text('20 / 65 · Yana 20 ta').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('admin paging delta gap repairs only twenty rows and ignores stale deltas',
+      (tester) async {
+    final harness = await prepare();
+    final events = StreamController<AdminProductionMapLiveMessage>();
+    events.add(AdminProductionMapPageChange(
+        epoch: harness.epoch, revision: harness.revision, ready: true));
+    addTearDown(events.close);
+    await TestModeController.instance.setEnabled(false);
+    await harness.mount(tester, liveEventsLoader: () => events.stream);
+    harness.revision = 5;
+    events.add(AdminProductionMapLiveDelta(
+        epoch: harness.epoch, apparatus: _print8Id,
+        baseRevision: 4, revision: 5, snapshotRevision: 5,
+        baseVersion: '3' * 64, version: '4' * 64,
+        ops: [AdminProductionMapDeltaOp(type: 'move',
+            id: harness.orders.last.map.id, beforeId: harness.orders.first.map.id)]));
+    await tester.pumpAndSettle();
+    expect(harness.calls, hasLength(7));
+    expect(harness.calls.every((r) => r.cursor == null), isTrue);
+    expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
+    events.add(AdminProductionMapLiveDelta(
+        epoch: harness.epoch, apparatus: _print8Id,
+        baseRevision: 1, revision: 2, snapshotRevision: 2,
+        baseVersion: '0' * 64, version: '1' * 64, ops: const []));
+    await tester.pumpAndSettle();
+    expect(harness.calls, hasLength(7));
+    expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('admin paging live invalidation refreshes forty requested rows and no hidden tabs',
+      (tester) async {
+    final harness = await prepare();
+    final events = StreamController<AdminProductionMapLiveMessage>();
+    events.add(AdminProductionMapPageChange(
+        epoch: harness.epoch, revision: harness.revision, ready: true));
+    addTearDown(events.close);
+    await TestModeController.instance.setEnabled(false);
+    await harness.mount(tester, liveEventsLoader: () => events.stream);
+    await tester.tap(find.text('20 / 65 · Yana 20 ta').hitTestable());
+    await tester.pumpAndSettle();
+    final before = harness.calls.length;
+    harness.revision = 2;
+    events.add(AdminProductionMapPageChange(epoch: harness.epoch, revision: 2));
+    await tester.pumpAndSettle();
+    expect(harness.calls.skip(before).map((r) => r.cursor), [null, '20']);
+    expect(harness.calls.skip(before).every((r) => r.view == 'sequence'), isTrue);
+    expect(find.text('40 / 65 · Yana 20 ta').hitTestable(), findsOneWidget);
+    expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
+    final settled = harness.calls.length;
+    await tester.pump(const Duration(seconds: 30));
+    expect(harness.calls.length, settled);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('admin paging rejects a pre-delta 304 and an old server response',
+      (tester) async {
+    final harness = await prepare();
+    final events = StreamController<AdminProductionMapLiveMessage>();
+    events.add(AdminProductionMapPageChange(
+        epoch: harness.epoch, revision: harness.revision, ready: true));
+    addTearDown(events.close);
+    await TestModeController.instance.setEnabled(false);
+    await harness.mount(tester, liveEventsLoader: () => events.stream);
+    for (final restart in [false, true]) {
+      await tester.tap(find.text('Buyurtmalar').hitTestable());
+      await tester.pumpAndSettle();
+      final oldPage = await harness.read(const AdminProductionOrderPageRequest(
+          view: 'sequence', apparatus: _print8Id));
+      final blocked = Completer<AdminProductionOrderPage?>();
+      harness.nextRead = blocked;
+      await tester.tap(find.text('Ketma-ketlik').hitTestable());
+      await tester.pump(const Duration(milliseconds: 300));
+      harness.revision++;
+      if (restart) harness.epoch = 'restarted-server';
+      events.add(AdminProductionMapPageChange(
+          epoch: harness.epoch, revision: harness.revision, ready: restart));
+      await tester.pump();
+      blocked.complete(restart ? oldPage : null);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
+      expect(find.text('20 / 65 · Yana 20 ta').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('admin paging socket reconnect reconciles missed changes without HTTP polling',
+      (tester) async {
+    final harness = await prepare();
+    final connections = <StreamController<AdminProductionMapLiveMessage>>[];
+    await TestModeController.instance.setEnabled(false);
+    await harness.mount(tester, liveEventsLoader: () {
+      final events = StreamController<AdminProductionMapLiveMessage>();
+      connections.add(events);
+      scheduleMicrotask(() => events.add(AdminProductionMapPageChange(
+          epoch: harness.epoch, revision: harness.revision, ready: true)));
+      return events.stream;
+    });
+    expect(connections, hasLength(1));
+    final before = harness.calls.length;
+    harness.revision = 2;
+    unawaited(connections.first.close());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(connections, hasLength(2));
+    expect(harness.calls.length, before + 1);
+    expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
+    final settled = harness.calls.length;
+    await tester.pump(const Duration(seconds: 30));
+    expect(harness.calls.length, settled);
+    await tester.pumpWidget(const SizedBox());
+    for (final connection in connections.skip(1)) {
+      unawaited(connection.close());
+    }
   });
 
   testWidgets('admin paging reorder at row twenty keeps unseen orders in place',

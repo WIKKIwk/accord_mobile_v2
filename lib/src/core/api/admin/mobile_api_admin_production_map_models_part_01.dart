@@ -262,6 +262,7 @@ class AdminProductionMapLiveDelta implements AdminProductionMapLiveMessage {
     required this.ops,
     this.version = '',
     this.baseVersion = '',
+    this.snapshotRevision,
   });
 
   final String epoch;
@@ -271,6 +272,7 @@ class AdminProductionMapLiveDelta implements AdminProductionMapLiveMessage {
   final List<AdminProductionMapDeltaOp> ops;
   final String version;
   final String baseVersion;
+  final int? snapshotRevision;
 
   factory AdminProductionMapLiveDelta.fromJson(Map<String, dynamic> json) {
     final opsRaw = json['ops'];
@@ -300,6 +302,7 @@ class AdminProductionMapLiveDelta implements AdminProductionMapLiveMessage {
       ops: ops,
       version: json['version']?.toString() ?? '',
       baseVersion: json['base_version']?.toString() ?? '',
+      snapshotRevision: (json['snapshot_rev'] as num?)?.toInt(),
     );
   }
 }

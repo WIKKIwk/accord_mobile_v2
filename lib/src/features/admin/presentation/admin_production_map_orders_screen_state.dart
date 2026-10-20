@@ -9,6 +9,9 @@ class _AdminProductionMapOrdersScreenState
   bool _loading = true;
   bool _adminPaging = false;
   bool _adminForeground = true;
+  String _adminLiveEpoch = '';
+  int _adminLiveRevision = -1;
+  int _adminPageInvalidation = 0;
   final Map<String, _AdminOrderWindow> _adminWindows = {};
   final Map<String, int> _adminMetricSignatures = {};
   final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
@@ -266,8 +269,11 @@ class _AdminProductionMapOrdersScreenState
     if (_adminPaging) {
       _adminForeground = state == AppLifecycleState.resumed;
       if (_adminForeground) {
+        unawaited(_restartAdminPagedLive());
         unawaited(_ensureAdminModule(_module, refresh: true));
         unawaited(_prefetchAdminFirstPages());
+      } else {
+        _stopWorkerLiveStream();
       }
     }
     if (widget.workerMode && state == AppLifecycleState.resumed) {
