@@ -59,7 +59,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
     final saved = await showQolipMoldAddDialog(
       context,
       scope:
-          '${entry.set.code}\n${context.l10n.qolipManagementText('set_scope')}',
+          '${entry.set.id}\n${context.l10n.qolipManagementText('set_scope')}',
       initialSize: entry.set.members.firstOrNull?.qolipSize ?? 0,
       availablePantonNumber: available,
       onSave: (draft) async {
@@ -200,9 +200,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                         ListTile(
                           leading: const Icon(Icons.layers_outlined),
                           title: Text(
-                              entry.set.code.isEmpty
-                                  ? entry.set.id
-                                  : entry.set.code,
+                              entry.set.id,
                               style:
                                   const TextStyle(fontWeight: FontWeight.w700)),
                           subtitle: Text(l10n.qolipText('products.mold_count',
