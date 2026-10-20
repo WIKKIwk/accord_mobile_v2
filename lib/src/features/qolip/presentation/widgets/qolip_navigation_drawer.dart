@@ -80,6 +80,12 @@ class QolipNavigationDrawer extends StatelessWidget {
             label: l10n.qolipText('product_transfer.title'),
             routeName: AppRoutes.qolipProductTransfer,
           ),
+        RoleNavigationDrawerDestination(
+          icon: Icons.layers_outlined,
+          selectedIcon: Icons.layers_rounded,
+          label: l10n.qolipManagementText('title'),
+          routeName: AppRoutes.qolipSets,
+        ),
       ],
     );
   }

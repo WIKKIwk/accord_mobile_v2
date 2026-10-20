@@ -28,6 +28,7 @@ import '../qolip_search_matcher.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_cell_qr_scan_screen.dart';
 import 'qolip_color_picker.dart';
+import 'qolip_management_dialogs.dart';
 import 'widgets/qolip_cell_picker_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';

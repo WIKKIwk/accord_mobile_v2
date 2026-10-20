@@ -372,7 +372,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                                     product: child,
                                     selectionMode: qolipSelectionMode,
                                     selected: selectedQolipCodes.contains(
-                                      child.qolipCode.trim(),
+                                      _productMoldKey(child),
                                     ),
                                     onTap: () => qolipSelectionMode
                                         ? onToggleQolip(child)

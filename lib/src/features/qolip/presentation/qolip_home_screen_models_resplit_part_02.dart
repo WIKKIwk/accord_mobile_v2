@@ -22,6 +22,25 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   bool _saving = false;
   bool _printingQr = false;
 
+  Future<void> _pickExistingSet() async {
+    final product = _product;
+    if (product == null || _saving) return;
+    final selected = await showQolipSetPicker(context);
+    if (selected == null || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      final saved = await reuseSelectedQolipSet(context, selected.set, product);
+      if (mounted && saved != null) {
+        _finishSpecSave(product, saved,
+            selected.set.code.isEmpty ? selected.set.id : selected.set.code);
+      }
+    } catch (error) {
+      if (mounted) await _showSpecSaveError(qolipErrorMessage(error, l10n: context.l10n));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -202,6 +221,12 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   ),
                   textInputAction: TextInputAction.next,
                   onChanged: (_) => setState(() {}),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _saving || productSpecSaved || _product == null
+                      ? null : _pickExistingSet,
+                  icon: const Icon(Icons.layers_outlined),
+                  label: Text(l10n.qolipManagementText('choose')),
                 ),
                 if (batchDraft != null) ...[
                   const SizedBox(height: 10),

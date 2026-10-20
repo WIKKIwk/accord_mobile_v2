@@ -61,10 +61,6 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     await _reload(preserveExpandedContainerKey: _expandedContainerKey);
   }
 
-  Future<void> _addQolip(QolipProduct product) {
-    return _openQolipSpecSheet(initialProduct: product);
-  }
-
   void _openFabAction() {
     final l10n = context.l10n;
     final selected = _selectionMode == _QolipSelectionMode.containers &&
@@ -83,6 +79,11 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
               lockProduct: true,
             )),
           ),
+        AdminFabMenuAction(
+          title: l10n.qolipManagementText('title'),
+          icon: Icons.layers_outlined,
+          onTap: () => _openDrawerRoute(AppRoutes.qolipSets),
+        ),
         AdminFabMenuAction(
           title: l10n.qolipText('products.add'),
           icon: Icons.inventory_2_rounded,
@@ -156,12 +157,12 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
       _selectionMode = _QolipSelectionMode.containers;
       if (_selectedContainerKeys.add(container.key)) {
         _selectedQolipCodes.addAll(
-          container.children.map((child) => child.qolipCode.trim()),
+          container.children.map(_productMoldKey),
         );
       } else {
         _selectedContainerKeys.remove(container.key);
         _selectedQolipCodes.removeAll(
-          container.children.map((child) => child.qolipCode.trim()),
+          container.children.map(_productMoldKey),
         );
       }
       if (_selectedContainerKeys.isEmpty) {
@@ -176,8 +177,8 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
             _selectionMode != _QolipSelectionMode.qolips)) {
       return;
     }
-    final code = product.qolipCode.trim();
-    if (code.isEmpty) {
+    final code = _productMoldKey(product);
+    if (product.qolipCode.trim().isEmpty) {
       return;
     }
     setState(() {
@@ -196,26 +197,15 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
         _selectedProducts().any((product) => product.isInUse)) {
       return;
     }
-    final codes = _selectedQolipCodes.toList(growable: false);
-    final productCount = _selectedContainerKeys.length;
+    final selectedProducts = _selectedProducts();
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.qolipText('products.delete_title')),
         content: Text(
-          _selectionMode == _QolipSelectionMode.containers
-              ? l10n.qolipText(
-                  'products.delete_container_message',
-                  values: {
-                    'products': productCount,
-                    'molds': codes.length,
-                  },
-                )
-              : l10n.qolipText(
-                  'products.delete_selected_message',
-                  values: {'molds': codes.length},
-                ),
+          l10n.qolipManagementText('local_delete',
+              values: {'count': selectedProducts.length}),
         ),
         actions: [
           AppDialogActionRow(
@@ -234,7 +224,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     }
     setState(() => _deleting = true);
     try {
-      final deleted = await MobileApi.instance.qolipDeleteProductSpecs(codes);
+      final deleted = await MobileApi.instance.qolipRemoveProductMolds(selectedProducts);
       if (!mounted) {
         return;
       }
@@ -274,13 +264,9 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   }
 
   List<QolipProduct> _selectedProducts() {
-    final selectedCodes = _selectedQolipCodes
-        .map((code) => code.trim().toLowerCase())
-        .where((code) => code.isNotEmpty)
-        .toSet();
     return [
       for (final product in _cachedProducts ?? const <QolipProduct>[])
-        if (selectedCodes.contains(product.qolipCode.trim().toLowerCase()))
+        if (_selectedQolipCodes.contains(_productMoldKey(product)))
           product,
     ];
   }

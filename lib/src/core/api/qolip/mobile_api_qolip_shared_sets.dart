@@ -60,7 +60,6 @@ class QolipSharedSet {
       });
     }).toList(growable: false);
     if (id.isEmpty ||
-        members.isEmpty ||
         members
             .any((member) => member.qolipCode.isEmpty || member.setId != id)) {
       throw const MobileApiException(
@@ -152,7 +151,11 @@ List<QolipProduct> _sharedTestModeCatalog(
 extension MobileApiQolipSharedSets on MobileApi {
   Future<QolipSharedSet?> qolipResolveSet(String identifier) async {
     if (await TestModeController.instance.isEnabled()) {
-      final all = _sharedPhysicalMolds();
+      final all = _sharedPhysicalMolds()
+          .where((mold) => !_testModeLocalSetIds.contains(mold.setId)).toList();
+      final registered = _testModeManagedSets.values.where((entry) =>
+          entry.set.id == identifier.trim() ||
+          entry.set.code.toLowerCase() == identifier.trim().toLowerCase()).firstOrNull;
       var matched = all
           .where((mold) =>
               mold.setId == identifier.trim() ||
@@ -174,6 +177,7 @@ extension MobileApiQolipSharedSets on MobileApi {
         }
       }
       final ids = matched.map((mold) => mold.setId).toSet();
+      if (registered != null) ids.add(registered.set.id);
       if (ids.length > 1)
         throw const MobileApiException(
             code: 'qolip_set_ambiguous', message: 'qolip_set_ambiguous');
@@ -182,6 +186,7 @@ extension MobileApiQolipSharedSets on MobileApi {
       final members = all.where((mold) => mold.setId == id).toList()
         ..sort((a, b) =>
             a.qolipCode.toLowerCase().compareTo(b.qolipCode.toLowerCase()));
+      if (members.isEmpty) return _testModeManagedSets[id]?.set;
       final display = [...members]..sort((a, b) =>
           a.qolipCode.length == b.qolipCode.length
               ? a.qolipCode.compareTo(b.qolipCode)
@@ -202,7 +207,7 @@ extension MobileApiQolipSharedSets on MobileApi {
       }
       return QolipSharedSet(
           id: id,
-          code: display.last.qolipCode,
+          code: _testModeManagedSets[id]?.set.code ?? display.last.qolipCode,
           fingerprint: jsonEncode(members
               .map((mold) => [
                     mold.setId,
@@ -233,6 +238,10 @@ extension MobileApiQolipSharedSets on MobileApi {
 
   Future<List<QolipProduct>> qolipReuseSet(
       {required QolipSharedSet set, required QolipProduct product}) async {
+    if (set.members.isEmpty) {
+      throw const MobileApiException(
+          code: 'qolip_set_changed', message: 'qolip_set_changed');
+    }
     if (await TestModeController.instance.isEnabled()) {
       final current = await qolipResolveSet(set.id);
       if (current == null || current.fingerprint != set.fingerprint)
