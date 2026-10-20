@@ -299,7 +299,8 @@ extension MobileApiQolipSharedSets on MobileApi {
         _testModeQolipProductOverrides[product.code.trim().toLowerCase()]
             ?.remove(member.qolipCode.trim().toLowerCase());
       }
-      return current.members;
+      return current.members
+          .map((mold) => _sharedMoldForProduct(mold, product)).toList();
     }
     final response = await _sendAuthorized(() => _post(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/shared-sets'),
@@ -321,7 +322,8 @@ extension MobileApiQolipSharedSets on MobileApi {
       throw const MobileApiException(
           code: 'qolip_set_changed', message: 'qolip_set_changed');
     _qolipProductsSnapshot = null;
-    return saved.members;
+    return saved.members
+        .map((mold) => _sharedMoldForProduct(mold, product)).toList();
   }
 
   Future<List<QolipProduct>> qolipProductMolds(String itemCode) async {

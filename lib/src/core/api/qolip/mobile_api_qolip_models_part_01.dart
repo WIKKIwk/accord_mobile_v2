@@ -37,6 +37,9 @@ String qolipErrorMessage(
   };
   if (sharedKey != null && l10n != null)
     return l10n.qolipSharedSetText(sharedKey);
+  if (code == 'color_required') {
+    return l10n?.qolipManagementText('color_required') ?? 'Rangni tanlang';
+  }
   final localized = l10n?.qolipErrorText(code);
   if (localized != null && localized.isNotEmpty) {
     return localized;

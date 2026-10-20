@@ -40,6 +40,93 @@ final _testModeManagedSets = <String, QolipManagedSet>{};
 final _testModeLocalSetIds = <String>{};
 
 extension MobileApiQolipManagement on MobileApi {
+  Future<QolipManagedSet> qolipCreateSet({
+    required String warehouse,
+    required List<QolipMoldDraft> members,
+  }) async {
+    if (await TestModeController.instance.isEnabled()) {
+      final warehouses = (await qolipBlocksData()).warehouses;
+      if (!warehouses.any(
+          (value) => value.toLowerCase() == warehouse.trim().toLowerCase())) {
+        throw const MobileApiException(code: 'forbidden', message: 'forbidden');
+      }
+      final physical = _sharedPhysicalMolds();
+      final codes = <String>{};
+      if (members.isEmpty || members.length > 1000) {
+        throw const MobileApiException(
+            code: 'qolip_code_required', message: 'qolip_code_required');
+      }
+      for (final draft in members) {
+        final code = draft.code.trim().toLowerCase();
+        if (code.isEmpty || draft.code.length > 512 || draft.existingOnly ||
+            !codes.add(code) || _testModeManagedSets.containsKey(code) ||
+            physical.any((m) => m.qolipCode.toLowerCase() == code || m.setId == code) ||
+            _testModeQolipLocations.any((m) => m.qolipCode.toLowerCase() == code) ||
+            _testModeQolipCheckouts.any((m) => m.qolipCode.toLowerCase() == code)) {
+          throw const MobileApiException(
+              code: 'qolip_code_conflict', message: 'qolip_code_conflict');
+        }
+        if (draft.size <= 0 || draft.size > 2147483647) {
+          throw const MobileApiException(
+              code: 'size_required', message: 'size_required');
+        }
+        if (draft.color.trim().isEmpty || draft.color.length > 64) {
+          throw const MobileApiException(
+              code: 'color_required', message: 'color_required');
+        }
+      }
+      String id;
+      do {
+        id = _nextTestModeQolipSetId();
+      } while (codes.contains(id));
+      final molds = members.map((draft) => QolipProduct(
+        qolipSetId: id,
+        warehouse: warehouse.trim(),
+        code: '',
+        name: '',
+        itemGroup: '',
+        qolipCode: draft.code.trim(),
+        qolipSize: draft.size,
+        qolipColor: draft.color.trim(),
+        hasQolipSpec: true,
+      )).toList()
+        ..sort((a, b) => a.qolipCode.toLowerCase().compareTo(b.qolipCode.toLowerCase()));
+      final created = QolipManagedSet(
+        source: QolipProduct(warehouse: warehouse.trim(), code: '', name: '', itemGroup: ''),
+        set: QolipSharedSet(
+          id: id,
+          fingerprint: jsonEncode(molds.map((m) =>
+              [m.setId, m.qolipCode, m.qolipSize, m.qolipColor, m.warehouse]).toList()),
+          members: molds,
+          productLabels: const [],
+        ),
+      );
+      // Commit the whole draft only after validation; no implicit product link.
+      for (final mold in molds) {
+        _testModeQolipSpecs[mold.qolipCode.toLowerCase()] = mold;
+      }
+      _testModeQolipSetLinks[id] = {};
+      _testModeManagedSets[id] = created;
+      _qolipProductsSnapshot = null;
+      return created;
+    }
+    final response = await _sendAuthorized(() => _post(
+      Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/sets/create'),
+      headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+      body: jsonEncode({
+        'warehouse': warehouse.trim(),
+        'members': members.map((draft) => draft.toJson()).toList(),
+      }),
+    ));
+    if (response.statusCode != 200) {
+      throw _qolipApiException(response,
+          fallbackCode: 'qolip_set_save_failed', fallbackMessage: 'Komplekt saqlanmadi');
+    }
+    _qolipProductsSnapshot = null;
+    final data = await decodeJsonMapPayload(response.body);
+    return QolipManagedSet.fromJson((data['set'] as Map).cast<String, dynamic>());
+  }
+
   Future<List<QolipManagedSet>> qolipManagedSets() async {
     if (await TestModeController.instance.isEnabled()) {
       final physical = _sharedPhysicalMolds();

@@ -104,10 +104,29 @@ Future<bool?> showQolipMoldAddDialog(
       barrierDismissible: false,
       builder: (_) => _MoldAddDialog(
         scope: scope,
-        onSave: onSave,
+        onSave: (draft, _) => onSave(draft),
         allowExisting: allowExisting,
         initialSize: initialSize,
         availablePantonNumber: availablePantonNumber,
+      ),
+    );
+
+Future<bool?> showQolipSetCreateDialog(
+  BuildContext context, {
+  required List<String> warehouses,
+  required Future<void> Function(String warehouse, QolipMoldDraft draft) onSave,
+}) =>
+    showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _MoldAddDialog(
+        title: context.l10n.qolipManagementText('create'),
+        scope: context.l10n.qolipManagementText('create_hint'),
+        warehouses: warehouses,
+        onSave: (draft, warehouse) => onSave(warehouse!, draft),
+        allowExisting: false,
+        initialSize: 0,
+        availablePantonNumber: 1,
       ),
     );
 
@@ -118,9 +137,13 @@ class _MoldAddDialog extends StatefulWidget {
     required this.allowExisting,
     required this.initialSize,
     required this.availablePantonNumber,
+    this.title,
+    this.warehouses,
   });
   final String scope;
-  final Future<void> Function(QolipMoldDraft) onSave;
+  final String? title;
+  final List<String>? warehouses;
+  final Future<void> Function(QolipMoldDraft, String?) onSave;
   final bool allowExisting;
   final int initialSize;
   final int? availablePantonNumber;
@@ -137,6 +160,8 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
   String? _error;
   bool _existing = false;
   bool _saving = false;
+  late String? _warehouse =
+      widget.warehouses?.length == 1 ? widget.warehouses!.single : null;
 
   @override
   void dispose() {
@@ -146,15 +171,18 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     final l10n = context.l10n;
     final size = int.tryParse(_size.text.trim()) ?? 0;
     final validation = _code.text.trim().isEmpty
         ? 'code_required'
-        : !_existing && size <= 0
+        : !_existing && (size <= 0 || size > 2147483647)
             ? 'size_required'
             : !_existing && _color == null
                 ? 'color_required'
-                : null;
+                : widget.warehouses != null && _warehouse == null
+                    ? 'warehouse_required'
+                    : null;
     if (validation != null) {
       setState(() => _error = l10n.qolipManagementText(validation));
       return;
@@ -168,7 +196,7 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
           code: _code.text.trim(),
           existingOnly: _existing,
           size: _existing ? 0 : size,
-          color: _existing ? '' : _color!));
+          color: _existing ? '' : _color!), _warehouse);
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) {
@@ -185,7 +213,7 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
     return PopScope(
       canPop: !_saving,
       child: AlertDialog(
-        title: Text(l10n.qolipManagementText('add')),
+        title: Text(widget.title ?? l10n.qolipManagementText('add')),
         insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
         constraints: const BoxConstraints(maxWidth: 440),
         content: SingleChildScrollView(
@@ -195,6 +223,22 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
             children: [
               Text(widget.scope),
               const SizedBox(height: 16),
+              if (widget.warehouses != null && widget.warehouses!.length > 1) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _warehouse,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: l10n.qolipText('blocks.warehouse'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final warehouse in widget.warehouses!)
+                      DropdownMenuItem(value: warehouse, child: Text(warehouse)),
+                  ],
+                  onChanged: _saving ? null : (value) => setState(() => _warehouse = value),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (widget.allowExisting) ...[
                 SegmentedButton<bool>(
                   segments: [
@@ -219,8 +263,10 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
                 controller: _code,
                 enabled: !_saving,
                 autofocus: true,
+                maxLength: 512,
                 decoration: InputDecoration(
                     labelText: l10n.qolipText('products.code'),
+                    counterText: '',
                     border: const OutlineInputBorder()),
               ),
               const SizedBox(height: 12),

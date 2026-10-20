@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +12,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../shared/models/app_models.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_color_picker.dart';
@@ -48,6 +51,60 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
     final future = MobileApi.instance.qolipManagedSets();
     setState(() => _future = future);
     await future;
+  }
+
+  void _openFabAction() {
+    if (_saving) return;
+    _focus.unfocus();
+    showAdminCreateHubSheet(context, actions: [
+      AdminFabMenuAction(
+        title: context.l10n.qolipManagementText('create'),
+        icon: Icons.add_rounded,
+        onTap: () => unawaited(_create()),
+      ),
+    ]);
+  }
+
+  Future<void> _create() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final data = await MobileApi.instance.qolipBlocksData();
+      if (!mounted) return;
+      final warehouses = data.warehouses.map((w) => w.trim())
+          .where((w) => w.isNotEmpty).toSet().toList();
+      if (warehouses.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.qolipText('blocks.load_failed'))));
+        return;
+      }
+      QolipManagedSet? created;
+      final saved = await showQolipSetCreateDialog(
+        context,
+        warehouses: warehouses,
+        onSave: (warehouse, draft) async {
+          created = await MobileApi.instance.qolipCreateSet(
+              warehouse: warehouse, members: [draft]);
+        },
+      );
+      if (!mounted || saved != true || created == null) return;
+      setState(() {
+        _search.clear();
+        _expanded = created!.set.id;
+      });
+      QolipDataRevision.notifyLocationsChanged();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.qolipManagementText('created',
+              values: {'code': created!.set.id}))));
+      await _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(qolipErrorMessage(error, l10n: context.l10n))));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _add(QolipManagedSet entry) async {
@@ -151,7 +208,14 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
           selectedIndex: 9,
           selectedRouteName: AppRoutes.qolipSets,
           onNavigate: _navigate),
-      bottom: const QolipDock(activeTab: null, showPrimaryFab: false),
+      bottom: ValueListenableBuilder<bool>(
+        valueListenable: adminCreateHubMenuOpen,
+        builder: (context, menuOpen, _) => QolipDock(
+          activeTab: null,
+          showPrimaryFab: !menuOpen,
+          onPrimaryFabTap: _openFabAction,
+        ),
+      ),
       contentPadding: EdgeInsets.zero,
       child: ColoredBox(
         color: AppTheme.shellStart(context),
