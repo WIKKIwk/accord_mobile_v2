@@ -2,6 +2,24 @@ part of '../mobile_api.dart';
 
 final _testModeQolipSetLinks = <String, Map<String, QolipProduct>>{};
 final _testModeQolipProductOverrides = <String, Map<String, bool>>{};
+final _testModeQolipSetCodes = <String, String>{};
+
+void _registerTestModeSetCodes(List<QolipProduct> molds) {
+  final ids = molds.map((mold) => mold.setId).toSet().toList()..sort();
+  final used = {
+    ...molds.map((mold) => mold.qolipCode.toLowerCase()),
+    ..._testModeQolipSetCodes.values.map((code) => code.toLowerCase()),
+  };
+  var number = _testModeQolipSetCodes.length + 1;
+  for (final id in ids) {
+    if (_testModeQolipSetCodes.containsKey(id)) continue;
+    String code;
+    do {
+      code = 'K-${(number++).toString().padLeft(6, '0')}';
+    } while (!used.add(code.toLowerCase()));
+    _testModeQolipSetCodes[id] = code;
+  }
+}
 
 bool? _testModeEffectiveMold(QolipProduct mold, String itemCode) {
   final item = itemCode.trim().toLowerCase();
@@ -42,6 +60,7 @@ class QolipSharedSet {
       required this.members,
       required this.productLabels});
   final String id;
+  /// Stable public set code returned by the server.
   final String code;
   final String fingerprint;
   final List<QolipProduct> members;
@@ -153,15 +172,18 @@ extension MobileApiQolipSharedSets on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final all = _sharedPhysicalMolds()
           .where((mold) => !_testModeLocalSetIds.contains(mold.setId)).toList();
+      _registerTestModeSetCodes(all);
       final registered = _testModeManagedSets.values.where((entry) =>
           entry.set.id == identifier.trim() ||
           entry.set.code.toLowerCase() == identifier.trim().toLowerCase()).firstOrNull;
       var matched = all
           .where((mold) =>
               mold.setId == identifier.trim() ||
+              _testModeQolipSetCodes[mold.setId]?.toLowerCase() ==
+                  identifier.trim().toLowerCase() ||
               mold.qolipCode.toLowerCase() == identifier.trim().toLowerCase())
           .toList();
-      if (matched.isEmpty) {
+      if (matched.isEmpty && registered == null) {
         final match = RegExp(r'^(.*)-([0-9]+)$').firstMatch(identifier.trim());
         final count = int.tryParse(match?.group(2) ?? '') ?? 0;
         if (count > 0 && count <= 100) {
@@ -187,10 +209,6 @@ extension MobileApiQolipSharedSets on MobileApi {
         ..sort((a, b) =>
             a.qolipCode.toLowerCase().compareTo(b.qolipCode.toLowerCase()));
       if (members.isEmpty) return _testModeManagedSets[id]?.set;
-      final display = [...members]..sort((a, b) =>
-          a.qolipCode.length == b.qolipCode.length
-              ? a.qolipCode.compareTo(b.qolipCode)
-              : a.qolipCode.length.compareTo(b.qolipCode.length));
       final targets = <String, QolipProduct>{
         for (final product
             in _testModeQolipSetLinks[id]?.values ?? [members.first])
@@ -207,7 +225,7 @@ extension MobileApiQolipSharedSets on MobileApi {
       }
       return QolipSharedSet(
           id: id,
-          code: _testModeManagedSets[id]?.set.code ?? display.last.qolipCode,
+          code: _testModeQolipSetCodes[id]!,
           fingerprint: jsonEncode(members
               .map((mold) => [
                     mold.setId,

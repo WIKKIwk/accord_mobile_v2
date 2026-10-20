@@ -17,9 +17,9 @@ extension AppLocalizationsQolipSharedSets on AppLocalizations {
           'The set changed. Confirm its updated count and colors.',
           'Состав комплекта изменился. Подтвердите новое количество и цвета.'),
       'ambiguous' => _t(
-          'Kodlar bir nechta komplektga tegishli. Aniq komplekt IDsi yoki uning ichidagi bitta kodni kiriting.',
-          'The codes belong to multiple sets. Enter the exact set ID or one member code.',
-          'Коды относятся к разным комплектам. Введите ID нужного комплекта или код одной его формы.'),
+          'Kodlar bir nechta komplektga tegishli. Komplekt kodini yoki uning ichidagi bitta qolip kodini kiriting.',
+          'The codes belong to multiple sets. Enter the set code or one member mold code.',
+          'Коды относятся к разным комплектам. Введите код комплекта или одной его формы.'),
       'warehouse' => _t(
           'Yangi komplekt uchun omborni tanlang.',
           'Select a warehouse for the new set.',

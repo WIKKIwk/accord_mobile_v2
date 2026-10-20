@@ -14,7 +14,7 @@ Future<List<QolipProduct>?> reuseSelectedQolipSet(
     if (!context.mounted) return null;
     final l10n = context.l10n;
     final body = l10n.qolipSharedSetText('body', values: {
-      'code': current.id,
+      'code': current.code,
       'products': current.productLabels.join(', '),
       'count': current.members.length,
       'members': current.members
@@ -75,7 +75,6 @@ Future<QolipManagedSet?> showQolipSetPicker(BuildContext context) {
             .where((entry) =>
                 entry.set.members.isNotEmpty &&
                 [
-                  entry.set.id,
                   entry.set.code,
                   ...entry.set.members.map((m) => m.qolipCode)
                 ].any((value) => value.toLowerCase().contains(needle)))
@@ -84,7 +83,7 @@ Future<QolipManagedSet?> showQolipSetPicker(BuildContext context) {
             .toList();
       },
       itemKey: (entry) => entry.set.id,
-      itemTitle: (entry) => entry.set.id,
+      itemTitle: (entry) => entry.set.code,
       itemSubtitle: (entry) => l10n.qolipText('products.mold_count',
           values: {'count': entry.set.members.length}),
       onSelected: (entry) => Navigator.of(sheetContext).pop(entry),

@@ -5,6 +5,7 @@ void resetMobileApiQolipTestModeData() {
   _testModeQolipTransfers.clear();
   _testModeQolipSetLinks.clear();
   _testModeManagedSets.clear();
+  _testModeQolipSetCodes.clear();
   _testModeLocalSetIds.clear();
   _testModeQolipProductOverrides.clear();
   _testModeQolipLocations.clear();

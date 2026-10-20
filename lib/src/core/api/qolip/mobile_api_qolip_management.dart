@@ -42,7 +42,8 @@ final _testModeLocalSetIds = <String>{};
 extension MobileApiQolipManagement on MobileApi {
   Future<List<QolipManagedSet>> qolipManagedSets() async {
     if (await TestModeController.instance.isEnabled()) {
-      for (final mold in _sharedPhysicalMolds()) {
+      final physical = _sharedPhysicalMolds();
+      for (final mold in physical) {
         if (_testModeLocalSetIds.contains(mold.setId)) continue;
         final snapshot = await qolipResolveSet(mold.setId);
         if (snapshot == null) continue;
@@ -58,7 +59,11 @@ extension MobileApiQolipManagement on MobileApi {
           source: mold,
         );
       }
-      final result = _testModeManagedSets.values.toList()
+      final result = _testModeManagedSets.values
+          .where((entry) =>
+              entry.set.members.isNotEmpty &&
+              physical.any((mold) => mold.setId == entry.set.id))
+          .toList()
         ..sort((a, b) => a.set.code.compareTo(b.set.code));
       return result;
     }
@@ -108,6 +113,8 @@ extension MobileApiQolipManagement on MobileApi {
       for (final draft in add) {
         if (draft.code.trim().isEmpty ||
             draft.size <= 0 ||
+            _testModeQolipSetCodes.values.any(
+                (code) => code.toLowerCase() == draft.code.trim().toLowerCase()) ||
             physical.any((m) =>
                 m.qolipCode.toLowerCase() == draft.code.trim().toLowerCase())) {
           throw const MobileApiException(

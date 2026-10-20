@@ -13,6 +13,8 @@ extension AppLocalizationsQolipManagement on AppLocalizations {
           'Add a mold code to this set', 'Добавьте код формы в комплект'),
       'add' => _t('Qolip kodi qo‘shish', 'Add mold code', 'Добавить код формы'),
       'choose' => _t('Komplekt tanlash', 'Choose set', 'Выбрать комплект'),
+      'copy_code' => _t('Komplekt kodini nusxalash', 'Copy set code',
+          'Скопировать код комплекта'),
       'new_set' => _t('Yangi muqobil komplekt', 'New alternative set',
           'Новый альтернативный комплект'),
       'new_code' => _t('Yangi kod', 'New code', 'Новый код'),
@@ -33,6 +35,10 @@ extension AppLocalizationsQolipManagement on AppLocalizations {
           'Linked products: {count}', 'Связанных товаров: {count}'),
       'delete_title' => _t('Komplektdan o‘chirish?', 'Remove from set?',
           'Удалить из комплекта?'),
+      'delete_last' => _t(
+          'Bu oxirgi qolip. Bo‘shagan komplekt ro‘yxatda ko‘rsatilmaydi.',
+          'This is the last mold. The empty set will be hidden from the list.',
+          'Это последняя форма. Пустой комплект больше не будет отображаться в списке.'),
       'delete_body' => _t(
           '«{code}» qolipi komplektdan va undan foydalanadigan barcha mahsulotlardan o‘chiriladi.',
           'Mold “{code}” will be removed from the set and every product using it.',

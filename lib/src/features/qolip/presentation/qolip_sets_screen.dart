@@ -59,7 +59,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
     final saved = await showQolipMoldAddDialog(
       context,
       scope:
-          '${entry.set.id}\n${context.l10n.qolipManagementText('set_scope')}',
+          '${entry.set.code}\n${context.l10n.qolipManagementText('set_scope')}',
       initialSize: entry.set.members.firstOrNull?.qolipSize ?? 0,
       availablePantonNumber: available,
       onSave: (draft) async {
@@ -78,8 +78,12 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.qolipManagementText('delete_title')),
-        content: Text(l10n.qolipManagementText('delete_body',
-            values: {'code': mold.qolipCode})),
+        content: Text([
+          l10n.qolipManagementText('delete_body',
+              values: {'code': mold.qolipCode}),
+          if (entry.set.members.length == 1)
+            l10n.qolipManagementText('delete_last'),
+        ].join('\n\n')),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -160,8 +164,9 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
             if (snapshot.hasError) return AppRetryState(onRetry: _reload);
             final query = _search.text.trim().toLowerCase();
             final entries = (snapshot.data ?? const <QolipManagedSet>[])
-                .where((entry) => [
-                      entry.set.id,
+                .where((entry) =>
+                    entry.set.members.isNotEmpty &&
+                    [
                       entry.set.code,
                       ...entry.set.members.map((m) => m.qolipCode)
                     ].any((value) => value.toLowerCase().contains(query)))
@@ -198,15 +203,39 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.layers_outlined),
-                          title: Text(
-                              entry.set.id,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(Icons.layers_outlined,
+                                size: 22,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSecondaryContainer),
+                          ),
+                          title: Text(entry.set.code,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5)),
                           subtitle: Text(l10n.qolipText('products.mold_count',
                               values: {'count': entry.set.members.length})),
-                          trailing: Icon(
-                              expanded ? Icons.expand_less : Icons.expand_more),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: () => _copy(entry.set.code),
+                                tooltip: l10n.qolipManagementText('copy_code'),
+                                icon: const Icon(Icons.copy_outlined, size: 18),
+                              ),
+                              Icon(expanded
+                                  ? Icons.expand_less
+                                  : Icons.expand_more),
+                            ],
+                          ),
                           onTap: _saving
                               ? null
                               : () => setState(() =>
@@ -219,30 +248,24 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 const Divider(height: 1),
-                                Row(children: [
-                                  Expanded(
-                                      child: SelectableText(entry.set.id,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall)),
-                                  IconButton(
-                                      onPressed: () => _copy(entry.set.id),
-                                      tooltip: l10n.qolipSharedSetText('id'),
-                                      icon: const Icon(Icons.copy, size: 18)),
-                                ]),
+                                const SizedBox(height: 12),
                                 Text(l10n.qolipManagementText('linked',
                                     values: {
                                       'count': entry.set.productLabels.length
-                                    })),
+                                    }),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge),
                                 if (entry.set.productLabels.isNotEmpty)
-                                  Text(entry.set.productLabels.join(', '),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                        entry.set.productLabels.join(', '),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
+                                  ),
                                 const SizedBox(height: 12),
-                                if (entry.set.members.isEmpty)
-                                  Text(l10n
-                                      .qolipManagementText('members_empty')),
                                 for (final mold in entry.set.members)
                                   QolipCodeRow(
                                     product: mold,
