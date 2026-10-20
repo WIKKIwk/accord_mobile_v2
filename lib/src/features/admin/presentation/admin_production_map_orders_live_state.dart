@@ -120,6 +120,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _rememberSnapshotVersion(AdminApparatusQueueSnapshot snapshot) {
+    _snapshotReadScope = currentSessionReadScope();
     if (snapshot.epoch.isNotEmpty && snapshot.epoch != _lastAppliedSnapshotEpoch) {
       if (_lastAppliedSnapshotEpoch.isNotEmpty) {
         _retiredSnapshotEpochs.add(_lastAppliedSnapshotEpoch);
@@ -154,6 +155,22 @@ extension _AdminProductionMapOrdersLiveState
     await _restartWorkerLiveStream();
   }
 
+  Future<void> _resumeWorkerLive() async {
+    final snapshot = _canonicalQueueSnapshot;
+    if (_liveRecoverySupported && _workerCatalogReady &&
+        _snapshotReadScope == currentSessionReadScope() &&
+        snapshot != null && snapshot.epoch.isNotEmpty &&
+        snapshot.scope.isNotEmpty && snapshot.revision != null) {
+      // Keep rows while the stream proves continuity. Action sheets remain
+      // fail-closed until recovery or a canonical snapshot confirms the state.
+      _queueSnapshotNeedsReconcile = true;
+      _sheetQueueSnapshot.value = null;
+      await _restartWorkerLiveStream();
+      return;
+    }
+    await _startWorkerLive();
+  }
+
   Future<void> _startAdminLive() async {
     if (_adminPaging && widget.orderPageLoader == null &&
         await TestModeController.instance.isEnabled()) {
@@ -170,7 +187,8 @@ extension _AdminProductionMapOrdersLiveState
     }
     if (!_adminPaging) _startQueueSnapshotPolling();
     if (_adminPaging && !_adminForeground) return;
-    if (await TestModeController.instance.isEnabled()) {
+    if ((_adminPaging || widget.liveEventsLoader == null) &&
+        await TestModeController.instance.isEnabled()) {
       return;
     }
     _stopWorkerLiveStream();
@@ -183,10 +201,13 @@ extension _AdminProductionMapOrdersLiveState
     _queueSnapshotPollTimer = Timer.periodic(
       const Duration(seconds: 2),
       (_) {
-        if (!mounted || _queueSnapshotRefreshInFlight) {
+        if (!mounted || !_adminForeground || _queueSnapshotRefreshInFlight) {
           return;
         }
         unawaited(_recoverOrdersSectionReads());
+        if (_workerLiveHealthy && !_queueSnapshotNeedsReconcile &&
+            _workerCatalogReady && _loadError == null &&
+            !_queueSnapshotContractError) return;
         if (!_workerCatalogReady || _loadError != null) {
           if (_reconnectingOrderReads.contains(_OrdersReadSection.initial)) {
             unawaited(_refreshCanonicalInitial());
@@ -252,7 +273,7 @@ extension _AdminProductionMapOrdersLiveState
 
   Future<void> _runWorkerLiveStream(int generation) async {
     while (mounted && generation == _liveStreamGeneration &&
-        (!_adminPaging || _adminForeground) &&
+        (widget.workerMode ? _workerForeground : _adminForeground) &&
         (!widget.workerMode || _workerRetryAllowed)) {
       Object? streamError;
       try {
@@ -278,6 +299,7 @@ extension _AdminProductionMapOrdersLiveState
         _workerLiveHealthy = false;
         _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
       }
+      _workerLiveHealthy = false;
       if (widget.workerMode) {
         _workerLiveHealthy = false;
         final error = streamError ?? const MobileApiException(
@@ -305,6 +327,7 @@ extension _AdminProductionMapOrdersLiveState
     // prevent opening a connection on the newly available network.
     unawaited(_liveStreamSubscription?.cancel());
     if (!mounted || generation != _liveStreamGeneration) return;
+    final readScope = currentSessionReadScope();
     final completer = Completer<void>();
     _liveStreamFinished = completer;
     final firstSnapshotTimer = Timer(const Duration(seconds: 10), () {
@@ -324,7 +347,8 @@ extension _AdminProductionMapOrdersLiveState
               scope: _canonicalQueueSnapshot?.scope ?? '',
             )).listen(
       (message) {
-        if (!mounted || generation != _liveStreamGeneration) {
+        if (!mounted || generation != _liveStreamGeneration ||
+            readScope != currentSessionReadScope()) {
           return;
         }
         if (_adminPaging &&
@@ -349,10 +373,16 @@ extension _AdminProductionMapOrdersLiveState
         } else if (message is AdminProductionMapLiveDelta) {
           _applyCanonicalLiveDelta(message);
         } else if (message is AdminProductionMapLiveStateReady) {
+          if (message.recovered) _liveRecoverySupported = true;
           if (!message.resync && message.epoch == _lastAppliedSnapshotEpoch &&
               message.revision == _lastAppliedSnapshotRevision &&
               message.scope == _canonicalQueueSnapshot?.scope &&
-              !_queueSnapshotNeedsReconcile) {
+              (!_queueSnapshotNeedsReconcile ||
+                  (message.recovered && _sequenceNeedsSnapshot.isEmpty &&
+                      (_pendingQueueActionRevision == null ||
+                          (_pendingQueueActionEpoch == message.epoch &&
+                              _pendingQueueActionRevision! <= message.revision))))) {
+            _queueSnapshotNeedsReconcile = false;
             _updateScreenState(_clearOrdersLoadError);
           } else {
             _requestStateReconcile();
@@ -487,6 +517,17 @@ extension _AdminProductionMapOrdersLiveState
       final snapshot = delta.applyTo(before);
       if (_snapshotBehindSequenceMoves(snapshot)) {
         _requestStateReconcile();
+        return;
+      }
+      if (delta.patch.isEmpty && _pendingQueueActionRevision == null &&
+          !_queueSnapshotNeedsReconcile &&
+          !_queueSnapshotContractError && _loadError == null && !_loading) {
+        // Recovery can advance a cursor through unrelated changes. Keep it
+        // without rebuilding the list or replacing unchanged maps.
+        _queueSnapshotGeneration++;
+        _canonicalQueueSnapshot = snapshot;
+        _rememberSnapshotVersion(snapshot);
+        _sheetQueueSnapshot.value = snapshot;
         return;
       }
       final completed = delta.patch['completed_orders'];
@@ -745,11 +786,13 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
     _queueSnapshotRefreshInFlight = true;
+    final readScope = currentSessionReadScope();
     final requestGeneration = ++_queueSnapshotGeneration;
     try {
       final queueSnapshot = await _readOrdersSnapshot(fresh: _queueSnapshotNeedsReconcile,
         waitForChanges: waitForChanges);
-      if (!mounted || requestGeneration != _queueSnapshotGeneration) {
+      if (!mounted || readScope != currentSessionReadScope() ||
+          requestGeneration != _queueSnapshotGeneration) {
         return;
       }
       // Revision guard: stale/duplicate REST snapshots must not rewrite UI.
@@ -1329,6 +1372,7 @@ extension _AdminProductionMapOrdersLiveState
 
   Future<void> _refreshCanonicalInitialOnce() async {
     final windowGeneration = _workerQueueWindowGeneration;
+    final readScope = currentSessionReadScope();
     try {
       final pending = Future.wait<Object>([
         _readOrdersSnapshot(fresh: widget.workerMode),
@@ -1338,7 +1382,8 @@ extension _AdminProductionMapOrdersLiveState
       // Eager errors still recover immediately instead of waiting for siblings.
       final results = await (widget.workerMode
           ? pending.timeout(const Duration(seconds: 10)) : pending);
-      if (!mounted || windowGeneration != _workerQueueWindowGeneration) return;
+      if (!mounted || readScope != currentSessionReadScope() ||
+          windowGeneration != _workerQueueWindowGeneration) return;
       final queueSnapshot = results[0] as AdminApparatusQueueSnapshot;
       final apparatus = results[1] as List<AdminApparatus>;
       List<ProductionMapSaved> orders;
@@ -1346,10 +1391,11 @@ extension _AdminProductionMapOrdersLiveState
         orders = _productionMapZakazOrders(queueSnapshot.maps);
       } else {
         final legacyMaps = await MobileApi.instance.adminProductionMaps();
-        if (!mounted) return;
+        if (!mounted || readScope != currentSessionReadScope()) return;
         orders = _productionMapZakazOrders(legacyMaps);
       }
-      if (!mounted || windowGeneration != _workerQueueWindowGeneration) {
+      if (!mounted || readScope != currentSessionReadScope() ||
+          windowGeneration != _workerQueueWindowGeneration) {
         return;
       }
       // If a live snapshot already applied a newer revision, do not let an

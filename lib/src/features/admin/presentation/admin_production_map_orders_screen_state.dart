@@ -28,6 +28,8 @@ class _AdminProductionMapOrdersScreenState
   bool _workerQrGuidanceOpen = false;
   Timer? _workerRecoveryTimer;
   bool _workerLiveHealthy = false;
+  bool _liveRecoverySupported = false;
+  String? _snapshotReadScope;
   int _workerHttpFallbackGeneration = -1;
   Timer? _workerHttpFallbackTimer;
   Completer<void>? _workerHttpFallbackWait;
@@ -194,7 +196,7 @@ class _AdminProductionMapOrdersScreenState
   void initState() {
     super.initState();
     _adminPaging = _adminPagingCandidate;
-    if (_adminPaging) WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addObserver(this);
     if (!_adminPaging && !widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
       unawaited(_refreshPendingOrders());
       _pendingOrderTimer = Timer.periodic(
@@ -214,7 +216,6 @@ class _AdminProductionMapOrdersScreenState
       _tabController.addListener(_syncModuleFromTab);
     }
     if (widget.workerMode) {
-      WidgetsBinding.instance.addObserver(this);
       unawaited(_startWorkerWithInitialScan());
     } else {
       if (!_adminPaging) unawaited(_restoreSavedSequenceApparatusPreference());
@@ -249,9 +250,7 @@ class _AdminProductionMapOrdersScreenState
     _pendingSequenceMoves.clear();
     _pendingOrderTimer?.cancel();
     _workerRecoveryTimer?.cancel();
-    if (widget.workerMode || _adminPagingCandidate) {
-      WidgetsBinding.instance.removeObserver(this);
-    }
+    WidgetsBinding.instance.removeObserver(this);
     _stopWorkerLiveStream();
     _queueSnapshotPollTimer?.cancel();
     _queueSnapshotPollTimer = null;
@@ -266,6 +265,16 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!widget.workerMode && !_adminPaging) {
+      _adminForeground = state == AppLifecycleState.resumed;
+      if (_adminForeground) {
+        unawaited(_startAdminLive());
+      } else {
+        _queueSnapshotPollTimer?.cancel();
+        _queueSnapshotPollTimer = null;
+        _stopWorkerLiveStream();
+      }
+    }
     if (_adminPaging) {
       _adminForeground = state == AppLifecycleState.resumed;
       if (_adminForeground) {
@@ -279,7 +288,7 @@ class _AdminProductionMapOrdersScreenState
     if (widget.workerMode && state == AppLifecycleState.resumed) {
       _workerForeground = true;
       _workerRetryAllowed = true;
-      unawaited(_startWorkerLive());
+      unawaited(_resumeWorkerLive());
     } else if (widget.workerMode &&
         (state == AppLifecycleState.paused ||
             state == AppLifecycleState.hidden ||

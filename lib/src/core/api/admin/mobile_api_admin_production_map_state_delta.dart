@@ -7,11 +7,15 @@ class AdminProductionMapLiveStateReady
     required this.revision,
     required this.resync,
     this.scope = '',
+    this.recovered = false,
   });
   final String epoch;
   final int revision;
   final bool resync;
   final String scope;
+  /// Explicit confirmation that the retained cursor is current. Older
+  /// servers omit this field and retain the snapshot recovery path.
+  final bool recovered;
 
   factory AdminProductionMapLiveStateReady.fromJson(Map<String, dynamic> json) {
     final revision = parseProductionMapSnapshotRevisionFromJson(json);
@@ -24,6 +28,7 @@ class AdminProductionMapLiveStateReady
       scope: json['scope'] is String ? json['scope'] as String : '',
       revision: revision,
       resync: json['type'] == 'state_resync' || json['resync'] == true,
+      recovered: json['recovered'] == true,
     );
   }
 }
