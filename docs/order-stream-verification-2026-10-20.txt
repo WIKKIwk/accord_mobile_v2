@@ -1,0 +1,59 @@
+ORDER STREAM VERIFICATION — 2026-10-20
+
+Branch: codex/order-stream-efficiency
+Baseline: babd8e4a6ee5bb42e2b7879f8f6cd74fb9e1ad0d
+Tested source: 177a97c29a674e575cfc58b21cdad4ccd4a1eead
+
+RESULTS
+Focused stream/action/paging/color checks: 88 passed, 0 failed.
+Main order UI library: baseline 543 passed / 113 failed; current 555 passed / 112 failed.
+There are 11 new main-library tests. No new failing names. Every current failure also failed at baseline.
+One baseline failure now passes: worker colour hold releases UI after one POST: live during recovery.
+Protocol/socket/reducer/worker-window/stress batch: 87 passed / 6 failed. All six failures reproduce in the baseline three-file subset (27 passed / 6 failed).
+Changed-file analyzer: 0 errors, 0 warnings, 34 informational lint diagnostics.
+
+EXCLUDED FIXTURE
+worker intake shows and expands only pending assigned material: refresh failure
+Both initial unfiltered main-library runs stalled at this fixture. The comparable runs exclude only this exact name on both revisions.
+The broad suite is not green; unrelated baseline failures were left unchanged. Full failure-name lists and log paths are in the adjacent JSON.
+
+VERIFIED CHANGES
+Healthy streams stop duplicate polling; negotiated resume preserves the cursor. Sparse page updates preserve unchanged cards. ACK/append races and mixed move-pane revisions fail closed. Notification consumers share and release their physical socket. Retained streams and asynchronous setup reject account changes. Older servers retain legacy fallback.
+
+REPRODUCTION
+export PUB_CACHE=/Users/wikki/Desktop/Accord_project/.tools/pub-cache
+FLUTTER=/Users/wikki/Desktop/Accord_project/.tools/flutter-sdk/flutter/bin/flutter
+Run current commands from accord_mobile_v2; run baseline commands from /tmp/accord-mobile-baseline-babd8e4.
+Baseline archive uses the baseline sources with the same offline dependency package configuration; its self-package root is ../ inside that archive.
+
+Focused:
+$FLUTTER test --no-pub test/admin_production_map_test_screen_test.dart --name 'page stream race:|stream efficiency:|worker recovery:|admin connection progress:|worker sync optimization:|admin paging |worker colour' --reporter expanded
+
+Comparable main library (same command for baseline/current):
+$FLUTTER test --no-pub test/admin_production_map_test_screen_test.dart --name '^(?!worker intake shows and expands only pending assigned material: refresh failure$).*' --reporter expanded
+
+Current protocol batch:
+$FLUTTER test --no-pub \
+  test/admin_notifications_stream_test.dart \
+  test/admin_production_map_paged_socket_test.dart \
+  test/admin_order_page_window_test.dart \
+  test/admin_production_map_canonical_snapshot_test.dart \
+  test/admin_production_map_live_delta_test.dart \
+  test/admin_production_map_state_delta_test.dart \
+  test/admin_production_map_queue_snapshot_test.dart \
+  test/admin_production_map_p0_stress_test.dart \
+  test/worker_queue_window_api_test.dart \
+  test/worker_queue_window_widget_test.dart \
+  test/production_map_worker_contract_architecture_test.dart \
+  --reporter expanded
+
+Baseline failed-file subset:
+$FLUTTER test --no-pub \
+  test/admin_production_map_queue_snapshot_test.dart \
+  test/admin_production_map_p0_stress_test.dart \
+  test/production_map_worker_contract_architecture_test.dart \
+  --reporter expanded
+
+Analyzer: use the exact changed-file dart analyze argument array recorded in the adjacent JSON.
+The focused count overlaps the main library. These counts are not unique totals to sum.
+These widget tests establish HTTP/rebuild and safety behavior; they do not measure device FPS or battery usage. Server load measurements are reported separately.
