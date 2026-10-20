@@ -171,8 +171,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     var appendRead = append;
     final wanted = window.length + (append ? 20 : 0);
     for (var attempt = 0; attempt < 3; attempt++) {
+      final invalidation = window.invalidation;
       try {
-        final invalidation = window.invalidation;
         var cursor = appendRead ? window.cursor : null;
         final staged =
             appendRead ? [...window.pages] : <AdminProductionOrderPage>[];
@@ -293,8 +293,29 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         return;
       } catch (error) {
         if (!mounted || window.account != _adminPageAccount) return;
+        final changedWhileReading = window.invalidation != invalidation;
+        final retryable = error is TimeoutException ||
+            error is http.ClientException ||
+            (error is MobileApiException &&
+                (error.code == 'order_page_changed' ||
+                    error.statusCode == 408 ||
+                    error.statusCode == 429 ||
+                    (error.statusCode ?? 0) >= 500));
+        if (changedWhileReading &&
+            retryable &&
+            window.dirty &&
+            _adminForeground &&
+            _adminModuleWindows(_module).contains(window)) {
+          // A newer socket event still needs its own read. Coalesce events
+          // into this request, keeping the requested row count and one read
+          // at a time. The old revision's retry limit must not lose that event.
+          attempt = -1;
+          appendRead = false;
+          continue;
+        }
         if (error is MobileApiException &&
             error.code == 'order_page_changed' &&
+            !changedWhileReading &&
             attempt < 2) {
           appendRead = false;
           continue;
