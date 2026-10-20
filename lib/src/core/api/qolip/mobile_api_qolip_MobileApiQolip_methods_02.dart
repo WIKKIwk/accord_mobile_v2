@@ -132,26 +132,25 @@ extension MobileApiQolipAstPart02 on MobileApi {
     String? previousQolipCode,
     String? qolipSetId,
   }) async {
-    var saved = QolipProduct(
-      qolipSetId: previousQolipCode?.trim().isNotEmpty == true
-          ? product.setId
-          : (qolipSetId ??
-              'test-qolip-set:${product.code}:${qolipCode.trim()}'),
-      warehouse:
-          warehouse.trim().isEmpty ? product.warehouse : warehouse.trim(),
-      code: product.code.trim(),
-      name: product.name.trim(),
-      itemGroup: product.itemGroup.trim(),
-      customerNames: product.customerNames,
-      qolipCode: qolipCode.trim(),
-      firstQolipCode: product.firstQolipCode.trim().isEmpty
-          ? qolipCode.trim()
-          : product.firstQolipCode.trim(),
-      qolipSize: size,
-      qolipColor: qolipColor.trim(),
-      hasQolipSpec: true,
-    );
     if (await TestModeController.instance.isEnabled()) {
+      var saved = QolipProduct(
+        qolipSetId: previousQolipCode?.trim().isNotEmpty == true
+            ? product.setId
+            : (qolipSetId ?? _nextTestModeQolipSetId()),
+        warehouse:
+            warehouse.trim().isEmpty ? product.warehouse : warehouse.trim(),
+        code: product.code.trim(),
+        name: product.name.trim(),
+        itemGroup: product.itemGroup.trim(),
+        customerNames: product.customerNames,
+        qolipCode: qolipCode.trim(),
+        firstQolipCode: product.firstQolipCode.trim().isEmpty
+            ? qolipCode.trim()
+            : product.firstQolipCode.trim(),
+        qolipSize: size,
+        qolipColor: qolipColor.trim(),
+        hasQolipSpec: true,
+      );
       final existing = _sharedPhysicalMolds().where((mold) =>
           mold.qolipCode.trim().toLowerCase() ==
           previousQolipCode?.trim().toLowerCase());
@@ -304,8 +303,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
       );
       try {
         final saved = <QolipProduct>[];
-        final setId =
-            'test-qolip-set:${product.code}:${specs.first.qolipCode.trim()}';
+        final setId = _nextTestModeQolipSetId();
         for (final item in specs) {
           saved.add(
             await qolipSaveProductSpec(

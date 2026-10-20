@@ -25,7 +25,7 @@ extension _QolipAttachSharedSets on _QolipAttachSheetState {
     if (!mounted) return true;
     final saved = await reuseSelectedQolipSet(context, set, product);
     if (mounted && saved != null) {
-      _finishSpecSave(product, saved, set.code.isEmpty ? set.id : set.code);
+      _finishSpecSave(product, saved, set.id);
     }
     return true;
   }

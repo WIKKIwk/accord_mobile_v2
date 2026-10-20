@@ -2,23 +2,23 @@ part of '../mobile_api.dart';
 
 final _testModeQolipSetLinks = <String, Map<String, QolipProduct>>{};
 final _testModeQolipProductOverrides = <String, Map<String, bool>>{};
-final _testModeQolipSetCodes = <String, String>{};
+final _testModeImportedSetIds = <String, String>{};
+var _testModeNextSetNumber = 1;
 
-void _registerTestModeSetCodes(List<QolipProduct> molds) {
-  final ids = molds.map((mold) => mold.setId).toSet().toList()..sort();
-  final used = {
-    ...molds.map((mold) => mold.qolipCode.toLowerCase()),
-    ..._testModeQolipSetCodes.values.map((code) => code.toLowerCase()),
-  };
-  var number = _testModeQolipSetCodes.length + 1;
-  for (final id in ids) {
-    if (_testModeQolipSetCodes.containsKey(id)) continue;
-    String code;
-    do {
-      code = 'K-${(number++).toString().padLeft(6, '0')}';
-    } while (!used.add(code.toLowerCase()));
-    _testModeQolipSetCodes[id] = code;
+String _nextTestModeQolipSetId() {
+  while (_testModeNextSetNumber <= 99999999) {
+    final id = '9501${(_testModeNextSetNumber++).toString().padLeft(8, '0')}';
+    if (!_testModeManagedSets.containsKey(id) &&
+        !_testModeImportedSetIds.containsValue(id) &&
+        !_testModeLocalSetIds.contains(id) &&
+        !_testModeQolipSpecs.values
+            .any((mold) => mold.setId == id || mold.qolipCode == id) &&
+        !_testModeQolipLocations.any((mold) => mold.qolipCode == id)) {
+      return id;
+    }
   }
+  throw const MobileApiException(
+      code: 'qolip_set_save_failed', message: 'qolip_set_save_failed');
 }
 
 bool? _testModeEffectiveMold(QolipProduct mold, String itemCode) {
@@ -49,19 +49,49 @@ List<QolipProduct> _sharedPhysicalMolds() {
         qolipSize: location.size,
         hasQolipSpec: true);
   }
+  // Promote legacy demo entries once. Store the new identity on each mold so
+  // product groups, set selection and edits all use the same actual ID.
+  for (final entry in molds.entries.toList()) {
+    final mold = entry.value;
+    if (RegExp(r'^9501[0-9]{8}$').hasMatch(mold.qolipSetId)) continue;
+    final id = _testModeImportedSetIds.putIfAbsent(mold.setId, () {
+      final next = _nextTestModeQolipSetId();
+      final links = _testModeQolipSetLinks.remove(mold.setId);
+      if (links != null) _testModeQolipSetLinks[next] = links;
+      if (_testModeLocalSetIds.remove(mold.setId)) {
+        _testModeLocalSetIds.add(next);
+      }
+      return next;
+    });
+    final promoted = QolipProduct(
+      qolipSetId: id,
+      isExtension: mold.isExtension,
+      warehouse: mold.warehouse,
+      code: mold.code,
+      name: mold.name,
+      itemGroup: mold.itemGroup,
+      customerNames: mold.customerNames,
+      qolipCode: mold.qolipCode,
+      firstQolipCode: mold.firstQolipCode,
+      qolipSize: mold.qolipSize,
+      qolipColor: mold.qolipColor,
+      hasQolipSpec: mold.hasQolipSpec,
+      isInUse: mold.isInUse,
+      orderImageOrderId: mold.orderImageOrderId,
+    );
+    molds[entry.key] = promoted;
+    _testModeQolipSpecs[entry.key] = promoted;
+  }
   return molds.values.toList(growable: false);
 }
 
 class QolipSharedSet {
   const QolipSharedSet(
       {required this.id,
-      required this.code,
       required this.fingerprint,
       required this.members,
       required this.productLabels});
   final String id;
-  /// Stable public set code returned by the server.
-  final String code;
   final String fingerprint;
   final List<QolipProduct> members;
   final List<String> productLabels;
@@ -86,7 +116,6 @@ class QolipSharedSet {
     }
     return QolipSharedSet(
         id: id,
-        code: json['display_code']?.toString() ?? '',
         fingerprint: json['fingerprint']?.toString() ?? '',
         members: members,
         productLabels: (json['products'] as List).map((raw) {
@@ -172,15 +201,11 @@ extension MobileApiQolipSharedSets on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final all = _sharedPhysicalMolds()
           .where((mold) => !_testModeLocalSetIds.contains(mold.setId)).toList();
-      _registerTestModeSetCodes(all);
       final registered = _testModeManagedSets.values.where((entry) =>
-          entry.set.id == identifier.trim() ||
-          entry.set.code.toLowerCase() == identifier.trim().toLowerCase()).firstOrNull;
+          entry.set.id == identifier.trim()).firstOrNull;
       var matched = all
           .where((mold) =>
               mold.setId == identifier.trim() ||
-              _testModeQolipSetCodes[mold.setId]?.toLowerCase() ==
-                  identifier.trim().toLowerCase() ||
               mold.qolipCode.toLowerCase() == identifier.trim().toLowerCase())
           .toList();
       if (matched.isEmpty && registered == null) {
@@ -225,7 +250,6 @@ extension MobileApiQolipSharedSets on MobileApi {
       }
       return QolipSharedSet(
           id: id,
-          code: _testModeQolipSetCodes[id]!,
           fingerprint: jsonEncode(members
               .map((mold) => [
                     mold.setId,

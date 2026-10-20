@@ -32,7 +32,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
       final saved = await reuseSelectedQolipSet(context, selected.set, product);
       if (mounted && saved != null) {
         _finishSpecSave(product, saved,
-            selected.set.code.isEmpty ? selected.set.id : selected.set.code);
+            selected.set.id);
       }
     } catch (error) {
       if (mounted) await _showSpecSaveError(qolipErrorMessage(error, l10n: context.l10n));

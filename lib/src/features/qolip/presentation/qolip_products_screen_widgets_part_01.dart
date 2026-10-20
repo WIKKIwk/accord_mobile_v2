@@ -342,7 +342,10 @@ class _QolipProductContainerCard extends StatelessWidget {
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(14, 8, 8, 0),
                                 child: Row(children: [
-                                  Expanded(child: SelectableText('${l10n.qolipSharedSetText('id')}: ${entry.key}', style: Theme.of(context).textTheme.bodySmall)),
+                                  Expanded(child: SelectableText(
+                                    '${l10n.qolipSharedSetText('id')}: ${entry.key}',
+                                    style: Theme.of(context).textTheme.labelLarge,
+                                  )),
                                   IconButton(
                                     tooltip: l10n.qolipSharedSetText('id'),
                                     icon: const Icon(Icons.copy_rounded, size: 18),

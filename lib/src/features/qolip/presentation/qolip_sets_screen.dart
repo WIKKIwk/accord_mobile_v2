@@ -59,7 +59,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
     final saved = await showQolipMoldAddDialog(
       context,
       scope:
-          '${entry.set.code}\n${context.l10n.qolipManagementText('set_scope')}',
+          '${entry.set.id}\n${context.l10n.qolipManagementText('set_scope')}',
       initialSize: entry.set.members.firstOrNull?.qolipSize ?? 0,
       availablePantonNumber: available,
       onSave: (draft) async {
@@ -167,7 +167,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                 .where((entry) =>
                     entry.set.members.isNotEmpty &&
                     [
-                      entry.set.code,
+                      entry.set.id,
                       ...entry.set.members.map((m) => m.qolipCode)
                     ].any((value) => value.toLowerCase().contains(query)))
                 .toList();
@@ -217,7 +217,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                                     .colorScheme
                                     .onSecondaryContainer),
                           ),
-                          title: Text(entry.set.code,
+                          title: Text(entry.set.id,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5)),
@@ -227,7 +227,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                onPressed: () => _copy(entry.set.code),
+                                onPressed: () => _copy(entry.set.id),
                                 tooltip: l10n.qolipManagementText('copy_code'),
                                 icon: const Icon(Icons.copy_outlined, size: 18),
                               ),

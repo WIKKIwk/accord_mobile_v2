@@ -51,7 +51,6 @@ extension MobileApiQolipManagement on MobileApi {
         _testModeManagedSets[mold.setId] = QolipManagedSet(
           set: QolipSharedSet(
             id: snapshot.id,
-            code: snapshot.code,
             fingerprint: snapshot.fingerprint,
             members: snapshot.members,
             productLabels: targets.map((p) => '${p.name} (${p.code})').toList(),
@@ -64,7 +63,7 @@ extension MobileApiQolipManagement on MobileApi {
               entry.set.members.isNotEmpty &&
               physical.any((mold) => mold.setId == entry.set.id))
           .toList()
-        ..sort((a, b) => a.set.code.compareTo(b.set.code));
+        ..sort((a, b) => a.set.id.compareTo(b.set.id));
       return result;
     }
     final response = await _sendAuthorized(() => _get(
@@ -113,8 +112,7 @@ extension MobileApiQolipManagement on MobileApi {
       for (final draft in add) {
         if (draft.code.trim().isEmpty ||
             draft.size <= 0 ||
-            _testModeQolipSetCodes.values.any(
-                (code) => code.toLowerCase() == draft.code.trim().toLowerCase()) ||
+            physical.any((mold) => mold.setId == draft.code.trim()) ||
             physical.any((m) =>
                 m.qolipCode.toLowerCase() == draft.code.trim().toLowerCase())) {
           throw const MobileApiException(
@@ -153,7 +151,6 @@ extension MobileApiQolipManagement on MobileApi {
         source: current.source,
         set: QolipSharedSet(
           id: current.set.id,
-          code: current.set.code,
           fingerprint: jsonEncode(members
               .map((m) => [
                     m.setId,
@@ -245,8 +242,7 @@ extension MobileApiQolipManagement on MobileApi {
                   code: 'size_invalid', message: 'size_invalid');
             }
             mold = QolipProduct(
-              qolipSetId:
-                  'qolip-local:${DateTime.now().microsecondsSinceEpoch}:$code',
+              qolipSetId: _nextTestModeQolipSetId(),
               warehouse: change['warehouse'] as String,
               code: item.code,
               name: item.name,
