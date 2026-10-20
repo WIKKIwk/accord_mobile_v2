@@ -92,19 +92,6 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       _updateScreenState(() => _loading = false);
       // Completion notifications are small and must not gate the first queue.
       unawaited(_refreshCompletionRequests());
-      _queueSnapshotPollTimer?.cancel();
-      _queueSnapshotPollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-        if (mounted && _adminPaging && _adminForeground) {
-          unawaited(_ensureAdminModule(_module, refresh: true));
-        }
-      });
-      _pendingOrderTimer?.cancel();
-      _pendingOrderTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-        if (mounted && _adminForeground) {
-          unawaited(_refreshCompletionRequests());
-          if (timer.tick % 3 == 0) unawaited(_refreshApparatusCatalog());
-        }
-      });
       unawaited(_prefetchAdminFirstPages());
     } catch (error) {
       if (mounted) _applyInitialProductionMapLoadError(error);

@@ -155,11 +155,8 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _startAdminLive() async {
-    if (_adminPaging) {
-      if (widget.orderPageLoader != null || !await TestModeController.instance.isEnabled()) {
-        await _startAdminPaging();
-        return;
-      }
+    if (_adminPaging && widget.orderPageLoader == null &&
+        await TestModeController.instance.isEnabled()) {
       // The offline demo retains its in-memory queue fixture.
       _adminPaging = false;
       unawaited(_refreshPendingOrders());
@@ -171,7 +168,7 @@ extension _AdminProductionMapOrdersLiveState
     if (!mounted) {
       return;
     }
-    _startQueueSnapshotPolling();
+    if (!_adminPaging) _startQueueSnapshotPolling();
     if (await TestModeController.instance.isEnabled()) {
       return;
     }

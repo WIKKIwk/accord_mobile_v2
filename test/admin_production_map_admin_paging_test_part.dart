@@ -89,7 +89,8 @@ class _AdminPagingHarness {
     );
   }
 
-  Future<void> mount(WidgetTester tester) async {
+  Future<void> mount(WidgetTester tester,
+      {Stream<AdminProductionMapLiveMessage> Function()? liveEventsLoader}) async {
     await _usePhoneViewport(tester);
     await AdminSequenceApparatusStore.instance.saveApparatus(apparatus.first);
     await tester.pumpWidget(MaterialApp(
@@ -104,9 +105,10 @@ class _AdminPagingHarness {
       home: AdminProductionMapOrdersScreen(
         apparatusLoader: () async => apparatus, orderPageLoader: read,
         completionRequestsLoader: () async => [],
-        // Any accidental legacy snapshot/live read fails this test.
+        // Paged HTTP reads must not fetch a full snapshot.
         queueSnapshotLoader: () => throw StateError('full snapshot requested'),
-        liveEventsLoader: () => throw StateError('legacy socket opened'),
+        liveEventsLoader: liveEventsLoader ??
+            () => throw StateError('test-mode socket opened'),
       ),
     ));
     await tester.pumpAndSettle();
@@ -150,6 +152,7 @@ void _registerAdminPagingTests() {
     expect(find.text('20 / 65 · Yana 20 ta').hitTestable(), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+    expect(harness.calls, hasLength(6), reason: 'No periodic admin page reads');
     expect(harness.calls.where((r) => r.cursor != null), isEmpty);
     expect(
         harness.calls
@@ -238,7 +241,7 @@ void _registerAdminPagingTests() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('admin paging suspends polling while the app is backgrounded',
+  testWidgets('admin paging only refreshes on resume while backgrounded',
       (tester) async {
     final harness = await prepare();
     await harness.mount(tester);
@@ -254,6 +257,50 @@ void _registerAdminPagingTests() {
     await tester.pumpAndSettle();
     expect(harness.calls.length, greaterThan(reads));
     expect(harness.calls.where((r) => r.cursor != null), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('admin paging uses the original delta socket without polling',
+      (tester) async {
+    final harness = await prepare();
+    final events = StreamController<AdminProductionMapLiveMessage>();
+    addTearDown(events.close);
+    var connections = 0;
+    await TestModeController.instance.setEnabled(false);
+    await harness.mount(tester, liveEventsLoader: () {
+      connections++;
+      return events.stream;
+    });
+    expect(connections, 1);
+    expect(harness.calls, hasLength(6));
+    final ids = harness.orders.map((order) => order.map.id).toList();
+    final delta = AdminProductionMapLiveDelta(
+      epoch: 'page-server',
+      apparatus: _print8Id,
+      baseRevision: 1,
+      revision: 2,
+      baseVersion: '0' * 64,
+      version: '1' * 64,
+      ops: [
+        AdminProductionMapDeltaOp(
+            type: 'move', id: ids[0], afterId: ids[1], beforeId: ids[2]),
+      ],
+    );
+    events.add(delta);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.textContaining('Page product 0001').first).dy,
+      lessThan(tester.getTopLeft(find.textContaining('Page product 0000').first).dy),
+    );
+    // A duplicate delta must not move the row a second time.
+    events.add(delta);
+    await tester.pump(const Duration(seconds: 12));
+    await tester.pumpAndSettle();
+    expect(connections, 1);
+    expect(harness.calls, hasLength(6),
+        reason: 'Socket events must not start periodic HTTP reads');
+    expect(find.text('20 / 65 · Yana 20 ta').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 
