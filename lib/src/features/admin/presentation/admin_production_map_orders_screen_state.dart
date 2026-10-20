@@ -7,6 +7,13 @@ class _AdminProductionMapOrdersScreenState
   final _searchFocusNode = FocusNode();
   late TabController _tabController;
   bool _loading = true;
+  bool _adminPaging = false;
+  bool _adminForeground = true;
+  final Map<String, _AdminOrderWindow> _adminWindows = {};
+  final Map<String, int> _adminMetricSignatures = {};
+  final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
+  String _adminPageSearch = '';
+  Timer? _adminSearchDebounce;
   String? _loadError;
   final Set<_OrdersReadSection> _reconnectingOrderReads = {};
   bool _sectionRecoveryInFlight = false;
@@ -91,6 +98,10 @@ class _AdminProductionMapOrdersScreenState
   String? _pendingOrdersError;
 
   Future<void> _refreshPendingOrders({bool force = false}) async {
+    if (_adminPaging) {
+      await _loadAdminWindow(_adminWindow('orders'), force: force);
+      return;
+    }
     if ((_pendingOrdersLoading && !force) ||
         widget.workerMode ||
         widget.supplyViewerMode ||
@@ -179,7 +190,9 @@ class _AdminProductionMapOrdersScreenState
   @override
   void initState() {
     super.initState();
-    if (!widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
+    _adminPaging = _adminPagingCandidate;
+    if (_adminPaging) WidgetsBinding.instance.addObserver(this);
+    if (!_adminPaging && !widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
       unawaited(_refreshPendingOrders());
       _pendingOrderTimer = Timer.periodic(
           const Duration(seconds: 10), (_) => _refreshPendingOrders());
@@ -201,7 +214,7 @@ class _AdminProductionMapOrdersScreenState
       WidgetsBinding.instance.addObserver(this);
       unawaited(_startWorkerWithInitialScan());
     } else {
-      unawaited(_restoreSavedSequenceApparatusPreference());
+      if (!_adminPaging) unawaited(_restoreSavedSequenceApparatusPreference());
       unawaited(_startAdminLive());
     }
   }
@@ -221,6 +234,7 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _adminSearchDebounce?.cancel();
     _workerQueueSearchDebounce?.cancel();
     _queueActionReconcileTimer?.cancel();
     _sheetQueueSnapshot.dispose();
@@ -232,7 +246,7 @@ class _AdminProductionMapOrdersScreenState
     _pendingSequenceMoves.clear();
     _pendingOrderTimer?.cancel();
     _workerRecoveryTimer?.cancel();
-    if (widget.workerMode) {
+    if (widget.workerMode || _adminPagingCandidate) {
       WidgetsBinding.instance.removeObserver(this);
     }
     _stopWorkerLiveStream();
@@ -249,6 +263,13 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_adminPaging) {
+      _adminForeground = state == AppLifecycleState.resumed;
+      if (_adminForeground) {
+        unawaited(_ensureAdminModule(_module, refresh: true));
+        unawaited(_prefetchAdminFirstPages());
+      }
+    }
     if (widget.workerMode && state == AppLifecycleState.resumed) {
       _workerForeground = true;
       _workerRetryAllowed = true;
@@ -568,6 +589,13 @@ class _AdminProductionMapOrdersScreenState
                           : widget.qolipTasksMode || widget.materialTasksMode
                               ? _buildQolipTasks(bottomPadding)
                               : _AdminModulesBody(
+                                  pageWrapper: _adminPaging ? _wrapAdminModule : null,
+                                  movePageWrapper: _adminPaging ? _wrapAdminMovePane : null,
+                                  pagedOrders: _adminPaging ? _adminWindow('orders').orders : null,
+                                  sequenceTotal: _adminPaging && _selectedApparatus != null
+                                      ? _adminWindow('sequence', apparatus: _selectedApparatus!.id).pages.firstOrNull?.total : null,
+                                  loadClosedDetail: _adminPaging
+                                      ? MobileApi.instance.adminClosedProductionOrderDetail : null,
                                   stageStatesByOrderId: _stageStatesByOrderId,
                                   queueActionControlsByApparatus:
                                       _queueActionControlsByApparatus,
@@ -583,7 +611,7 @@ class _AdminProductionMapOrdersScreenState
                                   tabController: _tabController,
                                   bottomPadding: bottomPadding,
                                   orders: _supplyFilteredOrders,
-                                  searchQuery: _searchQuery,
+                                  searchQuery: _adminPaging ? '' : _searchQuery,
                                   apparatus: _apparatus,
                                   selectedApparatus: _selectedApparatus,
                                   completionRequests: _completionRequests,
@@ -598,6 +626,9 @@ class _AdminProductionMapOrdersScreenState
                                   onSetModule: _setModule,
                                   ordersForApparatus: _ordersForApparatus,
                                   sequenceReorderEnabled:
+                                      (!_adminPaging || (_searchQuery.trim().isEmpty &&
+                                          _adminModuleWindows(_OpenedOrderModule.sequence)
+                                              .every((w) => w.loaded && w.error == null))) &&
                                       _selectedApparatus != null &&
                                       _queuePolicyForApparatus(
                                         _selectedApparatus!,
@@ -613,8 +644,13 @@ class _AdminProductionMapOrdersScreenState
                                       AdminSequenceApparatusStore.instance
                                           .saveApparatus(apparatus),
                                     );
-                                    setState(
-                                        () => _selectedApparatus = apparatus);
+                                    _updateScreenState(() {
+                                      _selectedApparatus = apparatus;
+                                      if (_adminPaging) _rebuildAdminPageState();
+                                    });
+                                    if (_adminPaging) {
+                                      unawaited(_ensureAdminModule(_OpenedOrderModule.sequence, refresh: true));
+                                    }
                                   },
                                   onReorder: (oldIndex, newIndex) {
                                     unawaited(
@@ -661,8 +697,8 @@ class _AdminProductionMapOrdersScreenState
                                   orderControlsByOrderId:
                                       _orderControlsByOrderId,
                                   workflowAudit: _workflowAudit,
-                                  workflowAuditError: _workflowAuditError,
-                                  workflowAuditLoading: _workflowAuditLoading,
+                                  workflowAuditError: _adminPaging ? _adminWindow('audit').error : _workflowAuditError,
+                                  workflowAuditLoading: _adminPaging ? _adminWindow('audit').inFlight != null : _workflowAuditLoading,
                                   onRefreshWorkflowAudit: () =>
                                       _refreshWorkflowAudit(force: true),
                                   onLongPressOrder: (order) {
@@ -2335,7 +2371,10 @@ class _AdminProductionMapOrdersScreenState
 
   void _setModule(_OpenedOrderModule module) {
     if (_module != module) {
-      setState(() => _module = module);
+      _updateScreenState(() {
+        _module = module;
+        if (_adminPaging) _rebuildAdminPageState();
+      });
       if (module == _OpenedOrderModule.closed) {
         unawaited(_refreshClosedOrders());
       }
@@ -2353,13 +2392,21 @@ class _AdminProductionMapOrdersScreenState
     }
     if (module == _OpenedOrderModule.audit) {
       unawaited(_refreshWorkflowAudit());
+    } else if (_adminPaging) {
+      unawaited(_ensureAdminModule(module, refresh: true));
     }
   }
 
   void _syncModuleFromTab() {
     final module = _modules[_tabController.index];
     if (_module != module) {
-      setState(() => _module = module);
+      _updateScreenState(() {
+        _module = module;
+        if (_adminPaging) _rebuildAdminPageState();
+      });
+      if (_adminPaging && module != _OpenedOrderModule.audit) {
+        unawaited(_ensureAdminModule(module, refresh: true));
+      }
       if (module == _OpenedOrderModule.closed) {
         unawaited(_refreshClosedOrders());
       }
@@ -2370,6 +2417,7 @@ class _AdminProductionMapOrdersScreenState
   }
 
   List<ProductionMapSaved> _ordersForApparatus(AdminApparatus apparatus) {
+    if (_adminPaging) return _adminSequenceOrders(apparatus);
     return _productionMapOrdersForApparatus(
       orders: _supplyFilteredOrders,
       apparatus: apparatus,

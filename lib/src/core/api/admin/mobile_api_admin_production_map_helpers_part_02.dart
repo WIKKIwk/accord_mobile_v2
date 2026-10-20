@@ -566,6 +566,7 @@ class AdminProductionWorkflowAuditReport {
     required this.checkedBatchCount,
     required this.checkedSessionCount,
     required this.violations,
+    this.totalViolations,
   });
 
   final bool ok;
@@ -573,6 +574,7 @@ class AdminProductionWorkflowAuditReport {
   final int checkedBatchCount;
   final int checkedSessionCount;
   final List<AdminProductionWorkflowAuditViolation> violations;
+  final int? totalViolations;
 
   factory AdminProductionWorkflowAuditReport.fromJson(
     Map<String, dynamic> json,
@@ -580,6 +582,7 @@ class AdminProductionWorkflowAuditReport {
     final rawViolations = json['violations'];
     return AdminProductionWorkflowAuditReport(
       ok: json['ok'] == true,
+      totalViolations: (json['total_violations'] as num?)?.toInt(),
       checkedOrderCount: (json['checked_order_count'] as num?)?.toInt() ?? 0,
       checkedBatchCount: (json['checked_batch_count'] as num?)?.toInt() ?? 0,
       checkedSessionCount:

@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _MoveModulePage extends StatefulWidget {
   const _MoveModulePage({
+    this.paneWrapper,
     required this.topApparatus,
     required this.bottomApparatus,
     required this.topOrders,
@@ -19,6 +20,7 @@ class _MoveModulePage extends StatefulWidget {
     required this.onMove,
   });
   final AdminApparatus? topApparatus;
+  final Widget Function(bool, Widget)? paneWrapper;
   final AdminApparatus? bottomApparatus;
   final List<ProductionMapSaved> topOrders;
   final List<ProductionMapSaved> bottomOrders;
@@ -51,6 +53,7 @@ class _MoveModulePage extends StatefulWidget {
 }
 
 class _MoveModulePageState extends State<_MoveModulePage> {
+  Widget _wrapPane(bool top, Widget child) => widget.paneWrapper?.call(top, child) ?? child;
   AdminApparatus? get topApparatus => widget.topApparatus;
 
   AdminApparatus? get bottomApparatus => widget.bottomApparatus;
@@ -115,7 +118,7 @@ class _MoveModulePageState extends State<_MoveModulePage> {
           alignment: Alignment.center,
           onTap: onPickTop,
         ),
-        topBody: _MoveDropZone(
+        topBody: _wrapPane(true, _MoveDropZone(
           apparatus: top,
           orders: topOrders,
           selectedOrderIds: selectedOrderIds,
@@ -128,14 +131,14 @@ class _MoveModulePageState extends State<_MoveModulePage> {
           onDragStarted: onDragStarted,
           onDragEnded: onDragEnded,
           onMove: onMove,
-        ),
+        )),
         bottomHeader: _MoveApparatusHeader(
           key: const ValueKey('move-boundary-apparatus-picker'),
           apparatus: bottom,
           alignment: Alignment.center,
           onTap: onPickBottom,
         ),
-        bottomBody: _MoveDropZone(
+        bottomBody: _wrapPane(false, _MoveDropZone(
           apparatus: bottom,
           orders: bottomOrders,
           selectedOrderIds: selectedOrderIds,
@@ -148,7 +151,7 @@ class _MoveModulePageState extends State<_MoveModulePage> {
           onDragStarted: onDragStarted,
           onDragEnded: onDragEnded,
           onMove: onMove,
-        ),
+        )),
       ),
     );
   }

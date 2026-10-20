@@ -10,6 +10,7 @@ const _watermarkStampSafetyPadding = 8.0;
 
 class _OpenedOrderList extends StatelessWidget {
   const _OpenedOrderList({
+    this.asSliver = false,
     this.pendingOrders = const [],
     this.onPendingOrder,
     required this.orders,
@@ -26,6 +27,7 @@ class _OpenedOrderList extends StatelessWidget {
     required this.onLongPressOrder,
   });
   final List<PendingOrder> pendingOrders;
+  final bool asSliver;
   final ValueChanged<PendingOrder>? onPendingOrder;
   final List<ProductionMapSaved> orders;
   final List<AdminApparatus> apparatusCatalog;
@@ -50,22 +52,20 @@ class _OpenedOrderList extends StatelessWidget {
       visibleOrderIdsByApparatus: visibleOrderIdsByApparatus,
     );
     final l10n = context.l10n;
-    final children = <Widget>[];
-    for (var index = 0; index < pendingOrders.length; index++) {
-      final pending = pendingOrders[index];
-      children.add(
-        PendingOrderCard(
+    Widget buildChild(int rowIndex) {
+      if (rowIndex < pendingOrders.length) {
+        final pending = pendingOrders[rowIndex];
+        return PendingOrderCard(
           key: ValueKey('pending-order-${pending.id}'),
           order: pending,
           slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-            index,
+            rowIndex,
             totalCount,
           ),
           onTap: () => onPendingOrder?.call(pending),
-        ),
-      );
-    }
-    for (var index = 0; index < orders.length; index++) {
+        );
+      }
+      final index = rowIndex - pendingOrders.length;
       final order = orders[index];
       final orderId = order.map.id.trim();
       final tone = _resolveOrderCardTone(
@@ -81,8 +81,7 @@ class _OpenedOrderList extends StatelessWidget {
         ),
         orderActivityState: orderActivityStates[orderId],
       );
-      children.add(
-        _OpenedOrderRow(
+      return _OpenedOrderRow(
           key: ValueKey('opened-order-$orderId'),
           slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
             pendingOrders.length + index,
@@ -107,11 +106,22 @@ class _OpenedOrderList extends StatelessWidget {
           selected: orderId == selectedOrderId,
           onInfo: () => onInfoOrder(order),
           onLongPress: () => onLongPressOrder(order),
+        );
+    }
+    if (asSliver) {
+      return SliverList(delegate: SliverChildBuilderDelegate(
+        (context, index) => Padding(
+          key: ValueKey(index < pendingOrders.length
+              ? 'pending-${pendingOrders[index].id}'
+              : 'order-${orders[index - pendingOrders.length].map.id}'),
+          padding: const EdgeInsets.only(bottom: 4),
+          child: buildChild(index),
         ),
-      );
+        childCount: totalCount,
+      ));
     }
     return M3SegmentSpacedColumn(
-      children: children,
+      children: [for (var index = 0; index < totalCount; index++) buildChild(index)],
     );
   }
 }

@@ -147,6 +147,10 @@ extension _AdminProductionMapOrdersMoveState
     required AdminApparatus source,
     required AdminApparatus target,
   }) {
+    if (_adminPaging) {
+      return _adminWindow('move', apparatus: _pageApparatus(source),
+          target: _pageApparatus(target)).orders;
+    }
     if (_isMoveUnassignedApparatus(source)) {
       if (_isMoveUnassignedApparatus(target)) {
         return const [];
@@ -380,6 +384,7 @@ extension _AdminProductionMapOrdersMoveState
           _queueSnapshotNeedsReconcile = true;
           _updateScreenState(() {
             if (stillCurrent) {
+              if (_adminPaging) _adminSequenceAcks[apparatus] = result;
               _sequenceByApparatus[apparatus] = result.orderIds;
               _sequenceVersions[apparatus] = result.version;
               if (result.revision != null) {
@@ -797,9 +802,9 @@ extension _AdminProductionMapOrdersMoveState
       builder: (context) => _ApparatusPickerSheet(
         apparatus: pickerApparatus,
         selected: top ? _moveTopApparatus : _moveBottomApparatus,
-        orderCountFor: (apparatus) => _ordersForApparatus(apparatus).length,
+        orderCountFor: _adminPaging ? null : (apparatus) => _ordersForApparatus(apparatus).length,
         showUnassigned: anchor != null && !_isMoveUnassignedApparatus(anchor),
-        unassignedOrderCount: unassignedOrderCount,
+        unassignedOrderCount: _adminPaging ? null : unassignedOrderCount,
       ),
     );
     if (picked == null || !mounted) {
@@ -811,7 +816,9 @@ extension _AdminProductionMapOrdersMoveState
       } else {
         _moveBottomApparatus = picked;
       }
+      if (_adminPaging) _selectedMoveOrderIds.clear();
     });
+    if (_adminPaging) unawaited(_ensureAdminModule(_OpenedOrderModule.move, refresh: true));
   }
 
   List<AdminApparatus> _movePickerApparatusOptions(

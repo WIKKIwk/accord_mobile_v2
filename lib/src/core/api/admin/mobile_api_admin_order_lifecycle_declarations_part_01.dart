@@ -352,6 +352,7 @@ class AdminProductionOrderFreezeDetails {
 
 class AdminClosedProductionOrder {
   const AdminClosedProductionOrder({
+    this.historyVersion = '',
     required this.orderId,
     required this.orderNumber,
     required this.title,
@@ -365,6 +366,7 @@ class AdminClosedProductionOrder {
   });
 
   final String orderId;
+  final String historyVersion;
   final String orderNumber;
   final String title;
   final String productCode;
@@ -379,6 +381,7 @@ class AdminClosedProductionOrder {
     final logsRaw = json['logs'];
     final earlyClose = json['early_close'];
     return AdminClosedProductionOrder(
+      historyVersion: json['history_version']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
       orderNumber: json['order_number']?.toString() ?? '',
       title: json['title']?.toString() ?? '',

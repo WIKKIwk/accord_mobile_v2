@@ -155,6 +155,18 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _startAdminLive() async {
+    if (_adminPaging) {
+      if (widget.orderPageLoader != null || !await TestModeController.instance.isEnabled()) {
+        await _startAdminPaging();
+        return;
+      }
+      // The offline demo retains its in-memory queue fixture.
+      _adminPaging = false;
+      unawaited(_refreshPendingOrders());
+      _pendingOrderTimer = Timer.periodic(
+          const Duration(seconds: 10), (_) => _refreshPendingOrders());
+      unawaited(_restoreSavedSequenceApparatusPreference());
+    }
     await _refreshLive(initial: true);
     if (!mounted) {
       return;
@@ -665,6 +677,10 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshAdminLiveBatch({required bool initial}) async {
+    if (_adminPaging) {
+      await (initial ? _startAdminPaging() : _refreshAdminPagedView());
+      return;
+    }
     if (widget.supplyViewerMode) {
       if (initial) {
         await Future.wait([
@@ -704,6 +720,10 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshQueueSnapshot({bool waitForChanges = false}) async {
+    if (_adminPaging) {
+      await _refreshAdminPagedView();
+      return;
+    }
     if (_queueSnapshotRefreshInFlight) {
       if (!waitForChanges) _queueSnapshotRefreshQueued = true;
       return;
@@ -1115,6 +1135,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshClosedOrders() {
+    if (_adminPaging) return _loadAdminWindow(_adminWindow('closed'));
     if (!mounted || widget.workerMode || widget.supplyViewerMode) {
       return Future.value();
     }
@@ -1190,6 +1211,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshWorkflowAudit({bool force = false}) async {
+    if (_adminPaging) return _loadAdminWindow(_adminWindow('audit'), force: force);
     if (_workflowAuditLoading ||
         (!force && _workflowAudit != null && _workflowAuditError == null)) {
       return;
@@ -1227,6 +1249,10 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshMapsAndApparatus({bool initial = false}) async {
+    if (_adminPaging) {
+      await _refreshAdminPagedView();
+      return;
+    }
     // Legacy path kept for compatibility. Initial loads must use
     // [_refreshCanonicalInitial] (parallel snapshot + apparatus, single
     // atomic apply) to avoid title/subtitle flicker.
@@ -1279,6 +1305,7 @@ extension _AdminProductionMapOrdersLiveState
   /// Legacy backends without `maps` fall back to a single
   /// `adminProductionMaps()` fetch, still applied in one transaction.
   Future<void> _refreshCanonicalInitial() {
+    if (_adminPaging) return _refreshAdminPagedView();
     return _initialRefresh ??= _refreshCanonicalInitialOnce().whenComplete(() {
       _initialRefresh = null;
     });

@@ -18,6 +18,10 @@ extension _WorkerQueueWindowState on _AdminProductionMapOrdersScreenState {
 
   void _onOrdersSearchChanged(String value) {
     setState(() => _searchQuery = value);
+    if (_adminPaging) {
+      _adminSearchChanged(value);
+      return;
+    }
     if (!widget.workerMode) return;
     _workerQueueSearchDebounce?.cancel();
     _workerQueueSearchDebounce = Timer(const Duration(milliseconds: 350), () {

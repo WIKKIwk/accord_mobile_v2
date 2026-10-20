@@ -10,9 +10,9 @@ class _ApparatusPickerSheet extends StatelessWidget {
   });
   final List<AdminApparatus> apparatus;
   final AdminApparatus? selected;
-  final int Function(AdminApparatus apparatus)? orderCountFor;
+  final int? Function(AdminApparatus apparatus)? orderCountFor;
   final bool showUnassigned;
-  final int unassignedOrderCount;
+  final int? unassignedOrderCount;
 
   @override
   Widget build(BuildContext context) {
@@ -62,9 +62,9 @@ class _ApparatusPickerList extends StatelessWidget {
   });
   final List<AdminApparatus> apparatus;
   final AdminApparatus? selected;
-  final int Function(AdminApparatus apparatus)? orderCountFor;
+  final int? Function(AdminApparatus apparatus)? orderCountFor;
   final bool showUnassigned;
-  final int unassignedOrderCount;
+  final int? unassignedOrderCount;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +94,7 @@ class _ApparatusPickerList extends StatelessWidget {
                 ),
                 apparatus: apparatus[index],
                 selected: selected?.id == apparatus[index].id,
-                orderCount: orderCountFor?.call(apparatus[index]) ?? 0,
+                orderCount: orderCountFor?.call(apparatus[index]),
                 onTap: () => Navigator.of(context).pop(apparatus[index]),
               ),
           ],
@@ -115,7 +115,7 @@ class _ApparatusRow extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final AdminApparatus apparatus;
   final bool selected;
-  final int orderCount;
+  final int? orderCount;
   final VoidCallback onTap;
 
   @override
@@ -172,6 +172,7 @@ class _ApparatusRow extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    if (orderCount != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       context.l10n.productionText(
@@ -183,6 +184,7 @@ class _ApparatusRow extends StatelessWidget {
                         height: 1.05,
                       ),
                     ),
+                    ],
                   ],
                 ),
               ),

@@ -41,30 +41,33 @@ class _OrdersModulePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    return CustomScrollView(
+      key: const PageStorageKey('admin-opened-orders'),
+      slivers: [SliverPadding(
       padding: EdgeInsets.fromLTRB(
         _openedOrderPanelCardGap,
         _openedOrderPanelTopGap,
         _openedOrderPanelCardGap,
         bottomPadding,
       ),
-      children: [
+      sliver: SliverMainAxisGroup(slivers: [
         if (pendingOrdersError != null)
-          ListTile(
+          SliverToBoxAdapter(child: ListTile(
               title: Text(pendingOrdersError!),
               trailing: IconButton(
                   onPressed: onRetryPendingOrders,
-                  icon: const Icon(Icons.refresh))),
+                  icon: const Icon(Icons.refresh)))),
         if (orders.isEmpty && pendingOrders.isEmpty)
-          _EmptyOpenedOrders(
+          SliverToBoxAdapter(child: _EmptyOpenedOrders(
             message: context.l10n.adminText('production.open_empty'),
-          )
+          ))
         else if (visibleOrders.isEmpty && pendingOrders.isEmpty)
-          _EmptyOpenedOrders(
+          SliverToBoxAdapter(child: _EmptyOpenedOrders(
             message: context.l10n.adminText('production.search_empty'),
-          )
+          ))
         else
           _OpenedOrderList(
+            asSliver: true,
             pendingOrders: pendingOrders,
             onPendingOrder: onPendingOrder,
             orders: visibleOrders,
@@ -79,13 +82,18 @@ class _OrdersModulePage extends StatelessWidget {
             onInfoOrder: onInfoOrder,
             onLongPressOrder: onLongPressOrder,
           ),
-      ],
+      ]))],
     );
   }
 }
 
 class _AdminModulesBody extends StatelessWidget {
   const _AdminModulesBody({
+    this.pageWrapper,
+    this.movePageWrapper,
+    this.pagedOrders,
+    this.sequenceTotal,
+    this.loadClosedDetail,
     this.pendingOrders = const [],
     this.pendingOrdersError,
     this.onPendingOrder,
@@ -137,6 +145,13 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onLongPressOrder,
   });
   final List<_OpenedOrderModule> modules;
+  final Widget Function(_OpenedOrderModule, Widget)? pageWrapper;
+  final Widget Function(bool, Widget)? movePageWrapper;
+  final List<ProductionMapSaved>? pagedOrders;
+  final int? sequenceTotal;
+  final Future<AdminClosedProductionOrder> Function(String)? loadClosedDetail;
+  Widget _wrapModule(_OpenedOrderModule module, Widget child) =>
+      pageWrapper?.call(module, child) ?? child;
   final List<PendingOrder> pendingOrders;
   final String? pendingOrdersError;
   final ValueChanged<PendingOrder>? onPendingOrder;
@@ -218,7 +233,7 @@ class _AdminModulesBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeOrders = _activeProductionMapOrders(
-      orders: orders,
+      orders: pagedOrders ?? orders,
       orderStatusesByOrderId: orderStatusesByOrderId,
       queueStatesByApparatus: queueStatesByApparatus,
     );
@@ -244,8 +259,9 @@ class _AdminModulesBody extends StatelessWidget {
             controller: tabController,
             children: [
               for (final module in modules)
-                switch (module) {
+                _wrapModule(module, switch (module) {
                   _OpenedOrderModule.sequence => _SequenceModulePage(
+                      totalOrderCount: sequenceTotal,
                       queueActionControls: queueActionControlsByApparatus[
                               selectedApparatus?.id.trim()] ??
                           const {},
@@ -305,6 +321,7 @@ class _AdminModulesBody extends StatelessWidget {
                       onLongPressOrder: onLongPressOrder,
                     ),
                   _OpenedOrderModule.move => _MoveModulePage(
+                      paneWrapper: movePageWrapper,
                       topApparatus: moveTopApparatus,
                       bottomApparatus: moveBottomApparatus,
                       topOrders: moveTopApparatus == null ||
@@ -346,6 +363,7 @@ class _AdminModulesBody extends StatelessWidget {
                       onMove: onMove,
                     ),
                   _OpenedOrderModule.closed => _ClosedOrdersModulePage(
+                      loadDetail: loadClosedDetail,
                       bottomPadding: bottomPadding,
                       closedOrders: closedOrders,
                       apparatusCatalog: apparatus,
@@ -361,7 +379,7 @@ class _AdminModulesBody extends StatelessWidget {
                       loading: workflowAuditLoading,
                       onRefresh: onRefreshWorkflowAudit,
                     ),
-                },
+                }),
             ],
           ),
         ),
@@ -484,7 +502,7 @@ class _WorkflowAuditModulePage extends StatelessWidget {
                       _AuditCountChip(
                         icon: Icons.report_problem_outlined,
                         label: context.l10n.adminText('production.errors'),
-                        value: currentReport.violations.length,
+                        value: currentReport.totalViolations ?? currentReport.violations.length,
                       ),
                     ],
                   ),

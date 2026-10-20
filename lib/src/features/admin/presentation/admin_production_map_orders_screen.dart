@@ -94,6 +94,7 @@ import 'admin_progress_qr_scan_screen.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -108,6 +109,7 @@ part 'admin_production_map_orders_material_delivery.dart';
 part 'admin_production_map_orders_scan_bootstrap.dart';
 part 'admin_production_map_orders_detail_sync.dart';
 part 'admin_production_map_orders_live_state.dart';
+part 'admin_production_map_orders_admin_paging.dart';
 part 'admin_production_map_orders_move_state.dart';
 part 'admin_production_map_orders_detail_material_widgets.dart';
 part 'admin_production_map_orders_detail_map_widgets.dart';

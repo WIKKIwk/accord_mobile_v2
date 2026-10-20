@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _SequenceModulePage extends StatefulWidget {
   const _SequenceModulePage({
+    this.totalOrderCount,
     required this.bottomPadding,
     required this.availableApparatus,
     required this.apparatus,
@@ -23,6 +24,7 @@ class _SequenceModulePage extends StatefulWidget {
     required this.onLongPressOrder,
   });
   final double bottomPadding;
+  final int? totalOrderCount;
   final List<AdminApparatus> availableApparatus;
   final AdminApparatus? apparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
@@ -172,7 +174,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
                   _SequenceHeaderSelectors(
                     availableApparatus: widget.availableApparatus,
                     apparatus: selected,
-                    orderCount: orders.length,
+                    orderCount: widget.totalOrderCount ?? orders.length,
                     readOnly: widget.readOnly,
                     interactionHint: widget.interactionHint,
                     showInteractionHint: widget.onInfoOrder != null,
@@ -270,7 +272,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           _SequenceHeaderSelectors(
             availableApparatus: widget.availableApparatus,
             apparatus: selected,
-            orderCount: orders.length,
+            orderCount: widget.totalOrderCount ?? orders.length,
             readOnly: widget.readOnly,
             interactionHint: widget.interactionHint,
             showInteractionHint: widget.onInfoOrder != null,
