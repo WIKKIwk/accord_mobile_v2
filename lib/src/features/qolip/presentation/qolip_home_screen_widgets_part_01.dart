@@ -23,6 +23,21 @@ Future<void> showQolipProductSpecSheet(
   );
 }
 
+Future<QolipManagedSet?> showQolipSetCreateSheet(BuildContext context) {
+  return showModalBottomSheet<QolipManagedSet>(
+    context: context,
+    isScrollControlled: true,
+    enableDrag: false,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.32),
+    builder: (context) => const _QolipAttachSheet(
+      mode: _QolipAttachMode.standaloneSet,
+      blocks: <QolipBlock>[],
+    ),
+  );
+}
+
 bool qolipMoveReachedTarget({
   required QolipLocationEntry moved,
   required QolipBlock targetBlock,

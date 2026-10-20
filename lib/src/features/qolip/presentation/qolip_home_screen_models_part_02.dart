@@ -343,7 +343,7 @@ class _QolipBlockTabBarState extends State<_QolipBlockTabBar> {
 
 enum _QolipFabAction { createBlock, attachQolip }
 
-enum _QolipAttachMode { productSpec, cellPlacement }
+enum _QolipAttachMode { productSpec, standaloneSet, cellPlacement }
 
 enum _ScannedCellAction { placeQolip, takeQolip }
 

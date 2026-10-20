@@ -28,7 +28,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
   }
 
   QolipBlock? _initialBlock() {
-    if (widget.mode == _QolipAttachMode.productSpec) {
+    if (_createsMolds) {
       return null;
     }
     if (widget.blocks.isEmpty) {
@@ -250,7 +250,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
   Future<void> _save() async {
     final l10n = context.l10n;
     final product = _product;
-    if (_saving || product == null) return;
+    if (_saving || (!_createsStandaloneSet && product == null)) return;
     if (widget.mode == _QolipAttachMode.cellPlacement) {
       await _saveCellProducts(_selectedProducts);
       return;
@@ -260,14 +260,18 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
     setState(() => _saving = true);
     try {
       // Resolve before validating new colors/size: reuse always takes the existing complete set.
-      if (await _reuseExistingSet(product, identifier)) return;
+      if (!_createsStandaloneSet &&
+          product != null &&
+          await _reuseExistingSet(product, identifier)) {
+        return;
+      }
       if (!mounted) return;
       if (_specWarehouse == null || _warehousesLoading || _warehousesFailed) {
         await _showSpecSaveError(l10n.qolipSharedSetText('warehouse'));
         return;
       }
       final size = int.tryParse(_size.text.trim());
-      if (size == null || size <= 0) {
+      if (size == null || size <= 0 || size > 2147483647) {
         await _showSpecSaveError(l10n.qolipText('home.size_invalid'));
         return;
       }
@@ -276,7 +280,8 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
         await _showSpecSaveError(l10n.qolipText('home.code_range'));
         return;
       }
-      if (draft.count > 1 && _selectedColors.length != draft.count) {
+      if ((draft.count > 1 || _createsStandaloneSet) &&
+          _selectedColors.length != draft.count) {
         await _showSpecSaveError(l10n
             .qolipText('home.colors_required', values: {'count': draft.count}));
         return;
@@ -293,6 +298,22 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
               size: size,
               qolipColor: colors.isEmpty ? '' : colors[index])
       ];
+      if (_createsStandaloneSet) {
+        final created = await MobileApi.instance.qolipCreateSet(
+          warehouse: _specWarehouse!,
+          members: [
+            for (final item in items)
+              QolipMoldDraft(
+                code: item.qolipCode,
+                size: item.size,
+                color: item.qolipColor,
+              ),
+          ],
+        );
+        if (mounted) Navigator.of(context).pop(created);
+        return;
+      }
+      if (product == null) return;
       List<QolipProduct> saved;
       try {
         saved = await MobileApi.instance.qolipSaveProductSpecsBatch(

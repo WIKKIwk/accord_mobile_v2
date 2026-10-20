@@ -173,9 +173,11 @@ extension __QolipAttachSheetStateAstPart07 on _QolipAttachSheetState {
   }
 
   String _title(AppLocalizations l10n) {
-    return widget.mode == _QolipAttachMode.productSpec
-        ? l10n.qolipText('home.storage_attach')
-        : l10n.qolipText('home.cell_attach');
+    return switch (widget.mode) {
+      _QolipAttachMode.productSpec => l10n.qolipText('home.storage_attach'),
+      _QolipAttachMode.standaloneSet => l10n.qolipManagementText('create'),
+      _QolipAttachMode.cellPlacement => l10n.qolipText('home.cell_attach'),
+    };
   }
 
   String _productLabel(QolipProduct product) {

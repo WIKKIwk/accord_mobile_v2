@@ -22,6 +22,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   bool _saving = false;
   bool _printingQr = false;
 
+  bool get _createsStandaloneSet => widget.mode == _QolipAttachMode.standaloneSet;
+
+  bool get _createsMolds => widget.mode != _QolipAttachMode.cellPlacement;
+
   Future<void> _pickExistingSet() async {
     final product = _product;
     if (product == null || _saving) return;
@@ -54,7 +58,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     _placedQolipCodesFuture = widget.mode == _QolipAttachMode.cellPlacement
         ? _loadPlacedQolipCodes()
         : Future.value(const <String>{});
-    if (widget.mode == _QolipAttachMode.productSpec) {
+    if (_createsMolds) {
       _loadSpecWarehouses();
     }
   }
@@ -74,9 +78,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   }
 
   bool get _canSave {
-    if (widget.mode == _QolipAttachMode.productSpec) {
+    if (_createsMolds) {
       return _savedProductSpecs.isEmpty &&
-          _product != null &&
+          (_createsStandaloneSet || _product != null) &&
           _qolipCode.text.trim().isNotEmpty;
     }
     return _block != null &&
@@ -93,7 +97,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final productSpecSaved = _savedProductSpecs.isNotEmpty;
     final batchDraft = _batchDraft;
-    return Padding(
+    final sheet = Padding(
       padding: EdgeInsets.fromLTRB(8, 0, 8, bottomInset + 8),
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -149,42 +153,45 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                 ),
                 const SizedBox(height: 12),
               ],
-              InkWell(
-                onTap: productSpecSaved || widget.lockProduct || _saving
-                    ? null
-                    : _pickProduct,
-                borderRadius: BorderRadius.circular(12),
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: widget.mode == _QolipAttachMode.cellPlacement
-                        ? l10n.qolipText('home.code_or_product')
-                        : l10n.qolipText('home.ready_product'),
-                    suffixIcon: widget.lockProduct
-                        ? const Icon(Icons.lock_outline_rounded)
-                        : const Icon(Icons.search_rounded),
-                  ),
-                  child: Text(
-                    _selectedProducts.length > 1
-                        ? l10n.qolipText(
-                            'products.mold_count',
-                            values: {'count': _selectedProducts.length},
-                          )
-                        : _product == null
-                            ? widget.mode == _QolipAttachMode.cellPlacement
-                                ? l10n.qolipText(
-                                    'home.mold_code_or_product_hint',
-                                  )
-                                : l10n.qolipText(
-                                    'home.product_search_hint',
-                                  )
-                            : _productLabel(_product!),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              if (_createsStandaloneSet)
+                Text(l10n.qolipManagementText('create_hint'))
+              else
+                InkWell(
+                  onTap: productSpecSaved || widget.lockProduct || _saving
+                      ? null
+                      : _pickProduct,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: widget.mode == _QolipAttachMode.cellPlacement
+                          ? l10n.qolipText('home.code_or_product')
+                          : l10n.qolipText('home.ready_product'),
+                      suffixIcon: widget.lockProduct
+                          ? const Icon(Icons.lock_outline_rounded)
+                          : const Icon(Icons.search_rounded),
+                    ),
+                    child: Text(
+                      _selectedProducts.length > 1
+                          ? l10n.qolipText(
+                              'products.mold_count',
+                              values: {'count': _selectedProducts.length},
+                            )
+                          : _product == null
+                              ? widget.mode == _QolipAttachMode.cellPlacement
+                                  ? l10n.qolipText(
+                                      'home.mold_code_or_product_hint',
+                                    )
+                                  : l10n.qolipText(
+                                      'home.product_search_hint',
+                                    )
+                              : _productLabel(_product!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-              ),
               const SizedBox(height: 12),
-              if (widget.mode == _QolipAttachMode.productSpec) ...[
+              if (_createsMolds) ...[
                 if (_warehousesLoading)
                   const LinearProgressIndicator()
                 else if (_warehousesFailed || _specWarehouses.isEmpty)
@@ -222,12 +229,14 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   textInputAction: TextInputAction.next,
                   onChanged: (_) => setState(() {}),
                 ),
-                OutlinedButton.icon(
-                  onPressed: _saving || productSpecSaved || _product == null
-                      ? null : _pickExistingSet,
-                  icon: const Icon(Icons.layers_outlined),
-                  label: Text(l10n.qolipManagementText('choose')),
-                ),
+                if (!_createsStandaloneSet)
+                  OutlinedButton.icon(
+                    onPressed: _saving || productSpecSaved || _product == null
+                        ? null
+                        : _pickExistingSet,
+                    icon: const Icon(Icons.layers_outlined),
+                    label: Text(l10n.qolipManagementText('choose')),
+                  ),
                 if (batchDraft != null) ...[
                   const SizedBox(height: 10),
                   Material(
@@ -384,6 +393,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           ),
         ),
       ),
+    );
+    return PopScope(
+      canPop: !_createsStandaloneSet || !_saving,
+      child: sheet,
     );
   }
 }

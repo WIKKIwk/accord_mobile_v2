@@ -16,6 +16,7 @@ import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../shared/models/app_models.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_color_picker.dart';
+import 'qolip_home_screen.dart' show showQolipSetCreateSheet;
 import 'qolip_management_dialogs.dart';
 import 'qolip_products_screen.dart' show QolipCodeRow;
 import 'widgets/qolip_dock.dart';
@@ -69,33 +70,16 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      final data = await MobileApi.instance.qolipBlocksData();
-      if (!mounted) return;
-      final warehouses = data.warehouses.map((w) => w.trim())
-          .where((w) => w.isNotEmpty).toSet().toList();
-      if (warehouses.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(context.l10n.qolipText('blocks.load_failed'))));
-        return;
-      }
-      QolipManagedSet? created;
-      final saved = await showQolipSetCreateDialog(
-        context,
-        warehouses: warehouses,
-        onSave: (warehouse, draft) async {
-          created = await MobileApi.instance.qolipCreateSet(
-              warehouse: warehouse, members: [draft]);
-        },
-      );
-      if (!mounted || saved != true || created == null) return;
+      final created = await showQolipSetCreateSheet(context);
+      if (!mounted || created == null) return;
       setState(() {
         _search.clear();
-        _expanded = created!.set.id;
+        _expanded = created.set.id;
       });
       QolipDataRevision.notifyLocationsChanged();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(context.l10n.qolipManagementText('created',
-              values: {'code': created!.set.id}))));
+              values: {'code': created.set.id}))));
       await _reload();
     } catch (error) {
       if (mounted) {
