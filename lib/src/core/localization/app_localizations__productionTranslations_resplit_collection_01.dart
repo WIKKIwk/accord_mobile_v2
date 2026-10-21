@@ -184,7 +184,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Цвет получен',
   },
   'worker.action.print_preflight_failed': {
-    'uz': 'Rang chiqmadi',
+    'uz': 'Chiqmadi',
     'en': 'Colour failed',
     'ru': 'Цвет не получен',
   },

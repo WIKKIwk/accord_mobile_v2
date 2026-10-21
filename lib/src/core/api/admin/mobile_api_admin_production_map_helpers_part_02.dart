@@ -135,7 +135,7 @@ MobileApiException _adminProductionMapException(
       'print_preflight_not_found' =>
           'Rang chiqarish sinovi topilmadi. Oynani yangilang va qayta urinib ko‘ring.',
       'print_preflight_not_ready' =>
-          'Rang chiqarish natijasi hali tayyor emas. Avval “Rang chiqdi” yoki “Rang chiqmadi” tugmasini bosing.',
+          'Rang chiqarish natijasi hali tayyor emas. Avval “Rang chiqdi” yoki “Chiqmadi” tugmasini bosing.',
       'print_preflight_action_not_allowed' =>
           'Rang chiqarish uchun bu amal hozir mumkin emas. Oynani yangilang va qayta urinib ko‘ring.',
       'print_preflight_requires_print_apparatus' =>

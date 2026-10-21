@@ -328,7 +328,7 @@ void _registerPrintPreflightReopenTests() {
           await tester.tap(row);
           await tester.pumpAndSettle();
           expect(find.widgetWithText(FilledButton, 'Rang chiqdi'), findsOneWidget);
-          expect(find.widgetWithText(OutlinedButton, 'Rang chiqmadi'), findsOneWidget);
+          expect(find.widgetWithText(OutlinedButton, 'Chiqmadi'), findsOneWidget);
         } else {
           await tester.longPress(row);
           await tester.pumpAndSettle();
@@ -464,7 +464,7 @@ void _registerPrintPreflightReopenTests() {
         await tester.pumpAndSettle();
         expect(
             find.widgetWithText(FilledButton, 'Rang chiqdi'), findsOneWidget);
-        expect(find.widgetWithText(OutlinedButton, 'Rang chiqmadi'),
+        expect(find.widgetWithText(OutlinedButton, 'Chiqmadi'),
             findsOneWidget);
         expect(tester.takeException(), isNull);
       }, () => MockClient(fixture.respond));
