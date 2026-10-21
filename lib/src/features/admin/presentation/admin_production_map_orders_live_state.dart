@@ -1008,6 +1008,9 @@ extension _AdminProductionMapOrdersLiveState
     if (!mounted) {
       return;
     }
+    if (_adminPaging) {
+      AdminOrderPageCache.instance.invalidate(_adminCacheVisit);
+    }
     if (reconnecting && !widget.workerMode && !_adminPaging && _adminForeground) {
       _startQueueSnapshotPolling();
     }

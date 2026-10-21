@@ -263,6 +263,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
           }
           _updateScreenState(() {
             window.awaitingLive = false;
+            window.cacheNeedsValidation = false;
             window.validated = window.invalidation;
             window.error = null;
             _rebuildAdminPageState();
@@ -321,6 +322,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
         }
         _updateScreenState(() {
           window.awaitingLive = false;
+          window.cacheNeedsValidation = false;
           if (window.request.view == 'sequence') {
             _sequenceNeedsSnapshot.remove(window.request.apparatus);
           }

@@ -4,6 +4,7 @@ class _AdminOrderWindow {
   _AdminOrderWindow(this.request, this.account, this.liveId);
   final String liveId;
   bool awaitingLive = false;
+  bool cacheNeedsValidation = false;
   final AdminProductionOrderPageRequest request;
   final String account;
   final storage = PageStorageBucket();
@@ -84,6 +85,16 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
 
   Future<void> _startAdminPaging() async {
     try {
+      if (_adminCacheRestored) {
+        _adminCacheRestored = false;
+        await _ensureAdminModule(_module);
+        if (!mounted) return;
+        _updateScreenState(() => _loading = false);
+        unawaited(_refreshCachedAdminApparatus());
+        unawaited(_refreshCompletionRequests());
+        unawaited(_prefetchAdminFirstPages());
+        return;
+      }
       await AdminSequenceApparatusStore.instance.loadSavedApparatusId();
       final apparatus = await _readOrdersApparatus();
       if (!mounted) return;
@@ -129,7 +140,11 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         .removeWhere((_, window) => window.account != _adminPageAccount);
     for (final window in _adminModuleWindows(module)) {
       if (!mounted) return;
-      if (!window.loaded || refresh || window.dirty) await _loadAdminWindow(window);
+      if (!window.loaded || refresh || window.dirty ||
+          (window.cacheNeedsValidation && (_adminWindowLiveFallback ||
+              window.pages.any((page) => page.wireValue == null)))) {
+        await _loadAdminWindow(window);
+      }
     }
     if (module == _module) _scheduleAdminWindowSubscription();
     for (final apparatus in _adminSequenceAcks.keys.toList()) {
@@ -206,7 +221,14 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
               throw const MobileApiException(
                   code: 'order_page_changed', message: 'Navbat yangilandi');
             }
-            window.error = null;
+            _updateScreenState(() {
+              window.error = null;
+              if (window.cacheNeedsValidation) {
+                window.cacheNeedsValidation = false;
+                window.awaitingLive = false;
+                _rebuildAdminPageState();
+              }
+            });
             return;
           }
           final snapshot = page.snapshot;
@@ -270,6 +292,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
           }
           window.sequencePendingPages = null;
           window.pages = staged;
+          if (window.cacheNeedsValidation) window.awaitingLive = false;
+          window.cacheNeedsValidation = false;
           window.validated = window.invalidation;
           window.error = null;
           if (window.request.view == 'sequence') {
@@ -304,6 +328,10 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         return;
       } catch (error) {
         if (!mounted || window.account != _adminPageAccount) return;
+        if (error is MobileApiException &&
+            (error.statusCode == 401 || error.statusCode == 403)) {
+          AdminOrderPageCache.instance.invalidate(_adminCacheVisit);
+        }
         final changedWhileReading = window.invalidation != invalidation;
         final retryable = error is TimeoutException ||
             error is http.ClientException ||

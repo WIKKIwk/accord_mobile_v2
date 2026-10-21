@@ -1,4 +1,5 @@
 import '../../../features/admin/state/admin_store.dart';
+import '../../../features/admin/state/admin_order_page_cache.dart';
 import '../../../features/customer/state/customer_store.dart';
 import '../../../features/chat/state/chat_store.dart';
 import '../../../features/shared/data/profile_avatar_cache.dart';
@@ -25,6 +26,7 @@ class AppRuntimeReset {
     required SessionProfile? previousProfile,
     bool preserveLegacyLoginCredentials = false,
   }) async {
+    AdminOrderPageCache.instance.clear();
     CustomerStore.instance.clear();
     if (previousProfile != null) {
       await ChatStore.instance.clearPendingMediaForProfile(previousProfile);

@@ -22,6 +22,7 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_o
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_top_notice.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_apparatus_store.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/admin_order_page_cache.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/widgets/aparatchi_dock.dart';
@@ -105,6 +106,7 @@ part 'admin_production_map_worker_sync_optimization_test_part.dart';
 part 'admin_production_map_stream_efficiency_test_part.dart';
 part 'admin_production_map_page_stream_races_test_part.dart';
 part 'admin_production_map_connection_indicator_test_part.dart';
+part 'admin_production_map_page_cache_test_part.dart';
 part 'admin_production_map_sequence_stream_sync_test_part.dart';
 part 'admin_production_map_material_delivery_test_part.dart';
 part 'admin_production_map_lamination_astatka_scope_test_part.dart';
@@ -139,6 +141,7 @@ void main() {
   });
 
   setUp(() {
+    AdminOrderPageCache.instance.clear();
     OrderImageCache.debugOverride = OrderImageCache(disk: createOrderImageDiskStore());
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     resetMobileApiTestModeData();
@@ -180,6 +183,7 @@ void main() {
   _registerStreamEfficiencyTests();
   _registerPageStreamRaceTests();
   _registerConnectionIndicatorTests();
+  _registerAdminPageCacheTests();
   _registerSequenceStreamSyncTests();
   _registerMaterialDeliveryTests();
   _registerLaminationAstatkaScopeTests();

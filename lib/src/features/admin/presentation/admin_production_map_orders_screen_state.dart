@@ -23,6 +23,9 @@ class _AdminProductionMapOrdersScreenState
   Completer<void>? _adminNotificationFinished;
   Timer? _adminNotificationRetry;
   final Map<String, _AdminOrderWindow> _adminWindows = {};
+  AdminOrderPageCacheVisit? _adminCacheVisit;
+  String? _adminCacheScope;
+  bool _adminCacheRestored = false;
   final Map<String, int> _adminMetricSignatures = {};
   final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
   final Map<String, _AdminOrderWindow> _adminSequenceAckWindows = {};
@@ -212,6 +215,7 @@ class _AdminProductionMapOrdersScreenState
   void initState() {
     super.initState();
     _adminPaging = _adminPagingCandidate;
+    _restoreAdminPageCache();
     WidgetsBinding.instance.addObserver(this);
     if (!_adminPaging && !widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
       unawaited(_refreshPendingOrders());
@@ -254,6 +258,7 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _saveAdminPageCache();
     _cancelAdminSequenceSyncTimers();
     _adminSearchDebounce?.cancel();
     _adminSubscriptionTimer?.cancel();
@@ -668,7 +673,8 @@ class _AdminProductionMapOrdersScreenState
                                   sequenceReorderEnabled:
                                       (!_adminPaging || (_searchQuery.trim().isEmpty &&
                                           _adminModuleWindows(_OpenedOrderModule.sequence)
-                                              .every((w) => w.loaded && w.error == null))) &&
+                                              .every((w) => w.loaded && w.error == null &&
+                                                  !w.cacheNeedsValidation))) &&
                                       _selectedApparatus != null &&
                                       _queuePolicyForApparatus(
                                         _selectedApparatus!,

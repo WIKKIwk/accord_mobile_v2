@@ -187,6 +187,10 @@ extension _AdminProductionMapOrdersMoveState
     if (apparatus == null) {
       return;
     }
+    if (_adminPaging &&
+        _adminWindow('sequence', apparatus: apparatus.id).cacheNeedsValidation) {
+      return;
+    }
     if (_queuePolicyForApparatus(
           apparatus,
           queuePoliciesByApparatus: _queuePoliciesByApparatus,
