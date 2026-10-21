@@ -149,6 +149,7 @@ class AdminPrintPreflightHold {
     required this.orderId,
     required this.apparatus,
     required this.status,
+    this.revision = 0,
   });
 
   final String holdId;
@@ -156,6 +157,7 @@ class AdminPrintPreflightHold {
   final String orderId;
   final String apparatus;
   final String status;
+  final int revision;
 
   bool get isHeld => status == 'held';
   bool get isRunning => status == 'running';
@@ -170,10 +172,13 @@ class AdminPrintPreflightHold {
     final orderId = raw['order_id']?.toString().trim() ?? '';
     final apparatus = raw['apparatus']?.toString().trim() ?? '';
     final status = raw['status']?.toString().trim().toLowerCase() ?? '';
+    final revision = raw['revision'] ?? 0;
     if (holdId.isEmpty ||
         idempotencyKey.isEmpty ||
         orderId.isEmpty ||
         apparatus.isEmpty ||
+        revision is! int ||
+        revision < 0 ||
         !const {
           'held',
           'running',
@@ -190,6 +195,7 @@ class AdminPrintPreflightHold {
       orderId: orderId,
       apparatus: apparatus,
       status: status,
+      revision: revision,
     );
   }
 }

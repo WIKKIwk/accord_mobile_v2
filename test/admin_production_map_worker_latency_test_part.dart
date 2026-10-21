@@ -80,6 +80,8 @@ void _registerWorkerLatencyTests() {
           expect(requests.single.method, 'POST');
           expect(requests.single.url.path, endsWith('/queue-action'));
           expect(jsonDecode(requests.single.body)['action'], action);
+          expect(jsonDecode(requests.single.body)['expected_revision'],
+              action == 'hold' ? isNull : 0);
           post.complete(http.Response(
               jsonEncode({
                 'ok': true,

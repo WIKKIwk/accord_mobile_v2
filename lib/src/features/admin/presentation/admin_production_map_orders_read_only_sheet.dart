@@ -1377,6 +1377,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             action: action,
             holdId: requestHoldId,
             idempotencyKey: idempotencyKey,
+            expectedRevision: action == 'hold' ? null : currentHold?.revision,
           )
           .timeout(_queueActionUiTimeout);
       if (!_materialContextIsCurrent(orderId, apparatus) ||

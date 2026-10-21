@@ -104,20 +104,24 @@ extension _AdminProductionMapOrdersPrintPreflightReopen
     if (!mounted || confirmed != true || scope != currentSessionReadScope()) {
       return;
     }
-    if (_reopenablePrintPreflight(apparatus, order)?.holdId != hold.holdId) {
+    final current = _reopenablePrintPreflight(apparatus, order);
+    if (current?.holdId != hold.holdId || current?.revision != hold.revision) {
       unawaited(_refreshQueueSnapshot());
       return;
     }
     final key = '${apparatus.id.trim()}|${order.map.id.trim()}';
     if (!_beginQueueAction(key)) return;
+    final snapshot = _canonicalQueueSnapshot;
     var success = false;
+    AdminPrintPreflightResponse? response;
     try {
-      final response = await MobileApi.instance
+      response = await MobileApi.instance
           .adminPrintPreflight(
             apparatus: apparatus.id.trim(),
             orderId: order.map.id.trim(),
             holdId: hold.holdId,
             action: 'reopen',
+            expectedRevision: hold.revision,
           )
           .timeout(const Duration(seconds: 20));
       success = response.hold.holdId == hold.holdId &&
@@ -129,16 +133,6 @@ extension _AdminProductionMapOrdersPrintPreflightReopen
     } finally {
       try {
         if (mounted && scope == currentSessionReadScope()) {
-          _updateScreenState(() {
-            _queueSnapshotNeedsReconcile = true;
-            _queueSnapshotGeneration++;
-            _queueActionControlsByApparatus[apparatus.id.trim()] =
-                Map<String, AdminApparatusQueueOrderActionControl>.from(
-                    _queueActionControlsByApparatus[apparatus.id.trim()] ??
-                        const {})
-                  ..remove(order.map.id.trim());
-          });
-          _sheetQueueSnapshot.value = null;
           if (!success) {
             showAdminTopNotice(
                 context,
@@ -146,7 +140,29 @@ extension _AdminProductionMapOrdersPrintPreflightReopen
                     'worker.print_preflight.reopen.unconfirmed'),
                 tone: AdminTopNoticeTone.error);
           }
-          await _refreshQueueSnapshot();
+          final control = response?.controlState;
+          final latestHold = _queueActionControlsByApparatus[apparatus.id.trim()]
+                  ?[order.map.id.trim()]
+              ?.printPreflight;
+          final liveResolved = !_queueSnapshotNeedsReconcile &&
+              !_queueSnapshotContractError &&
+              ((success &&
+                      control != null &&
+                      control.apparatus == hold.apparatus &&
+                      control.orderId == hold.orderId &&
+                      _snapshotCoversAction(control.revision, control.epoch)) ||
+                  (_canonicalQueueSnapshot != snapshot &&
+                      (latestHold?.holdId != hold.holdId ||
+                          (latestHold?.revision ?? -1) > hold.revision)));
+          if (!liveResolved) {
+            _updateScreenState(() {
+              _queueSnapshotNeedsReconcile = true;
+              _queueSnapshotGeneration++;
+              // Retain the last confirmed display while actions wait for a
+              // canonical read. An error must not repaint Passed as Running.
+            });
+            await _refreshQueueSnapshot();
+          }
         }
       } finally {
         _endQueueAction(key);

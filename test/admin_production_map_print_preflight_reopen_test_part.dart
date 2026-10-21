@@ -7,6 +7,7 @@ const _colourReopenConfirm = ValueKey('print-preflight-reopen-confirm');
 class _ColourReopenFixture {
   String status = 'passed';
   int revision = 1;
+  int holdRevision = 1;
   bool rejectStarted = false;
   bool loseResponse = false;
   Completer<void>? mutationGate;
@@ -23,6 +24,7 @@ class _ColourReopenFixture {
         'order_id': _colourReopenOrderId,
         'apparatus': _print7Id,
         'status': status,
+        'revision': holdRevision,
       };
 
   Map<String, dynamic> control() => {
@@ -95,6 +97,7 @@ class _ColourReopenFixture {
       });
 
   void changeStatus(String next) {
+    if (status != next) holdRevision++;
     status = next;
     revision++;
     setMobileApiTestModeQueueActionControlFixture(
@@ -110,6 +113,8 @@ class _ColourReopenFixture {
       expect(jsonDecode(request.body), containsPair('action', 'reopen'));
       expect(jsonDecode(request.body),
           containsPair('hold_id', 'colour-reopen-hold'));
+      expect(jsonDecode(request.body),
+          containsPair('expected_revision', holdRevision));
       if (mutationGate != null) await mutationGate!.future;
       if (rejectStarted) {
         changeStatus('in_progress');
@@ -218,7 +223,167 @@ class _ColourReopenFixture {
   }
 }
 
+class _UnreadableColourReopenFixture extends _ColourReopenFixture {
+  _UnreadableColourReopenFixture({required this.commitBeforeFailure});
+
+  final bool commitBeforeFailure;
+  bool readsUnavailable = false;
+
+  @override
+  AdminProductionMapLiveSnapshot snapshot() {
+    if (readsUnavailable) {
+      throw http.ClientException('Read temporarily unavailable');
+    }
+    return super.snapshot();
+  }
+
+  @override
+  Future<http.Response> respond(http.Request request) async {
+    if (request.url.path.endsWith('/print-preflight')) {
+      mutations.add(request);
+      expect(jsonDecode(request.body),
+          containsPair('expected_revision', holdRevision));
+      readsUnavailable = true;
+      if (commitBeforeFailure) {
+        changeStatus('running');
+        throw http.ClientException('Response lost after commit');
+      }
+      return http.Response('{"error":"print_preflight_not_ready"}', 409);
+    }
+    return super.respond(request);
+  }
+}
+
+class _DelayedColourReopenFixture extends _ColourReopenFixture {
+  final reply = Completer<void>();
+  AdminProductionMapLiveSnapshot? stale;
+  bool returnStale = false;
+
+  @override
+  AdminProductionMapLiveSnapshot snapshot() =>
+      returnStale ? stale! : super.snapshot();
+
+  AdminProductionMapLiveSnapshot latest() => super.snapshot();
+
+  @override
+  Future<http.Response> respond(http.Request request) async {
+    if (request.url.path.endsWith('/print-preflight')) {
+      mutations.add(request);
+      changeStatus('running');
+      stale = super.snapshot();
+      final response = http.Response(jsonEncode({
+        'ok': true,
+        'hold': hold(),
+        'control_state': controlState(),
+      }), 200);
+      await reply.future;
+      returnStale = true;
+      return response;
+    }
+    return super.respond(request);
+  }
+}
+
 void _registerPrintPreflightReopenTests() {
+  for (final committed in [false, true]) {
+    testWidgets(
+        'print preflight reopen retains confirmed colour after ${committed ? 'lost response' : 'rejection'} and failed refresh',
+        (tester) async {
+      final fixture = _UnreadableColourReopenFixture(
+          commitBeforeFailure: committed);
+      await http.runWithClient(() async {
+        await fixture.open(tester);
+        final row = find.byKey(
+            const ValueKey('worker-order-$_colourReopenOrderId'));
+        LinearGradient? gradient(Widget widget) {
+          final decoration = switch (widget) {
+            DecoratedBox() => widget.decoration,
+            Ink() => widget.decoration,
+            _ => null,
+          };
+          return decoration is BoxDecoration &&
+                  decoration.gradient is LinearGradient
+              ? decoration.gradient as LinearGradient
+              : null;
+        }
+        final coloured = find.descendant(
+            of: row,
+            matching: find.byWidgetPredicate((w) => gradient(w) != null));
+        final before = gradient(tester.widget(coloured))!.colors;
+        await fixture.openConfirmation(tester);
+        await tester.tap(find.byKey(_colourReopenConfirm));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(fixture.status, committed ? 'running' : 'passed');
+        expect(fixture.mutations, hasLength(1));
+        expect(gradient(tester.widget(coloured))!.colors, before,
+            reason: 'An uncertain response must retain the confirmed display');
+        // Recover through a canonical read/live event, never another POST.
+        fixture.readsUnavailable = false;
+        fixture.changeStatus(fixture.status);
+        fixture.events.add(fixture.snapshot());
+        await tester.pumpAndSettle();
+        dismissAdminTopNotice();
+        if (committed) {
+          await tester.tap(row);
+          await tester.pumpAndSettle();
+          expect(find.widgetWithText(FilledButton, 'Rang chiqdi'), findsOneWidget);
+          expect(find.widgetWithText(OutlinedButton, 'Rang chiqmadi'), findsOneWidget);
+        } else {
+          await tester.longPress(row);
+          await tester.pumpAndSettle();
+          expect(find.byKey(_colourReopenAction), findsOneWidget);
+        }
+        expect(fixture.mutations, hasLength(1));
+        expect(tester.takeException(), isNull);
+      }, () => MockClient(fixture.respond));
+    });
+  }
+
+  testWidgets('print preflight reopen late response preserves newer live approval',
+      (tester) async {
+    final fixture = _DelayedColourReopenFixture();
+    await http.runWithClient(() async {
+      await fixture.open(tester);
+      addTearDown(() {
+        if (!fixture.reply.isCompleted) fixture.reply.complete();
+      });
+      await fixture.openConfirmation(tester);
+      await tester.tap(find.byKey(_colourReopenConfirm));
+      await tester.pump();
+      fixture.changeStatus('passed');
+      fixture.events.add(fixture.latest());
+      await tester.pumpAndSettle();
+      fixture.reply.complete();
+      await tester.pumpAndSettle();
+      expect(fixture.status, 'passed');
+      await tester.longPress(find.byKey(
+          const ValueKey('worker-order-$_colourReopenOrderId')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(_colourReopenAction), findsOneWidget,
+          reason: 'An old reply/read cannot erase newer canonical controls');
+      expect(fixture.mutations, hasLength(1));
+      expect(tester.takeException(), isNull);
+    }, () => MockClient(fixture.respond));
+  });
+
+  testWidgets('print preflight reopen refuses a superseded confirmation',
+      (tester) async {
+    final fixture = _ColourReopenFixture();
+    await http.runWithClient(() async {
+      await fixture.open(tester);
+      await fixture.openConfirmation(tester);
+      fixture.changeStatus('running');
+      fixture.changeStatus('passed');
+      fixture.events.add(fixture.snapshot());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(_colourReopenConfirm));
+      await tester.pumpAndSettle();
+      expect(fixture.mutations, isEmpty);
+      expect(fixture.status, 'passed');
+    }, () => MockClient(fixture.respond));
+  });
+
   for (final tab in ['Buyurtmalar', 'Ketma-ketlik']) {
     testWidgets('print preflight reopen from admin $tab requires confirmation',
         (tester) async {

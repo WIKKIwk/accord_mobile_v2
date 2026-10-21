@@ -94,6 +94,7 @@ extension MobileApiAdminPrintPreflight on MobileApi {
     required String action,
     String holdId = '',
     String idempotencyKey = '',
+    int? expectedRevision,
   }) async {
     final response = await _sendAuthorized(
       () => _post(
@@ -108,6 +109,7 @@ extension MobileApiAdminPrintPreflight on MobileApi {
           'action': action,
           'include_control': true,
           if (holdId.trim().isNotEmpty) 'hold_id': holdId.trim(),
+          if (expectedRevision != null) 'expected_revision': expectedRevision,
           if (idempotencyKey.trim().isNotEmpty)
             'idempotency_key': idempotencyKey.trim(),
         }),
