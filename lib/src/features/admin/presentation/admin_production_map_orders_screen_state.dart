@@ -25,6 +25,10 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, _AdminOrderWindow> _adminWindows = {};
   final Map<String, int> _adminMetricSignatures = {};
   final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
+  final Map<String, _AdminOrderWindow> _adminSequenceAckWindows = {};
+  final Map<String, Timer> _adminSequenceSyncTimers = {};
+  final Map<String, Future<void>> _adminSequenceRecoveries = {};
+  String _adminSequenceSyncAccount = '';
   String _adminPageSearch = '';
   Timer? _adminSearchDebounce;
   String? _loadError;
@@ -250,6 +254,7 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _cancelAdminSequenceSyncTimers();
     _adminSearchDebounce?.cancel();
     _adminSubscriptionTimer?.cancel();
     _stopAdminNotifications();
@@ -298,6 +303,7 @@ class _AdminProductionMapOrdersScreenState
         unawaited(_prefetchAdminFirstPages());
       } else {
         _stopAdminNotifications();
+        _cancelAdminSequenceSyncTimers();
         _stopWorkerLiveStream();
       }
     }

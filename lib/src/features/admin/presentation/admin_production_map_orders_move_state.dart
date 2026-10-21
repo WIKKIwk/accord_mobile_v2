@@ -361,6 +361,9 @@ extension _AdminProductionMapOrdersMoveState
               (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
         }
         final epoch = _lastAppliedSnapshotEpoch;
+        final adminAccount = _adminPaging ? _adminPageAccount : null;
+        final adminWindow = _adminPaging
+            ? _adminWindow('sequence', apparatus: apparatus) : null;
         try {
           final result = await MobileApi.instance.adminMoveProductionMapSequence(
             apparatus: apparatus, orderId: move.orderId,
@@ -369,11 +372,17 @@ extension _AdminProductionMapOrdersMoveState
             idempotencyKey: move.idempotencyKey!,
           );
           if (!mounted) return;
-          if (move.scope != _sequenceWriteScope) {
+          if (move.scope != _sequenceWriteScope ||
+              (adminAccount != null && adminAccount != _adminPageAccount)) {
             _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
             return;
           }
           final responseEpoch = result.epoch.isEmpty ? epoch : result.epoch;
+          final coveredByPage = adminWindow != null &&
+              _adminWindowCoversSequenceAck(adminWindow, AdminSequenceMoveResult(
+                result.orderIds, result.version, result.adjusted,
+                revision: result.revision, epoch: responseEpoch,
+              ));
           final currentVersion = _sequenceVersions[apparatus];
           final currentRevision = _sequenceRevisions[apparatus];
           final stillCurrent = responseEpoch == _lastAppliedSnapshotEpoch &&
@@ -383,8 +392,10 @@ extension _AdminProductionMapOrdersMoveState
           _queueSnapshotGeneration++;
           _queueSnapshotNeedsReconcile = true;
           _updateScreenState(() {
-            if (stillCurrent) {
-              if (_adminPaging) _adminSequenceAcks[apparatus] = result;
+            if (stillCurrent && !coveredByPage) {
+              if (_adminPaging) {
+                _rememberAdminSequenceAck(apparatus, result, window: adminWindow);
+              }
               _sequenceByApparatus[apparatus] = result.orderIds;
               _sequenceVersions[apparatus] = result.version;
               if (result.revision != null) {
@@ -393,6 +404,7 @@ extension _AdminProductionMapOrdersMoveState
             }
             pending.removeAt(0);
             if (pending.isEmpty) _pendingSequenceMoves.remove(apparatus);
+            if (_adminPaging) _rebuildAdminPageState();
           });
           if (result.adjusted && stillCurrent) {
             final position = result.orderIds.where(move.visibleOrderIds.contains)
@@ -402,13 +414,14 @@ extension _AdminProductionMapOrdersMoveState
                     values: {'position': position}),
                 icon: Icons.info_outline, tone: AdminTopNoticeTone.success);
           }
-          if (!stillCurrent) {
+          if (!stillCurrent && !coveredByPage) {
             _requestSequenceReconcile(apparatus);
             break;
           }
         } catch (error) {
           if (!mounted) return;
-          if (move.scope != _sequenceWriteScope) {
+          if (move.scope != _sequenceWriteScope ||
+              (adminAccount != null && adminAccount != _adminPageAccount)) {
             _updateScreenState(() => _pendingSequenceMoves.remove(apparatus));
             break;
           }
@@ -452,7 +465,11 @@ extension _AdminProductionMapOrdersMoveState
       if (mounted && !_sequenceNeedsSnapshot.contains(apparatus)) {
         // Reconcile action controls as well as ordering. Never clear a valid
         // fingerprint while this read is pending or if the network is down.
-        unawaited(_refreshQueueSnapshot());
+        if (_adminPaging) {
+          _settleAdminSequenceWrite(apparatus);
+        } else {
+          unawaited(_refreshQueueSnapshot());
+        }
       }
     }
   }

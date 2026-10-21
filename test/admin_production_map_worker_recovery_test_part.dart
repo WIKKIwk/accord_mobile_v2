@@ -161,6 +161,7 @@ void _registerWorkerRecoveryTests() {
         return h.apparatus;
       };
       await h.mount(tester);
+      await _pumpRecoveryFrames(tester);
       expect(find.byKey(_recoveryProgressKey), findsOneWidget);
       expect(order(), findsNothing);
       offline = false;
@@ -394,6 +395,7 @@ void _registerWorkerRecoveryTests() {
     h.readSnapshot = () async => throw TimeoutException('offline');
     h.readApparatus = () => old.future;
     await h.mount(tester);
+    await _pumpRecoveryFrames(tester);
     expect(find.byKey(_recoveryProgressKey), findsOneWidget);
     h.readSnapshot = () async => h.snapshot();
     h.readApparatus = () async => h.apparatus;

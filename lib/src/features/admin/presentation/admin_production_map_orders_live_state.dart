@@ -365,6 +365,9 @@ extension _AdminProductionMapOrdersLiveState
         }
         _workerLiveHealthy = false;
         _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
+        for (final apparatus in _adminSequenceAcks.keys.toList()) {
+          _settleAdminSequenceWrite(apparatus);
+        }
       }
       _workerLiveHealthy = false;
       if (!_adminPaging && !widget.workerMode) {
@@ -399,6 +402,13 @@ extension _AdminProductionMapOrdersLiveState
     unawaited(_liveStreamSubscription?.cancel());
     if (!mounted || generation != _liveStreamGeneration) return;
     final readScope = currentSessionReadScope();
+    if (_adminPaging) {
+      // Each new socket subscribes from published pages, including reconnects
+      // within the same generation. Do not reuse the old socket's wire chain.
+      for (final window in _adminWindows.values) {
+        window.sequencePendingPages = null;
+      }
+    }
     final pageWindows = _adminPaging ? _adminLiveDescriptors() : const <Map<String, Object?>>[];
     final completer = Completer<void>();
     _liveStreamFinished = completer;

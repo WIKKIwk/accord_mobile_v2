@@ -270,14 +270,58 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
 
 enum _OrdersReadSection { initial, queue, completed, closed, completionRequests, pending }
 
-class _OrdersConnectionProgress extends StatelessWidget {
-  const _OrdersConnectionProgress();
+class _OrdersConnectionProgress extends StatefulWidget {
+  const _OrdersConnectionProgress({this.active = true});
+
+  final bool active;
 
   @override
-  Widget build(BuildContext context) => LinearProgressIndicator(
-        key: const ValueKey('production-orders-connection-progress'),
-        semanticsLabel: context.l10n.loading,
-      );
+  State<_OrdersConnectionProgress> createState() =>
+      _OrdersConnectionProgressState();
+}
+
+class _OrdersConnectionProgressState extends State<_OrdersConnectionProgress> {
+  Timer? _showTimer;
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _scheduleShow();
+  }
+
+  @override
+  void didUpdateWidget(_OrdersConnectionProgress oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active == oldWidget.active) return;
+    _showTimer?.cancel();
+    _showTimer = null;
+    _visible = false;
+    if (widget.active) _scheduleShow();
+  }
+
+  void _scheduleShow() {
+    // Fast reads should not flash a loading bar. Rebuilds while the same
+    // read is pending keep this timer; completion hides it immediately.
+    _showTimer = Timer(const Duration(milliseconds: 300), () {
+      _showTimer = null;
+      if (mounted && widget.active) setState(() => _visible = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _showTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _visible
+      ? LinearProgressIndicator(
+          key: const ValueKey('production-orders-connection-progress'),
+          semanticsLabel: context.l10n.loading,
+        )
+      : const SizedBox.shrink();
 }
 
 class _QueueSnapshotWarningBanner extends StatelessWidget {

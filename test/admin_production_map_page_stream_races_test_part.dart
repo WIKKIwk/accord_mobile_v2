@@ -236,11 +236,8 @@ void _registerPageStreamRaceTests() {
       await tester.pumpAndSettle();
       expect(writes, hasLength(1));
 
-      // Keep the canonical post-write HTTP read pending while an older socket
-      // delta arrives. Its global revision is newer, but its queue revision is
-      // older than the acknowledged move.
-      final canonical = Completer<AdminProductionOrderPage?>();
-      harness.delayedReconcile = canonical;
+      // A newer global revision can still precede this move. Keep its wire
+      // baseline for the following patch without exposing old action controls.
       final moved = harness.ids.removeLast();
       harness.ids.insert(0, moved);
       response.complete(http.Response(
@@ -255,7 +252,7 @@ void _registerPageStreamRaceTests() {
           200));
       await tester.pump();
       await tester.pump();
-      expect(harness.reads.where((r) => r.view == 'sequence').length, 2);
+      expect(harness.reads.where((r) => r.view == 'sequence').length, 1);
       Material card() => tester.widget<Material>(find
           .descendant(
               of: find.byWidgetPredicate((widget) =>
@@ -276,10 +273,25 @@ void _registerPageStreamRaceTests() {
       harness
         ..revision = 9
         ..sequenceRevision = 7
-        ..sequenceVersion = '1' * 64
-        ..delayedReconcile = null;
-      canonical.complete(await AdminProductionOrderPage.fromJson(harness.payload()));
+        ..sequenceVersion = '1' * 64;
+      final next = harness.payload();
+      harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
+        'type': 'page_window_delta', 'window': 'w1', 'epoch': 'scan-server',
+        'rev': 9, 'base_version': 'v8', 'version': 'v9', 'page_count': 1,
+        'changes': [{
+          'index': 0,
+          'ops': [
+            for (final key in ['version', 'rev', 'order_ids', 'sequences',
+              'sequence_versions', 'sequence_revisions', 'queue_states',
+              'queue_action_controls'])
+              {'op': 'set', 'path': [key], 'value': next[key]},
+          ],
+        }],
+      }));
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+      expect(harness.reads.where((r) => r.view == 'sequence').length, 1,
+          reason: 'Consuming an intermediate wire patch must preserve the chain');
       await harness.dispose(tester);
     }, () => MockClient((request) async {
           if (request.method == 'POST' &&

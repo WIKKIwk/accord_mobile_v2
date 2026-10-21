@@ -256,7 +256,7 @@ class _AdminModulesBody extends StatelessWidget {
               ],
             ),
           ),
-        if (pageLoading) const _OrdersConnectionProgress(),
+        _OrdersConnectionProgress(active: pageLoading),
         Expanded(
           child: TabBarView(
             controller: tabController,

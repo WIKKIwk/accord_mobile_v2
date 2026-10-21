@@ -8,6 +8,7 @@ class _AdminOrderWindow {
   final String account;
   final storage = PageStorageBucket();
   List<AdminProductionOrderPage> pages = [];
+  List<AdminProductionOrderPage>? sequencePendingPages;
   Future<void>? inFlight;
   String? error;
   int invalidation = 0;
@@ -131,6 +132,9 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       if (!window.loaded || refresh || window.dirty) await _loadAdminWindow(window);
     }
     if (module == _module) _scheduleAdminWindowSubscription();
+    for (final apparatus in _adminSequenceAcks.keys.toList()) {
+      _settleAdminSequenceWrite(apparatus);
+    }
   }
 
   Future<void> _refreshAdminPagedView() async {
@@ -256,12 +260,15 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
             _sequenceRevisions.clear();
             _sequenceVersions.clear();
             _adminSequenceAcks.clear();
+            _adminSequenceAckWindows.clear();
+            _cancelAdminSequenceSyncTimers();
             _lastAppliedSnapshotEpoch = epoch;
             if (_retiredSnapshotEpochs.contains(_adminLiveEpoch)) {
               _adminLiveEpoch = epoch;
               _adminLiveRevision = staged.first.revision ?? -1;
             }
           }
+          window.sequencePendingPages = null;
           window.pages = staged;
           window.validated = window.invalidation;
           window.error = null;
@@ -346,6 +353,15 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
   }
 
   void _rebuildAdminPageState() {
+    _resetAdminSequenceSyncAccount();
+    for (final entry in _adminSequenceAcks.entries.toList()) {
+      final window = _adminSequenceAckWindows[entry.key];
+      if (window != null && _adminWindowCoversSequenceAck(window, entry.value)) {
+        _adminSequenceAcks.remove(entry.key);
+        _adminSequenceAckWindows.remove(entry.key);
+        _adminSequenceSyncTimers.remove(entry.key)?.cancel();
+      }
+    }
     // Windows keep their own ordered membership. The shared dictionaries only
     // cache card/detail data, with newer revisions winning for the same order.
     final windows = _adminWindows.values
@@ -437,13 +453,10 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       final apparatus = window.request.apparatus;
       final ack = _adminSequenceAcks[apparatus];
       if (ack != null) {
-        final snapshot = window.pages.first.snapshot;
-        final revision = snapshot?.sequenceRevisions[apparatus];
-        if (snapshot?.sequenceVersions[apparatus] == ack.version ||
-            (revision != null &&
-                ack.revision != null &&
-                revision >= ack.revision!)) {
+        if (_adminWindowCoversSequenceAck(window, ack)) {
           _adminSequenceAcks.remove(apparatus);
+          _adminSequenceAckWindows.remove(apparatus);
+          _adminSequenceSyncTimers.remove(apparatus)?.cancel();
         } else {
           // Background pages must not undo a confirmed move while this
           // apparatus's visible window is still waiting for reconciliation.
@@ -545,6 +558,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       );
     }
     _queueSnapshotNeedsReconcile = _sequenceNeedsSnapshot.isNotEmpty ||
+        _adminSequenceAcks.isNotEmpty ||
         !_adminActiveWindowVersionsMatch() ||
         _adminModuleWindows(_module).any((window) => !window.loaded || window.dirty || window.awaitingLive);
     _resumeSequenceMoves();

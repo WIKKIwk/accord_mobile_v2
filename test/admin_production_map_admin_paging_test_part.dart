@@ -771,6 +771,7 @@ void _registerAdminPagingTests() {
       await _scrollAdminPage(tester);
       await tester.pump();
       await _scrollAdminPageToTop(tester);
+      await tester.pump(const Duration(milliseconds: 300));
       final progress = find.byKey(_recoveryProgressKey);
       expect(progress, findsOneWidget);
       expect(tester.getTopLeft(progress).dy,

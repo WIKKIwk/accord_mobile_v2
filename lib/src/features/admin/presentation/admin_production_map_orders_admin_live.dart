@@ -1,6 +1,110 @@
 part of 'admin_production_map_orders_screen.dart';
 
 extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
+  void _cancelAdminSequenceSyncTimers() {
+    for (final timer in _adminSequenceSyncTimers.values) {
+      timer.cancel();
+    }
+    _adminSequenceSyncTimers.clear();
+  }
+
+  void _resetAdminSequenceSyncAccount() {
+    final account = _adminPageAccount;
+    if (_adminSequenceSyncAccount == account) return;
+    _cancelAdminSequenceSyncTimers();
+    _adminSequenceAcks.clear();
+    _adminSequenceAckWindows.clear();
+    _adminSequenceSyncAccount = account;
+  }
+
+  bool _adminWindowCoversSequenceAck(
+      _AdminOrderWindow window, AdminSequenceMoveResult ack) {
+    if (window.account != _adminPageAccount || !window.loaded || window.dirty ||
+        ack.epoch.isEmpty || ack.epoch != window.pages.first.epoch) {
+      return false;
+    }
+    return window.pages.every((page) {
+      final snapshot = page.snapshot;
+      if (page.epoch != ack.epoch || snapshot == null ||
+          page.version != window.pages.first.version ||
+          page.revision != window.pages.first.revision) {
+        return false;
+      }
+      final apparatus = window.request.apparatus;
+      final revision = snapshot.sequenceRevisions[apparatus];
+      final sameVersion = snapshot.sequenceVersions[apparatus] == ack.version;
+      if (ack.revision == null) return sameVersion;
+      return revision != null && (revision > ack.revision! ||
+          (revision == ack.revision && sameVersion));
+    });
+  }
+
+  void _rememberAdminSequenceAck(String apparatus, AdminSequenceMoveResult result,
+      {_AdminOrderWindow? window}) {
+    _resetAdminSequenceSyncAccount();
+    _adminSequenceAcks[apparatus] = AdminSequenceMoveResult(
+      result.orderIds, result.version, result.adjusted,
+      revision: result.revision,
+      epoch: result.epoch.isEmpty ? _lastAppliedSnapshotEpoch : result.epoch,
+      ops: result.ops,
+    );
+    _adminSequenceAckWindows[apparatus] =
+        window ?? _adminWindow('sequence', apparatus: apparatus);
+  }
+
+  void _settleAdminSequenceWrite(String apparatus) {
+    _resetAdminSequenceSyncAccount();
+    final ack = _adminSequenceAcks[apparatus];
+    final window = _adminSequenceAckWindows[apparatus];
+    if (ack == null || window == null) return;
+    if (_adminWindowCoversSequenceAck(window, ack)) {
+      _updateScreenState(_rebuildAdminPageState);
+      return;
+    }
+    if (!mounted || !_adminForeground || _queueSnapshotContractError) return;
+    final canStream = _adminLiveStarted && !_adminWindowLiveFallback &&
+        _workerLiveHealthy && _liveStreamSubscription != null &&
+        _adminModuleWindows(_module).contains(window) &&
+        window.loaded && window.pages.every((page) => page.wireValue != null);
+    if (!canStream) {
+      unawaited(_recoverAdminSequenceWindow(apparatus, window));
+      return;
+    }
+    // Keep the first deadline across a burst of writes. Only an authoritative
+    // page can cover an ACK; the locally projected ordering cannot certify it.
+    _adminSequenceSyncTimers.putIfAbsent(apparatus, () {
+      final account = _adminPageAccount;
+      return Timer(const Duration(seconds: 2), () {
+        _adminSequenceSyncTimers.remove(apparatus);
+        if (!mounted || !_adminForeground || account != _adminPageAccount ||
+            _queueSnapshotContractError || !_adminSequenceAcks.containsKey(apparatus)) {
+          return;
+        }
+        unawaited(_recoverAdminSequenceWindow(apparatus, window));
+      });
+    });
+  }
+
+  Future<void> _recoverAdminSequenceWindow(
+      String apparatus, _AdminOrderWindow window) {
+    final account = _adminPageAccount;
+    final key = jsonEncode([account, window.liveId]);
+    final pending = _adminSequenceRecoveries[key];
+    if (pending != null) return pending;
+    if (!mounted || !_adminForeground || window.account != account) {
+      return Future.value();
+    }
+    _adminSequenceSyncTimers.remove(apparatus)?.cancel();
+    late final Future<void> recovery;
+    recovery = _loadAdminWindow(window, force: true).whenComplete(() {
+      if (identical(_adminSequenceRecoveries[key], recovery)) {
+        _adminSequenceRecoveries.remove(key);
+      }
+    });
+    _adminSequenceRecoveries[key] = recovery;
+    return recovery;
+  }
+
   void _stopAdminNotifications() {
     _adminNotificationGeneration++;
     _adminNotificationRetry?.cancel();
@@ -146,7 +250,8 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
         _scheduleAdminWindowSubscription();
         return;
       }
-      final before = window.pages;
+      final publishedBefore = window.pages;
+      final before = window.sequencePendingPages ?? publishedBefore;
       if (message.epoch == before.first.epoch &&
           message.revision < (before.first.revision ?? -1)) return;
       try {
@@ -170,7 +275,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
             message.epoch == before.first.epoch && message.revision == before.first.revision) return;
         final next = await applyAdminOrderPageWindow(before, message);
         if (!mounted || generation != _liveStreamGeneration || account != _adminPageAccount) return;
-        if (!identical(window.pages, before)) {
+        if (!identical(window.sequencePendingPages ?? window.pages, before)) {
           // A concurrent HTTP append or mutation reconciliation owns the newer
           // baseline. Re-subscribe from it rather than applying an old patch.
           await _restartAdminPagedLive();
@@ -178,10 +283,17 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
         }
         if (next.any((page) => page.snapshot != null &&
             _snapshotBehindSequenceMoves(page.snapshot!))) {
+          if (_adminSequenceAcks.containsKey(window.request.apparatus)) {
+            // Retain the wire baseline for the next incremental patch without
+            // publishing pre-ACK colors or action permissions to the widgets.
+            window.sequencePendingPages = next;
+            return;
+          }
           throw StateError('page window precedes confirmed sequence move');
         }
         _adminLiveEpoch = message.epoch;
         _adminLiveRevision = max(_adminLiveRevision, message.revision);
+        window.sequencePendingPages = null;
         window.pages = next;
         window.validated = window.invalidation;
         window.error = null;
@@ -217,10 +329,10 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
         });
         for (var index = 0; index < next.length; index++) {
           final page = next[index];
-          if (index >= before.length ||
-              !identical(page.snapshot?.maps, before[index].snapshot?.maps) ||
+          if (index >= publishedBefore.length ||
+              !identical(page.snapshot?.maps, publishedBefore[index].snapshot?.maps) ||
               !identical(page.wireValue?['calculation_templates'],
-                  before[index].wireValue?['calculation_templates'])) {
+                  publishedBefore[index].wireValue?['calculation_templates'])) {
             unawaited(_loadAdminPageMetrics(page, account));
           }
         }
@@ -232,7 +344,11 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
           window.awaitingLive = true;
           _queueSnapshotNeedsReconcile = true;
         });
-        await _loadAdminWindow(window, force: true);
+        if (_adminSequenceAcks.containsKey(window.request.apparatus)) {
+          await _recoverAdminSequenceWindow(window.request.apparatus, window);
+        } else {
+          await _loadAdminWindow(window, force: true);
+        }
         if (mounted && generation == _liveStreamGeneration && account == _adminPageAccount) {
           await _restartAdminPagedLive();
         }
@@ -311,8 +427,8 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
     _sequenceByApparatus[apparatus] = next;
     _sequenceVersions[apparatus] = delta.version;
     _sequenceRevisions[apparatus] = delta.revision;
-    _adminSequenceAcks[apparatus] = AdminSequenceMoveResult(
+    _rememberAdminSequenceAck(apparatus, AdminSequenceMoveResult(
         next, delta.version, false,
-        revision: delta.revision, epoch: delta.epoch);
+        revision: delta.revision, epoch: delta.epoch), window: window);
   }
 }
