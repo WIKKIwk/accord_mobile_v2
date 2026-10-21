@@ -111,6 +111,7 @@ part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
 part 'admin_production_map_resume_wip_test_part.dart';
 part 'admin_production_map_re_pause_test_part.dart';
+part 'admin_production_map_print_preflight_reopen_test_part.dart';
 part 'admin_production_map_reactivation_reclose_test_part.dart';
 part 'admin_production_map_reactivation_test_part.dart';
 part 'admin_production_map_order_summary_test_part.dart';
@@ -185,6 +186,7 @@ void main() {
   _registerQolipAlternativeSetTests();
   _registerResumeWipTests();
   _registerRePauseTests();
+  _registerPrintPreflightReopenTests();
   _registerRecloseTests();
   _registerReactivationTests();
   _registerPrintMethodRoutingTests();

@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 enum _OpenedOrderModule { sequence, orders, move, closed, audit }
 
 enum _OrderLongPressAction {
+  reopenPrintPreflight,
   freeze,
   cancelFreeze,
   unfreeze,

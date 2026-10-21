@@ -188,6 +188,36 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'Colour failed',
     'ru': 'Цвет не получен',
   },
+  'worker.print_preflight.reopen.action': {
+    'uz': 'Rang chiqarilyapti',
+    'en': 'Return to colour matching',
+    'ru': 'Вернуть к подбору цвета',
+    'ur': 'رنگ کی آزمائش پر واپس جائیں',
+  },
+  'worker.print_preflight.reopen.message': {
+    'uz': 'Rostdan ham rang chiqarilyapti holatiga qaytarmoqchimisiz?',
+    'en': 'Do you really want to return this order to colour matching?',
+    'ru': 'Вы действительно хотите вернуть заказ к подбору цвета?',
+    'ur': 'کیا آپ واقعی اس آرڈر کو رنگ کی آزمائش کی حالت میں واپس لانا چاہتے ہیں؟',
+  },
+  'worker.print_preflight.reopen.confirm': {
+    'uz': 'Ruxsat',
+    'en': 'Confirm',
+    'ru': 'Подтвердить',
+    'ur': 'تصدیق کریں',
+  },
+  'worker.print_preflight.reopen.cancel': {
+    'uz': 'Bekor qilish',
+    'en': 'Cancel',
+    'ru': 'Отмена',
+    'ur': 'منسوخ کریں',
+  },
+  'worker.print_preflight.reopen.unconfirmed': {
+    'uz': 'Rang holati tasdiqlanmadi. Ma’lumotlar qayta tekshirilmoqda.',
+    'en': 'The colour status was not confirmed. Refreshing server data.',
+    'ru': 'Статус подбора цвета не подтверждён. Данные проверяются заново.',
+    'ur': 'رنگ کی حالت کی تصدیق نہیں ہوئی۔ سرور کی معلومات دوبارہ حاصل کی جا رہی ہیں۔',
+  },
   'worker.action.pause': {
     'uz': 'Pauza',
     'en': 'Pause',

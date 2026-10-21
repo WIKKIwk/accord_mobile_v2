@@ -1829,6 +1829,10 @@ class _AdminProductionMapOrdersScreenState
     );
     final control = _queueActionControlForApparatus(
         apparatus: apparatus, orderId: order.map.id.trim());
+    if (isBosma && _reopenablePrintPreflight(apparatus, order) != null) {
+      await _showPrintPreflightReopenActions(apparatus, order);
+      return;
+    }
     final stageWork = control?.stageWork;
     final rePause = _workerRePauseControl(apparatus, order, control);
     final reclose = _workerRecloseControl(apparatus, order, control);
@@ -2061,6 +2065,7 @@ class _AdminProductionMapOrdersScreenState
       (states) => states[orderId]?.trim().toLowerCase() == 'frozen',
     );
     final closingEarly = _earlyClosingOrderIds.contains(orderId);
+    final reopenApparatus = _printPreflightReopenApparatus(order);
     final action = await showModalBottomSheet<_OrderLongPressAction>(
       context: context,
       showDragHandle: true,
@@ -2068,6 +2073,11 @@ class _AdminProductionMapOrdersScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (reopenApparatus != null)
+              _PrintPreflightReopenTile(
+                onTap: () => Navigator.pop(
+                    context, _OrderLongPressAction.reopenPrintPreflight),
+              ),
             if (control == AdminOrderControlState.active && hasFrozenQueueState)
               const ListTile(
                 enabled: false,
@@ -2160,6 +2170,12 @@ class _AdminProductionMapOrdersScreenState
       ),
     );
     if (!mounted || action == null) return;
+    if (action == _OrderLongPressAction.reopenPrintPreflight) {
+      if (reopenApparatus != null) {
+        await _confirmPrintPreflightReopen(reopenApparatus, order);
+      }
+      return;
+    }
     if (action == _OrderLongPressAction.closeEarly) {
       final comment = await showProductionMapEarlyCloseDialog(context);
       if (!mounted ||
@@ -2250,6 +2266,7 @@ class _AdminProductionMapOrdersScreenState
       _OrderLongPressAction.delete => AdminOrderControlAction.delete,
       _OrderLongPressAction.editMap ||
       _OrderLongPressAction.editOrder ||
+      _OrderLongPressAction.reopenPrintPreflight ||
       _OrderLongPressAction.closeEarly =>
         null,
     };
