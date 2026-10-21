@@ -802,7 +802,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           if (canSendOrderAlert &&
               requiresQolipScan &&
               qolipRequirementsLoaded &&
-              requiredQolips.isEmpty)
+              requiredQolips.isEmpty) ...[
+            const SizedBox(height: 12),
             OrderAlertButton(
               key:
                   ValueKey('qolip-alert:${uiState.orderId}:${uiState.station}'),
@@ -810,6 +811,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               apparatusId: uiState.station,
               kind: OrderAlertKind.qolip,
             ),
+          ],
           if (hasActions) ...[
             Divider(
                 height: 28,
