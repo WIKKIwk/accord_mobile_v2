@@ -527,6 +527,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         noticeAnchorKey: _noticeAnchorKey,
         onMaterialsLinked: () =>
             unawaited(_loadInteractionContractAndSections()),
+        onWorkerMaterialUsed: (barcode) {
+          if (!mounted) return;
+          setState(() =>
+              _scannedMaterialBarcodes.add(_materialBarcodeKey(barcode)));
+          unawaited(_loadInteractionContractAndSections());
+        },
         onReceiveMaterial: !widget.workerMode &&
                 AppSession.instance.profile?.role ==
                     UserRole.materialTaminotchi &&

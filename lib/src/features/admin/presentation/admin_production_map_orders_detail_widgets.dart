@@ -85,6 +85,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.unlinkingMaterialBarcode,
     this.summaryOnlyMode = false,
     this.onMaterialsLinked,
+    this.onWorkerMaterialUsed,
     this.onReceiveMaterial,
   });
   final GlobalKey noticeAnchorKey;
@@ -176,6 +177,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   // Boshqa rollar uchun false bo'lib qoladi — ularga ta'sir qilmaydi.
   final bool summaryOnlyMode;
   final VoidCallback? onMaterialsLinked;
+  final ValueChanged<String>? onWorkerMaterialUsed;
   final VoidCallback? onReceiveMaterial;
 
   @override
@@ -382,7 +384,24 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       allowMaterialUnlink: allowMaterialUnlink,
                       onUnlinkMaterial: onUnlinkMaterial,
                       unlinkingMaterialBarcode: unlinkingMaterialBarcode,
+                      workerMaterialUsePanel: workerMode &&
+                              !map.id.startsWith('training-') &&
+                              onWorkerMaterialUsed != null &&
+                              apparatusCatalog.any((row) =>
+                                  row.id == uiState.station &&
+                                  row.workerMaterialAssignmentAllowed)
+                          ? WorkerMaterialUsePanel(
+                              key: ValueKey(
+                                  'worker-material-use:${map.id}:${uiState.station}'),
+                              orderId: map.id,
+                              apparatusId: uiState.station,
+                              onMaterialsUsed: onWorkerMaterialUsed!,
+                            )
+                          : null,
                       materialLinkRequestPanel: workerMode &&
+                              !apparatusCatalog.any((row) =>
+                                  row.id == uiState.station &&
+                                  row.workerMaterialAssignmentAllowed) &&
                               uiState.showStartMaterials &&
                               !map.id.startsWith('training-') &&
                               onMaterialsLinked != null

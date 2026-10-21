@@ -65,6 +65,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.onUnlinkMaterial,
     required this.unlinkingMaterialBarcode,
     this.materialLinkRequestPanel,
+    this.workerMaterialUsePanel,
     this.onReceiveMaterial,
   });
   final List<AdminApparatus> apparatusCatalog;
@@ -130,6 +131,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final void Function(AdminRawMaterialAssignment assignment)? onUnlinkMaterial;
   final String unlinkingMaterialBarcode;
   final Widget? materialLinkRequestPanel;
+  final Widget? workerMaterialUsePanel;
   final VoidCallback? onReceiveMaterial;
 
   final _ReadOnlyOrderDetailUiState uiState;
@@ -656,6 +658,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               // Keep polling while collapsed so approval refreshes the start card.
               child: materialLinkRequestPanel!,
             ),
+          if (workerMaterialUsePanel != null) workerMaterialUsePanel!,
           if (canSendOrderAlert &&
               uiState.showStartMaterials &&
               !materialsLoading &&
