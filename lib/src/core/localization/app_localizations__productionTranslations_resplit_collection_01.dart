@@ -189,7 +189,7 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'ru': 'Цвет не получен',
   },
   'worker.print_preflight.reopen.action': {
-    'uz': 'Rang chiqarilyapti',
+    'uz': 'Rang chiqarilyapti holatiga qaytarish',
     'en': 'Return to colour matching',
     'ru': 'Вернуть к подбору цвета',
     'ur': 'رنگ کی آزمائش پر واپس جائیں',

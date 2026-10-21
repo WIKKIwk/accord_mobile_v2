@@ -67,13 +67,14 @@ extension _AdminProductionMapOrdersPrintPreflightReopen
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (sheetContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _PrintPreflightReopenTile(
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _PrintPreflightReopenTile(
             onTap: () => Navigator.pop(sheetContext, true),
           ),
-        ],
+        ),
       ),
     );
     if (mounted && chosen == true) {
