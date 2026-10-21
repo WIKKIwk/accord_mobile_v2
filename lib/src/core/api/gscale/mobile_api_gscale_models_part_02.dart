@@ -304,7 +304,10 @@ class GScaleMaterialReceiptPrintResponse {
     );
   }
 
-  UsbRpsPrintRequest toUsbPrintRequest({String labelKind = ''}) {
+  UsbRpsPrintRequest toUsbPrintRequest({
+    String labelKind = '',
+    String manufacturerName = '',
+  }) {
     final tareKg = (grossQty - netQty).clamp(0, double.infinity).toDouble();
     return UsbRpsPrintRequest(
       epc: epc,
@@ -319,6 +322,7 @@ class GScaleMaterialReceiptPrintResponse {
       tareKg: tareKg,
       printCount: printCount,
       labelKind: labelKind,
+      manufacturerName: manufacturerName,
       progressQty: lengthM,
       progressUnit: lengthM == null ? '' : 'm',
     );

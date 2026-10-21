@@ -37,6 +37,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       driverUrl: driverUrl,
       printCount: printCount,
     );
+    final manufacturerName = _isMaterialReceipt ? _materialSupplier : '';
     try {
       late final GScaleMaterialReceiptPrintResponse response;
       if (widget.printTransport.isLocal) {
@@ -49,7 +50,10 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
                 .gscaleRpsBatchClientPrintPrepare(singleRequest)
                 .timeout(const Duration(seconds: 15));
             final printResult = await PrintService.printRps(
-              prepared.toUsbPrintRequest(labelKind: 'material_product'),
+              prepared.toUsbPrintRequest(
+                labelKind: 'material_product',
+                manufacturerName: manufacturerName,
+              ),
               printerProfile: widget.offlinePrinter,
               bluetoothPrinter: widget.bluetoothPrinter,
               transport: widget.printTransport,

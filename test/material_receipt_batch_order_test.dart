@@ -29,6 +29,46 @@ void main() {
   });
 
   testWidgets(
+      'receipt supplier is optional, selectable, clearable and restored',
+      (tester) async {
+    await saveOperatorControlDraft(_draft(saved: true));
+    await _withApi(tester, () async {
+      await tester.pumpWidget(_app(_ReceiptHarness(initialOrder: _orderA)));
+      await tester.pumpAndSettle();
+      final supplier = find.byKey(const ValueKey('material-receipt-supplier'));
+      expect(find.text('Ta’minotchi'), findsOneWidget);
+      expect(find.text('Tanlanmagan'), findsOneWidget);
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Qo‘lda brutto kg'), '100');
+      await tester.pumpAndSettle();
+      expect(
+          tester
+              .widget<FilledButton>(
+                  find.widgetWithText(FilledButton, 'Boshlash'))
+              .onPressed,
+          isNotNull);
+
+      for (final value in ['Xitoy', 'Sirdaryo', 'Tanlanmagan', 'Xitoy']) {
+        await tester.ensureVisible(supplier);
+        await tester.tap(supplier);
+        await tester.pumpAndSettle();
+        expect(find.text('Xitoy'), findsWidgets);
+        expect(find.text('Sirdaryo'), findsWidgets);
+        await tester.tap(find.text(value).last);
+        await tester.pumpAndSettle();
+        expect((await loadOperatorControlDraft()).materialSupplier,
+            value == 'Tanlanmagan' ? '' : value);
+      }
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(_app(_ReceiptHarness(initialOrder: _orderA)));
+      await tester.pumpAndSettle();
+      expect(find.text('Xitoy'), findsOneWidget);
+    });
+  });
+
+  testWidgets(
     'order picker stays locked until state resolves and while active',
     (tester) async {
       final state = Completer<GScaleRpsBatchResponse>();

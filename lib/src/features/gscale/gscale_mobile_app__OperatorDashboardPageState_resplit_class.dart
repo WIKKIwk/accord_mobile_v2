@@ -44,6 +44,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   String _batchPrintMode = 'rfid';
   String _batchPrinter = 'zebra';
   String _quantitySource = 'scale';
+  String _materialSupplier = '';
   bool _babinaEnabled = false;
   MonitorSnapshot _snapshot = MonitorSnapshot.empty();
   List<GScaleRpsBatchPrintEntry> _batchPrints = const [];

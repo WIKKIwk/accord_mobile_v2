@@ -51,6 +51,7 @@ class PrintService {
         labelKind: request.labelKind,
         executorName: request.executorName,
         customerName: request.customerName,
+        manufacturerName: request.manufacturerName,
         qolipColor: request.qolipColor,
         progressQty: request.progressQty,
         progressUnit: request.progressUnit,

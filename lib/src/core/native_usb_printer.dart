@@ -165,6 +165,7 @@ class UsbRpsPrintRequest {
     this.labelKind = '',
     this.executorName = '',
     this.customerName = '',
+    this.manufacturerName = '',
     this.qolipColor = '',
     this.progressQty,
     this.progressUnit = '',
@@ -223,6 +224,7 @@ class UsbRpsPrintRequest {
       labelKind: labelKind,
       executorName: executorName,
       customerName: json['customer_name']?.toString() ?? '',
+      manufacturerName: json['manufacturer_name']?.toString().trim() ?? '',
       qolipColor: json['qolip_color']?.toString() ?? '',
       progressQty: progressQty,
       progressUnit: json['progress_unit']?.toString() ?? '',
@@ -251,6 +253,7 @@ class UsbRpsPrintRequest {
   final String labelKind;
   final String executorName;
   final String customerName;
+  final String manufacturerName;
   final String qolipColor;
   final double? progressQty;
   final String progressUnit;
@@ -328,6 +331,7 @@ class UsbRpsPrintRequest {
       labelKind: labelKind,
       executorName: executorName,
       customerName: customerName,
+      manufacturerName: manufacturerName,
       qolipColor: qolipColor,
       progressQty: progressQty,
       progressUnit: progressUnit,
@@ -414,6 +418,8 @@ class UsbRpsPrintRequest {
       if (executorName.trim().isNotEmpty) 'executor_name': executorName.trim(),
       if (customerName.trim().isNotEmpty)
         'customer_name': _cleanText(customerName, fallback: ''),
+      if (manufacturerName.trim().isNotEmpty)
+        'manufacturer_name': _cleanText(manufacturerName, fallback: ''),
       if (qolipColor.trim().isNotEmpty)
         'qolip_color': _cleanText(qolipColor, fallback: ''),
       if (progressQty != null) 'progress_qty': progressQty!,

@@ -725,11 +725,6 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     return result
   }
 
-  // Homashyo rezkachisi split chiqishi: katta matn (kFNT_24_32 bold) va
-  // pastda kattaroq QR. Matn balandligiga qarab QR pastga suriladi, lekin
-  // EPC footer bilan birga yorliqdan chiqib ketmaydi. Faqat isMaterialSplit
-  // uchun ishlaydi, boshqa chop etishlarga tegmaydi.
-
   private func appendMaterialSplitLabel(
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest
@@ -744,7 +739,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     if let length = label.progressQty, length.isFinite && length > 0 {
       fields.append(("METRAJ", "\(formatLabelQty(length)) \(meterUnit)"))
     }
-    return try appendCompactFieldsLabel(command, label: label, fields: fields, largeText: true)
+    if !label.manufacturerName.isEmpty {
+      fields.append(("ISHLAB CHIQARUVCHI", label.manufacturerName))
+    }
+    return try appendCompactFieldsLabel(command, label: label, fields: fields)
   }
 
   private func splitQrCellWidth(_ value: String) -> Int {
@@ -1679,6 +1677,7 @@ private struct BluetoothLabelRequest {
   let apparatus: String
   let apparatusDisplayName: String
   let customerName: String
+  let manufacturerName: String
   let qolipColor: String
   let grossQty: Double
   let unit: String
@@ -1710,6 +1709,7 @@ private struct BluetoothLabelRequest {
     apparatusDisplayName = (arguments["apparatus_display_name"] as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     customerName = (arguments["customer_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    manufacturerName = (arguments["manufacturer_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     qolipColor = (arguments["qolip_color"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     self.grossQty = max(0, grossQty)
     unit = (arguments["unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false

@@ -64,6 +64,7 @@ class OperatorControlDraft {
     this.widthText = '',
     this.micronText = '',
     this.lengthText = '',
+    this.materialSupplier = '',
     this.contextSaved = false,
   });
 
@@ -84,6 +85,7 @@ class OperatorControlDraft {
   final String widthText;
   final String micronText;
   final String lengthText;
+  final String materialSupplier;
   final bool contextSaved;
 
   Map<String, dynamic> toJson() {
@@ -105,6 +107,7 @@ class OperatorControlDraft {
       'width_text': widthText,
       'micron_text': micronText,
       'length_text': lengthText,
+      'material_supplier': materialSupplier,
       'context_saved': contextSaved,
     };
   }
@@ -131,6 +134,7 @@ class OperatorControlDraft {
       widthText: _text(json['width_text']),
       micronText: _text(json['micron_text']),
       lengthText: _text(json['length_text']),
+      materialSupplier: _text(json['material_supplier']),
       contextSaved: json['context_saved'] == true,
     );
   }

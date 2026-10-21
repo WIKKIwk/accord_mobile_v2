@@ -1,3 +1,4 @@
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/native_usb_printer.dart';
 import 'package:accord_mobile_v2/src/core/print_service.dart';
@@ -38,6 +39,55 @@ void main() {
     expect(printers.single.printer, 'xp-p323b');
     expect(printers.single.printMode, 'label');
   });
+
+  for (final supplier in ['', 'Xitoy', 'Sirdaryo']) {
+    test('receipt sends the optional manufacturer to Bluetooth: $supplier',
+        () async {
+      Map? payload;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        payload = call.arguments as Map;
+        return <String, Object?>{'ok': true};
+      });
+      final receipt = GScaleMaterialReceiptPrintResponse.fromJson({
+        'ok': true,
+        'epc': '30D650E44AA9E6886EC5599D',
+        'item_code': 'BOPP-120-12',
+        'item_name': 'BOPP 120/12',
+        'warehouse': 'Stores',
+        'gross_qty': 100,
+        'net_qty': 95,
+        'length_m': 125,
+        'unit': 'kg',
+      });
+      final request = receipt.toUsbPrintRequest(
+        labelKind: 'material_product',
+        manufacturerName: supplier,
+      );
+      final restored = UsbRpsPrintRequest.fromPrintJson(request.toJson());
+      expect(restored.manufacturerName, supplier);
+
+      final result = await PrintService.printRps(
+        restored,
+        bluetoothPrinter: const BluetoothPrinterProfile(
+          name: 'XP-P323B',
+          address: '00:11:22:33:44:55',
+        ),
+        transport: PrintTransport.bluetooth,
+      );
+
+      expect(result.ok, isTrue);
+      expect(payload!['progress_qty'], 125);
+      expect(payload!['material_name_lines'], ['HOMASHYO: BOPP 120/12']);
+      expect(payload!['material_data_matrix_bars'],
+          materialDataMatrixBars(request.epc));
+      if (supplier.isEmpty) {
+        expect(payload, isNot(contains('manufacturer_name')));
+      } else {
+        expect(payload!['manufacturer_name'], supplier.toUpperCase());
+      }
+    });
+  }
 
   test('routes the shared local print request through Bluetooth', () async {
     MethodCall? captured;

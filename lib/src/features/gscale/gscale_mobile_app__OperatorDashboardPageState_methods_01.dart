@@ -173,6 +173,10 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
         }
         _manualQtyController.text = draft.manualQtyText;
         _manualDuplicateController.text = draft.manualDuplicateText;
+        _materialSupplier =
+            const ['Xitoy', 'Sirdaryo'].contains(draft.materialSupplier)
+                ? draft.materialSupplier
+                : '';
         if (_authoritativeRsBatch?.active != true) {
           _warehouseMode = restoreOrderDraft && draft.warehouseMode == 'default'
               ? 'default'
@@ -274,6 +278,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       widthText: _widthController.text.trim(),
       micronText: _micronController.text.trim(),
       lengthText: _lengthController.text.trim(),
+      materialSupplier: _materialSupplier,
       warehouseMode: _warehouseMode == 'default' ? 'default' : 'manual',
       defaultWarehouse: _currentDefaultWarehouse,
       contextSaved: _draftContextSaved,

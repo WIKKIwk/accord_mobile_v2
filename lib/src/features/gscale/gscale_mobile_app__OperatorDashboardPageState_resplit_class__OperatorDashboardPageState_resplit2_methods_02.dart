@@ -752,6 +752,39 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 ),
             ],
           ),
+        ],
+        if (_isMaterialReceipt && !simpleReceiptMode) ...[
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            key: const ValueKey('material-receipt-supplier'),
+            initialValue: _materialSupplier,
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: scheme.surface,
+              labelText: 'Ta’minotchi',
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 14,
+              ),
+              border: bubbleInputBorder,
+              enabledBorder: bubbleInputBorder,
+              focusedBorder: bubbleFocusedInputBorder,
+            ),
+            items: const [
+              DropdownMenuItem(value: '', child: Text('Tanlanmagan')),
+              DropdownMenuItem(value: 'Xitoy', child: Text('Xitoy')),
+              DropdownMenuItem(value: 'Sirdaryo', child: Text('Sirdaryo')),
+            ],
+            onChanged: _batchActionLoading || _manualPrintLoading
+                ? null
+                : (value) {
+                    setState(() => _materialSupplier = value ?? '');
+                    _scheduleSaveControlPrefs();
+                  },
+          ),
+        ],
+        if (selectedQuantitySource == 'manual') ...[
           const SizedBox(height: 2),
           if (simpleReceiptMode)
             _BubbleActionButton(

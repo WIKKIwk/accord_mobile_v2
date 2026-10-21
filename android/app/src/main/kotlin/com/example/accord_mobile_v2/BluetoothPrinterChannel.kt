@@ -645,11 +645,6 @@ class BluetoothPrinterChannel(
         )
     }
 
-    // Homashyo rezkachisi split chiqishi: katta matn (FNT_24_32 bold) va
-    // pastda kattaroq QR. Matn balandligiga qarab QR pastga suriladi, lekin
-    // EPC footer bilan birga yorliqdan chiqib ketmaydi. Faqat
-    // isMaterialSplit uchun ishlaydi, boshqa chop etishlarga tegmaydi.
-
     private fun printMaterialSplitLabel(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
@@ -663,8 +658,11 @@ class BluetoothPrinterChannel(
             label.progressQty?.takeIf { it.isFinite() && it > 0.0 }?.let {
                 add("METRAJ" to "${formatLabelQty(it)} $meterUnit")
             }
+            if (label.manufacturerName.isNotBlank()) {
+                add("ISHLAB CHIQARUVCHI" to label.manufacturerName)
+            }
         }
-        printCompactFieldsLabel(printer, label, fields, largeText = true)
+        printCompactFieldsLabel(printer, label, fields)
     }
 
     private fun splitQrCellWidth(value: String): Int {
@@ -1495,6 +1493,7 @@ private data class BluetoothLabelRequest(
     val apparatus: String,
     val apparatusDisplayName: String,
     val customerName: String,
+    val manufacturerName: String,
     val qolipColor: String,
     val grossQty: Double,
     val unit: String,
@@ -1569,6 +1568,7 @@ private data class BluetoothLabelRequest(
                     .orEmpty()
                     .trim(),
                 customerName = call.argument<String>("customer_name").orEmpty().trim(),
+                manufacturerName = call.argument<String>("manufacturer_name").orEmpty().trim(),
                 qolipColor = call.argument<String>("qolip_color").orEmpty().trim(),
                 grossQty = grossQty.coerceAtLeast(0.0),
                 unit = call.argument<String>("unit").orEmpty().trim().ifBlank { "kg" },
