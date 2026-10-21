@@ -27,6 +27,7 @@ class AdminApparatusDetailScreen extends StatefulWidget {
     required this.onPlacementChanged,
     required this.onTrainingChanged,
     required this.onEdit,
+    this.onWorkerMaterialAssignmentChanged,
   });
 
   final AdminApparatus apparatus;
@@ -39,6 +40,9 @@ class AdminApparatusDetailScreen extends StatefulWidget {
   final Future<AdminApparatus?> Function(AdminApparatus apparatus, bool enabled)
       onTrainingChanged;
   final Future<void> Function(AdminApparatus apparatus) onEdit;
+  final Future<AdminApparatus?> Function(
+          AdminApparatus apparatus, bool enabled)?
+      onWorkerMaterialAssignmentChanged;
 
   @override
   State<AdminApparatusDetailScreen> createState() =>
@@ -50,6 +54,19 @@ class _AdminApparatusDetailScreenState
   late AdminApparatus _apparatus;
   bool _savingPlacement = false;
   bool _savingTraining = false;
+  bool _savingMaterialAssignment = false;
+
+  Future<void> _toggleMaterialAssignment(bool enabled) async {
+    final save = widget.onWorkerMaterialAssignmentChanged;
+    if (_savingMaterialAssignment || save == null) return;
+    setState(() => _savingMaterialAssignment = true);
+    try {
+      final saved = await save(_apparatus, enabled);
+      if (mounted && saved != null) setState(() => _apparatus = saved);
+    } finally {
+      if (mounted) setState(() => _savingMaterialAssignment = false);
+    }
+  }
 
   @override
   void initState() {
@@ -132,6 +149,22 @@ class _AdminApparatusDetailScreenState
           padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
           children: [
             _headerCard(context, scheme),
+            const SizedBox(height: 12),
+            Card(
+              margin: EdgeInsets.zero,
+              child: SwitchListTile(
+                key: const ValueKey('apparatus-worker-material-assignment'),
+                title: Text(
+                    context.l10n.productionText('worker.material_use.setting')),
+                subtitle: Text(context.l10n
+                    .productionText('worker.material_use.setting_description')),
+                value: _apparatus.workerMaterialAssignmentAllowed,
+                onChanged: _savingMaterialAssignment ||
+                        widget.onWorkerMaterialAssignmentChanged == null
+                    ? null
+                    : _toggleMaterialAssignment,
+              ),
+            ),
             const SizedBox(height: 12),
             _sectionLabel(
               context,

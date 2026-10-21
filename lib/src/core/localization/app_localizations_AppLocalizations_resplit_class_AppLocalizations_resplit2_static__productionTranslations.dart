@@ -24,5 +24,6 @@ const _app_localizations_AppLocalizations_resplit_class_AppLocalizations__produc
   ..._app_localizations_declarations__productionTranslations_resplitPart12,
   ..._app_localizations_declarations__productionTranslations_resplitPart13,
   ..._app_localizations_declarations__productionTranslations_resplitPart14,
+  ..._workerMaterialUseTranslations,
   ..._workerDeliveryTranslations
 };

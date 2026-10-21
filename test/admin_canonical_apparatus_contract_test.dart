@@ -64,6 +64,15 @@ void main() {
     expect(apparatus.trainingEnabled, isTrue);
   });
 
+  test('worker material permission defaults off and survives runtime roundtrip', () {
+    expect(AdminApparatus.fromJson(projection).workerMaterialAssignmentAllowed,isFalse);
+    final enabled = AdminApparatus.fromJson({...projection,'worker_material_assignment_allowed':true});
+    expect(enabled.workerMaterialAssignmentAllowed,isTrue);
+    expect(AdminApparatus.fromJson(enabled.toJson()).workerMaterialAssignmentAllowed,isTrue);
+    expect(enabled.copyWith(name:'Updated').workerMaterialAssignmentAllowed,isTrue);
+    expect(enabled.copyWith(workerMaterialAssignmentAllowed:false).workerMaterialAssignmentAllowed,isFalse);
+  });
+
   test(
     'cold glue shares the lamination workflow and keeps a separate group',
     () {

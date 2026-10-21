@@ -3,6 +3,29 @@ part of 'admin_apparatus_settings_screen.dart';
 
 extension __AdminApparatusSettingsScreenStateAstPart02
     on _AdminApparatusSettingsScreenState {
+  Future<AdminApparatus?> _saveWorkerMaterialAssignment(
+      AdminApparatus apparatus, bool enabled) async {
+    try {
+      final saved = await MobileApi.instance.adminPatchCanonicalApparatus(
+        apparatus: _latest(apparatus),
+        patch: {'worker_material_assignment_allowed': enabled},
+      );
+      if (!mounted) return null;
+      _replaceApparatus(saved);
+      return saved;
+    } catch (error) {
+      if (mounted) {
+        showAdminTopNotice(
+            context,
+            error is MobileApiException
+                ? error.message
+                : context.l10n.productionText('worker.material_use.failed'),
+            tone: AdminTopNoticeTone.error);
+      }
+      return null;
+    }
+  }
+
   Future<AdminApparatus?> _saveTraining(
     AdminApparatus apparatus,
     bool enabled,
@@ -49,6 +72,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
           currentApparatus: () => _latest(apparatus),
           onPlacementChanged: _savePlacement,
           onTrainingChanged: _saveTraining,
+          onWorkerMaterialAssignmentChanged: _saveWorkerMaterialAssignment,
           onEdit: (current) => _showEditor(current),
         ),
       ),

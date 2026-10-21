@@ -33,6 +33,7 @@ class AdminApparatus {
     this.trainingQueueEnabled = false,
     this.trainingMaterialTrackingEnabled = false,
     this.lifecycleState = 'active',
+    this.workerMaterialAssignmentAllowed = false,
   });
 
   final String id;
@@ -65,6 +66,7 @@ class AdminApparatus {
   final bool trainingQueueEnabled;
   final bool trainingMaterialTrackingEnabled;
   final String lifecycleState;
+  final bool workerMaterialAssignmentAllowed;
 
   AdminApparatus copyWith({
     String? id,
@@ -97,6 +99,7 @@ class AdminApparatus {
     bool? trainingQueueEnabled,
     bool? trainingMaterialTrackingEnabled,
     String? lifecycleState,
+    bool? workerMaterialAssignmentAllowed,
   }) {
     return AdminApparatus(
       id: id ?? this.id,
@@ -131,6 +134,8 @@ class AdminApparatus {
       trainingMaterialTrackingEnabled: trainingMaterialTrackingEnabled ??
           this.trainingMaterialTrackingEnabled,
       lifecycleState: lifecycleState ?? this.lifecycleState,
+      workerMaterialAssignmentAllowed:
+          workerMaterialAssignmentAllowed ?? this.workerMaterialAssignmentAllowed,
     );
   }
 
@@ -212,6 +217,8 @@ class AdminApparatus {
       id: id,
       name: name,
       source: 'canonical',
+      workerMaterialAssignmentAllowed:
+          projection['worker_material_assignment_allowed'] == true,
       sortOrder: (displayMap['catalog_order'] as num?)?.toInt() ??
           (projection['sort_order'] as num?)?.toInt() ??
           10000,
@@ -253,6 +260,7 @@ class AdminApparatus {
   Map<String, dynamic> toJson() {
     return {
       'apparatus_id': id,
+      if (workerMaterialAssignmentAllowed) 'worker_material_assignment_allowed': true,
       'source_revision': sourceRevision,
       'source_aasx_sha256': sourceAasxSha256,
       'display': {
