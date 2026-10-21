@@ -14,12 +14,13 @@ class PreparationFormulaOrdersScreen extends StatefulWidget {
 
 class _PreparationFormulaOrdersScreenState
     extends State<PreparationFormulaOrdersScreen> {
-  List<PreparationFormulaOrder> _orders = [];
+  List<PreparationFormulaSet> _sets = [];
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   String _query = '';
   String? _error;
   bool _loading = true;
+  bool _renaming = false;
   @override
   void initState() {
     super.initState();
@@ -34,13 +35,14 @@ class _PreparationFormulaOrdersScreenState
   }
 
   Future<void> _load() async {
+    if (_renaming) return;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final orders = await MobileApi.instance.preparationFormulaOrders();
-      if (mounted) setState(() => _orders = orders);
+      final sets = await MobileApi.instance.preparationFormulaSets();
+      if (mounted) setState(() => _sets = sets);
     } catch (error) {
       if (mounted) setState(() => _error = _formulaPageError(error));
     } finally {
@@ -48,16 +50,67 @@ class _PreparationFormulaOrdersScreenState
     }
   }
 
-  Future<void> _open(PreparationFormulaOrder order) async {
+  Future<void> _open(PreparationFormulaSet formulaSet) async {
+    if (_renaming) return;
     await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => _PreparationFormulaOrderDetails(order: order)));
+        builder: (_) => _PreparationFormulaSetDetails(formulaSet: formulaSet)));
     if (mounted) await _load();
+  }
+
+  Future<void> _actions(PreparationFormulaSet formulaSet) async {
+    if (_loading || _renaming) return;
+    final action = await showSpringBottomSheet<String>(
+      context: context,
+      builder: (_) => AppActionSheet<String>(
+        title: formulaSet.id,
+        actions: const [
+          AppActionSheetAction(
+            title: 'Nomini o‘zgartirish',
+            icon: Icons.edit_outlined,
+            value: 'rename',
+          ),
+        ],
+      ),
+    );
+    if (!mounted || action != 'rename') return;
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _PreparationInputDialog(
+        title: 'Komplekt nomini o‘zgartirish',
+        label: 'Komplekt nomi',
+        initialValue: formulaSet.name,
+      ),
+    );
+    if (!mounted || name == null || name == formulaSet.name || _renaming) return;
+    setState(() => _renaming = true);
+    try {
+      final savedName = await MobileApi.instance.preparationRenameFormulaSet(
+        setId: formulaSet.id,
+        name: name,
+      );
+      if (!mounted) return;
+      setState(() => _sets = [
+            for (final item in _sets)
+              if (item.id == formulaSet.id) item.renamed(savedName) else item,
+          ]);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: UrduAwareText('Komplekt nomi o‘zgartirildi')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_formulaPageError(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _renaming = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final orders = _orders
-        .where((order) => '${order.code} ${order.title} ${order.productCode}'
+    final sets = _sets
+        .where((item) => '${item.id} ${item.name} ${item.productTitle} ${item.productCode} ${item.orderCodes.join(' ')}'
             .toLowerCase()
             .contains(_query.trim().toLowerCase()))
         .toList();
@@ -72,7 +125,7 @@ class _PreparationFormulaOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _search,
         focusNode: _searchFocus,
-        hintText: 'Buyurtma yoki mahsulotni qidirish',
+        hintText: 'Kod, nom yoki buyurtmani qidirish',
         onChanged: (query) => setState(() => _query = query),
         onClear: () {
           _search.clear();
@@ -82,6 +135,7 @@ class _PreparationFormulaOrdersScreenState
       contentPadding: EdgeInsets.zero,
       bottom: const PreparationDock(showPrimaryFab: false),
       child: Column(children: [
+        if (_renaming) const LinearProgressIndicator(),
         Expanded(
             child: _loading
                 ? const Center(child: AppLoadingIndicator())
@@ -102,32 +156,30 @@ class _PreparationFormulaOrdersScreenState
                                       child:
                                           const UrduAwareText('Qayta urinish')),
                                 ])),
-                          if (_error == null && orders.isEmpty)
+                          if (_error == null && sets.isEmpty)
                             Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: UrduAwareText(_query.trim().isEmpty
                                     ? 'Saqlangan formulalar yo‘q.'
-                                    : 'Formula topilmadi.')),
+                                    : 'Formula komplekti topilmadi.')),
                           M3SegmentSpacedColumn(children: [
-                            for (var i = 0; i < orders.length; i++)
-                              AdminSummaryCard(
+                            for (var i = 0; i < sets.length; i++)
+                              AdminCatalogListRow(
                                 key: ValueKey(
-                                    'preparation-formula-order-${orders[i].id}'),
-                                slot: _slotFor(i, orders.length),
-                                cornerRadius:
-                                    M3SegmentedListGeometry.cornerLarge,
-                                title: orders[i].code.isEmpty
-                                    ? orders[i].title
-                                    : orders[i].code,
-                                subtitle: !orders[i].hasOrder
-                                    ? 'Mos buyurtma yo‘q'
-                                    : orders[i].code.isEmpty
-                                        ? null
-                                        : orders[i].title,
+                                    'preparation-formula-set-${sets[i].id}'),
+                                slot: M3SegmentedListGeometry
+                                    .standaloneListSlotForIndex(i, sets.length),
+                                icon: Icons.functions_rounded,
+                                title: sets[i].name,
+                                subtitle: sets[i].orderCodes.isEmpty
+                                    ? '${sets[i].id}\nMos buyurtma yo‘q'
+                                    : sets[i].id,
+                                subtitleMaxLines:
+                                    sets[i].orderCodes.isEmpty ? 2 : 1,
                                 value:
-                                    '${orders[i].formulas.length} ta formula',
-                                onTap: () => _open(orders[i]),
-                                elevation: 0,
+                                    '${sets[i].formulas.length} ta formula',
+                                onTap: _renaming ? null : () => _open(sets[i]),
+                                onLongPress: _renaming ? null : () => _actions(sets[i]),
                               ),
                           ]),
                         ]),
@@ -137,17 +189,17 @@ class _PreparationFormulaOrdersScreenState
   }
 }
 
-class _PreparationFormulaOrderDetails extends StatefulWidget {
-  const _PreparationFormulaOrderDetails({required this.order});
-  final PreparationFormulaOrder order;
+class _PreparationFormulaSetDetails extends StatefulWidget {
+  const _PreparationFormulaSetDetails({required this.formulaSet});
+  final PreparationFormulaSet formulaSet;
   @override
-  State<_PreparationFormulaOrderDetails> createState() =>
-      _PreparationFormulaOrderDetailsState();
+  State<_PreparationFormulaSetDetails> createState() =>
+      _PreparationFormulaSetDetailsState();
 }
 
-class _PreparationFormulaOrderDetailsState
-    extends State<_PreparationFormulaOrderDetails> {
-  late List<PreparationScopedFormula> _formulas = widget.order.formulas;
+class _PreparationFormulaSetDetailsState
+    extends State<_PreparationFormulaSetDetails> {
+  late List<PreparationScopedFormula> _formulas = widget.formulaSet.formulas;
   bool _busy = false;
   String? _error;
 
@@ -157,10 +209,10 @@ class _PreparationFormulaOrderDetailsState
       _error = null;
     });
     try {
-      final orders = await MobileApi.instance.preparationFormulaOrders();
+      final sets = await MobileApi.instance.preparationFormulaSets();
       if (mounted) {
-        setState(() => _formulas = orders
-                .where((o) => o.id == widget.order.id)
+        setState(() => _formulas = sets
+                .where((item) => item.id == widget.formulaSet.id)
                 .firstOrNull
                 ?.formulas ??
             []);
@@ -196,10 +248,10 @@ class _PreparationFormulaOrderDetailsState
     if (!mounted || action == null) return;
     if (action == 'edit') {
       await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
-        orderId: widget.order.id,
-        orderCode: widget.order.code,
-        productCode: widget.order.productCode,
-        productTitle: widget.order.title,
+        orderId: widget.formulaSet.id,
+        orderCode: widget.formulaSet.id,
+        productCode: widget.formulaSet.productCode,
+        productTitle: widget.formulaSet.name,
         materialId: entry.materialId,
         materialName: entry.materialName,
         initialFormulaName: entry.formula.name,
@@ -220,7 +272,7 @@ class _PreparationFormulaOrderDetailsState
     setState(() => _busy = true);
     try {
       await MobileApi.instance.preparationDeleteFormula(
-          widget.order.productCode, entry.formula.name,
+          widget.formulaSet.productCode, entry.formula.name,
           materialId: entry.materialId, savedOnly: true);
       if (!mounted) return;
       setState(() => _formulas = _formulas
@@ -242,8 +294,8 @@ class _PreparationFormulaOrderDetailsState
 
   @override
   Widget build(BuildContext context) => AppShell(
-        title: widget.order.code.isEmpty ? 'Formulalar' : widget.order.code,
-        subtitle: widget.order.title,
+        title: widget.formulaSet.id,
+        subtitle: widget.formulaSet.name,
         nativeTopBar: true,
         contentPadding: EdgeInsets.zero,
         bottom: const PreparationDock(showPrimaryFab: false),
@@ -262,54 +314,31 @@ class _PreparationFormulaOrderDetailsState
                   Padding(
                       padding: const EdgeInsets.all(12), child: Text(_error!)),
                 if (_formulas.isEmpty)
-                  Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: UrduAwareText(widget.order.hasOrder
-                          ? 'Bu buyurtmada formula qolmadi.'
-                          : 'Bu mahsulotda formula qolmadi.')),
+                  const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: UrduAwareText('Bu komplektda formula qolmadi.')),
                 M3SegmentSpacedColumn(children: [
-                  for (var i = 0; i < _formulas.length; i++)
-                    M3SegmentFilledSurface(
+                  for (final (index, entry) in _formulas.indexed)
+                    AdminCatalogListRow(
                       key: ValueKey(
-                          'preparation-order-formula-${_formulas[i].materialId}-${_formulas[i].formula.name}'),
-                      slot: _slotFor(i, _formulas.length),
-                      cornerRadius: M3SegmentedListGeometry.cornerLarge,
-                      onTap: _busy ? null : () => _actions(_formulas[i]),
-                      child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(children: [
-                                  Expanded(
-                                      child: Text(
-                                          _formulas[i].materialName.isEmpty
-                                              ? _formulas[i].formula.name
-                                              : '${_formulas[i].materialName} • ${_formulas[i].formula.name}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium)),
-                                  IconButton(
-                                      tooltip: 'Formula amallari',
-                                      onPressed: _busy
-                                          ? null
-                                          : () => _actions(_formulas[i]),
-                                      icon: const Icon(Icons.more_vert))
-                                ]),
-                                if (_formulas[i].materialId.isEmpty)
-                                  const UrduAwareText(
-                                      'Eski formula — homashyo turi belgilanmagan'),
-                                for (final line in _formulas[i].formula.lines)
-                                  Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 4),
-                                      child: Row(children: [
-                                        Expanded(child: Text(line.name)),
-                                        const SizedBox(width: 12),
-                                        UrduAwareText(
-                                            '${preparationDisplay(line.percent)}%'),
-                                      ])),
-                              ])),
+                          'preparation-order-formula-${entry.materialId}-${entry.formula.name}'),
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          index, _formulas.length),
+                      icon: Icons.functions_rounded,
+                      title: entry.materialName.isEmpty
+                          ? entry.formula.name
+                          : '${entry.materialName} • ${entry.formula.name}',
+                      subtitle: [
+                        if (entry.materialId.isEmpty)
+                          'Eski formula — homashyo turi belgilanmagan',
+                        for (final line in entry.formula.lines)
+                          '${line.name} • ${preparationDisplay(line.percent)}%',
+                      ].join('\n'),
+                      subtitleMaxLines: entry.formula.lines.isEmpty
+                          ? 1
+                          : entry.formula.lines.length +
+                              (entry.materialId.isEmpty ? 1 : 0),
+                      onTap: _busy ? null : () => _actions(entry),
                     ),
                 ]),
               ]),

@@ -191,21 +191,47 @@ extension MobileApiPreparation on MobileApi {
     return PreparationFormula.listFromJson(_preparationResponse(response));
   }
 
-  Future<List<PreparationFormulaOrder>> preparationFormulaOrders() async {
+  Future<List<PreparationFormulaSet>> preparationFormulaSets() async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
         throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
       }
-      return _get(Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-orders'),
+      return _get(Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-sets'),
           headers: _headers(requireToken()));
     });
     if (_preparationStorageKey() != key) {
       throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
     }
     final data = _preparationResponse(response);
-    return (data['orders'] as List).map((entry) => PreparationFormulaOrder.fromJson(
+    return (data['sets'] as List).map((entry) => PreparationFormulaSet.fromJson(
       Map<String, dynamic>.from(entry as Map))).toList();
+  }
+
+  Future<String> preparationRenameFormulaSet({
+    required String setId,
+    required String name,
+  }) async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
+      }
+      return _patch(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-sets'),
+        headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+        body: jsonEncode({'set_id': setId, 'name': name.trim()}),
+      );
+    });
+    if (_preparationStorageKey() != key) {
+      throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
+    }
+    final data = _preparationResponse(response);
+    final savedName = data['name'];
+    if (data['set_id'] != setId || savedName is! String || savedName.trim().isEmpty) {
+      throw const MobileApiException(code: 'preparation_invalid_response', message: 'Komplekt nomi o‘zgargani tasdiqlanmadi. Ro‘yxatni yangilang');
+    }
+    return savedName;
   }
 
   Future<PreparationFormula> preparationUpsertFormula(

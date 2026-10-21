@@ -1,7 +1,6 @@
 import '../../../../core/widgets/lists/m3_segmented_list.dart';
-import '../../../../core/theme/theme_controller.dart';
 import '../../../shared/models/app_models.dart';
-import 'admin_summary_card.dart';
+import 'admin_catalog_list_row.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/localization/urdu_aware_text.dart';
 
@@ -58,7 +57,6 @@ class AdminSupplierListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final phone = item.phone.trim();
     final subtitleLine = <String>[
       item.roleLabel,
@@ -66,42 +64,12 @@ class AdminSupplierListRow extends StatelessWidget {
       if (phone.isNotEmpty) phone,
     ].join(' • ');
 
-    return AdminSummaryCard(
+    return AdminCatalogListRow(
       slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
-      backgroundColor: scheme.surfaceContainerLowest,
-      fixedHeight: 61,
-      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
-      value: '',
-      showChevron: false,
-      leading: SizedBox.square(
-        dimension: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.person_outline_rounded,
-            size: 16,
-            color: scheme.onSecondaryContainer,
-          ),
-        ),
-      ),
+      icon: Icons.person_outline_rounded,
       title: item.name,
       subtitle: subtitleLine,
-      titleMaxLines: 1,
-      subtitleMaxLines: 1,
-      titleStyle: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            height: 1.05,
-          ),
-      elevation:
-          ThemeController.instance.variant == AppThemeVariant.white ? 1 : 0,
     );
   }
 }

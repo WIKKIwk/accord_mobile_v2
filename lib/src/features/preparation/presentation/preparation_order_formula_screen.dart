@@ -516,7 +516,7 @@ class _PreparationOrderFormulaScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             UrduAwareText(
-                              'Buyurtma kodi: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
+                              '${widget.manageSavedFormula ? 'Komplekt kodi' : 'Buyurtma kodi'}: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),

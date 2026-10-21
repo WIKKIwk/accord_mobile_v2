@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_list_row.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_order_formula_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -15,10 +16,11 @@ import 'preparation_material_management_test.dart' as fixtures;
 
 List<Map<String, dynamic>> lines = [];
 Map<String, dynamic> orderData() => {
-      'order_id': 'o1',
-      'order_code': 'O-1',
+      'set_id': '950200000001',
+      'name': 'Test product',
       'product_code': 'P',
-      'title': 'Test product',
+      'product_title': 'Test product',
+      'order_codes': ['O-1'],
       'formulas': [
         {
           'material_id': 'mat-a',
@@ -60,7 +62,7 @@ void main() {
   });
 
   testWidgets(
-      'compact home cards, formula order list, view and edit scoped formula',
+      'compact home cards, formula set list, view and edit scoped formula',
       (tester) async {
     var saves = 0;
     await http.runWithClient(() async {
@@ -77,13 +79,22 @@ void main() {
           lessThanOrEqualTo(tester.getSize(orderCard).height));
       await tester.tap(find.text('Formulalar'));
       await tester.pumpAndSettle();
-      expect(find.text('O-1'), findsOneWidget);
+      expect(find.text('950200000001'), findsOneWidget);
+      expect(find.text('Test product'), findsOneWidget);
+      final row = tester.widget<AdminCatalogListRow>(find.byKey(
+          const ValueKey('preparation-formula-set-950200000001')));
+      expect(row.title, 'Test product');
+      expect(row.subtitle, '950200000001');
+      expect(row.value, '1 ta formula');
+      expect(tester.getTopLeft(find.text('Test product')).dy,
+          lessThan(tester.getTopLeft(find.text('950200000001')).dy));
       await tester
-          .tap(find.byKey(const ValueKey('preparation-formula-order-o1')));
+          .tap(find.byKey(const ValueKey('preparation-formula-set-950200000001')));
       await tester.pumpAndSettle();
-      expect(find.text('Kley'), findsOneWidget);
-      expect(find.text('60%'), findsOneWidget);
-      expect(find.text('40%'), findsOneWidget);
+      final formulaRow = tester.widget<AdminCatalogListRow>(formulaCard());
+      expect(formulaRow.title, 'Mat A • A');
+      expect(formulaRow.subtitle, 'Kley • 60%\nUn • 40%');
+      expect(formulaRow.subtitleMaxLines, 2);
       expect(find.textContaining('boshqa buyurtmalarda'), findsOneWidget);
       await tester.tap(formulaCard());
       await tester.pumpAndSettle();
@@ -106,17 +117,16 @@ void main() {
       Navigator.of(tester.element(find.byType(PreparationOrderFormulaScreen)))
           .pop();
       await tester.pumpAndSettle();
-      expect(find.text('70%'), findsOneWidget);
-      expect(find.text('30%'), findsOneWidget);
+      expect(find.text('Kley • 70%\nUn • 30%'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
         () => MockClient((request) async {
               if (request.url.path.endsWith('/snapshot')) {
                 return fixtures.response(snapshot());
               }
-              if (request.url.path.endsWith('/formula-orders')) {
+              if (request.url.path.endsWith('/formula-sets')) {
                 return fixtures.response({
-                  'orders': [orderData()]
+                  'sets': [orderData()]
                 });
               }
               expect(request.url.path, '/v1/mobile/preparation/formulas/saved');
@@ -160,7 +170,7 @@ void main() {
       await tester.pumpWidget(
           fixtures.app(home: const PreparationFormulaOrdersScreen()));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('O-1'));
+      await tester.tap(find.text('950200000001'));
       await tester.pumpAndSettle();
       Future<void> confirm() async {
         await tester.tap(formulaCard());
@@ -193,8 +203,8 @@ void main() {
       await tester.tap(find.text('O‘chirish'));
       await tester.pumpAndSettle();
       expect(formulaCard(), findsNothing);
-      expect(find.text('Bu buyurtmada formula qolmadi.'), findsOneWidget);
-      Navigator.of(tester.element(find.text('Bu buyurtmada formula qolmadi.')))
+      expect(find.text('Bu komplektda formula qolmadi.'), findsOneWidget);
+      Navigator.of(tester.element(find.text('Bu komplektda formula qolmadi.')))
           .pop();
       await tester.pumpAndSettle();
       expect(find.text('Saqlangan formulalar yo‘q.'), findsOneWidget);
@@ -202,7 +212,7 @@ void main() {
         () => MockClient((request) async {
               if (request.method == 'GET') {
                 return fixtures.response({
-                  'orders': deleted ? [] : [orderData()]
+                  'sets': deleted ? [] : [orderData()]
                 });
               }
               expect(request.method, 'DELETE');
@@ -235,7 +245,7 @@ void main() {
       await tester.pumpWidget(
           fixtures.app(home: const PreparationFormulaOrdersScreen()));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('O-1'));
+      await tester.tap(find.text('950200000001'));
       await tester.pumpAndSettle();
       final other =
           find.byKey(const ValueKey('preparation-order-formula-mat-b-A'));
@@ -254,7 +264,7 @@ void main() {
         () => MockClient((request) async {
               if (request.method == 'GET') {
                 return fixtures.response({
-                  'orders': [order]
+                  'sets': [order]
                 });
               }
               expect(request.url.queryParameters,
@@ -269,21 +279,22 @@ void main() {
     var saves = 0;
     final names = ['A', 'Asosiy'];
     final orphan = {
-      'order_id': 'saved:OLD',
-      'order_code': '',
+      'set_id': '950200000002',
+      'name': 'Nilo maffin 180 gr',
       'product_code': 'OLD',
-      'title': 'Nilo maffin 180 gr',
-      'has_order': false,
+      'product_title': 'Nilo maffin 180 gr',
+      'order_codes': <String>[],
     };
     await http.runWithClient(() async {
       await tester.pumpWidget(
           fixtures.app(home: const PreparationFormulaOrdersScreen()));
       await tester.pumpAndSettle();
-      expect(find.text('Mos buyurtma yo‘q'), findsOneWidget);
+      expect(find.textContaining('Mos buyurtma yo‘q'), findsOneWidget);
       expect(find.text('2 ta formula'), findsOneWidget);
-      await tester.tap(find.text('Nilo maffin 180 gr'));
+      await tester.tap(find.byKey(
+          const ValueKey('preparation-formula-set-950200000002')));
       await tester.pumpAndSettle();
-      expect(find.text('Eski formula — homashyo turi belgilanmagan'),
+      expect(find.textContaining('Eski formula — homashyo turi belgilanmagan'),
           findsNWidgets(2));
       expect(find.text(' • A'), findsNothing);
       final card = find.byKey(const ValueKey('preparation-order-formula--A'));
@@ -318,8 +329,8 @@ void main() {
               findsOneWidget);
         }
       }
-      expect(find.text('Bu mahsulotda formula qolmadi.'), findsOneWidget);
-      Navigator.of(tester.element(find.text('Bu mahsulotda formula qolmadi.')))
+      expect(find.text('Bu komplektda formula qolmadi.'), findsOneWidget);
+      Navigator.of(tester.element(find.text('Bu komplektda formula qolmadi.')))
           .pop();
       await tester.pumpAndSettle();
       expect(find.text('Saqlangan formulalar yo‘q.'), findsOneWidget);
@@ -329,9 +340,9 @@ void main() {
               if (request.url.path.endsWith('/snapshot')) {
                 return fixtures.response(snapshot());
               }
-              if (request.url.path.endsWith('/formula-orders')) {
+              if (request.url.path.endsWith('/formula-sets')) {
                 return fixtures.response({
-                  'orders': names.isEmpty
+                  'sets': names.isEmpty
                       ? []
                       : [
                           {
@@ -384,15 +395,95 @@ void main() {
       expect(find.text('Saqlangan formulalar yo‘q.'), findsNothing);
       await tester.tap(find.text('Qayta urinish'));
       await tester.pumpAndSettle();
-      expect(find.text('O-1'), findsOneWidget);
+      expect(find.text('950200000001'), findsOneWidget);
       await tester.enterText(find.byType(EditableText), 'absent');
       await tester.pumpAndSettle();
-      expect(find.text('Formula topilmadi.'), findsOneWidget);
+      expect(find.text('Formula komplekti topilmadi.'), findsOneWidget);
     },
         () => MockClient((_) async => ++count == 1
             ? http.Response('Bad gateway', 502)
             : fixtures.response({
-                'orders': [orderData()]
+                'sets': [orderData()]
               })));
+  });
+
+  testWidgets('long press renames a set and searches by ID, name, product and order',
+      (tester) async {
+    var name = 'Test product';
+    var renames = 0;
+    const id = '950200000001';
+    final card = find.byKey(const ValueKey('preparation-formula-set-$id'));
+    await http.runWithClient(() async {
+      await tester.pumpWidget(fixtures.app(home: const PreparationFormulaOrdersScreen()));
+      await tester.pumpAndSettle();
+      expect(find.text(id), findsOneWidget);
+      expect(find.text(name), findsOneWidget);
+      await tester.longPress(card);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nomini o‘zgartirish'));
+      await tester.pumpAndSettle();
+      final field = find.byType(TextFormField);
+      expect(tester.widget<TextFormField>(field).controller!.text, 'Test product');
+      await tester.enterText(field, '   ');
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nom kiriting'), findsOneWidget);
+      expect(renames, 0);
+      await tester.enterText(field, 'Qurt maxsus');
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+      expect(renames, 1);
+      expect(find.text('Qurt maxsus'), findsOneWidget);
+      expect(find.text(id), findsOneWidget);
+      expect(find.text('1 ta formula'), findsOneWidget);
+      for (final query in [id, 'Qurt maxsus', 'Test product', 'O-1']) {
+        await tester.enterText(find.byType(EditableText), query);
+        await tester.pumpAndSettle();
+        expect(card, findsOneWidget, reason: query);
+      }
+      await tester.enterText(find.byType(EditableText), '');
+      await tester.pumpAndSettle();
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      expect(find.text('Qurt maxsus'), findsOneWidget);
+      expect(formulaCard(), findsOneWidget);
+      Navigator.of(tester.element(formulaCard())).pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Qurt maxsus'), findsOneWidget);
+      expect(find.text(id), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+      expect(request.url.path, '/v1/mobile/preparation/formula-sets');
+      if (request.method == 'PATCH') {
+        expect(jsonDecode(request.body), {'set_id': id, 'name': 'Qurt maxsus'});
+        name = 'Qurt maxsus';
+        renames++;
+        return fixtures.response({'set_id': id, 'name': name});
+      }
+      return fixtures.response({'sets': [{...orderData(), 'name': name}]});
+    }));
+  });
+
+  testWidgets('failed rename retains the set name, ID and formulas', (tester) async {
+    const id = '950200000001';
+    final card = find.byKey(const ValueKey('preparation-formula-set-$id'));
+    await http.runWithClient(() async {
+      await tester.pumpWidget(fixtures.app(home: const PreparationFormulaOrdersScreen()));
+      await tester.pumpAndSettle();
+      await tester.longPress(card);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nomini o‘zgartirish'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'Rejected');
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+      expect(find.text('Rejected'), findsNothing);
+      expect(find.text('Test product'), findsOneWidget);
+      expect(find.text(id), findsOneWidget);
+      expect(find.text('1 ta formula'), findsOneWidget);
+      expect(find.text('Bu formulani boshqarish huquqingiz yo‘q'), findsOneWidget);
+    }, () => MockClient((request) async => request.method == 'PATCH'
+        ? fixtures.response({'error': 'Nomni o‘zgartirishga ruxsat yo‘q'}, 403)
+        : fixtures.response({'sets': [orderData()]})));
   });
 }

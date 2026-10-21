@@ -173,22 +173,22 @@ class PreparationPendingCommand {
           payload: Map<String, dynamic>.from(json['payload'] as Map));
 }
 
-class PreparationFormulaOrder {
-  const PreparationFormulaOrder({
+class PreparationFormulaSet {
+  const PreparationFormulaSet({
     required this.id,
-    required this.code,
+    required this.name,
     required this.productCode,
-    required this.title,
+    required this.productTitle,
+    required this.orderCodes,
     required this.formulas,
-    this.hasOrder = true,
   });
-  factory PreparationFormulaOrder.fromJson(Map<String, dynamic> json) =>
-      PreparationFormulaOrder(
-        id: json['order_id'] as String,
-        code: json['order_code'] as String? ?? '',
+  factory PreparationFormulaSet.fromJson(Map<String, dynamic> json) =>
+      PreparationFormulaSet(
+        id: json['set_id'] as String,
+        name: json['name'] as String,
         productCode: json['product_code'] as String,
-        title: json['title'] as String,
-        hasOrder: json['has_order'] as bool? ?? true,
+        productTitle: json['product_title'] as String,
+        orderCodes: List<String>.from(json['order_codes'] as List),
         formulas: (json['formulas'] as List)
             .map((entry) => PreparationScopedFormula.fromJson({
                   'product_code': json['product_code'],
@@ -196,9 +196,18 @@ class PreparationFormulaOrder {
                 }))
             .toList(),
       );
-  final String id, code, productCode, title;
-  final bool hasOrder;
+  final String id, name, productCode, productTitle;
+  final List<String> orderCodes;
   final List<PreparationScopedFormula> formulas;
+
+  PreparationFormulaSet renamed(String name) => PreparationFormulaSet(
+        id: id,
+        name: name,
+        productCode: productCode,
+        productTitle: productTitle,
+        orderCodes: orderCodes,
+        formulas: formulas,
+      );
 }
 
 class PreparationScopedFormula {
