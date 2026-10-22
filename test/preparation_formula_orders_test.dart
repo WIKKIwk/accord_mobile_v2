@@ -26,6 +26,7 @@ Map<String, dynamic> orderData() => {
           'material_id': 'mat-a',
           'material_name': 'Mat A',
           'name': 'A',
+          'share_percent': '100.000000',
           'lines': lines
         },
       ]
@@ -93,12 +94,22 @@ void main() {
       await tester.pumpAndSettle();
       final formulaRow = tester.widget<AdminCatalogListRow>(formulaCard());
       expect(formulaRow.title, 'Mat A • A');
-      expect(formulaRow.subtitle, 'Kley • 60%\nUn • 40%');
-      expect(formulaRow.subtitleMaxLines, 2);
+      expect(formulaRow.subtitle, 'Shnek ulushi: 100%\nKley • 60%\nUn • 40%');
+      expect(formulaRow.subtitleMaxLines, 3);
       expect(find.textContaining('boshqa buyurtmalarda'), findsOneWidget);
       await tester.tap(formulaCard());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Tahrirlash'));
+      expect(find.text('Formula ma’lumotlari'), findsOneWidget);
+      expect(find.text('Kley'), findsOneWidget);
+      expect(find.text('60%'), findsOneWidget);
+      expect(find.text('Un'), findsOneWidget);
+      expect(find.text('40%'), findsOneWidget);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.byType(PreparationOrderFormulaScreen), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('preparation-formula-card-A')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextFormField), findsNothing);
+      await tester.tap(find.byTooltip('Tahrirlash'));
       await tester.pumpAndSettle();
       expect(find.byType(PreparationOrderFormulaScreen), findsOneWidget);
       for (final entry in [(0, '70'), (1, '30')]) {
@@ -117,7 +128,7 @@ void main() {
       Navigator.of(tester.element(find.byType(PreparationOrderFormulaScreen)))
           .pop();
       await tester.pumpAndSettle();
-      expect(find.text('Kley • 70%\nUn • 30%'), findsOneWidget);
+      expect(find.text('Shnek ulushi: 100%\nKley • 70%\nUn • 30%'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
         () => MockClient((request) async {
@@ -161,6 +172,58 @@ void main() {
             }));
   });
 
+  testWidgets('saved formula opens details and only its pencil opens the editor',
+      (tester) async {
+    await http.runWithClient(() async {
+      await tester.pumpWidget(fixtures.app(
+        home: const PreparationOrderFormulaScreen(
+          orderId: 'order-1',
+          orderCode: 'O-1',
+          productCode: 'P',
+          productTitle: 'Test product',
+          materialId: 'mat-a',
+          materialName: 'Mat A',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const ValueKey('preparation-formula-card-A'));
+      expect(find.byType(TextFormField), findsNothing);
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      final details =
+          find.byKey(const ValueKey('preparation-formula-info-sheet'));
+      expect(details, findsOneWidget);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.descendant(of: details, matching: find.text('Kley')),
+          findsOneWidget);
+      expect(find.descendant(of: details, matching: find.text('60%')),
+          findsOneWidget);
+      await tester.tap(find.descendant(
+          of: details, matching: find.byTooltip('Tahrirlash')));
+      await tester.pumpAndSettle();
+      expect(details, findsNothing);
+      expect(
+          find.byKey(const ValueKey('preparation-formula-percent-0')),
+          findsOneWidget);
+      await tester.tap(find.byTooltip('Bekor qilish'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextFormField), findsNothing);
+      expect(card, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+      expect(request.method, 'GET');
+      if (request.url.path.endsWith('/snapshot')) {
+        return fixtures.response(snapshot());
+      }
+      return fixtures.response({
+        'product_code': 'P',
+        'formulas': [
+          {'name': 'A', 'lines': lines}
+        ],
+      });
+    }));
+  });
+
   testWidgets(
       'delete confirmation, rejected delete retained, last formula removes order from list',
       (tester) async {
@@ -175,7 +238,7 @@ void main() {
       Future<void> confirm() async {
         await tester.tap(formulaCard());
         await tester.pumpAndSettle();
-        await tester.tap(find.text('O‘chirish'));
+        await tester.tap(find.byTooltip('O‘chirish'));
         await tester.pumpAndSettle();
       }
 
@@ -254,7 +317,7 @@ void main() {
       await tester.ensureVisible(other);
       await tester.tap(other);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('O‘chirish'));
+      await tester.tap(find.byTooltip('O‘chirish'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('O‘chirish'));
       await tester.pumpAndSettle();
@@ -300,7 +363,7 @@ void main() {
       final card = find.byKey(const ValueKey('preparation-order-formula--A'));
       await tester.tap(card);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Tahrirlash'));
+      await tester.tap(find.byTooltip('Tahrirlash'));
       await tester.pumpAndSettle();
       expect(find.byType(PreparationOrderFormulaScreen), findsOneWidget);
       expect(find.text('Formula qo‘shish'), findsNothing);
@@ -318,7 +381,7 @@ void main() {
         await tester.ensureVisible(target);
         await tester.tap(target);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('O‘chirish'));
+        await tester.tap(find.byTooltip('O‘chirish'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('O‘chirish'));
         await tester.pumpAndSettle();

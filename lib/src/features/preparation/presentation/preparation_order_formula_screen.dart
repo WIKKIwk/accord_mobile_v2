@@ -10,6 +10,7 @@ import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
+import 'preparation_formula_shares_sheet.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 
 String preparationFormulaErrorMessage(Object error) {
@@ -25,6 +26,60 @@ String preparationFormulaErrorMessage(Object error) {
     }
   }
   return 'Formulalar bilan amal bajarilmadi. Internet aloqasini tekshirib, qayta urinib ko‘ring';
+}
+
+Future<String?> showPreparationFormulaDetails(
+  BuildContext context, {
+  required PreparationFormula formula,
+  String materialName = '',
+  String? estimatedMaterialKg,
+  bool sharesComplete = false,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        key: const ValueKey('preparation-formula-info-sheet'),
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: UrduAwareText(
+                'Formula ma’lumotlari',
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+            ),
+            _SavedFormulaCard(
+              formula: formula,
+              materialName: materialName,
+              estimatedMaterialKg: estimatedMaterialKg,
+              sharesComplete: sharesComplete,
+              deleting: false,
+              onEdit: () => Navigator.of(sheetContext).pop('edit'),
+              onDelete: () => Navigator.of(sheetContext).pop('delete'),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: OutlinedButton.icon(
+                key: const ValueKey('preparation-formula-share-action'),
+                onPressed: () => Navigator.of(sheetContext).pop('shares'),
+                icon: const Icon(Icons.percent_rounded),
+                label: const UrduAwareText('Shnek ulushlarini belgilash'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Tayyorlov masteri uchun formula sahifasi — bitta homashyo scope'ida.
@@ -44,6 +99,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     this.customerName,
     this.initialFormulaName,
     this.manageSavedFormula = false,
+    this.variantId = '',
+    this.variantName = '',
   });
 
   final String orderId;
@@ -55,6 +112,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
   final String? customerName;
   final String? initialFormulaName;
   final bool manageSavedFormula;
+  final String variantId, variantName;
 
   static Route<void> route({
     required String orderId,
@@ -66,6 +124,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     String? customerName,
     String? initialFormulaName,
     bool manageSavedFormula = false,
+    String variantId = '',
+    String variantName = '',
   }) {
     return PreparationOrderFormulaRoute(
       builder: (_) => PreparationOrderFormulaScreen(
@@ -78,6 +138,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
         customerName: customerName,
         initialFormulaName: initialFormulaName,
         manageSavedFormula: manageSavedFormula,
+        variantId: variantId,
+        variantName: variantName,
       ),
     );
   }
@@ -99,6 +161,7 @@ class _PreparationOrderFormulaScreenState
     extends State<PreparationOrderFormulaScreen> {
   List<PreparationFormula> _formulas = const [];
   List<PreparationMaterial> _materials = const [];
+  String? _estimatedMaterialKg;
   String? _error;
   bool _loading = true;
   bool _saving = false;
@@ -135,7 +198,9 @@ class _PreparationOrderFormulaScreenState
         widget.productCode,
         materialId: widget.materialId,
         savedOnly: widget.manageSavedFormula,
+        variantId: widget.variantId,
       );
+      final estimatedKg = await _loadEstimatedMaterialKg();
       if (!mounted) return;
       final materials = [...snapshot.materials]..sort((a, b) {
           final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
@@ -144,6 +209,7 @@ class _PreparationOrderFormulaScreenState
       setState(() {
         _materials = materials;
         _formulas = formulas;
+        _estimatedMaterialKg = estimatedKg;
       });
       if (!_initialEditorOpened && widget.initialFormulaName != null) {
         final formula = formulas
@@ -163,12 +229,30 @@ class _PreparationOrderFormulaScreenState
     }
   }
 
+  Future<String?> _loadEstimatedMaterialKg() async {
+    if (widget.manageSavedFormula) return null;
+    try {
+      final materials =
+          await MobileApi.instance.preparationOrderMaterials(widget.orderId);
+      final kg = materials
+          .where((m) =>
+              m.materialId.toLowerCase() == widget.materialId.toLowerCase())
+          .firstOrNull
+          ?.estimatedKg;
+      return kg == null ? null : preparationDecimalText(preparationDecimal(kg));
+    } catch (_) {
+      // Missing historical calculation inputs must not block recipe access.
+      return null;
+    }
+  }
+
   Future<void> _refreshFormulas() async {
     try {
       final formulas = await MobileApi.instance.preparationFormulas(
         widget.productCode,
         materialId: widget.materialId,
         savedOnly: widget.manageSavedFormula,
+        variantId: widget.variantId,
       );
       if (mounted) setState(() => _formulas = formulas);
     } catch (e) {
@@ -178,6 +262,17 @@ class _PreparationOrderFormulaScreenState
         );
       }
     }
+  }
+
+  Future<void> _editShares() async {
+    if (_loading || _saving || _deleting || _formulas.isEmpty) return;
+    final formulas = await showPreparationFormulaSharesEditor(context,
+      productCode: widget.productCode, materialId: widget.materialId,
+      materialName: widget.materialName, formulas: _formulas,
+      savedOnly: widget.manageSavedFormula,
+      variantId: widget.variantId,
+    );
+    if (mounted && formulas != null) setState(() => _formulas = formulas);
   }
 
   /// Keyingi bo'sh harfli nom: A, B, ... Z, AA, AB, ...
@@ -380,6 +475,7 @@ class _PreparationOrderFormulaScreenState
         name: name,
         materialId: widget.materialId,
         savedOnly: widget.manageSavedFormula,
+        variantId: widget.variantId,
       );
       if (!mounted) return;
       setState(() => _saving = false);
@@ -418,6 +514,7 @@ class _PreparationOrderFormulaScreenState
         formula.name,
         materialId: widget.materialId,
         savedOnly: widget.manageSavedFormula,
+        variantId: widget.variantId,
       );
       if (!mounted) return;
       setState(() => _deleting = false);
@@ -433,6 +530,25 @@ class _PreparationOrderFormulaScreenState
           SnackBar(content: Text(preparationFormulaErrorMessage(e))),
         );
       }
+    }
+  }
+
+  Future<void> _viewFormula(PreparationFormula formula) async {
+    if (_loading || _saving || _deleting) return;
+    final action = await showPreparationFormulaDetails(
+      context,
+      formula: formula,
+      materialName: widget.materialName,
+      estimatedMaterialKg: _estimatedMaterialKg,
+      sharesComplete: preparationFormulaSharesComplete(_formulas),
+    );
+    if (!mounted) return;
+    if (action == 'shares') {
+      await _editShares();
+    } else if (action == 'edit') {
+      _openEditor(existing: formula);
+    } else if (action == 'delete') {
+      await _deleteFormula(formula);
     }
   }
 
@@ -453,7 +569,7 @@ class _PreparationOrderFormulaScreenState
     final codeLabel = widget.orderCode.isEmpty ? '' : widget.orderCode;
 
     return AppShell(
-      title: 'Formulalar',
+      title: widget.variantName.isEmpty ? 'Formulalar' : widget.variantName,
       subtitle: codeLabel.isEmpty
           ? materialLabel
           : materialLabel.isEmpty
@@ -466,7 +582,7 @@ class _PreparationOrderFormulaScreenState
         showPrimaryFab: !widget.manageSavedFormula,
         primaryFabActions: [
           AdminFabMenuAction(
-            title: 'Formula qo‘shish',
+            title: 'Shnek formula qo‘shish',
             icon: Icons.functions_rounded,
             onTap: _openEditor,
           ),
@@ -528,6 +644,19 @@ class _PreparationOrderFormulaScreenState
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            if (!widget.manageSavedFormula) ...[
+                              const SizedBox(height: 8),
+                              UrduAwareText(
+                                _estimatedMaterialKg == null
+                                    ? 'Taxminiy kg hisobi hozir mavjud emas'
+                                    : '${widget.materialName}: ≈ ${preparationEstimatedKgDisplay(_estimatedMaterialKg!)} kg (taxminiy)',
+                                key: const ValueKey(
+                                    'preparation-material-estimate'),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -625,6 +754,27 @@ class _PreparationOrderFormulaScreenState
                       ),
                     ),
                   ],
+                  if (_formulas.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: ListTile(
+                          key: const ValueKey('preparation-screw-shares-action'),
+                          leading: const Icon(Icons.percent_rounded),
+                          title: const UrduAwareText('Shnek ulushlari'),
+                          subtitle: UrduAwareText(
+                            preparationFormulaSharesComplete(_formulas)
+                                ? 'Jami: 100% • bitta umumiy tarkib'
+                                : 'Jami 100% qilib belgilang — kg shundan keyin hisoblanadi',
+                          ),
+                          trailing: const Icon(Icons.edit_outlined),
+                          onTap: _saving || _deleting ? null : _editShares,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -659,7 +809,10 @@ class _PreparationOrderFormulaScreenState
                       if (f > 0) const SizedBox(height: 12),
                       _SavedFormulaCard(
                         formula: _formulas[f],
+                        estimatedMaterialKg: _estimatedMaterialKg,
+                        sharesComplete: preparationFormulaSharesComplete(_formulas),
                         deleting: _deleting,
+                        onView: () => _viewFormula(_formulas[f]),
                         onEdit: () => _openEditor(existing: _formulas[f]),
                         onDelete: () => _deleteFormula(_formulas[f]),
                       ),
@@ -734,11 +887,36 @@ class _SavedFormulaCard extends StatelessWidget {
     required this.deleting,
     required this.onEdit,
     required this.onDelete,
+    this.onView,
+    this.materialName = '',
+    this.estimatedMaterialKg,
+    this.sharesComplete = false,
   });
   final PreparationFormula formula;
   final bool deleting;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onView;
+  final String materialName;
+  final String? estimatedMaterialKg;
+  final bool sharesComplete;
+
+  String? get _screwKg {
+    if (!sharesComplete || estimatedMaterialKg == null || formula.sharePercent == null) return null;
+    try {
+      return preparationEstimatedKgDisplay(preparationRequiredKg(estimatedMaterialKg!, formula.sharePercent!));
+    } on FormatException { return null; }
+  }
+
+  String? _lineKg(PreparationFormulaLine line) {
+    if (!sharesComplete || estimatedMaterialKg == null || formula.sharePercent == null) return null;
+    try {
+      return preparationEstimatedKgDisplay(
+          preparationScrewLineKg(estimatedMaterialKg!, formula.sharePercent!, line.percent));
+    } on FormatException {
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -761,7 +939,7 @@ class _SavedFormulaCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(18),
               ),
-              onTap: onEdit,
+              onTap: deleting ? null : onView,
               child: Padding(
                 padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 12),
                 child: Row(
@@ -776,20 +954,34 @@ class _SavedFormulaCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            formula.name,
+                            materialName.isEmpty
+                                ? formula.name
+                                : '$materialName • ${formula.name}',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           UrduAwareText(
-                            '${formula.lines.length} ta seriya • tahrirlash uchun bosing',
+                            '${formula.lines.length} ta seriya',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          UrduAwareText(
+                            formula.sharePercent == null
+                                ? 'Shnek ulushi belgilanmagan'
+                                : 'Shnek ulushi: ${preparationDisplay(formula.sharePercent!)}%${_screwKg == null ? '' : ' • ≈ $_screwKg kg'}',
+                            style: theme.textTheme.bodySmall?.copyWith(color: scheme.primary),
+                          ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      key: ValueKey('preparation-formula-edit-${formula.name}'),
+                      tooltip: 'Tahrirlash',
+                      onPressed: deleting ? null : onEdit,
+                      icon: const Icon(Icons.edit_outlined),
                     ),
                     IconButton(
                       tooltip: 'O‘chirish',
@@ -817,12 +1009,25 @@ class _SavedFormulaCard extends StatelessWidget {
                       : formula.lines[i].name,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                trailing: UrduAwareText(
-                  '${preparationDisplay(formula.lines[i].percent)}%',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
+                trailing: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    UrduAwareText(
+                      '${preparationDisplay(formula.lines[i].percent)}%',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (_lineKg(formula.lines[i]) case final kg?)
+                      UrduAwareText(
+                        '≈ $kg kg',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
               ),
           ],

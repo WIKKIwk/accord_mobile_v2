@@ -34,9 +34,55 @@ String preparationRequiredKg(String orderKg, String percent) {
   return preparationDecimalText(result);
 }
 
+/// Round once after applying both mass shares, retaining micro-kg precision.
+String preparationScrewLineKg(String materialKg, String screwPercent, String seriesPercent) {
+  final mass = preparationDecimal(materialKg);
+  final screw = preparationDecimal(screwPercent);
+  final series = preparationDecimal(seriesPercent);
+  final hundred = BigInt.from(100000000);
+  if (screw > hundred || series > hundred) {
+    throw const FormatException('Foiz 100 dan oshmasligi kerak');
+  }
+  final divisor = hundred * hundred;
+  final result = (mass * screw * series + divisor ~/ BigInt.two) ~/ divisor;
+  if (result == BigInt.zero) {
+    throw const FormatException('Hisoblangan sarf 0.000001 kg dan kichik');
+  }
+  return preparationDecimalText(result);
+}
+
+BigInt? preparationFormulaShareTotal(List<PreparationFormula> formulas) {
+  if (formulas.isEmpty) return null;
+  var total = BigInt.zero;
+  for (final formula in formulas) {
+    final share = formula.sharePercent;
+    if (share == null) return null;
+    try {
+      final percent = preparationDecimal(share);
+      if (percent > BigInt.from(100000000)) return null;
+      total += percent;
+    } on FormatException {
+      return null;
+    }
+  }
+  return total;
+}
+
+bool preparationFormulaSharesComplete(List<PreparationFormula> formulas) =>
+    preparationFormulaShareTotal(formulas) == BigInt.from(100000000);
+
 String preparationDisplay(String value) => value.contains('.')
     ? value.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')
     : value;
+
+/// Display an estimate to hundredths without rounding small positive amounts to zero.
+String preparationEstimatedKgDisplay(String value) {
+  final units = preparationDecimal(value);
+  final hundredths = (units + BigInt.from(5000)) ~/ BigInt.from(10000);
+  if (hundredths == BigInt.zero) return '< 0.01';
+  return '${hundredths ~/ BigInt.from(100)}.'
+      '${(hundredths % BigInt.from(100)).toString().padLeft(2, '0')}';
+}
 
 String newPreparationRequestId() {
   final random = Random.secure();
@@ -147,16 +193,19 @@ class PreparationResponsibility {
   const PreparationResponsibility({
     required this.materialId,
     required this.materialName,
+    this.estimatedKg,
   });
   factory PreparationResponsibility.fromJson(Map<String, dynamic> json) =>
       PreparationResponsibility(
         materialId: (json['material_id'] as String? ?? '').trim(),
         materialName: (json['material_name'] as String? ?? '').trim(),
+        estimatedKg: json['estimated_kg'] as String?,
       );
   Map<String, String> toJson() =>
       {'material_id': materialId, 'material_name': materialName};
   final String materialId;
   final String materialName;
+  final String? estimatedKg;
 }
 
 class PreparationPendingCommand {
@@ -214,9 +263,24 @@ class PreparationScopedFormula {
   PreparationScopedFormula.fromJson(Map<String, dynamic> json)
       : materialId = json['material_id'] as String,
         materialName = json['material_name'] as String,
+        variantId = json['variant_id'] as String? ?? '',
+        variantName = json['variant_name'] as String? ?? '',
         formula = PreparationFormula.fromJson(json);
   final String materialId, materialName;
+  final String variantId, variantName;
   final PreparationFormula formula;
+}
+
+class PreparationFormulaVariant {
+  const PreparationFormulaVariant({required this.id, required this.name,
+    this.formulaCount = 0, this.sharesComplete = false});
+  factory PreparationFormulaVariant.fromJson(Map<String, dynamic> json) =>
+      PreparationFormulaVariant(id: json['id'] as String, name: json['name'] as String,
+        formulaCount: (json['formula_count'] as num?)?.toInt() ?? 0,
+        sharesComplete: json['shares_complete'] == true);
+  final String id, name;
+  final int formulaCount;
+  final bool sharesComplete;
 }
 
 class PreparationFormulaLine {
@@ -242,6 +306,7 @@ class PreparationFormula {
     required this.productCode,
     required this.name,
     required this.lines,
+    this.sharePercent,
   });
   factory PreparationFormula.fromJson(Map<String, dynamic> json) {
     final raw = json['lines'];
@@ -268,6 +333,7 @@ class PreparationFormula {
           ? 'Asosiy'
           : rawName.trim(),
       lines: List<PreparationFormulaLine>.unmodifiable(sorted),
+      sharePercent: json['share_percent'] as String?,
     );
   }
 
@@ -295,4 +361,5 @@ class PreparationFormula {
   final String productCode;
   final String name;
   final List<PreparationFormulaLine> lines;
+  final String? sharePercent;
 }

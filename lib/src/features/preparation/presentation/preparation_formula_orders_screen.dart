@@ -226,26 +226,24 @@ class _PreparationFormulaSetDetailsState
 
   Future<void> _actions(PreparationScopedFormula entry) async {
     if (_busy) return;
-    final action = await showSpringBottomSheet<String>(
-      context: context,
-      builder: (_) => AppActionSheet<String>(
-        title: entry.formula.name,
-        actions: const [
-          AppActionSheetAction(
-            title: 'Tahrirlash',
-            icon: Icons.edit_outlined,
-            value: 'edit',
-          ),
-          AppActionSheetAction(
-            title: 'O‘chirish',
-            icon: Icons.delete_outline_rounded,
-            value: 'delete',
-            destructive: true,
-          ),
-        ],
-      ),
+    final action = await showPreparationFormulaDetails(
+      context,
+      formula: entry.formula,
+      materialName: entry.materialName,
+      sharesComplete: preparationFormulaSharesComplete(_formulas
+          .where((f) => f.materialId == entry.materialId && f.variantId == entry.variantId).map((f) => f.formula).toList()),
     );
     if (!mounted || action == null) return;
+    if (action == 'shares') {
+      final updated = await showPreparationFormulaSharesEditor(context,
+        productCode: widget.formulaSet.productCode,
+        materialId: entry.materialId, materialName: entry.materialName,
+        formulas: _formulas.where((f) => f.materialId == entry.materialId && f.variantId == entry.variantId)
+            .map((f) => f.formula).toList(), savedOnly: true, variantId: entry.variantId,
+      );
+      if (mounted && updated != null) await _reload();
+      return;
+    }
     if (action == 'edit') {
       await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
         orderId: widget.formulaSet.id,
@@ -256,6 +254,8 @@ class _PreparationFormulaSetDetailsState
         materialName: entry.materialName,
         initialFormulaName: entry.formula.name,
         manageSavedFormula: true,
+        variantId: entry.variantId,
+        variantName: entry.variantName,
       ));
       if (mounted) await _reload();
       return;
@@ -273,11 +273,12 @@ class _PreparationFormulaSetDetailsState
     try {
       await MobileApi.instance.preparationDeleteFormula(
           widget.formulaSet.productCode, entry.formula.name,
-          materialId: entry.materialId, savedOnly: true);
+          materialId: entry.materialId, savedOnly: true, variantId: entry.variantId);
       if (!mounted) return;
       setState(() => _formulas = _formulas
           .where((f) =>
               f.materialId != entry.materialId ||
+              f.variantId != entry.variantId ||
               f.formula.name != entry.formula.name)
           .toList());
       ScaffoldMessenger.of(context).showSnackBar(
@@ -321,23 +322,23 @@ class _PreparationFormulaSetDetailsState
                   for (final (index, entry) in _formulas.indexed)
                     AdminCatalogListRow(
                       key: ValueKey(
-                          'preparation-order-formula-${entry.materialId}-${entry.formula.name}'),
+                          'preparation-order-formula-${entry.materialId}-${entry.variantId.isEmpty ? '' : '${entry.variantId}-'}${entry.formula.name}'),
                       slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                           index, _formulas.length),
                       icon: Icons.functions_rounded,
-                      title: entry.materialName.isEmpty
-                          ? entry.formula.name
-                          : '${entry.materialName} • ${entry.formula.name}',
+                      title: [entry.variantName, entry.materialName, entry.formula.name]
+                          .where((part) => part.isNotEmpty).join(' • '),
                       subtitle: [
+                        entry.formula.sharePercent == null
+                            ? 'Shnek ulushi belgilanmagan'
+                            : 'Shnek ulushi: ${preparationDisplay(entry.formula.sharePercent!)}%',
                         if (entry.materialId.isEmpty)
                           'Eski formula — homashyo turi belgilanmagan',
                         for (final line in entry.formula.lines)
                           '${line.name} • ${preparationDisplay(line.percent)}%',
                       ].join('\n'),
-                      subtitleMaxLines: entry.formula.lines.isEmpty
-                          ? 1
-                          : entry.formula.lines.length +
-                              (entry.materialId.isEmpty ? 1 : 0),
+                      subtitleMaxLines: entry.formula.lines.length + 1 +
+                          (entry.materialId.isEmpty ? 1 : 0),
                       onTap: _busy ? null : () => _actions(entry),
                     ),
                 ]),

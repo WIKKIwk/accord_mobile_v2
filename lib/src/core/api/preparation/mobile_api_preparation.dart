@@ -163,6 +163,7 @@ extension MobileApiPreparation on MobileApi {
     String productCode, {
     required String materialId,
     bool savedOnly = false,
+    String variantId = '',
   }) async {
     final code = productCode.trim();
     final material = materialId.trim();
@@ -180,6 +181,7 @@ extension MobileApiPreparation on MobileApi {
         .replace(queryParameters: {
       'product_code': code,
       'material_id': material,
+      if (variantId.isNotEmpty) 'variant_id': variantId,
     });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
@@ -240,6 +242,7 @@ extension MobileApiPreparation on MobileApi {
     String? name,
     required String materialId,
     bool savedOnly = false,
+    String variantId = '',
   }) async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
@@ -248,7 +251,8 @@ extension MobileApiPreparation on MobileApi {
       }
       return (savedOnly ? _patch : _post)(
           Uri.parse(
-              '${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}'),
+              '${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}')
+              .replace(queryParameters: variantId.isEmpty ? null : {'variant_id': variantId}),
           headers: _headers(requireToken())
             ..['Content-Type'] = 'application/json',
           body: jsonEncode({
@@ -267,6 +271,7 @@ extension MobileApiPreparation on MobileApi {
     String name, {
     required String materialId,
     bool savedOnly = false,
+    String variantId = '',
   }) async {
     final key = _preparationStorageKey();
     final uri = Uri.parse(
@@ -275,6 +280,7 @@ extension MobileApiPreparation on MobileApi {
       'product_code': productCode.trim(),
       'name': name.trim(),
       'material_id': materialId.trim(),
+      if (variantId.isNotEmpty) 'variant_id': variantId,
     });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
@@ -289,6 +295,79 @@ extension MobileApiPreparation on MobileApi {
           code: 'preparation_invalid_response',
           message: 'Formula o‘chirilgani tasdiqlanmadi. Ro‘yxatni yangilang');
     }
+  }
+
+  Future<List<PreparationFormula>> preparationUpdateFormulaShares({
+    required String productCode,
+    required String materialId,
+    required List<Map<String, String>> shares,
+    bool savedOnly = false,
+    String variantId = '',
+  }) async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+      return _patch(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}/shares')
+            .replace(queryParameters: variantId.isEmpty ? null : {'variant_id': variantId}),
+        headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+        body: jsonEncode({'product_code': productCode.trim(), 'material_id': materialId.trim(), 'shares': shares}),
+      );
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    final data = _preparationResponse(response);
+    final formulas = PreparationFormula.listFromJson(data);
+    final expected = {for (final share in shares) share['name']: share['percent']};
+    if (data['product_code'] != productCode.trim() || data['material_id'] != materialId.trim()
+        || formulas.length != shares.length || formulas.map((f) => f.name).toSet().length != expected.length
+        || !preparationFormulaSharesComplete(formulas)
+        || formulas.any((f) => f.sharePercent != expected[f.name])) {
+      throw const MobileApiException(code: 'preparation_invalid_response',
+          message: 'Shnek ulushlari saqlangani tasdiqlanmadi. Ro‘yxatni yangilang');
+    }
+    return formulas;
+  }
+
+  Future<List<PreparationFormulaVariant>> preparationFormulaVariants({
+    required String productCode, required String materialId, bool savedOnly = false,
+  }) async {
+    final key = _preparationStorageKey();
+    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-variants').replace(queryParameters: {
+      'product_code': productCode.trim(), 'material_id': materialId.trim(),
+      if (savedOnly) 'saved_only': 'true',
+    });
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+      return _get(uri, headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    final data = _preparationResponse(response);
+    if (data['variants'] is! List) {
+      throw const MobileApiException(code: 'preparation_invalid_response', message: 'Shnek variantlari yuklanmadi');
+    }
+    return (data['variants'] as List).map((v) => PreparationFormulaVariant.fromJson(
+        Map<String, dynamic>.from(v as Map))).toList();
+  }
+
+  Future<PreparationFormulaVariant> preparationCreateFormulaVariant({
+    required String productCode, required String materialId,
+    required String name, required String requestId,
+  }) async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+      return _post(Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-variants'),
+        headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+        body: jsonEncode({'product_code': productCode.trim(), 'material_id': materialId.trim(),
+          'name': name, 'request_id': requestId}));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    final data = _preparationResponse(response);
+    if (data['id'] is! String || (data['id'] as String).isEmpty || data['name'] != name
+        || data['product_code'] != productCode.trim() || data['material_id'] != materialId.trim()) {
+      throw const MobileApiException(code: 'preparation_invalid_response', message: 'Shnek varianti saqlangani tasdiqlanmadi. Ro‘yxatni yangilang');
+    }
+    return PreparationFormulaVariant.fromJson(data);
   }
 
   /// Order qatlamlaridagi homashyolar — faqat o'ziga biriktirilganlari qaytadi.

@@ -676,7 +676,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
         ? picked.materialId.trim()
         : picked.materialName.trim();
     await Navigator.of(context).push(
-      PreparationOrderFormulaScreen.route(
+      PreparationOrderFormulaRoute(builder: (_) => PreparationFormulaVariantsScreen(
         orderId: orderId,
         orderCode: _openedOrderDisplayCode(map).trim(),
         productCode: map.productCode.trim(),
@@ -684,7 +684,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
         materialId: picked.materialId,
         materialName: materialName,
         customerName: customerName,
-      ),
+      )),
     );
   }
 
@@ -715,7 +715,7 @@ class _TayyorlovFormulaButton extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: UrduAwareText(
-                  'Formulalar',
+                  'Shnek formulalar',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
