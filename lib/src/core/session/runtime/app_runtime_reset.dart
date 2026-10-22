@@ -16,6 +16,7 @@ import '../../notifications/store/werka_runtime_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import '../../cache/order_image_cache.dart';
+import '../../cache/production_snapshot_store.dart';
 
 class AppRuntimeReset {
   AppRuntimeReset._();
@@ -27,6 +28,7 @@ class AppRuntimeReset {
     bool preserveLegacyLoginCredentials = false,
   }) async {
     AdminOrderPageCache.instance.clear();
+    await ProductionSnapshotStore.instance.clear();
     CustomerStore.instance.clear();
     if (previousProfile != null) {
       await ChatStore.instance.clearPendingMediaForProfile(previousProfile);

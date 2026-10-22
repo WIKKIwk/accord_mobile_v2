@@ -105,7 +105,7 @@ extension _AdminProductionMapOrdersLiveState
           workerScope: widget.workerMode,
           queueLimit: widget.workerMode ? _workerQueueLimit : null,
           queueSearch: widget.workerMode ? _workerServerSearch : '',
-          since: waitForChanges ? _canonicalQueueSnapshot : null,
+          since: _canonicalQueueSnapshot,
           waitForChanges: waitForChanges);
   }
 
@@ -146,6 +146,15 @@ extension _AdminProductionMapOrdersLiveState
     // Drop the previous provider's stream before awaiting any REST request.
     _stopWorkerLiveStream();
     final generation = _liveStreamGeneration;
+    final restored = await _restoreCanonicalQueueCache();
+    if (!mounted || !_workerForeground || generation != _liveStreamGeneration ||
+        windowGeneration != _workerQueueWindowGeneration) return;
+    if (restored) {
+      // Publish disk rows first; the stream proves their cursor or requests
+      // the existing bounded HTTP reconciliation on a replay gap.
+      await _restartWorkerLiveStream();
+      return;
+    }
     // REST has bounded requests and a visible error state. Never leave the
     // first frame dependent on an unbounded/silent WebSocket handshake.
     await _refreshCanonicalInitial();
@@ -177,6 +186,13 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _startAdminLive() async {
+    final restored = await _restoreCanonicalQueueCache();
+    if (!mounted) return;
+    if (restored) {
+      _stopWorkerLiveStream();
+      unawaited(_runWorkerLiveStream(_liveStreamGeneration));
+      return;
+    }
     if (!_adminPaging && _liveRecoverySupported && _workerCatalogReady &&
         _snapshotReadScope == currentSessionReadScope() &&
         _canonicalQueueSnapshot?.revision != null &&
@@ -317,6 +333,7 @@ extension _AdminProductionMapOrdersLiveState
         if (!mounted || generation != _liveStreamGeneration) {
           return;
         }
+        _discardCanonicalCacheOnError(error);
         if (!widget.workerMode && !_adminPaging &&
             error is MobileApiException && error.code == 'state_delta_upgrade_required') {
           _nonWorkerStateDeltaFallback = true;
@@ -362,6 +379,7 @@ extension _AdminProductionMapOrdersLiveState
           for (final window in _adminWindows.values) {
             window.awaitingLive = false;
           }
+          unawaited(_ensureAdminModule(_module));
         }
         _workerLiveHealthy = false;
         _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
@@ -494,6 +512,7 @@ extension _AdminProductionMapOrdersLiveState
                       (_pendingQueueActionRevision == null ||
                           (_pendingQueueActionEpoch == message.epoch &&
                               _pendingQueueActionRevision! <= message.revision))))) {
+            _canonicalCacheAwaitingValidation = false;
             _queueSnapshotNeedsReconcile = false;
             _updateScreenState(_clearOrdersLoadError);
           } else {
@@ -549,6 +568,7 @@ extension _AdminProductionMapOrdersLiveState
       retiredEpochs: _retiredSnapshotEpochs,
     );
     if (decision == CanonicalSnapshotDecision.ignoreStale) return;
+    _canonicalCacheAwaitingValidation = false;
     if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
         !_queueSnapshotNeedsReconcile) {
       // REST snapshots do not contain these lists. Seeing the queue revision
@@ -592,6 +612,7 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   void _replaceLiveSnapshotExtras(AdminProductionMapLiveSnapshot snapshot) {
+    _canonicalCacheHasLiveExtras = true;
     // A delayed REST response must not restore history or requests that a
     // newer live message has already replaced (including an empty list).
     _workerCompletedOrdersGeneration++;
@@ -600,6 +621,7 @@ extension _AdminProductionMapOrdersLiveState
     _workerCompletedHistoryError = false;
     _workerCompletedHistoryErrorMessage = null;
     _completionRequests = snapshot.completionRequests;
+    _canonicalCompletionDecisions = snapshot.completionRequestDecisions;
     _completionRequestsErrorMessage = null;
     _reconnectingOrderReads.removeAll({
       _OrdersReadSection.completed,
@@ -645,6 +667,7 @@ extension _AdminProductionMapOrdersLiveState
         _canonicalQueueSnapshot = snapshot;
         _rememberSnapshotVersion(snapshot);
         _sheetQueueSnapshot.value = snapshot;
+        _scheduleCanonicalCacheSave();
         return;
       }
       final completed = delta.patch['completed_orders'];
@@ -677,6 +700,7 @@ extension _AdminProductionMapOrdersLiveState
           _completionRequestsErrorMessage = null;
           _reconnectingOrderReads.remove(_OrdersReadSection.completionRequests);
         }
+        if (nextDecisions != null) _canonicalCompletionDecisions = nextDecisions;
         _clearOrdersLoadError();
       });
       if (nextDecisions != null) _showNewRejectedCompletionDecisionNotices(nextDecisions);
@@ -906,7 +930,8 @@ extension _AdminProductionMapOrdersLiveState
     final readScope = currentSessionReadScope();
     final requestGeneration = ++_queueSnapshotGeneration;
     try {
-      final queueSnapshot = await _readOrdersSnapshot(fresh: _queueSnapshotNeedsReconcile,
+      final queueSnapshot = await _readOrdersSnapshot(
+        fresh: _queueSnapshotNeedsReconcile && !_canonicalCacheAwaitingValidation,
         waitForChanges: waitForChanges);
       if (!mounted || readScope != currentSessionReadScope() ||
           requestGeneration != _queueSnapshotGeneration) {
@@ -924,8 +949,10 @@ extension _AdminProductionMapOrdersLiveState
           _snapshotBehindSequenceMoves(queueSnapshot)) {
         return;
       }
+      _canonicalCacheAwaitingValidation = false;
       if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
           !_queueSnapshotNeedsReconcile) {
+        _canonicalCacheHasLiveExtras = queueSnapshot is AdminProductionMapLiveSnapshot;
         // Successful fetch still clears a previous transient warning.
         if (_queueSnapshotContractError || _loadError != null || _loading ||
             (queueSnapshot is AdminProductionMapLiveSnapshot &&
@@ -944,6 +971,7 @@ extension _AdminProductionMapOrdersLiveState
       }
       if (decision == CanonicalSnapshotDecision.apply ||
           decision == CanonicalSnapshotDecision.ignoreDuplicate) {
+        _canonicalCacheHasLiveExtras = queueSnapshot is AdminProductionMapLiveSnapshot;
         _queueSnapshotNeedsReconcile = false;
         // New canonical revision: apply atomically, including orders when
         // the snapshot bundles maps (new backend).
@@ -981,6 +1009,7 @@ extension _AdminProductionMapOrdersLiveState
       });
     } catch (error) {
       if (mounted && requestGeneration == _queueSnapshotGeneration) {
+        _discardCanonicalCacheOnError(error);
         if (widget.workerMode) _workerRetryAllowed = _canRetryWorkerRead(error);
         _invalidateQueueSnapshotContract(
           widget.workerMode ? _workerReadErrorText(error) : error is MobileApiException
@@ -1501,7 +1530,7 @@ extension _AdminProductionMapOrdersLiveState
     final readScope = currentSessionReadScope();
     try {
       final pending = Future.wait<Object>([
-        _readOrdersSnapshot(fresh: widget.workerMode),
+        _readOrdersSnapshot(fresh: widget.workerMode && _canonicalQueueSnapshot == null),
         _readOrdersApparatus(),
       ], eagerError: true);
       // Keep the API's existing download budget on weak factory networks.
@@ -1538,6 +1567,8 @@ extension _AdminProductionMapOrdersLiveState
         _scheduleWorkerRecovery();
         return;
       }
+      _canonicalCacheAwaitingValidation = false;
+      _canonicalCacheHasLiveExtras = queueSnapshot is AdminProductionMapLiveSnapshot;
       if (decision == CanonicalSnapshotDecision.ignoreDuplicate &&
           !_queueSnapshotNeedsReconcile) {
         // A same-revision reply still proves recovery. Do not leave a resume
@@ -1588,6 +1619,7 @@ extension _AdminProductionMapOrdersLiveState
     } catch (error) {
       if (mounted) {
         if (windowGeneration == _workerQueueWindowGeneration) {
+          _discardCanonicalCacheOnError(error);
           _applyInitialProductionMapLoadError(error);
         }
       }
@@ -1597,9 +1629,14 @@ extension _AdminProductionMapOrdersLiveState
   /// Background apparatus refresh without touching `_orders`.
   /// Orders arrive only via the revisioned queue/live snapshot authority.
   Future<void> _refreshApparatusCatalog() async {
+    final readScope = currentSessionReadScope();
+    final sessionRevision = AppSession.instance.revision.value;
+    final cacheGeneration = ProductionSnapshotStore.instance.generation;
     try {
       final apparatus = await _readOrdersApparatus();
-      if (!mounted) return;
+      if (!mounted || readScope != currentSessionReadScope() ||
+          sessionRevision != AppSession.instance.revision.value ||
+          cacheGeneration != ProductionSnapshotStore.instance.generation) return;
       if (_apparatusListsHaveSameCanonicalRevisions(_apparatus, apparatus)) {
         return;
       }

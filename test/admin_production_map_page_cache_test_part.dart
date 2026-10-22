@@ -313,7 +313,7 @@ void _registerAdminPageCacheTests() {
     final profile = AppSession.instance.profile;
     final token = AppSession.instance.token;
     await harness.leave(tester);
-    await AppSession.instance.clear();
+    await tester.runAsync(() => AppSession.instance.clear());
     AppSession.instance.token = token;
     AppSession.instance.profile = profile;
     final reads = harness.reads.where((r) => r.view == 'sequence').length;

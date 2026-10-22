@@ -268,6 +268,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
             window.error = null;
             _rebuildAdminPageState();
           });
+          _saveAdminPageCache();
           return;
         }
         if (message.type == 'page_window_resync') throw StateError('page history unavailable');
@@ -318,6 +319,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
               _sheetQueueSnapshot.value = advanced;
             }
           }
+          _saveAdminPageCache();
           return;
         }
         _updateScreenState(() {
@@ -338,6 +340,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
             unawaited(_loadAdminPageMetrics(page, account));
           }
         }
+        _saveAdminPageCache();
         _scheduleAdminWindowSubscription();
       } catch (_) {
         if (!mounted || generation != _liveStreamGeneration || account != _adminPageAccount) return;

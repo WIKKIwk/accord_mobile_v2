@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'production_snapshot_test_backend.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
@@ -36,6 +38,8 @@ http.Response _snapshot() => http.Response(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
+    ProductionSnapshotStore.debugOverride =
+        ProductionSnapshotStore(backend: MemoryProductionSnapshotBackend());
     SharedPreferences.setMockInitialValues({'test_mode_enabled': false});
     AppSession.instance.token = 'local-test-token';
     AppSession.instance.profile = const SessionProfile(
@@ -50,6 +54,7 @@ void main() {
     );
   });
   tearDown(() {
+    ProductionSnapshotStore.debugOverride = null;
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -123,15 +128,16 @@ void main() {
             : _snapshot()));
   });
 
-  test('network recovery bypasses a read stuck on the previous connection', () async {
+  test('network recovery bypasses a read stuck on the previous connection',
+      () async {
     final oldResponse = Completer<http.Response>();
     final entered = Completer<void>();
     var reads = 0;
     await http.runWithClient(() async {
       final oldRead = MobileApi.instance.adminProductionMapQueueSnapshot();
       await entered.future;
-      final recovered = await MobileApi.instance
-          .adminProductionMapQueueSnapshot(fresh: true);
+      final recovered =
+          await MobileApi.instance.adminProductionMapQueueSnapshot(fresh: true);
       expect(recovered.revision, 1);
       expect(reads, 2);
       expect(oldResponse.isCompleted, isFalse);
@@ -139,14 +145,16 @@ void main() {
       await oldRead;
       await MobileApi.instance.adminProductionMapQueueSnapshot();
       expect(reads, 3, reason: 'late old responses are never cached');
-    }, () => MockClient((request) {
-      expect(request.method, 'GET', reason: 'recovery never replays a mutation');
-      if (++reads == 1) {
-        entered.complete();
-        return oldResponse.future;
-      }
-      return Future.value(_snapshot());
-    }));
+    },
+        () => MockClient((request) {
+              expect(request.method, 'GET',
+                  reason: 'recovery never replays a mutation');
+              if (++reads == 1) {
+                entered.complete();
+                return oldResponse.future;
+              }
+              return Future.value(_snapshot());
+            }));
   });
 
   test('an admin mutation prevents sharing a pre-mutation snapshot', () async {
@@ -181,6 +189,10 @@ void main() {
     testWidgets(
         'worker cold-load ${timeout ? 'timeout' : '503'} exits loading and exposes retry',
         (tester) async {
+      // Queue futures must belong to the widget's FakeAsync clock, just like
+      // the HTTP timeout; a store created in setUp uses the outer test zone.
+      ProductionSnapshotStore.debugOverride =
+          ProductionSnapshotStore(backend: MemoryProductionSnapshotBackend());
       final pending = Completer<http.Response>();
       final requests = <String>[];
       await http.runWithClient(() async {
@@ -198,6 +210,11 @@ void main() {
               readOnly: true, workerMode: true),
         ));
         await tester.pump();
+        // Flush the bounded cache lookup and preferences stages without
+        // advancing the clock or consuming any of the HTTP timeout budget.
+        for (var i = 0; i < 4; i++) {
+          await tester.pump();
+        }
         expect(requests, contains('/v1/mobile/admin/apparatus'));
         expect(requests, contains('/v1/mobile/admin/production-maps/sequence'));
         // Isolate cold-load HTTP failure from the subsequent live connection.

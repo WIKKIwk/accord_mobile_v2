@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'order_image_test_data.dart';
+import 'production_snapshot_test_backend.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
 import 'order_scan_bootstrap_fixtures.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
@@ -107,6 +109,7 @@ part 'admin_production_map_stream_efficiency_test_part.dart';
 part 'admin_production_map_page_stream_races_test_part.dart';
 part 'admin_production_map_connection_indicator_test_part.dart';
 part 'admin_production_map_page_cache_test_part.dart';
+part 'admin_production_map_persistent_page_cache_test_part.dart';
 part 'admin_production_map_sequence_stream_sync_test_part.dart';
 part 'admin_production_map_material_delivery_test_part.dart';
 part 'admin_production_map_lamination_astatka_scope_test_part.dart';
@@ -142,6 +145,9 @@ void main() {
 
   setUp(() {
     AdminOrderPageCache.instance.clear();
+    AdminOrderPageCache.debugOverride = AdminOrderPageCache();
+    ProductionSnapshotStore.debugOverride = ProductionSnapshotStore(
+        backend: MemoryProductionSnapshotBackend());
     OrderImageCache.debugOverride = OrderImageCache(disk: createOrderImageDiskStore());
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     resetMobileApiTestModeData();
@@ -158,6 +164,9 @@ void main() {
   });
 
   tearDown(() async {
+    AdminOrderPageCache.instance.clear();
+    AdminOrderPageCache.debugOverride = null;
+    ProductionSnapshotStore.debugOverride = null;
     await OrderImageCache.instance.clear();
     OrderImageCache.debugOverride = null;
     AppSession.instance.token = null;
@@ -184,6 +193,7 @@ void main() {
   _registerPageStreamRaceTests();
   _registerConnectionIndicatorTests();
   _registerAdminPageCacheTests();
+  _registerAdminPersistentPageCacheTests();
   _registerSequenceStreamSyncTests();
   _registerMaterialDeliveryTests();
   _registerLaminationAstatkaScopeTests();

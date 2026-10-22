@@ -64,6 +64,7 @@ part 'admin/mobile_api_opened_order_edit.dart';
 part 'admin/mobile_api_admin_order_summary.dart';
 part 'admin/mobile_api_admin_capacity_schedule.dart';
 part 'admin/mobile_api_admin_queue_state.dart';
+part 'admin/mobile_api_admin_queue_snapshot_cache_codec.dart';
 part 'admin/mobile_api_admin_sequence_move.dart';
 part 'admin/mobile_api_admin_order_page.dart';
 part 'admin/mobile_api_admin_queue_action_models.dart';

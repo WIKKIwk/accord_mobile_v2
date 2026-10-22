@@ -13,7 +13,33 @@ extension _AdminOrdersPageCache on _AdminProductionMapOrdersScreenState {
     final visit = AdminOrderPageCache.instance.open(_adminCacheScope!);
     _adminCacheVisit = visit;
     final snapshot = visit.snapshot;
-    if (snapshot == null || snapshot.apparatus.isEmpty) return;
+    if (snapshot != null) _applyRestoredAdminPageCache(snapshot);
+  }
+
+  Future<void> _restoreAdminPageCacheFromDisk() async {
+    if (!_adminPaging ||
+        _adminCacheRestored ||
+        !AppSession.instance.isLoggedIn) {
+      return;
+    }
+    final visit = _adminCacheVisit;
+    final runtimeScope = _adminCacheScope;
+    final persistentScope = currentSessionReadScope();
+    if (visit == null || runtimeScope != _adminPageCacheScope) return;
+    final snapshot = await AdminOrderPageCache.instance
+        .restore(visit: visit, persistentScope: persistentScope);
+    if (!mounted ||
+        runtimeScope != _adminPageCacheScope ||
+        persistentScope != currentSessionReadScope() ||
+        snapshot == null ||
+        _adminWindows.values.any((window) => window.loaded)) {
+      return;
+    }
+    _updateScreenState(() => _applyRestoredAdminPageCache(snapshot));
+  }
+
+  void _applyRestoredAdminPageCache(AdminOrderPageCacheSnapshot snapshot) {
+    if (snapshot.apparatus.isEmpty) return;
     _apparatus = snapshot.apparatus;
     _workerCatalogReady = true;
     _selectedApparatus = snapshot.apparatus
@@ -35,7 +61,7 @@ extension _AdminOrdersPageCache on _AdminProductionMapOrdersScreenState {
     _loading = !_adminModuleWindows(_module).every((window) => window.loaded);
   }
 
-  void _saveAdminPageCache() {
+  void _saveAdminPageCache({bool flush = false}) {
     final visit = _adminCacheVisit;
     if (!_adminPaging ||
         visit == null ||
@@ -63,11 +89,18 @@ extension _AdminOrdersPageCache on _AdminProductionMapOrdersScreenState {
       apparatus: _apparatus,
       selectedApparatusId: _selectedApparatus?.id,
       refreshAge: windows.any((window) => !window.cacheNeedsValidation),
+      persistentScope: currentSessionReadScope(),
+      persistentWindows: [
+        for (final window in windows)
+          if (!window.cacheNeedsValidation)
+            AdminOrderPageCacheWindow(window.request, window.pages),
+      ],
       windows: [
         for (final window in windows)
           AdminOrderPageCacheWindow(window.request, window.pages),
       ],
     );
+    if (flush) unawaited(AdminOrderPageCache.instance.flush());
   }
 
   Future<void> _refreshCachedAdminApparatus() async {

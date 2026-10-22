@@ -85,6 +85,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
 
   Future<void> _startAdminPaging() async {
     try {
+      await _restoreAdminPageCacheFromDisk();
+      if (!mounted) return;
       if (_adminCacheRestored) {
         _adminCacheRestored = false;
         await _ensureAdminModule(_module);
@@ -92,7 +94,9 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         _updateScreenState(() => _loading = false);
         unawaited(_refreshCachedAdminApparatus());
         unawaited(_refreshCompletionRequests());
-        unawaited(_prefetchAdminFirstPages());
+        // A disk baseline may retain only the active prefix. Opening it must
+        // not eagerly redownload every hidden tab; selecting a tab uses the
+        // existing scoped loader and validation path.
         return;
       }
       await AdminSequenceApparatusStore.instance.loadSavedApparatusId();
@@ -182,6 +186,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     if (mounted) _updateScreenState(() {});
     return future.whenComplete(() {
       window.inFlight = null;
+      _saveAdminPageCache();
       _scheduleAdminWindowSubscription();
       if (mounted) _updateScreenState(() {});
     });

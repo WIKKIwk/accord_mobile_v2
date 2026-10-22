@@ -80,6 +80,16 @@ class _AdminProductionMapOrdersScreenState
   int? _lastAppliedSnapshotRevision;
   String _lastAppliedSnapshotEpoch = '';
   AdminApparatusQueueSnapshot? _canonicalQueueSnapshot;
+  String? _canonicalCacheOwner;
+  bool _canonicalCacheAwaitingValidation = false;
+  bool _canonicalCacheDemoMode = false;
+  int _canonicalCacheRestoreGeneration = 0;
+  bool _canonicalCacheHasLiveExtras = false;
+  Timer? _canonicalCacheSaveTimer;
+  Object? _canonicalCacheLastSavedIdentity;
+  bool _canonicalCacheWriteInFlight = false;
+  bool _canonicalCacheWriteQueued = false;
+  List<AdminCompletionRequestDecisionNotification> _canonicalCompletionDecisions = const [];
   final _sheetQueueSnapshot =
       ValueNotifier<AdminApparatusQueueSnapshot?>(null);
   Timer? _queueActionReconcileTimer;
@@ -214,6 +224,7 @@ class _AdminProductionMapOrdersScreenState
   @override
   void initState() {
     super.initState();
+    _canonicalCacheOwner = _canonicalCacheRuntimeScope;
     _adminPaging = _adminPagingCandidate;
     _restoreAdminPageCache();
     WidgetsBinding.instance.addObserver(this);
@@ -258,7 +269,8 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
-    _saveAdminPageCache();
+    _flushCanonicalCache();
+    _saveAdminPageCache(flush: true);
     _cancelAdminSequenceSyncTimers();
     _adminSearchDebounce?.cancel();
     _adminSubscriptionTimer?.cancel();
@@ -289,6 +301,10 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _flushCanonicalCache();
+      _saveAdminPageCache(flush: true);
+    }
     if (!widget.workerMode && !_adminPaging) {
       _adminForeground = state == AppLifecycleState.resumed;
       if (_adminForeground) {
@@ -769,7 +785,10 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _updateScreenState(VoidCallback callback) {
-    setState(callback);
+    setState(() {
+      callback();
+      if (_canonicalCacheAwaitingValidation) _queueSnapshotNeedsReconcile = true;
+    });
     if (_pendingQueueActionRevision != null &&
         (_retiredSnapshotEpochs.contains(_pendingQueueActionEpoch) ||
             _snapshotCoversAction(_pendingQueueActionRevision!,
@@ -784,6 +803,7 @@ class _AdminProductionMapOrdersScreenState
                 (_canonicalQueueSnapshot?.epoch.isEmpty ?? true)
             ? null
             : _canonicalQueueSnapshot;
+    _scheduleCanonicalCacheSave();
   }
 
   bool _snapshotCoversAction(int revision, String epoch) =>
