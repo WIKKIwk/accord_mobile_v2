@@ -381,6 +381,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
   }
 
   Uri adminProductionMapLiveUri({bool delta = false, bool stateDelta = false,
+    bool compactStateDelta = true,
     bool paged = false, bool workerScope = true,
     List<Map<String, Object?>> pageWindows = const [],
     bool notificationsOnly = false,
@@ -395,7 +396,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
       query['protocol'] = 'page_delta_v1';
       query['pages'] = jsonEncode(pageWindows);
     } else if (stateDelta) {
-      query['protocol'] = 'state_delta_v1';
+      query['protocol'] = compactStateDelta ? 'state_delta_v2' : 'state_delta_v1';
       query['worker_scope'] = '$workerScope';
       if (queueLimit != null) query['queue_limit'] = '$queueLimit';
       if (queueSearch.trim().isNotEmpty) query['queue_search'] = queueSearch.trim();
@@ -467,6 +468,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
   Stream<AdminProductionMapLiveMessage> adminProductionMapLiveStream({
     bool enableDelta = true,
     bool stateDelta = false,
+    bool compactStateDelta = true,
     bool paged = false,
     bool workerScope = true,
     List<Map<String, Object?>> pageWindows = const [],
@@ -475,14 +477,26 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     String scope = '',
     int? queueLimit,
     String queueSearch = '',
-  }) => _productionMapDecodedLive(() =>
+  }) {
+    final identity = _productionMapLiveIdentity();
+    Stream<AdminProductionMapLiveMessage> connect(bool compact) =>
+        _productionMapDecodedLive(() =>
       adminProductionMapLiveUri(delta: enableDelta, stateDelta: stateDelta,
+        compactStateDelta: compact,
         paged: paged, workerScope: workerScope, pageWindows: pageWindows,
         epoch: epoch, revision: revision, scope: scope,
         queueLimit: queueLimit, queueSearch: queueSearch),
     (event) async {
       if (event['ok'] == true) {
         final type = event['type']?.toString();
+        if (stateDelta && compact &&
+            (event['protocol'] != 'state_delta_v2' ||
+                !const {'state_ready', 'state_resync', 'state_delta'}.contains(type))) {
+          // Older servers treat an unknown query protocol as a legacy full
+          // snapshot. Reopen explicitly as v1 before publishing any such data.
+          throw const MobileApiException(code: 'state_delta_v2_unsupported',
+              message: 'Compact state stream is unavailable.');
+        }
         if (paged && !const {'page_ready', 'page_invalidated', 'delta',
           'page_window_ready', 'page_window_delta', 'page_window_checkpoint',
           'page_window_resync'}.contains(type)) {
@@ -520,6 +534,63 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         ),
       );
     });
+
+    if (!stateDelta || !compactStateDelta) return connect(false);
+    final controller = StreamController<AdminProductionMapLiveMessage>();
+    StreamSubscription<AdminProductionMapLiveMessage>? subscription;
+    var cancelled = false;
+    var fallbackAttempted = false;
+    var generation = 0;
+    void fail(Object error, StackTrace stack) {
+      if (cancelled || controller.isClosed) return;
+      controller.addError(error, stack);
+      unawaited(subscription?.cancel());
+      unawaited(controller.close());
+    }
+    void start(bool compact) {
+      if (cancelled || controller.isClosed) return;
+      if (_productionMapLiveIdentity() != identity) {
+        fail(const MobileApiException(code: 'session_changed',
+            message: 'Session changed while negotiating the live stream.'),
+            StackTrace.current);
+        return;
+      }
+      final activeGeneration = ++generation;
+      subscription = connect(compact).listen((message) {
+        if (cancelled || controller.isClosed || activeGeneration != generation) return;
+        if (_productionMapLiveIdentity() != identity) {
+          fail(const MobileApiException(code: 'session_changed',
+              message: 'Live stream account changed.'), StackTrace.current);
+        } else {
+          controller.add(message);
+        }
+      }, onError: (Object error, StackTrace stack) {
+        if (cancelled || activeGeneration != generation) return;
+        if (compact && !fallbackAttempted && error is MobileApiException &&
+            error.code == 'state_delta_v2_unsupported') {
+          fallbackAttempted = true;
+          final previous = subscription;
+          start(false);
+          unawaited(previous?.cancel());
+        } else {
+          fail(error, stack);
+        }
+      }, onDone: () {
+        if (!cancelled && activeGeneration == generation && !controller.isClosed) {
+          unawaited(controller.close());
+        }
+      });
+      if (controller.isPaused) subscription?.pause();
+    }
+    controller.onListen = () => start(true);
+    controller.onPause = () => subscription?.pause();
+    controller.onResume = () => subscription?.resume();
+    controller.onCancel = () {
+      cancelled = true;
+      unawaited(subscription?.cancel());
+    };
+    return controller.stream;
+  }
 
   Future<List<AdminProductionMapLiveDelta>> adminProductionMapReplay({
     required String apparatus,

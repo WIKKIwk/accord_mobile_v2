@@ -107,10 +107,57 @@ void main() {
 
   test('nonworker state protocol retains global scope and recovery cursor', () async {
     server.listen((request) async {
-      expect(request.uri.queryParameters['protocol'], 'state_delta_v1');
+      expect(request.uri.queryParameters['protocol'], 'state_delta_v2');
       expect(request.uri.queryParameters['worker_scope'], 'false');
       expect(request.uri.queryParameters['scope'], '');
       expect(request.uri.queryParameters['rev'], '8');
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {});
+      socket.add(jsonEncode({'ok': true, 'type': 'state_ready',
+        'protocol': 'state_delta_v2', 'epoch': 'server', 'rev': 8, 'scope': '', 'resync': false,
+        'recovered': true, 'recovery_supported': true}));
+    });
+    final message = await MobileApi.instance.adminProductionMapLiveStream(
+      stateDelta: true, workerScope: false, epoch: 'server', revision: 8).first
+      .timeout(const Duration(seconds: 5));
+    expect((message as AdminProductionMapLiveStateReady).recovered, isTrue);
+    expect(message.recoverySupported, isTrue);
+  });
+
+  test('older backend v2 response falls back to v1 before publishing a snapshot', () async {
+    final protocols = <String>[];
+    server.listen((request) async {
+      final protocol = request.uri.queryParameters['protocol']!;
+      protocols.add(protocol);
+      expect(request.uri.queryParameters['worker_scope'], 'true');
+      expect(request.uri.queryParameters['queue_limit'], '5');
+      expect(request.uri.queryParameters['scope'], 'scope-five');
+      expect(request.uri.queryParameters['rev'], '8');
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {});
+      if (protocol == 'state_delta_v2') {
+        // This is the actual older backend behavior for an unknown query
+        // protocol. It must not escape as a global/incorrect-window snapshot.
+        socket.add(jsonEncode({'ok': true, 'type': 'snapshot', 'maps': []}));
+      } else {
+        socket.add(jsonEncode({'ok': true, 'type': 'state_ready',
+          'epoch': 'server', 'rev': 8, 'scope': 'scope-five', 'resync': false,
+          'recovered': true, 'recovery_supported': true}));
+      }
+    });
+    final message = await MobileApi.instance.adminProductionMapLiveStream(
+      stateDelta: true, queueLimit: 5, epoch: 'server', revision: 8,
+      scope: 'scope-five').first.timeout(const Duration(seconds: 5));
+    expect(protocols, ['state_delta_v2', 'state_delta_v1']);
+    expect(message, isA<AdminProductionMapLiveStateReady>());
+    expect((message as AdminProductionMapLiveStateReady).scope, 'scope-five');
+  });
+
+  test('explicit legacy state stream preserves the original v1 contract', () async {
+    server.listen((request) async {
+      expect(request.uri.queryParameters['protocol'], 'state_delta_v1');
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
       socket.listen((_) {});
@@ -119,10 +166,56 @@ void main() {
         'recovered': true, 'recovery_supported': true}));
     });
     final message = await MobileApi.instance.adminProductionMapLiveStream(
-      stateDelta: true, workerScope: false, epoch: 'server', revision: 8).first
-      .timeout(const Duration(seconds: 5));
-    expect((message as AdminProductionMapLiveStateReady).recovered, isTrue);
-    expect(message.recoverySupported, isTrue);
+      stateDelta: true, compactStateDelta: false, epoch: 'server', revision: 8)
+        .first.timeout(const Duration(seconds: 5));
+    expect(message, isA<AdminProductionMapLiveStateReady>());
+  });
+
+  test('retained compact stream never opens for a different account', () async {
+    var connections = 0;
+    server.listen((request) async { connections++; });
+    final retained = MobileApi.instance.adminProductionMapLiveStream(stateDelta: true);
+    AppSession.instance.token = 'other-account';
+    await expectLater(retained, emitsError(isA<MobileApiException>()
+        .having((error) => error.code, 'code', 'session_changed')));
+    expect(connections, 0);
+  });
+
+  test('account change during compact negotiation cannot reopen a legacy socket', () async {
+    var connections = 0;
+    server.listen((request) async {
+      connections++;
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {});
+      AppSession.instance.token = 'other-account';
+      socket.add(jsonEncode({'ok': true, 'type': 'snapshot', 'maps': []}));
+    });
+    await expectLater(MobileApi.instance.adminProductionMapLiveStream(stateDelta: true),
+      emitsError(isA<MobileApiException>()
+          .having((error) => error.code, 'code', 'session_changed')));
+    expect(connections, 1);
+  });
+
+  test('cancelling a quiet compact socket closes transport without a new event', () async {
+    final ready = Completer<void>();
+    final closed = Completer<void>();
+    server.listen((request) async {
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen((_) {}, onDone: () { if (!closed.isCompleted) closed.complete(); });
+      socket.add(jsonEncode({'ok': true, 'type': 'state_ready',
+        'protocol': 'state_delta_v2', 'epoch': 'server', 'rev': 8, 'scope': '',
+        'resync': false, 'recovered': true, 'recovery_supported': true}));
+    });
+    final subscription = MobileApi.instance.adminProductionMapLiveStream(
+      stateDelta: true, epoch: 'server', revision: 8).listen((_) {
+        if (!ready.isCompleted) ready.complete();
+      });
+    await ready.future.timeout(const Duration(seconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await subscription.cancel().timeout(const Duration(seconds: 2));
+    await closed.future.timeout(const Duration(seconds: 2));
   });
 
   test('notification protocol decodes only request list', () async {

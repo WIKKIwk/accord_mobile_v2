@@ -81,7 +81,7 @@ void main() {
       expect(uri.queryParameters['queue_limit'], '$limit');
       expect(uri.queryParameters['queue_search'], 'old order');
       expect(uri.queryParameters['worker_scope'], 'true');
-      expect(uri.queryParameters['protocol'], 'state_delta_v1');
+      expect(uri.queryParameters['protocol'], 'state_delta_v2');
       final legacy = MobileApi.instance.adminProductionMapLiveUri(delta: true);
       expect(legacy.queryParameters.containsKey('queue_limit'), isFalse);
     });

@@ -35,6 +35,7 @@ import '../test_mode/test_mode_controller.dart';
 import '../test_mode/test_mode_demo_data.dart';
 import 'dart:async';
 import 'dart:convert';
+import '../realtime/sequence_delta.dart' as sequence_delta;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;

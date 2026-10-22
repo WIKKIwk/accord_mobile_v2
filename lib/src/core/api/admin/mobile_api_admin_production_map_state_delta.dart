@@ -14,6 +14,7 @@ class AdminProductionMapLiveStateReady
   final int revision;
   final bool resync;
   final String scope;
+
   /// Explicit confirmation that the retained cursor is current. Older
   /// servers omit this field and retain the snapshot recovery path.
   final bool recovered;
@@ -98,6 +99,44 @@ String _productionMapPatchString(Object? raw) {
   return raw;
 }
 
+String _productionMapSequenceFingerprint(List<String> values) =>
+    sequence_delta.sequenceFingerprint(values);
+
+List<String> _applyProductionMapSequenceEdit(List<String> before, Object? raw) {
+  try {
+    return sequence_delta.applySequenceEdit(before, raw);
+  } on FormatException catch (error) {
+    throw _productionMapQueueContractException(error.message.toString());
+  }
+}
+
+Map<String, List<String>> _applyProductionMapSequencePatch(
+  Map<String, List<String>> before,
+  Object? raw, {
+  required bool compact,
+}) {
+  final result =
+      _applyProductionMapFieldPatch(before, raw, _productionMapPatchStrings);
+  if (raw is! Map || !raw.containsKey('edit')) return result;
+  if (!compact || raw['edit'] is! Map) {
+    throw _productionMapQueueContractException('unnegotiated sequence edit');
+  }
+  // Every edit reads the immutable old snapshot. A late failure can never
+  // mutate a list already published to the UI or partially install a delta.
+  for (final entry in (raw['edit'] as Map).entries) {
+    final key = entry.key;
+    if (key is! String ||
+        key.isEmpty ||
+        !before.containsKey(key) ||
+        (raw['upsert'] as Map).containsKey(key) ||
+        (raw['remove'] as List).contains(key)) {
+      throw _productionMapQueueContractException('conflicting sequence edit');
+    }
+    result[key] = _applyProductionMapSequenceEdit(before[key]!, entry.value);
+  }
+  return result;
+}
+
 List<String> _productionMapPatchStrings(Object? raw) {
   if (raw is! List || raw.any((value) => value is! String || value.isEmpty)) {
     throw _productionMapQueueContractException('state string list required');
@@ -113,30 +152,35 @@ class AdminProductionMapLiveStateDelta
     required this.revision,
     required this.patch,
     this.scope = '',
+    this.protocol = 'state_delta_v1',
   });
   final String epoch;
   final int baseRevision;
   final int revision;
   final Map<String, dynamic> patch;
   final String scope;
+  final String protocol;
 
   factory AdminProductionMapLiveStateDelta.fromJson(Map<String, dynamic> json) {
     final revision = parseProductionMapSnapshotRevisionFromJson(json);
     final base = json['base_rev'];
     final epoch = json['epoch'];
+    final protocol = json['protocol'] ?? 'state_delta_v1';
     if (revision == null ||
         base is! int ||
         base < 0 ||
         revision < base ||
         epoch is! String ||
         epoch.isEmpty ||
-        json['patch'] is! Map) {
+        json['patch'] is! Map ||
+        !const {'state_delta_v1', 'state_delta_v2'}.contains(protocol)) {
       throw _productionMapQueueContractException('invalid state delta');
     }
     final patch = _productionMapPatchObject(json['patch']);
     const known = {
       'maps',
       'map_order',
+      'map_order_edit',
       'sequences',
       'sequence_versions',
       'sequence_revisions',
@@ -156,16 +200,27 @@ class AdminProductionMapLiveStateDelta
     if (patch.keys.any((key) => !known.contains(key))) {
       throw _productionMapQueueContractException('unknown state patch field');
     }
+    if (patch.containsKey('map_order_edit') &&
+        (protocol != 'state_delta_v2' || patch.containsKey('map_order'))) {
+      throw _productionMapQueueContractException('unnegotiated map order edit');
+    }
     return AdminProductionMapLiveStateDelta(
       epoch: epoch,
       baseRevision: base,
       revision: revision,
       patch: patch,
       scope: json['scope'] is String ? json['scope'] as String : '',
+      protocol: protocol as String,
     );
   }
 
   AdminApparatusQueueSnapshot applyTo(AdminApparatusQueueSnapshot before) {
+    if (!const {'state_delta_v1', 'state_delta_v2'}.contains(protocol) ||
+        (patch.containsKey('map_order_edit') &&
+            (protocol != 'state_delta_v2' || patch.containsKey('map_order')))) {
+      throw _productionMapQueueContractException(
+          'invalid state delta protocol');
+    }
     // A delta cannot fill missing history or cross a server restart.
     if (before.epoch != epoch ||
         before.revision != baseRevision ||
@@ -173,7 +228,9 @@ class AdminProductionMapLiveStateDelta
       throw _productionMapQueueContractException('state delta cursor mismatch');
     }
     var maps = before.maps;
-    if (patch.containsKey('maps') || patch.containsKey('map_order')) {
+    if (patch.containsKey('maps') ||
+        patch.containsKey('map_order') ||
+        patch.containsKey('map_order_edit')) {
       final indexed = _applyProductionMapFieldPatch<ProductionMapSaved>(
         {for (final saved in maps) saved.map.id: saved},
         patch['maps'],
@@ -182,7 +239,11 @@ class AdminProductionMapLiveStateDelta
       if (indexed.entries.any((entry) => entry.key != entry.value.map.id)) {
         throw _productionMapQueueContractException('map identity mismatch');
       }
-      final order = patch['map_order'];
+      final order = patch.containsKey('map_order_edit')
+          ? _applyProductionMapSequenceEdit(
+              [for (final saved in before.maps) saved.map.id],
+              patch['map_order_edit'])
+          : patch['map_order'];
       if (order == null) {
         maps = indexed.values.toList();
       } else {
@@ -214,16 +275,18 @@ class AdminProductionMapLiveStateDelta
       epoch: epoch,
       scope: scope,
       workerShowAllApparatusTabs: before.workerShowAllApparatusTabs,
-      sequences: _applyProductionMapFieldPatch(
-          before.sequences, patch['sequences'], _productionMapPatchStrings),
+      sequences: _applyProductionMapSequencePatch(
+          before.sequences, patch['sequences'],
+          compact: protocol == 'state_delta_v2'),
       sequenceVersions: _applyProductionMapFieldPatch(before.sequenceVersions,
           patch['sequence_versions'], _productionMapPatchString),
       sequenceRevisions: _applyProductionMapFieldPatch(
           before.sequenceRevisions,
           patch['sequence_revisions'],
           (raw) => _parseSequenceRevisions({'revision': raw})['revision']!),
-      visibleOrderIds: _applyProductionMapFieldPatch(before.visibleOrderIds,
-          patch['visible_order_ids'], _productionMapPatchStrings),
+      visibleOrderIds: _applyProductionMapSequencePatch(
+          before.visibleOrderIds, patch['visible_order_ids'],
+          compact: protocol == 'state_delta_v2'),
       queueStates: _applyProductionMapNestedPatch(
           before.queueStates, patch['queue_states'], _productionMapPatchString),
       stageStates: _applyProductionMapNestedPatch(

@@ -16,6 +16,7 @@ class _PendingSequenceMove {
   final Set<String> visibleOrderIds;
   String? expectedVersion;
   String? idempotencyKey;
+  List<String>? canonicalOrderIds;
   int conflicts = 0;
   int connectionFailures = 0;
   bool requestedVersion = false;
@@ -360,6 +361,15 @@ extension _AdminProductionMapOrdersMoveState
             break;
           }
           move.expectedVersion = version;
+          final canonical = _canonicalQueueSnapshot;
+          if (!_adminPaging && !widget.workerMode && canonical != null &&
+              canonical.scope.isEmpty && canonical.epoch == _lastAppliedSnapshotEpoch &&
+              canonical.sequenceVersions[apparatus] == version &&
+              listEquals(canonical.sequences[apparatus], ids)) {
+            // Persist this exact complete baseline across timeout retries,
+            // alongside the immutable command version and idempotency key.
+            move.canonicalOrderIds = List<String>.unmodifiable(ids);
+          }
           final random = Random.secure();
           move.idempotencyKey = List.generate(16,
               (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
@@ -374,6 +384,7 @@ extension _AdminProductionMapOrdersMoveState
             beforeOrderId: move.beforeId, afterOrderId: move.afterId,
             expectedVersion: move.expectedVersion!,
             idempotencyKey: move.idempotencyKey!,
+            canonicalOrderIds: move.canonicalOrderIds,
           );
           if (!mounted) return;
           if (move.scope != _sequenceWriteScope ||
@@ -435,6 +446,7 @@ extension _AdminProductionMapOrdersMoveState
             // intention only after a fresh snapshot, with a NEW command key.
             move.expectedVersion = null;
             move.idempotencyKey = null;
+            move.canonicalOrderIds = null;
             _requestSequenceReconcile(apparatus);
             break;
           }
