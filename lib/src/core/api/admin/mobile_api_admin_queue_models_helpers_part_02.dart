@@ -101,11 +101,21 @@ class AdminApparatusQueueSnapshot {
     this.frozenOrdersByApparatus = const {},
     this.maps = const [],
     this.calculationTemplates = const {},
+    this.projection = '',
+    this.workerListRows = const {},
+    this.workerDisplayStates = const {},
+    this.workerReportPrompts = const {},
     this.revision,
     this.epoch = '',
     this.scope = '',
     this.workerShowAllApparatusTabs = false,
   });
+
+  final String projection;
+  bool get isWorkerList => projection == workerOrderListProjection;
+  final Map<String, WorkerOrderListRow> workerListRows;
+  final Map<String, Map<String, String>> workerDisplayStates;
+  final Map<String, Map<String, WorkerStageReportPrompt>> workerReportPrompts;
 
   final Map<String, List<String>> sequences;
   final Map<String, String> sequenceVersions;
@@ -149,6 +159,7 @@ class AdminApparatusQueueSnapshot {
   }
 
   void validateContract() {
+    if (isWorkerList) _validateWorkerListSnapshot(this);
     for (final apparatus in sequencePositionsByApparatus.entries) {
       final visible = (visibleOrderIds[apparatus.key] ?? const <String>[]).toSet();
       if (!isCanonicalApparatusId(apparatus.key) ||

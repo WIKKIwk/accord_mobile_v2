@@ -446,6 +446,11 @@ AdminProductionMapLiveSnapshot workerWarmLiveSnapshot(
 }) =>
     AdminProductionMapLiveSnapshot(
       maps: snapshot.maps,
+      projection: snapshot.projection,
+      workerListRows: snapshot.workerListRows,
+      workerDisplayStates: snapshot.workerDisplayStates,
+      workerReportPrompts: snapshot.workerReportPrompts,
+      calculationTemplates: snapshot.calculationTemplates,
       sequences: snapshot.sequences,
       sequenceVersions: snapshot.sequenceVersions,
       sequenceRevisions: snapshot.sequenceRevisions,

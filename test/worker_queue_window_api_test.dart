@@ -50,7 +50,7 @@ void main() {
       },
           () => MockClient((request) async {
                 expect(request.url.queryParameters, {
-                  'worker_scope': 'true',
+                  'worker_scope': 'true', 'projection': workerOrderListProjection,
                   'queue_limit': '$limit',
                   'queue_positions': 'true',
                   'queue_search': 'old order',

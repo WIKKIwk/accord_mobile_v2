@@ -16,7 +16,7 @@ Map<String, dynamic> encodeProductionMapQueueSnapshot(
 }) {
   snapshot.validateContract();
   final live = snapshot is AdminProductionMapLiveSnapshot ? snapshot : null;
-  return {
+  final encoded = <String, dynamic>{
     'ok': true,
     'rev': snapshot.revision,
     'epoch': snapshot.epoch,
@@ -146,6 +146,27 @@ Map<String, dynamic> encodeProductionMapQueueSnapshot(
         },
     ],
   };
+  if (snapshot.isWorkerList) {
+    encoded.removeWhere((key, _) => _workerListForbiddenFields.contains(key));
+    encoded.addAll({
+      'projection': workerOrderListProjection,
+      'worker_list_rows': {
+        for (final entry in snapshot.workerListRows.entries)
+          entry.key: entry.value.toJson(),
+      },
+      'worker_display_states': snapshot.workerDisplayStates,
+      'worker_report_prompts': {
+        for (final scope in snapshot.workerReportPrompts.entries)
+          scope.key: {
+            for (final entry in scope.value.entries)
+              entry.key: entry.value.toJson(),
+          },
+      },
+    });
+  } else if (snapshot.projection.isNotEmpty) {
+    encoded['projection'] = snapshot.projection;
+  }
+  return encoded;
 }
 
 Map<String, dynamic> _cachedQueueActionContract(

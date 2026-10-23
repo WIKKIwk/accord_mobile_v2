@@ -20,6 +20,9 @@ AdminApparatusQueueSnapshot _decodeProductionMapQueueSnapshot(String source) {
 
 AdminApparatusQueueSnapshot _productionMapQueueSnapshotFromJson(
     Map<String, dynamic> payload) {
+  if (payload['projection'] == workerOrderListProjection) {
+    return _workerListSnapshotFromJson(payload);
+  }
   if (payload['completed_orders'] is List && payload['completion_requests'] is List &&
       payload['completion_request_decisions'] is List) {
     return AdminProductionMapLiveSnapshot.fromJson(payload);
@@ -28,6 +31,7 @@ AdminApparatusQueueSnapshot _productionMapQueueSnapshotFromJson(
   _requireProductionMapSnapshotShape(payload, includesMaps: false);
   final orderControls = _parseAdminOrderControls(payload['order_controls']);
   final snapshot = AdminApparatusQueueSnapshot(
+    projection: payload['projection'] as String? ?? '',
     sequenceVersions: _stringMapOfStrings(payload['sequence_versions']),
     sequenceRevisions: _parseSequenceRevisions(payload['sequence_revisions']),
     sequencePositionsByApparatus: _parseProductionMapSequencePositions(payload),

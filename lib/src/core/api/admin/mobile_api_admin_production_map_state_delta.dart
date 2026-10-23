@@ -178,6 +178,7 @@ class AdminProductionMapLiveStateDelta
     }
     final patch = _productionMapPatchObject(json['patch']);
     const known = {
+      'worker_list_rows', 'worker_display_states', 'worker_report_prompts',
       'maps',
       'map_order',
       'map_order_edit',
@@ -229,6 +230,19 @@ class AdminProductionMapLiveStateDelta
         before.scope != scope) {
       throw _productionMapQueueContractException('state delta cursor mismatch');
     }
+    if (before.isWorkerList) {
+      if (protocol != 'state_delta_v2' ||
+          patch.keys.any((key) => _workerListForbiddenFields.contains(key) ||
+              key == 'map_order' || key == 'map_order_edit')) {
+        throw _productionMapQueueContractException('worker list received canonical patch');
+      }
+      final controls = patch['order_controls'];
+      if (controls is Map && controls.containsKey('upsert')) {
+        _validateWorkerListControls(controls['upsert']);
+      }
+    } else if (patch.keys.any(_workerListFields.contains)) {
+      throw _productionMapQueueContractException('canonical snapshot received worker rows');
+    }
     var maps = before.maps;
     if (patch.containsKey('maps') ||
         patch.containsKey('map_order') ||
@@ -272,6 +286,13 @@ class AdminProductionMapLiveStateDelta
         ..addAll(_parseEarlyClosingOrderIds(controlPatch['upsert']));
     }
     final snapshot = AdminApparatusQueueSnapshot(
+      projection: before.projection,
+      workerListRows: _applyProductionMapFieldPatch(before.workerListRows,
+          patch['worker_list_rows'], (raw) => WorkerOrderListRow.fromJson(_productionMapPatchObject(raw))),
+      workerDisplayStates: _applyProductionMapNestedPatch(before.workerDisplayStates,
+          patch['worker_display_states'], _workerDisplayState),
+      workerReportPrompts: _applyProductionMapNestedPatch(before.workerReportPrompts,
+          patch['worker_report_prompts'], (raw) => WorkerStageReportPrompt.fromJson(_productionMapPatchObject(raw))),
       maps: maps,
       calculationTemplates: before.calculationTemplates,
       revision: revision,
@@ -333,6 +354,19 @@ class AdminProductionMapLiveStateDelta
       }),
     );
     snapshot.validateContract();
+    if (before.isWorkerList) {
+      final rawCompleted = patch['completed_orders'];
+      final completed = rawCompleted == null
+          ? (before is AdminProductionMapLiveSnapshot
+              ? before.completedOrders : const <AdminCompletedQueueOrder>[])
+          : rawCompleted is List
+              ? [for (final raw in rawCompleted)
+                  AdminCompletedQueueOrder.fromJson(_productionMapPatchObject(raw))]
+              : throw _productionMapQueueContractException('invalid completed worker rows');
+      if (completed.any((order) => !snapshot.workerListRows.containsKey(order.orderId))) {
+        throw _productionMapQueueContractException('missing completed worker row');
+      }
+    }
     for (final apparatus in snapshot.queueActionControls.entries) {
       for (final order in apparatus.value.entries) {
         if (!order.value.isConsistentWith(snapshot.orderControlFor(order.key),

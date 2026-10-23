@@ -33,7 +33,7 @@ void main() {
     }, () => MockClient((request) async {
       expect(request.method, 'GET');
       expect(request.url.queryParameters, {
-        'worker_scope': 'true', 'if_epoch': 'server', 'if_rev': '7',
+        'worker_scope': 'true', 'projection': workerOrderListProjection, 'if_epoch': 'server', 'if_rev': '7',
         'if_scope': 'assigned', 'wait_ms': '6000',
       });
       return http.Response('', 304);
@@ -46,7 +46,7 @@ void main() {
         workerScope: true, since: cursor, fresh: true, waitForChanges: true,
       ), throwsA(isA<MobileApiException>()));
     }, () => MockClient((request) async {
-      expect(request.url.queryParameters, {'worker_scope': 'true'});
+      expect(request.url.queryParameters, {'worker_scope': 'true', 'projection': workerOrderListProjection});
       return http.Response('', 304);
     }));
   });

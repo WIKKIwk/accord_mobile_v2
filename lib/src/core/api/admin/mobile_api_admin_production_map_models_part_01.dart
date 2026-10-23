@@ -132,6 +132,10 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     implements AdminProductionMapLiveMessage {
   const AdminProductionMapLiveSnapshot({
     required super.maps,
+    super.projection = '',
+    super.workerListRows = const {},
+    super.workerDisplayStates = const {},
+    super.workerReportPrompts = const {},
     super.calculationTemplates = const {},
     required super.sequences,
     super.sequenceVersions,
@@ -164,6 +168,9 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
       completionRequestDecisions;
 
   factory AdminProductionMapLiveSnapshot.fromJson(Map<String, dynamic> json) {
+    if (json['projection'] == workerOrderListProjection) {
+      return _workerListSnapshotFromJson(json);
+    }
     final visibleOrderIds = _parseRequiredProductionMapVisibleOrderIds(json);
     _requireProductionMapSnapshotShape(json, includesMaps: true);
     final mapsRaw = json['maps'];
@@ -172,6 +179,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     final completionRequestDecisionsRaw = json['completion_request_decisions'];
     final orderControls = _parseAdminOrderControls(json['order_controls']);
     final snapshot = AdminProductionMapLiveSnapshot(
+      projection: json['projection'] as String? ?? '',
       sequenceVersions: _stringMapOfStrings(json['sequence_versions']),
       sequenceRevisions: _parseSequenceRevisions(json['sequence_revisions']),
       sequencePositionsByApparatus: _parseProductionMapSequencePositions(json),
