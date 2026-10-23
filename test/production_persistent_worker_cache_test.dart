@@ -162,6 +162,7 @@ class _Fixture {
   final events = StreamController<Object>.broadcast();
   final catalog = [_catalogEntry()];
   var reads = 0;
+  var liveConnections = 0;
   Future<AdminApparatusQueueSnapshot> Function()? load;
   Future<List<AdminApparatus>> Function()? loadCatalog;
 
@@ -221,7 +222,10 @@ class _Fixture {
             return load?.call() ??
                 Future.error(StateError('Unexpected full snapshot request'));
           },
-          liveEventsLoader: () => events.stream,
+          liveEventsLoader: () {
+            liveConnections++;
+            return events.stream;
+          },
         ),
       );
 
@@ -462,6 +466,94 @@ void main() {
         7);
     await fixture.close(tester);
   });
+
+  for (final outcome in ['code', 'name', 'offline', 'forbidden', 'invalid']) {
+    testWidgets('search clear uses connection progress: $outcome',
+        (tester) async {
+      final fixture = _Fixture();
+      await fixture.initialize();
+      await fixture.seed();
+      await fixture.open(tester);
+      fixture.ready();
+      await fixture.pump(tester);
+      final progress = find.byKey(
+          const ValueKey('production-orders-connection-progress'));
+      final warning = find.byWidgetPredicate((widget) =>
+          widget.runtimeType.toString() == '_QueueSnapshotWarningBanner');
+      expect(progress, findsNothing);
+
+      fixture.load = () async => _snapshot(scope: 'searched-window');
+      await tester.enterText(find.byType(EditableText).first,
+          outcome == 'name' ? 'Cached order' : 'CACHE-001');
+      await tester.pump(const Duration(milliseconds: 350));
+      await fixture.pump(tester);
+      fixture.ready(scope: 'searched-window');
+      await fixture.pump(tester);
+      expect(fixture.reads, 1);
+
+      // The first x closes the keyboard; the second clears the search.
+      await tester.tap(find.byTooltip('Yopish'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Tozalash'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await fixture.pump(tester);
+      expect(fixture.liveConnections, 3);
+      expect(fixture.reads, 1, reason: 'Clearing restores the unfiltered cache');
+      expect(find.byKey(const ValueKey('worker-order-zakaz-cached')),
+          findsOneWidget);
+      expect(warning, findsNothing,
+          reason: 'A new search window is waiting for server confirmation');
+      expect(progress, findsOneWidget);
+      expect(tester.widget<LinearProgressIndicator>(progress).value, isNull);
+
+      if (outcome == 'offline') {
+        fixture.load = () => Future.error(http.ClientException('offline'));
+        final indicator = tester.element(progress);
+        for (var attempt = 0; attempt < 3; attempt++) {
+          final connections = fixture.liveConnections;
+          fixture.events.addError(http.ClientException('offline'));
+          await fixture.pump(tester);
+          expect(progress, findsOneWidget);
+          await tester.pump(const Duration(seconds: 5));
+          await fixture.pump(tester);
+          expect(fixture.liveConnections, greaterThan(connections),
+              reason: 'Retrying must continue automatically during an outage');
+          expect(identical(tester.element(progress), indicator), isTrue,
+              reason: 'The indicator must stay mounted between retries');
+          expect(warning, findsNothing);
+          expect(find.text('Cached order'), findsWidgets);
+        }
+      }
+
+      if (outcome == 'forbidden' || outcome == 'invalid') {
+        final connections = fixture.liveConnections;
+        fixture.events.addError(MobileApiException(
+          code: outcome == 'forbidden'
+              ? 'forbidden'
+              : 'production_map_snapshot_contract_invalid',
+          statusCode: outcome == 'forbidden' ? 403 : null,
+          message: 'Confirmed server error',
+        ));
+        await fixture.pump(tester);
+        expect(progress, findsNothing);
+        expect(find.text('Confirmed server error'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 35));
+        expect(fixture.liveConnections, connections,
+            reason:
+                'Authorization and invalid contracts are not network retries');
+      } else {
+        fixture.ready();
+        await fixture.pump(tester);
+        expect(progress, findsNothing);
+        expect(warning, findsNothing);
+        final connections = fixture.liveConnections;
+        await tester.pump(const Duration(seconds: 35));
+        expect(fixture.liveConnections, connections,
+            reason: 'A confirmed quiet stream must not keep reconnecting');
+      }
+      await fixture.close(tester);
+    });
+  }
 
   testWidgets('late apparatus catalog cannot cross an account switch',
       (tester) async {

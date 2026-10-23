@@ -51,6 +51,9 @@ extension _WorkerQueueWindowState on _AdminProductionMapOrdersScreenState {
       _lastAppliedSnapshotRevision = null;
       _queueSnapshotNeedsReconcile = true;
       _queueSnapshotContractError = true;
+      // Keep action guards until the new window is confirmed, and show the
+      // existing connection progress while its cached rows await the server.
+      _reconnectingOrderReads.add(_OrdersReadSection.queue);
       _loading = true;
       _loadError = null;
     });
