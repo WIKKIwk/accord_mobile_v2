@@ -255,6 +255,10 @@ class _CompactHarness {
 }
 
 Finder _workerRow(String id) => find.byKey(ValueKey('worker-order-$id'));
+Finder _contractProgress() =>
+    find.byKey(const ValueKey('worker-contract-sync-progress'));
+Finder _contractWarning() => find.text(
+    AppLocalizations(const Locale('uz')).productionText('worker.error.sync'));
 Finder _sheet({bool? pending}) => find.byWidgetPredicate((widget) =>
     widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet' &&
     (pending == null || (widget as dynamic).detailPending == pending));
@@ -451,7 +455,7 @@ void main() {
   }
 
   testWidgets(
-      'compact worker settled missing control still warns and blocks actions',
+      'compact worker settled missing control stays silent then shows progress and blocks actions',
       (tester) async {
     final harness = _CompactHarness()..includeDetailControl = false;
     await harness.mount(tester);
@@ -459,14 +463,122 @@ void main() {
     await tester.pumpAndSettle();
     expect(_sheet(pending: false), findsOneWidget);
     expect(_content(tester).uiState.contractSynchronized, isFalse);
-    expect(
-        find.text(AppLocalizations(const Locale('uz'))
-            .productionText('worker.error.sync')),
-        findsWidgets,
-        reason: 'A settled missing contract remains a real sync warning');
+    expect(_contractWarning(), findsNothing);
+    expect(_contractProgress(), findsNothing,
+        reason: 'A brief control synchronization has no visible feedback');
+    expect(find.widgetWithText(FilledButton, 'Boshlash'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(_contractWarning(), findsNothing,
+        reason: 'A settled failure must not become a red contract banner');
+    expect(_contractProgress(), findsOneWidget);
+    expect(tester.widget(_contractProgress()), isA<LinearProgressIndicator>());
     expect(find.widgetWithText(FilledButton, 'Boshlash'), findsNothing);
     await harness.close(tester);
   });
+
+  testWidgets(
+      'compact worker pending contract waits two seconds then clears progress after hydration',
+      (tester) async {
+    final harness = _CompactHarness()
+      ..pending = Completer<AdminApparatusQueueSnapshot>();
+    await harness.mount(tester);
+    await tester.tap(_workerRow('zakaz-a'));
+    await tester.pump();
+    expect(_sheet(pending: true), findsOneWidget);
+    expect(_contractWarning(), findsNothing);
+    expect(_contractProgress(), findsNothing);
+    expect(_content(tester).uiState.contractSynchronized, isFalse);
+    expect((tester.widget(_sheet()) as dynamic).onQueueAction, isNull);
+    await tester.pump(const Duration(milliseconds: 1800));
+    expect(_contractWarning(), findsNothing);
+    expect(_contractProgress(), findsNothing);
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    expect(_contractProgress(), findsOneWidget);
+    expect(_contractWarning(), findsNothing);
+    expect(_content(tester).uiState.contractSynchronized, isFalse);
+    expect(harness.details, hasLength(1),
+        reason: 'The UI delay must not create extra detail requests');
+    harness.pending!.complete(harness.full('zakaz-a'));
+    await tester.pumpAndSettle();
+    expect(_sheet(pending: false), findsOneWidget);
+    expect(_content(tester).uiState.contractSynchronized, isTrue);
+    expect(_contractProgress(), findsNothing);
+    expect(_contractWarning(), findsNothing);
+    await harness.close(tester);
+  });
+
+  testWidgets(
+      'compact worker later contract resync restarts the two second silent period',
+      (tester) async {
+    final harness = _CompactHarness();
+    await harness.mount(tester);
+    await tester.tap(_workerRow('zakaz-a'));
+    await tester.pumpAndSettle();
+    final originalState = tester.state(_sheet());
+    expect(_content(tester).uiState.contractSynchronized, isTrue);
+    for (final revision in [8, 9]) {
+      harness
+        ..revision = revision
+        ..detailRevision = revision
+        ..pending = Completer<AdminApparatusQueueSnapshot>();
+      harness.events.add(harness.snapshot());
+      await tester.pump();
+      await tester.pump();
+      expect(_content(tester).uiState.contractSynchronized, isFalse);
+      expect(_contractWarning(), findsNothing);
+      expect(_contractProgress(), findsNothing);
+      await tester.pump(const Duration(milliseconds: 1800));
+      expect(_contractProgress(), findsNothing,
+          reason: 'Each distinct synchronization gets a new grace period');
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump();
+      expect(_contractProgress(), findsOneWidget);
+      expect(_contractWarning(), findsNothing);
+      expect(_content(tester).uiState.contractSynchronized, isFalse);
+      expect(find.widgetWithText(FilledButton, 'Boshlash'), findsNothing,
+          reason: 'Keeping a handler cannot enable an unsynchronized action');
+      harness.pending!.complete(harness.full('zakaz-a'));
+      await tester.pumpAndSettle();
+      expect(_content(tester).uiState.contractSynchronized, isTrue);
+      expect(_contractProgress(), findsNothing);
+      expect(_contractWarning(), findsNothing);
+      expect(identical(tester.state(_sheet()), originalState), isTrue);
+    }
+    expect(harness.details, hasLength(3));
+    await harness.close(tester);
+  });
+
+  for (final showProgress in [false, true]) {
+    testWidgets(
+        'compact worker closing cancels contract progress ${showProgress ? 'after' : 'before'} delay',
+        (tester) async {
+      final harness = _CompactHarness()
+        ..pending = Completer<AdminApparatusQueueSnapshot>();
+      await harness.mount(tester);
+      await tester.tap(_workerRow('zakaz-a'));
+      await tester.pump();
+      if (showProgress) {
+        await tester.pump(const Duration(milliseconds: 2050));
+        await tester.pump();
+        expect(_contractProgress(), findsOneWidget);
+      } else {
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(_contractProgress(), findsNothing);
+      }
+      await tester
+          .tap(find.byKey(const ValueKey('production-order-detail-close')));
+      await tester.pumpAndSettle();
+      expect(_sheet(), findsNothing);
+      harness.pending!.complete(harness.full('zakaz-a'));
+      await tester.pump(const Duration(seconds: 3));
+      expect(_contractProgress(), findsNothing);
+      expect(_contractWarning(), findsNothing);
+      expect(tester.takeException(), isNull);
+      await harness.close(tester);
+    });
+  }
 
   testWidgets(
       'compact worker stream changes row tone without graph or detail read',

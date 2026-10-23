@@ -11,7 +11,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.productTitle,
     required this.customerName,
     required this.workerMode,
-    required this.showContractWarning,
+    required this.showContractSyncProgress,
     required this.materialsLoading,
     required this.materialsError,
     required this.materialStartReady,
@@ -76,7 +76,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String productTitle;
   final String? customerName;
   final bool workerMode;
-  final bool showContractWarning;
+  final bool showContractSyncProgress;
   final bool materialsLoading;
   final String materialsError;
   final bool materialStartReady;
@@ -317,8 +317,6 @@ class _OrderStartUnifiedCard extends StatelessWidget {
         uiState.showResume ||
         uiState.showWaitingForPrevious ||
         uiState.showWaitingForSequence;
-    final showContractSyncNotice =
-        showContractWarning && !uiState.contractSynchronized;
     final showPreviousStageWaitingNotice = uiState.showWaitingForPrevious &&
         uiState.previousStage != null &&
         uiState.blockingReasonCode.trim() != 'waiting_opening_wip';
@@ -455,23 +453,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          if (showContractSyncNotice) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: scheme.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                context.l10n.productionText('worker.error.sync'),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onErrorContainer,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+          if (workerMode)
+            _OrdersConnectionProgress(
+              key: const ValueKey('worker-contract-sync-progress-host'),
+              active: showContractSyncProgress,
+              delay: const Duration(seconds: 2),
+              indicatorKey: const ValueKey('worker-contract-sync-progress'),
             ),
-            const SizedBox(height: 12),
-          ],
           if (showBackendBlockingNotice) ...[
             Container(
               padding: const EdgeInsets.all(12),

@@ -19,7 +19,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.customerName,
     required this.steps,
     required this.uiState,
-    required this.showContractWarning,
+    required this.showContractSyncProgress,
     required this.pauseLabel,
     required this.queueStates,
     required this.queueStatesByApparatus,
@@ -107,7 +107,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String? customerName;
   final List<ProductionMapNode> steps;
   final _ReadOnlyOrderDetailUiState uiState;
-  final bool showContractWarning;
+  final bool showContractSyncProgress;
   final String pauseLabel;
   final Map<String, String> queueStates;
   final Map<String, Map<String, String>> queueStatesByApparatus;
@@ -347,7 +347,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       ),
                       customerName: customerName,
                       workerMode: workerMode,
-                      showContractWarning: showContractWarning,
+                      showContractSyncProgress: showContractSyncProgress,
                       materialsLoading: materialsLoading,
                       materialsError: materialsError,
                       onReceiveMaterial: onReceiveMaterial,

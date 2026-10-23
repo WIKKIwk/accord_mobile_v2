@@ -154,9 +154,6 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
         _qolipRequirementsLoading = false;
         _qolipRequirementsError = _materialsError;
       });
-      if (context.mounted) {
-        _showSheetNotice(context.l10n.productionText('worker.error.sync'));
-      }
       _markDetailRecoveryNeeded(error: error);
       return true;
     } finally {

@@ -649,12 +649,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         customerName: widget.customerName,
         steps: steps,
         uiState: uiState,
-        showContractWarning: widget.workerMode &&
+        showContractSyncProgress: widget.workerMode &&
             widget.canManageQueue &&
-            !widget.detailPending &&
-            !_queueActionBusy &&
-            _pendingDetailRevision == null &&
-            _actionControlLoads == 0,
+            !uiState.contractSynchronized,
         pauseLabel: widget.workerMode
             ? context.l10n.productionText(
                 _queueActionControl?.interaction?.mode ==
@@ -939,18 +936,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             '${widget.apparatus?.name.trim() ?? ''}',
           );
           setState(() => _queueActionControl = null);
-          _showSheetNotice(
-            context.l10n.productionText('worker.error.sync'),
-          );
+          if (!widget.workerMode) {
+            _showSheetNotice(
+              context.l10n.productionText('worker.error.sync'),
+            );
+          }
           _markDetailRecoveryNeeded();
         }
       } catch (error) {
         if (!mounted) return;
         debugPrint('Production interaction contract refresh failed: $error');
         setState(() => _queueActionControl = null);
-        _showSheetNotice(
-          context.l10n.productionText('worker.error.sync'),
-        );
+        if (!widget.workerMode) {
+          _showSheetNotice(
+            context.l10n.productionText('worker.error.sync'),
+          );
+        }
         _markDetailRecoveryNeeded(error: error);
       }
     }

@@ -281,9 +281,17 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
 enum _OrdersReadSection { initial, queue, completed, closed, completionRequests, pending }
 
 class _OrdersConnectionProgress extends StatefulWidget {
-  const _OrdersConnectionProgress({this.active = true});
+  const _OrdersConnectionProgress({
+    super.key,
+    this.active = true,
+    this.delay = const Duration(milliseconds: 300),
+    this.indicatorKey =
+        const ValueKey('production-orders-connection-progress'),
+  });
 
   final bool active;
+  final Duration delay;
+  final Key indicatorKey;
 
   @override
   State<_OrdersConnectionProgress> createState() =>
@@ -303,7 +311,9 @@ class _OrdersConnectionProgressState extends State<_OrdersConnectionProgress> {
   @override
   void didUpdateWidget(_OrdersConnectionProgress oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.active == oldWidget.active) return;
+    if (widget.active == oldWidget.active && widget.delay == oldWidget.delay) {
+      return;
+    }
     _showTimer?.cancel();
     _showTimer = null;
     _visible = false;
@@ -313,7 +323,7 @@ class _OrdersConnectionProgressState extends State<_OrdersConnectionProgress> {
   void _scheduleShow() {
     // Fast reads should not flash a loading bar. Rebuilds while the same
     // read is pending keep this timer; completion hides it immediately.
-    _showTimer = Timer(const Duration(milliseconds: 300), () {
+    _showTimer = Timer(widget.delay, () {
       _showTimer = null;
       if (mounted && widget.active) setState(() => _visible = true);
     });
@@ -328,7 +338,7 @@ class _OrdersConnectionProgressState extends State<_OrdersConnectionProgress> {
   @override
   Widget build(BuildContext context) => _visible
       ? LinearProgressIndicator(
-          key: const ValueKey('production-orders-connection-progress'),
+          key: widget.indicatorKey,
           semanticsLabel: context.l10n.loading,
         )
       : const SizedBox.shrink();
