@@ -19,6 +19,23 @@ void _registerAdminWarmNavigationTests() {
       ],
       selectedApparatusLoader: (_) async => scanApparatus,
       pageLoader: (request) async {
+        if (request.view == 'orders') {
+          harness.reads.add(request);
+          return AdminProductionOrderPage.fromJson({
+            'projection': 'orders_list_v1',
+            'version': 'orders-v${harness.revision}',
+            'epoch': harness.serverEpoch,
+            'scope': 'warm-navigation-orders',
+            'rev': harness.revision,
+            'offset': 0,
+            'total': 0,
+            'next_cursor': null,
+            'order_ids': <String>[],
+            'rows': <String, dynamic>{},
+            'pending_ids': <String>[],
+            'pending_rows': <String, dynamic>{},
+          });
+        }
         if (pending != null) {
           harness.reads.add(request);
           return pending.future;
@@ -44,7 +61,9 @@ void _registerAdminWarmNavigationTests() {
     final (harness, store, _) = await prepare(tester);
     await store.prepare(currentAdminSequenceWarmScope());
     final reads = harness.reads.length;
-    expect(reads, 1);
+    expect(reads, 2);
+    expect(harness.reads.where((r) => r.view == 'sequence'), hasLength(1));
+    expect(harness.reads.where((r) => r.view == 'orders'), hasLength(1));
     await harness.open(tester, sequenceWarmStore: store, settle: false);
     harness.expectRows(tester, harness.ids);
     expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
@@ -71,7 +90,8 @@ void _registerAdminWarmNavigationTests() {
         .complete(await AdminProductionOrderPage.fromJson(harness.payload()));
     await tester.pumpAndSettle();
     harness.expectRows(tester, harness.ids);
-    expect(harness.reads.length, 1);
+    expect(harness.reads.where((r) => r.view == 'sequence'), hasLength(1));
+    expect(harness.reads.where((r) => r.view == 'orders'), hasLength(1));
     expect(harness.catalogReads, 0);
     await harness.ready(tester);
     await harness.leave(tester);
