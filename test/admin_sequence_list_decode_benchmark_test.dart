@@ -8,12 +8,12 @@ final _machines = [
   for (var i = 0; i < 8; i++) 'apparatus:default:bench_$i',
 ];
 
-Map<String, Object?> _control() => {
+Map<String, Object?> _control(int stage) => {
       'state': 'pending',
       'allowed_actions': ['start'],
       'previous_stage': 'Oldingi bosqich',
       'previous_stage_ready': true,
-      'stage_node_id': 'machine-0',
+      'stage_node_id': 'machine-$stage',
       'complete_requires_full_report': false,
       'stage_work': {
         'completed': false,
@@ -104,7 +104,8 @@ Map<String, Object?> _order(String id, int row) => {
           for (var node = 1; node < 15; node++)
             {
               'order': node,
-              'node_id': 'node-$node',
+              'node_id':
+                  node >= 4 && node < 12 ? 'machine-${node - 4}' : 'node-$node',
               'op_code': 'production_execute',
               'args': {
                 'item_code': 'FILM-$node',
@@ -145,8 +146,8 @@ Map<String, Object?> _order(String id, int row) => {
         machine: {for (final id in ids) id: 'pending'}
     },
     'queue_action_controls': {
-      for (final machine in _machines)
-        machine: {for (final id in ids) id: _control()}
+      for (var machine = 0; machine < _machines.length; machine++)
+        _machines[machine]: {for (final id in ids) id: _control(machine)}
     },
     'queue_policies': [for (final machine in _machines) _policy(machine)],
     'stage_states': {
@@ -193,6 +194,7 @@ Map<String, Object?> _order(String id, int row) => {
           'queue_state': 'pending',
           'display_state': 'pending',
           'can_reorder': true,
+          'frozen': false,
         }
     },
   };
