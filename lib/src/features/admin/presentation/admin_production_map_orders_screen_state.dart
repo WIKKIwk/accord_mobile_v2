@@ -27,6 +27,9 @@ class _AdminProductionMapOrdersScreenState
   AdminOrderPageCacheVisit? _adminCacheVisit;
   String? _adminCacheScope;
   bool _adminCacheRestored = false;
+  AdminSequenceWarmLease? _adminWarmLease;
+  String? _adminWarmScope;
+  bool _adminWarmAdopted = false;
   final Map<String, int> _adminMetricSignatures = {};
   final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
   final Map<String, _AdminOrderWindow> _adminSequenceAckWindows = {};
@@ -39,6 +42,7 @@ class _AdminProductionMapOrdersScreenState
   final Set<_OrdersReadSection> _reconnectingOrderReads = {};
   Future<void>? _initialRefresh;
   bool _workerCatalogReady = false;
+  Object? _workerWarmLease;
   bool _workerForeground = true;
   bool _workerRetryAllowed = true;
   bool _workerQrScanInFlight = false;
@@ -221,6 +225,7 @@ class _AdminProductionMapOrdersScreenState
     _canonicalCacheOwner = _canonicalCacheRuntimeScope;
     _adminPaging = _adminPagingCandidate;
     _restoreAdminPageCache();
+    _claimAdminWarmSequence();
     WidgetsBinding.instance.addObserver(this);
     if (!_adminPaging && !widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
       unawaited(_refreshPendingOrders());
@@ -240,6 +245,7 @@ class _AdminProductionMapOrdersScreenState
       _tabController.addListener(_syncModuleFromTab);
     }
     if (widget.workerMode) {
+      _restoreWorkerWarmQueueImmediately();
       unawaited(_startWorkerWithInitialScan());
     } else {
       if (!_adminPaging) unawaited(_restoreSavedSequenceApparatusPreference());
@@ -262,6 +268,8 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    _releaseAdminWarmSequence();
+    _releaseWorkerWarmQueue();
     _flushCanonicalCache();
     _saveAdminPageCache(flush: true);
     _cancelAdminSequenceSyncTimers();

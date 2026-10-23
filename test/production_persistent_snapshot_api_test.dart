@@ -51,6 +51,7 @@ void main() {
               expect(request.url.queryParameters, {
                 'worker_scope': 'true',
                 'queue_limit': '10',
+                'queue_positions': 'true',
                 'if_epoch': 'server',
                 'if_rev': '7',
                 'if_scope': 'worker-window',

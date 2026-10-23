@@ -68,13 +68,15 @@ class _AdminPageCacheNavigationHarness extends _SequenceStreamSyncHarness {
     await tester.pumpAndSettle();
   }
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(WidgetTester tester,
+      {AdminSequenceWarmStore? sequenceWarmStore, bool settle = true}) async {
     unawaited(navigator.currentState!.push<void>(PageRouteBuilder<void>(
       settings: const RouteSettings(name: AppRoutes.adminProductionMapOrders),
       transitionDuration: Duration.zero,
       reverseTransitionDuration: Duration.zero,
       pageBuilder: (_, animation, secondaryAnimation) =>
           AdminProductionMapOrdersScreen(
+        sequenceWarmStore: sequenceWarmStore,
         apparatusLoader: () async {
           catalogReads++;
           return catalogWait?.future ??
@@ -89,7 +91,11 @@ class _AdminPageCacheNavigationHarness extends _SequenceStreamSyncHarness {
         },
       ),
     )));
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+    }
   }
 
   dynamic activeWindow(WidgetTester tester) => (tester.widget(find

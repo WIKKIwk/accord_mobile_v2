@@ -9,6 +9,7 @@ import '../core/navigation/app_root_navigation.dart';
 import '../core/navigation/profile_route_overlay_notifier.dart';
 import '../core/network/network_requirement_runtime.dart';
 import '../core/notifications/runtime/notification_runtime.dart';
+import '../core/production/production_queue_warm_runtime.dart';
 import '../core/scanner/reliable_mobile_scanner.dart';
 import '../core/security/gate/app_lock_gate.dart';
 import '../features/chat/runtime/chat_runtime.dart';
@@ -79,8 +80,11 @@ class ErpnextStockMobileApp extends StatelessWidget {
               child: DockGestureOverlay(
                 child: NetworkRequirementRuntime(
                   child: ChatRuntime(
-                    child:
-                        NotificationRuntime(child: AppLockGate(child: current)),
+                    child: ProductionQueueWarmRuntime(
+                      child: NotificationRuntime(
+                        child: AppLockGate(child: current),
+                      ),
+                    ),
                   ),
                 ),
               ),

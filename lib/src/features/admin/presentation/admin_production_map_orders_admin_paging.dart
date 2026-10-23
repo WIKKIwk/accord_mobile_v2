@@ -90,12 +90,14 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     try {
       await _restoreAdminPageCacheFromDisk();
       if (!mounted) return;
+      if (!_adminCacheRestored) await _joinAdminWarmSequence();
+      if (!mounted) return;
       if (_adminCacheRestored) {
         _adminCacheRestored = false;
         await _ensureAdminModule(_module);
         if (!mounted) return;
         _updateScreenState(() => _loading = false);
-        unawaited(_refreshCachedAdminApparatus());
+        if (!_adminWarmAdopted) unawaited(_refreshCachedAdminApparatus());
         unawaited(_refreshCompletionRequests());
         // A disk baseline may retain only the active prefix. Opening it must
         // not eagerly redownload every hidden tab; selecting a tab uses the

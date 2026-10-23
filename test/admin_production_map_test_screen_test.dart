@@ -25,6 +25,7 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_t
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_apparatus_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_order_page_cache.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_warm_store.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/widgets/aparatchi_dock.dart';
@@ -42,6 +43,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 part 'admin_production_map_test_screen_test_helpers_part_01.dart';
+part 'admin_production_map_warm_navigation_test_part.dart';
 part 'admin_production_map_test_screen_test_helpers_part_02.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_01.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_02.dart';
@@ -195,6 +197,7 @@ void main() {
   _registerPageStreamRaceTests();
   _registerConnectionIndicatorTests();
   _registerAdminPageCacheTests();
+  _registerAdminWarmNavigationTests();
   _registerAdminPersistentPageCacheTests();
   _registerSequenceStreamSyncTests();
   _registerSequencePositionsTests();
