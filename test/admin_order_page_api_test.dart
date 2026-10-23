@@ -58,6 +58,7 @@ void main() {
                   '/v1/mobile/admin/production-maps/order-page');
               expect(request.url.queryParameters, {
                 'view': 'sequence',
+                'projection': 'sequence_list_v1',
                 'apparatus': 'apparatus:default:bosma_8',
                 'search': 'old order',
                 'limit': '20',
