@@ -522,6 +522,44 @@ void main() {
     await harness.dispose(tester);
   });
 
+  testWidgets('sequence preview accepts detail while temporarily covered',
+      (tester) async {
+    final harness = _SummaryHarness()
+      ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(_detailPreview(), findsOneWidget);
+    final previewRoute = harness.routeObserver.popupRoutes.single;
+    final navigator =
+        tester.state<NavigatorState>(find.byType(Navigator).first);
+    unawaited(navigator.push<void>(MaterialPageRoute(
+      builder: (_) => const Scaffold(body: Text('Temporary covering route')),
+    )));
+    await tester.pumpAndSettle();
+    expect(find.text('Temporary covering route'), findsOneWidget);
+    harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+    await tester.pumpAndSettle();
+    expect(
+        find.byWidgetPredicate(
+            (widget) =>
+                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet',
+            skipOffstage: false),
+        findsOneWidget,
+        reason:
+            'A covered active modal must still accept its valid detail read');
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(_detailSheet(), findsOneWidget);
+    expect(_detailPreview(), findsNothing);
+    expect(harness.detailReads, hasLength(1));
+    expect(harness.routeObserver.popupRoutes, [previewRoute],
+        reason:
+            'Uncovering the sheet must not replace its modal or reload HTTP');
+    await harness.dispose(tester);
+  });
+
   for (final awaitingValidation in [false, true]) {
     testWidgets(
         'sequence preview close-reopen shares pending detail validation=$awaitingValidation',
