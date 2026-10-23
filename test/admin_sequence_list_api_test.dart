@@ -269,6 +269,52 @@ void main() {
     expect(page.sequenceVersions[scanApparatus], 's7');
   });
 
+  test('identity experiment is scoped and old server full pages still decode',
+      () async {
+    await http.runWithClient(() async {
+      final sequence = await MobileApi.instance.adminProductionOrderPage(
+          const AdminProductionOrderPageRequest(
+              view: 'sequence', apparatus: scanApparatus));
+      expect(sequence!.isSequenceList, isFalse);
+      expect(sequence.snapshot!.maps.single.map.id, scanOrder);
+      await MobileApi.instance.adminProductionOrderPage(
+          const AdminProductionOrderPageRequest(view: 'closed'));
+    },
+        () => MockClient((request) async {
+              expect(
+                  request.headers.keys
+                      .any((key) => key.toLowerCase() == 'accept-encoding'),
+                  isFalse);
+              if (request.url.queryParameters['view'] == 'sequence') {
+                expect(request.url.queryParameters['compression'],
+                    adminProductionReadIdentityCompression ? 'identity' : null);
+                return http.Response(
+                    jsonEncode({
+                      ..._fullDetail(),
+                      'version': 'old',
+                      'offset': 0,
+                      'total': 1,
+                      'next_cursor': null,
+                      'order_ids': [scanOrder]
+                    }),
+                    200);
+              }
+              expect(request.url.queryParameters.containsKey('compression'),
+                  isFalse);
+              return http.Response(
+                  jsonEncode({
+                    'version': 'closed',
+                    'epoch': 'server',
+                    'rev': 1,
+                    'offset': 0,
+                    'total': 0,
+                    'next_cursor': null,
+                    'closed_orders': []
+                  }),
+                  200);
+            }));
+  });
+
   test('detail requests exactly one stable order ID with full canonical data',
       () async {
     await http.runWithClient(() async {
@@ -286,6 +332,8 @@ void main() {
                 'apparatus': scanApparatus,
                 'order_id': scanOrder,
                 'detail': 'true',
+                if (adminProductionReadIdentityCompression)
+                  'compression': 'identity',
               });
               return http.Response(jsonEncode(_fullDetail()), 200);
             }));

@@ -1,6 +1,12 @@
 part of '../mobile_api.dart';
 
 const adminSequenceListProjection = 'sequence_list_v1';
+
+/// Temporary transport experiment, scoped to compact admin pages and details.
+/// Set false to restore normal server content-encoding negotiation.
+const adminProductionReadIdentityCompression = bool.fromEnvironment(
+    'ACCORD_ADMIN_IDENTITY_COMPRESSION',
+    defaultValue: true);
 final _adminSequencePresentationOrders = Expando<ProductionMapSaved>();
 
 /// Presentation states are deliberately separate from authoritative work states.
@@ -483,6 +489,9 @@ extension MobileApiAdminOrderPage on MobileApi {
             'limit': '20',
             if (request.view == 'sequence')
               'projection': adminSequenceListProjection,
+            if (request.view == 'sequence' &&
+                adminProductionReadIdentityCompression)
+              'compression': 'identity',
             if (request.apparatus.isNotEmpty) 'apparatus': request.apparatus,
             if (request.target.isNotEmpty) 'target': request.target,
             if (request.search.isNotEmpty) 'search': request.search,
@@ -514,6 +523,8 @@ extension MobileApiAdminOrderPage on MobileApi {
             'apparatus': station,
             'order_id': id,
             'detail': 'true',
+            if (adminProductionReadIdentityCompression)
+              'compression': 'identity',
           }),
           headers: _headers(requireToken()),
         ));

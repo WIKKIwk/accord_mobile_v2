@@ -59,6 +59,8 @@ void main() {
               expect(request.url.queryParameters, {
                 'view': 'sequence',
                 'projection': 'sequence_list_v1',
+                if (adminProductionReadIdentityCompression)
+                  'compression': 'identity',
                 'apparatus': 'apparatus:default:bosma_8',
                 'search': 'old order',
                 'limit': '20',
