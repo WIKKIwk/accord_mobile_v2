@@ -14,7 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Widget app(OrderAlertKind kind) => MaterialApp(
+Widget app(OrderAlertKind kind, {bool enabled = true}) => MaterialApp(
       locale: const Locale('uz'),
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -28,6 +28,7 @@ Widget app(OrderAlertKind kind) => MaterialApp(
         orderId: 'order-123',
         apparatusId: 'apparatus:default:bosma_7',
         kind: kind,
+        enabled: enabled,
       )),
     );
 
@@ -96,6 +97,33 @@ void main() {
               }));
     });
   }
+
+  testWidgets('disabled alert blocks both taps and an earlier callback',
+      (tester) async {
+    var calls = 0;
+    final button = find.byWidgetPredicate((widget) => widget is OutlinedButton);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(OrderAlertKind.qolip));
+      await tester.pumpAndSettle();
+      final earlierCallback = tester.widget<OutlinedButton>(button).onPressed!;
+      await tester.pumpWidget(app(OrderAlertKind.qolip, enabled: false));
+      await tester.pumpAndSettle();
+      expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+      earlierCallback();
+      await tester.pumpAndSettle();
+      expect(calls, 0);
+      await tester.pumpWidget(app(OrderAlertKind.qolip));
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      expect(find.text('Xabar yuborildi'), findsOneWidget);
+    },
+        () => MockClient((_) async {
+              calls++;
+              return http.Response('{"ok":true,"recipient_count":1}', 200);
+            }));
+  });
 
   testWidgets(
       'failed delivery retries with the same ID and never claims success early',

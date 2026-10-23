@@ -15,7 +15,14 @@ void _registerScanBootstrapTests() {
       await http.runWithClient(
         () async {
           await _openScanBootstrapFixture(tester, fixture);
-          await tester.pumpAndSettle();
+          if (outcome == 'domain denied') {
+            // An unresolved contract intentionally keeps the delayed progress
+            // indicator animating; settling all frames would never finish.
+            await tester.pump(const Duration(seconds: 3));
+            await tester.pump();
+          } else {
+            await tester.pumpAndSettle();
+          }
           final detailRequests = requests.where(_scanDetailRequest).toList();
           if (outcome == 'complete') {
             expect(detailRequests, hasLength(1));
@@ -59,7 +66,8 @@ void _registerScanBootstrapTests() {
             final dynamic content = tester.widget(find.byWidgetPredicate((w) =>
                 w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
             content.onMaterialsLinked();
-            await tester.pumpAndSettle();
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 350));
             expect(requests.where(_scanDetailRequest), hasLength(2));
             expect(
                 requests.where(_scanDetailRequest).every((request) =>

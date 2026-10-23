@@ -156,6 +156,7 @@ part 'admin_production_map_orders_search_helpers.dart';
 part 'admin_production_map_orders_worker_helpers.dart';
 part 'admin_production_map_orders_worker_window.dart';
 part 'admin_production_map_orders_worker_list.dart';
+part 'admin_production_map_orders_worker_presentation.dart';
 part 'admin_production_map_orders_worker_qr_context.dart';
 part 'admin_production_map_orders_apparatus_helpers.dart';
 part 'admin_production_map_orders_live_helpers.dart';

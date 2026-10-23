@@ -19,6 +19,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.customerName,
     required this.steps,
     required this.uiState,
+    this.presentationUiState,
+    this.actionsEnabled = true,
     required this.showContractSyncProgress,
     required this.pauseLabel,
     required this.queueStates,
@@ -107,6 +109,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String? customerName;
   final List<ProductionMapNode> steps;
   final _ReadOnlyOrderDetailUiState uiState;
+  /// Last confirmed display data; [uiState] remains the current authority.
+  final _ReadOnlyOrderDetailUiState? presentationUiState;
+  final bool actionsEnabled;
   final bool showContractSyncProgress;
   final String pauseLabel;
   final Map<String, String> queueStates;
@@ -189,15 +194,16 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final cardUiState = presentationUiState ?? uiState;
     final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
       map: map,
-      station: uiState.station,
-      stageNodeId: uiState.stageNodeId,
-      outputKadrCounts: uiState.rezkaOutputKadrCounts,
+      station: cardUiState.station,
+      stageNodeId: cardUiState.stageNodeId,
+      outputKadrCounts: cardUiState.rezkaOutputKadrCounts,
       l10n: context.l10n,
     );
     final rezkaMergeStateLines = _rezkaMergeStateLines(
-      inputLineage: uiState.rezkaInputLineage,
+      inputLineage: cardUiState.rezkaInputLineage,
       l10n: context.l10n,
     );
     return DraggableScrollableSheet(
@@ -335,7 +341,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     ),
                   if (!summaryOnlyMode)
                     _OrderStartUnifiedCard(
-                      uiState: uiState,
+                      uiState: cardUiState,
+                      actionsEnabled: actionsEnabled,
                       apparatusCatalog: apparatusCatalog,
                       orderCode: _openedOrderDisplayCode(map),
                       orderImageBytes: orderImageBytes,
@@ -410,28 +417,40 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                               apparatusCatalog.any((row) =>
                                   row.id == uiState.station &&
                                   row.workerMaterialAssignmentAllowed)
-                          ? WorkerMaterialUsePanel(
-                              key: ValueKey(
-                                  'worker-material-use:${map.id}:${uiState.station}'),
-                              orderId: map.id,
-                              apparatusId: uiState.station,
-                              onMaterialsUsed: onWorkerMaterialUsed!,
+                          ? IgnorePointer(
+                              ignoring: !actionsEnabled,
+                              child: ExcludeFocus(
+                                excluding: !actionsEnabled,
+                                child: WorkerMaterialUsePanel(
+                                  key: ValueKey(
+                                      'worker-material-use:${map.id}:${uiState.station}'),
+                                  orderId: map.id,
+                                  apparatusId: uiState.station,
+                                  onMaterialsUsed: onWorkerMaterialUsed!,
+                                ),
+                              ),
                             )
                           : null,
                       materialLinkRequestPanel: workerMode &&
                               !apparatusCatalog.any((row) =>
                                   row.id == uiState.station &&
                                   row.workerMaterialAssignmentAllowed) &&
-                              uiState.showStartMaterials &&
+                              cardUiState.showStartMaterials &&
                               !map.id.startsWith('training-') &&
                               onMaterialsLinked != null
-                          ? MaterialLinkRequestPanel(
-                              key: ValueKey(
-                                  'material-link:${map.id}:${uiState.station}'),
-                              orderId: map.id,
-                              apparatusId: uiState.station,
-                              onMaterialsLinked: onMaterialsLinked!,
-                              allowNewRequests: materialLinkRequestAllowed,
+                          ? IgnorePointer(
+                              ignoring: !actionsEnabled,
+                              child: ExcludeFocus(
+                                excluding: !actionsEnabled,
+                                child: MaterialLinkRequestPanel(
+                                  key: ValueKey(
+                                      'material-link:${map.id}:${uiState.station}'),
+                                  orderId: map.id,
+                                  apparatusId: uiState.station,
+                                  onMaterialsLinked: onMaterialsLinked!,
+                                  allowNewRequests: materialLinkRequestAllowed,
+                                ),
+                              ),
                             )
                           : null,
                     ),

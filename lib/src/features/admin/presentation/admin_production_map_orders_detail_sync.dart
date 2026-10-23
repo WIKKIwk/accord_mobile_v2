@@ -85,6 +85,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       // move this sheet's revision back behind an acknowledged mutation.
       control = accepted;
     }
+    _workerPresentationDenied = false;
     _acceptedDetailControl = control;
     _queueActionControl = control.control;
     _queueStates = Map<String, String>.from(_queueStates)
@@ -200,7 +201,13 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
               'forbidden',
               'order_not_available',
               'training_order_scan_bootstrap_unsupported',
-            }.contains(error.code))) return;
+            }.contains(error.code))) {
+      _setScanBootstrapState(() {
+        _lastWorkerPresentation = null;
+        _workerPresentationDenied = true;
+      });
+      return;
+    }
     // A failed HTTP read waits for a pushed revision or an explicit retry.
     _detailRecoveryNeeded = true;
   }

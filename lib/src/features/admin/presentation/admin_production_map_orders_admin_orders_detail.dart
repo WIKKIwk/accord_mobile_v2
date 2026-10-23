@@ -139,7 +139,7 @@ extension _AdminOrdersListDetails on _AdminProductionMapOrdersScreenState {
                     );
                   },
                   load: () => _readOrdersListDetail(id),
-                  builder: (detail, authority) {
+                    builder: (detail, authority, _) {
                     final saved = detail?.maps.single ?? order;
                     final templates =
                         detail?.calculationTemplates.values.toList() ??

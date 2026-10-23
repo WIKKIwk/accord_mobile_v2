@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _OrderStartUnifiedCard extends StatelessWidget {
   const _OrderStartUnifiedCard({
     required this.uiState,
+    this.actionsEnabled = true,
     required this.apparatusCatalog,
     required this.orderCode,
     required this.orderImageBytes,
@@ -135,6 +136,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final VoidCallback? onReceiveMaterial;
 
   final _ReadOnlyOrderDetailUiState uiState;
+  final bool actionsEnabled;
 
   Widget _workerStartMaterials(BuildContext context) {
     final assignments = uiState.assignedMaterialAssignments;
@@ -272,6 +274,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final actionInFlight = this.actionInFlight || !actionsEnabled;
     final scannedQolipKeys = qolipCodes
         .map((code) => code.trim().toLowerCase())
         .where((code) => code.isNotEmpty)
@@ -656,6 +659,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               materialsError.trim().isEmpty &&
               uiState.assignedMaterialAssignments.isEmpty)
             OrderAlertButton(
+              enabled: actionsEnabled,
               key: ValueKey(
                   'material-alert:${uiState.orderId}:${uiState.station}'),
               orderId: uiState.orderId,
@@ -797,6 +801,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
               requiredQolips.isEmpty) ...[
             const SizedBox(height: 12),
             OrderAlertButton(
+              enabled: actionsEnabled,
               key:
                   ValueKey('qolip-alert:${uiState.orderId}:${uiState.station}'),
               orderId: uiState.orderId,

@@ -23,6 +23,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   late Map<String, String> _stageStates;
 
   AdminApparatusQueueOrderActionControl? _queueActionControl;
+  _WorkerDetailPresentation? _lastWorkerPresentation;
+  bool _workerPresentationDenied = false;
   AdminRezkaOutputReport? _lastRezkaOutputReport;
   late AdminOrderControlState _orderControlState;
   AdminOrderControlState get _effectiveOrderControlState =>
@@ -86,6 +88,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   bool _ignoreClosedQuickScanCallbacks = false;
   bool _mergeConfirmationPending = false;
   bool _materialsLoading = true;
+  bool _materialsHaveLoaded = false;
   bool _openingMaterialReceipt = false;
   String _materialsError = '';
   bool _inputProgressLoading = false;
@@ -120,6 +123,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       widget.order.map.id.trim().startsWith('training-');
   bool get _queueActionContractSynchronized =>
       !widget.detailPending &&
+      !_workerPresentationDenied &&
       _detailReadScope == currentSessionReadScope() &&
       _queueActionControl?.isConsistentWith(
         _orderControlState,
@@ -283,6 +287,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     _materialLoadGeneration++;
     if (!mounted) return;
     setState(() {
+      _lastWorkerPresentation = null;
+      _workerPresentationDenied = false;
+      _materialsHaveLoaded = false;
       _queueActionControl = null;
       _acceptedDetailControl = null;
       _pendingDetailRevision = null;
@@ -351,6 +358,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       );
     }
     if (contextChanged) {
+      _lastWorkerPresentation = null;
+      _workerPresentationDenied = false;
+      _materialsHaveLoaded = false;
       _acceptedDetailControl = null;
       _pendingDetailRevision = null;
       _retiredDetailEpochs.clear();
@@ -588,6 +598,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final map = widget.order.map;
     final steps = _linearProductionMapNodes(map);
     final uiState = _detailUiState;
+    final pauseLabel = widget.workerMode
+        ? context.l10n.productionText(
+            _queueActionControl?.interaction?.mode ==
+                    AdminQueueInteractionMode.freezeRequested
+                ? 'worker.freeze.safe_stop.action'
+                : 'worker.action.detach_roll')
+        : context.l10n.productionText('worker.action.pause');
+    final presentation = _workerPresentationFor(uiState, pauseLabel);
+    final retainingPresentation = presentation != null &&
+        !uiState.contractSynchronized;
     final requiresQolipScan = uiState.qolipScanRequired;
     final qolipScanAllowsStart =
         !requiresQolipScan || _allRequiredQolipsScanned;
@@ -649,17 +669,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         customerName: widget.customerName,
         steps: steps,
         uiState: uiState,
+        presentationUiState: presentation?.uiState,
+        actionsEnabled: !widget.workerMode ||
+            (uiState.contractSynchronized && widget.canManageQueue &&
+                !_queueActionBusy && !_initialQrScanPending),
         showContractSyncProgress: widget.workerMode &&
             widget.canManageQueue &&
             !uiState.contractSynchronized,
-        pauseLabel: widget.workerMode
-            ? context.l10n.productionText(
-                _queueActionControl?.interaction?.mode ==
-                        AdminQueueInteractionMode.freezeRequested
-                    ? 'worker.freeze.safe_stop.action'
-                    : 'worker.action.detach_roll',
-              )
-            : context.l10n.productionText('worker.action.pause'),
+        pauseLabel: retainingPresentation ? presentation.pauseLabel : pauseLabel,
         queueStates: _queueStates,
         order: widget.order,
         queueStatesByApparatus: widget.queueStatesByApparatus,
@@ -674,7 +691,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             },
         },
         stageStates: _stageStates,
-        materialsLoading: _materialsLoading,
+        materialsLoading: _materialsLoading &&
+            (!widget.workerMode || !_materialsHaveLoaded),
         materialsError: _materialsError,
         materialStartReady: materialStartReady,
         materialStartBlockingText: materialStartBlockingText,
@@ -704,12 +722,19 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         showQuickScanner: !_initialQrScanPending && scanTasks.visible,
         allowConcurrentQuickScanner: widget.workerMode && !scanTasks.merge,
         onQuickScan: _handleQuickScan,
-        requiresQolipScan: requiresQolipScan,
-        qolipScanned: qolipScanAllowsStart,
-        qolipCodes: _scannedQolipCodes.values.toList(growable: false),
-        requiredQolips: _visibleRequiredQolips,
+        requiresQolipScan: retainingPresentation
+            ? presentation.uiState.qolipScanRequired : requiresQolipScan,
+        qolipScanned: retainingPresentation
+            ? presentation.qolipScanned : qolipScanAllowsStart,
+        qolipCodes: retainingPresentation ? presentation.qolipCodes
+            : _scannedQolipCodes.values.toList(growable: false),
+        requiredQolips: retainingPresentation
+            ? presentation.requiredQolips : _visibleRequiredQolips,
         onResetQolips: () {
-          if (_queueActionBusy || _quickScanInFlight) return;
+          if (_queueActionBusy || _quickScanInFlight ||
+              (widget.workerMode && !_queueActionContractSynchronized)) {
+            return;
+          }
           setState(() {
             for (final qolip in _requiredQolips.values) {
               _seenQuickScanValues.remove(qolip.qolipCode.trim().toUpperCase());
@@ -718,10 +743,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             _quickScanStatus = '';
           });
         },
-        qolipRequirementsLoaded: _qolipRequirementsLoaded &&
-            !_qolipRequirementsLoading &&
-            _qolipRequirementsError.isEmpty,
-        qolipRequirementsStatusText: _qolipRequirementsStatusText,
+        qolipRequirementsLoaded: retainingPresentation
+            ? presentation.qolipRequirementsLoaded
+            : _qolipRequirementsLoaded && !_qolipRequirementsLoading &&
+                _qolipRequirementsError.isEmpty,
+        qolipRequirementsStatusText: retainingPresentation
+            ? presentation.qolipRequirementsStatusText
+            : _qolipRequirementsStatusText,
         startMaterialsExpanded: _startMaterialsExpanded,
         onToggleStartMaterialsExpanded: () {
           setState(() => _startMaterialsExpanded = !_startMaterialsExpanded);
@@ -1103,6 +1131,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         );
       }
       _materialsLoading = false;
+      _materialsHaveLoaded = true;
       _materialsError = '';
     });
   }
@@ -1451,6 +1480,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<bool> _runPrintPreflightFreeze() async {
+    if (widget.workerMode && !_queueActionContractSynchronized) {
+      return false;
+    }
     final request = await _loadAuthoritativeFreezeRequest();
     if (!mounted || request == null) return false;
     final control = _queueActionControl;
@@ -1917,7 +1949,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   Future<void> _handleQuickScan(String rawValue) async {
     final scanReadScope = currentSessionReadScope();
-    if (!mounted || _detailReadScope != scanReadScope) return;
+    if (!mounted || _detailReadScope != scanReadScope ||
+        (widget.workerMode && !_queueActionContractSynchronized)) {
+      return;
+    }
     // A camera callback can arrive after the scan task has ended.
     final scanTasks = _quickScanTasks(_detailUiState);
     if (_wipGuidanceOpen || _mergeConfirmationPending ||
@@ -2867,7 +2902,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     bool workerHandoff = false,
     bool removeRollFromApparatus = false,
   }) async {
-    if (_queueActionBusy) return _ProgressActionOutcome.failed;
+    if (_queueActionBusy ||
+        (widget.workerMode && !_queueActionContractSynchronized)) {
+      return _ProgressActionOutcome.failed;
+    }
     if (action == 'complete' &&
         const {'print', 'laminate'}.contains(widget.apparatus?.operation.trim()) &&
         !_queueActionContractSynchronized) {
@@ -3646,6 +3684,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.workerMode = false,
     this.initialControlConfirmed = false,
     this.currentQueueSnapshot,
+    this.currentQueueEpoch,
+    this.workerPresentationAllowed,
     this.queueSnapshotListenable,
     this.queueActionsInFlight,
     this.beginPrintPreflight,
@@ -3693,6 +3733,10 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool scopedWorkerDetail;
   final bool initialControlConfirmed;
   final AdminApparatusQueueSnapshot? Function()? currentQueueSnapshot;
+  /// The list epoch stays available while scoped action authority is withdrawn.
+  final String Function()? currentQueueEpoch;
+  /// Known list freezes withdraw retained presentation before detail arrives.
+  final bool Function()? workerPresentationAllowed;
   final ValueListenable<AdminApparatusQueueSnapshot?>? queueSnapshotListenable;
   final ValueListenable<Set<String>>? queueActionsInFlight;
   final bool Function()? beginPrintPreflight;

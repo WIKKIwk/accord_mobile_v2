@@ -16,7 +16,7 @@ class _AdminHydratedDetailHost extends StatefulWidget {
   final ({String epoch, int revision})? Function() currentCursor;
   final Future<AdminApparatusQueueSnapshot?> Function() load;
   final Widget Function(AdminApparatusQueueSnapshot?,
-      ValueNotifier<AdminApparatusQueueSnapshot?>) builder;
+      ValueNotifier<AdminApparatusQueueSnapshot?>, bool presentationAllowed) builder;
 
   @override
   State<_AdminHydratedDetailHost> createState() =>
@@ -28,6 +28,7 @@ class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
   late final ValueNotifier<AdminApparatusQueueSnapshot?> _authority;
   bool _reading = false;
   bool _pending = false;
+  bool _terminalReadDenied = false;
   int _generation = 0;
 
   @override
@@ -122,6 +123,7 @@ class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
             continue;
           }
           _snapshot = next;
+          _terminalReadDenied = false;
           _authority.value = next;
           setState(() {});
           final latest = widget.currentCursor();
@@ -130,11 +132,16 @@ class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
               (next.revision ?? -1) >= latest.revision) {
             _pending = false;
           }
-        } catch (_) {
+        } catch (error) {
           if (!mounted || generation != _generation) return;
           // Preserve rendered data, but withdraw stale action authority. A
           // later pushed revision or explicit reopen can retry the scoped read.
           _authority.value = null;
+          if (error is MobileApiException &&
+              (error.statusCode == 401 || error.statusCode == 403 ||
+                  error.code == 'order_not_available')) {
+            setState(() => _terminalReadDenied = true);
+          }
         }
       }
     } finally {
@@ -152,5 +159,6 @@ class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.builder(_snapshot, _authority);
+  Widget build(BuildContext context) =>
+      widget.builder(_snapshot, _authority, !_terminalReadDenied);
 }

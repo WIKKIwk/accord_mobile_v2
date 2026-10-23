@@ -14,6 +14,8 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'order_scan_bootstrap_fixtures.dart';
@@ -26,6 +28,11 @@ const _catalog = AdminApparatus(
     name: 'Compact worker machine',
     operation: 'print',
     technology: 'gravure');
+const _rezkaCatalog = AdminApparatus(
+    id: 'apparatus:default:rezka_1',
+    name: 'Compact Rezka machine',
+    operation: 'cut',
+    technology: 'slitting');
 
 Map<String, dynamic> _row(String id) => {
       'id': id,
@@ -44,6 +51,14 @@ Map<String, dynamic> _row(String id) => {
     };
 
 class _CompactHarness {
+  _CompactHarness({this.catalog = _catalog});
+
+  final AdminApparatus catalog;
+  String get stationId => catalog.id;
+  String epoch = _epoch;
+  final orderControlStates = <String, String>{};
+  final detailControlPatch = <String, dynamic>{};
+  final detailNodePatch = <String, dynamic>{};
   final events = StreamController<Object>.broadcast();
   final details = <({String apparatus, String orderId})>[];
   Completer<AdminApparatusQueueSnapshot>? pending;
@@ -72,41 +87,46 @@ class _CompactHarness {
 
   Map<String, dynamic> wire() => {
         'projection': 'worker_list_v1',
-        'epoch': _epoch,
+        'epoch': epoch,
         'rev': revision,
         'scope': 'compact-worker-10',
-        'sequences': {_station: visible},
-        'visible_order_ids': {_station: visible},
-        'sequence_versions': {_station: 'a' * 64},
-        'sequence_revisions': {_station: 5},
+        'sequences': {stationId: visible},
+        'visible_order_ids': {stationId: visible},
+        'sequence_versions': {stationId: 'a' * 64},
+        'sequence_revisions': {stationId: 5},
         'sequence_positions_by_apparatus': {
-          _station: {
+          stationId: {
             for (final id in visible) id: id == 'zakaz-a' ? 8 : 3,
           }
         },
         'queue_policies': [
           {
-            'apparatus_id': _station,
-            'apparatus': 'Compact worker machine',
+            'apparatus_id': stationId,
+            'apparatus': catalog.name,
             'policy': 'strict_sequence',
             'locked': false,
             'reason': '',
           }
         ],
         'queue_states': {
-          _station: {for (final id in visible) id: queueStates[id] ?? 'pending'}
+          stationId: {
+            for (final id in visible) id: queueStates[id] ?? 'pending'
+          }
         },
-        'order_controls': <String, dynamic>{},
+        'order_controls': {
+          for (final entry in orderControlStates.entries)
+            entry.key: {'state': entry.value},
+        },
         'worker_list_rows': {
           for (final id in {...visible, if (includeHistory) 'zakaz-history'})
             id: _row(id),
         },
         'worker_display_states': {
-          _station: {for (final id in visible) id: states[id] ?? 'pending'}
+          stationId: {for (final id in visible) id: states[id] ?? 'pending'}
         },
         'worker_report_prompts': {
           if (reportPrompt)
-            _station: {
+            stationId: {
               'zakaz-a': {
                 'report_session_id': 'report-session-one',
                 'upstream_title': 'Upstream print machine',
@@ -118,7 +138,7 @@ class _CompactHarness {
           if (includeHistory)
             {
               'order_id': 'zakaz-history',
-              'apparatus': _station,
+              'apparatus': stationId,
               'status': 'completed',
               'issue_note': '',
               'completed_at_unix': 700,
@@ -150,8 +170,9 @@ class _CompactHarness {
                 {
                   'id': 'work',
                   'kind': 'apparatus',
-                  'apparatus_id': _station,
-                  'title': 'Full work stage'
+                  'apparatus_id': stationId,
+                  'title': 'Full work stage',
+                  ...detailNodePatch
                 },
                 {'id': 'end', 'kind': 'end', 'title': 'Finished product'},
               ],
@@ -164,19 +185,24 @@ class _CompactHarness {
           })
         ],
         sequences: {
-          _station: [id]
+          stationId: [id]
         },
         visibleOrderIds: {
-          _station: [id]
+          stationId: [id]
         },
         queueStates: {
-          _station: {id: detailState}
+          stationId: {id: detailState}
         },
         queuePolicies: const {},
-        orderControls: const {},
+        orderControls: {
+          for (final entry in orderControlStates.entries)
+            entry.key: entry.value == 'frozen'
+                ? AdminOrderControlState.frozen
+                : AdminOrderControlState.active,
+        },
         stageStates: const {},
         queueActionControls: {
-          _station: {
+          stationId: {
             if (includeDetailControl)
               id: AdminApparatusQueueOrderActionControl.fromJson({
                 ...scanControl(),
@@ -201,6 +227,7 @@ class _CompactHarness {
                     'report_session_id': detailReportSessionId,
                     'upstream_title': 'Upstream print machine',
                   },
+                ...detailControlPatch,
               })
           }
         },
@@ -216,6 +243,10 @@ class _CompactHarness {
 
   Future<void> mount(WidgetTester tester,
       {Size viewport = const Size(390, 844)}) async {
+    if (!AppSession.instance.profile!.assignedApparatus.contains(stationId)) {
+      AppSession.instance.profile =
+          AppSession.instance.profile!.copyWith(assignedApparatus: [stationId]);
+    }
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = viewport;
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -232,7 +263,7 @@ class _CompactHarness {
       home: AdminProductionMapOrdersScreen(
         workerMode: true,
         readOnly: true,
-        apparatusLoader: () async => [_catalog],
+        apparatusLoader: () async => [catalog],
         queueSnapshotLoader: () async {
           queueReads++;
           return snapshot();
@@ -252,6 +283,98 @@ class _CompactHarness {
     await tester.pump(const Duration(seconds: 35));
     expect(tester.takeException(), isNull);
   }
+}
+
+_CompactHarness _presentationHarness(String scenario) {
+  final harness = _CompactHarness(
+      catalog: scenario == 'Rezka running' ? _rezkaCatalog : _catalog);
+  final state = switch (scenario) {
+    'Rezka running' => 'in_progress',
+    'paused resume' => 'paused',
+    'print preflight' => 'print_preflight',
+    _ => 'pending',
+  };
+  harness.detailState = state;
+  harness.states['zakaz-a'] = state;
+  harness.queueStates['zakaz-a'] =
+      scenario == 'repeated fresh start' ? 'completed' : state;
+  harness.detailControlPatch.addAll({
+    'allowed_actions': switch (state) {
+      'in_progress' => ['pause', 'complete', 'merge'],
+      'paused' => ['resume'],
+      'print_preflight' => <String>[],
+      _ => ['start'],
+    },
+    'interaction': {
+      ...scanControl()['interaction'] as Map,
+      'mode': state == 'pending'
+          ? 'fresh_start'
+          : state == 'print_preflight'
+              ? 'fresh_start_blocked'
+              : state,
+      'start_materials_mode': 'hidden',
+      'material_scan_required': false,
+      'resume_input_required': false,
+      'previous_wip_mode': 'not_required',
+      'opening_wip_mode': 'not_required',
+      'qolip_mode':
+          scenario == 'Qolip start' ? 'scan_required' : 'not_required',
+      'blocking_reason_code':
+          state == 'print_preflight' ? 'print_preflight_active' : '',
+    },
+    if (state == 'print_preflight')
+      'print_preflight': {
+        'hold_id': 'presentation-hold',
+        'idempotency_key': 'presentation-hold',
+        'order_id': 'zakaz-a',
+        'apparatus': harness.stationId,
+        'status': 'running',
+        'revision': 1,
+      },
+    if (scenario == 'Rezka running') ...{
+      'rezka_output_kadr_counts': [2, 3],
+      'rezka_input_lineage': [
+        for (var index = 1; index <= 2; index++)
+          {
+            'input_batch_id': 'presentation-input-$index',
+            'source_kind': 'progress_batch',
+            'sequence_no': index,
+            'status': index == 1 ? 'processed' : 'in_use',
+          },
+      ],
+    },
+  });
+  if (scenario == 'Rezka running') {
+    harness.detailNodePatch.addAll({
+      // Server-selected outputs must survive a refresh without falling back
+      // to this deliberately different saved-map plan.
+      'rezka_frame_groups': [9],
+      'rezka_label_length': 125,
+    });
+  }
+  return harness;
+}
+
+Finder _privateWidget(String type) =>
+    find.byWidgetPredicate((widget) => widget.runtimeType.toString() == type);
+Finder _presentationActionGroup(String scenario) =>
+    find.byKey(ValueKey(switch (scenario) {
+      'Rezka running' => 'production-order-pause-complete-visible',
+      'paused resume' => 'production-order-resume-visible',
+      'print preflight' => 'production-order-print-preflight-outcome',
+      _ => 'production-order-start-action',
+    }));
+List<ButtonStyleButton> _actionButtons(WidgetTester tester, String scenario) {
+  final group = _presentationActionGroup(scenario);
+  final widget = tester.widget(group);
+  return widget is ButtonStyleButton
+      ? [widget]
+      : tester
+          .widgetList<ButtonStyleButton>(find.descendant(
+              of: group,
+              matching:
+                  find.byWidgetPredicate((item) => item is ButtonStyleButton)))
+          .toList();
 }
 
 Finder _workerRow(String id) => find.byKey(ValueKey('worker-order-$id'));
@@ -353,6 +476,9 @@ void main() {
         reason:
             'Missing controls are expected while compact detail is loading');
     expect(_content(tester).uiState.contractSynchronized, isFalse);
+    expect(find.byKey(const ValueKey('production-order-start-action')),
+        findsNothing,
+        reason: 'An initial summary must not fabricate a confirmed action');
     expect(harness.details, [(apparatus: _station, orderId: 'zakaz-a')]);
     final dynamic sheet = tester.widget(_sheet(pending: true));
     expect(sheet.onQueueAction, isNull);
@@ -537,8 +663,11 @@ void main() {
       expect(_contractProgress(), findsOneWidget);
       expect(_contractWarning(), findsNothing);
       expect(_content(tester).uiState.contractSynchronized, isFalse);
-      expect(find.widgetWithText(FilledButton, 'Boshlash'), findsNothing,
-          reason: 'Keeping a handler cannot enable an unsynchronized action');
+      final retainedStart = find.widgetWithText(FilledButton, 'Boshlash');
+      expect(retainedStart, findsOneWidget,
+          reason: 'The last confirmed action remains rendered during resync');
+      expect(tester.widget<FilledButton>(retainedStart).onPressed, isNull,
+          reason: 'Presentation cannot authorize an unsynchronized action');
       harness.pending!.complete(harness.full('zakaz-a'));
       await tester.pumpAndSettle();
       expect(_content(tester).uiState.contractSynchronized, isTrue);
@@ -547,6 +676,279 @@ void main() {
       expect(identical(tester.state(_sheet()), originalState), isTrue);
     }
     expect(harness.details, hasLength(3));
+    await harness.close(tester);
+  });
+
+  for (final scenario in [
+    'fresh start',
+    'repeated fresh start',
+    'Rezka running',
+    'paused resume',
+    'print preflight',
+    'Qolip start',
+  ]) {
+    testWidgets('compact worker preserves $scenario presentation during resync',
+        (tester) async {
+      final harness = _presentationHarness(scenario);
+      expect(
+          harness
+              .full('zakaz-a')
+              .queueActionControls[harness.stationId]!['zakaz-a']!
+              .contractValid,
+          isTrue,
+          reason: 'The presentation fixture must begin with real authority');
+      await harness.mount(tester, viewport: const Size(700, 1800));
+      await tester.tap(_workerRow('zakaz-a'));
+      await tester.pumpAndSettle();
+      final originalState = tester.state(_sheet());
+      final card = _privateWidget('_OrderStartUnifiedCard');
+      final originalHeight = tester.getSize(card).height;
+      expect(_presentationActionGroup(scenario), findsOneWidget);
+      final dynamic before = _content(tester);
+      final oldCallbacks = <VoidCallback>[
+        if (scenario == 'print preflight') ...[
+          before.onPrintPreflightPassed as VoidCallback,
+          before.onPrintPreflightFailed as VoidCallback,
+        ] else if (scenario == 'Rezka running') ...[
+          before.onPause as VoidCallback,
+          before.onMerge as VoidCallback,
+          before.onComplete as VoidCallback,
+        ] else if (scenario == 'paused resume')
+          before.onResume as VoidCallback
+        else
+          before.onStart as VoidCallback,
+      ];
+      List<String>? plan;
+      List<String>? merge;
+      if (scenario == 'Rezka running') {
+        plan = List<String>.from((tester
+                .widget(_privateWidget('_RezkaWipSplitInstruction')) as dynamic)
+            .lines);
+        merge = List<String>.from(
+            (tester.widget(_privateWidget('_RezkaMergeStateCard')) as dynamic)
+                .lines);
+        expect(_content(tester).uiState.rezkaOutputKadrCounts, [2, 3]);
+        expect(_content(tester).uiState.rezkaInputLineage, hasLength(2));
+      }
+      if (scenario == 'Qolip start') {
+        expect(find.byKey(const ValueKey('production-qolips-expansion')),
+            findsOneWidget);
+      }
+      harness
+        ..revision = 8
+        ..detailRevision = 8
+        ..pending = Completer<AdminApparatusQueueSnapshot>();
+      harness.events.add(harness.snapshot());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(_content(tester).uiState.contractSynchronized, isFalse);
+      expect(_content(tester).actionsEnabled, isFalse);
+      expect(_content(tester).presentationUiState, isNotNull);
+      expect(_presentationActionGroup(scenario), findsOneWidget);
+      expect(_actionButtons(tester, scenario), isNotEmpty);
+      expect(_actionButtons(tester, scenario).every((b) => b.onPressed == null),
+          isTrue,
+          reason: 'Rendered old controls must stay disabled');
+      expect(tester.getSize(card).height, closeTo(originalHeight, 0.5),
+          reason: 'A temporary authority gap must not collapse the card');
+      expect(identical(tester.state(_sheet()), originalState), isTrue);
+      expect(_contractWarning(), findsNothing);
+      expect(_contractProgress(), findsNothing);
+      if (scenario == 'Rezka running') {
+        expect(_content(tester).uiState.rezkaOutputKadrCounts, isEmpty);
+        expect(
+            _content(tester).presentationUiState.rezkaOutputKadrCounts, [2, 3]);
+        expect(_content(tester).presentationUiState.stageNodeId, 'work');
+        expect(_content(tester).presentationUiState.rezkaInputLineage,
+            hasLength(2));
+        expect(
+            (tester.widget(_privateWidget('_RezkaWipSplitInstruction'))
+                    as dynamic)
+                .lines,
+            plan);
+        expect(
+            (tester.widget(_privateWidget('_RezkaMergeStateCard')) as dynamic)
+                .lines,
+            merge);
+        final button =
+            find.byKey(const ValueKey('production-order-merge-action'));
+        expect(button, findsOneWidget);
+        expect(tester.widget<FilledButton>(button).onPressed, isNull);
+      }
+      if (scenario == 'Qolip start') {
+        expect(find.byKey(const ValueKey('production-qolips-expansion')),
+            findsOneWidget);
+      }
+      // Retained callbacks may be invoked after a pointer event was queued.
+      // They must not even start an HTTP read/form while authority is stale.
+      final requests = <http.Request>[];
+      await TestModeController.instance.setEnabled(false);
+      try {
+        await http.runWithClient(() async {
+          for (final callback in oldCallbacks) {
+            callback();
+          }
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(requests, isEmpty);
+          expect(_privateWidget('_ProgressQtyDialog'), findsNothing);
+        },
+            () => MockClient((request) async {
+                  requests.add(request);
+                  return http.Response(
+                      '{"error":"unexpected_stale_callback"}', 503);
+                }));
+      } finally {
+        await TestModeController.instance.setEnabled(true);
+      }
+      if (scenario == 'fresh start') {
+        harness.detailState = 'in_progress';
+        harness.detailControlPatch.clear();
+      }
+      harness.pending!.complete(harness.full('zakaz-a'));
+      await tester.pumpAndSettle();
+      expect(_content(tester).uiState.contractSynchronized, isTrue);
+      expect(identical(tester.state(_sheet()), originalState), isTrue);
+      if (scenario == 'fresh start') {
+        expect(find.byKey(const ValueKey('production-order-start-action')),
+            findsNothing);
+        expect(
+            find.byKey(
+                const ValueKey('production-order-pause-complete-visible')),
+            findsOneWidget);
+      } else {
+        expect(_presentationActionGroup(scenario), findsOneWidget);
+        if (scenario != 'Qolip start') {
+          expect(
+              _actionButtons(tester, scenario).any((b) => b.onPressed != null),
+              isTrue);
+        }
+      }
+      await harness.close(tester);
+    });
+  }
+
+  for (final boundary in ['account', 'epoch', 'order', 'freeze']) {
+    testWidgets('compact worker does not reuse presentation across $boundary',
+        (tester) async {
+      final harness = _CompactHarness();
+      await harness.mount(tester);
+      await tester.tap(_workerRow('zakaz-a'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('production-order-start-action')),
+          findsOneWidget);
+      harness.pending = Completer<AdminApparatusQueueSnapshot>();
+      var targetOrder = 'zakaz-a';
+      if (boundary == 'account') {
+        AppSession.instance.token = 'different-presentation-account';
+        AppSession.instance.profile = AppSession.instance.profile!
+            .copyWith(ref: 'different-presentation-worker');
+        AppSession.instance.revision.value++;
+      } else if (boundary == 'order') {
+        await tester
+            .tap(find.byKey(const ValueKey('production-order-detail-close')));
+        await tester.pumpAndSettle();
+        targetOrder = 'zakaz-b';
+        await tester.tap(_workerRow(targetOrder));
+      } else {
+        harness.revision = 8;
+        harness.detailRevision = 8;
+        if (boundary == 'epoch') {
+          harness.epoch = 'replacement-presentation-server';
+          harness.detailEpoch = harness.epoch;
+        } else {
+          harness.orderControlStates['zakaz-a'] = 'frozen';
+          harness.detailState = 'frozen';
+          harness.detailControlPatch.addAll({
+            'allowed_actions': <String>[],
+            'interaction': {
+              ...scanControl()['interaction'] as Map,
+              'mode': 'frozen',
+              'start_materials_mode': 'hidden',
+              'material_scan_required': false,
+              'qolip_mode': 'not_required',
+            },
+          });
+        }
+        harness.events.add(harness.snapshot());
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const ValueKey('production-order-start-action')),
+          findsNothing,
+          reason:
+              'A presentation cache cannot cross this identity/safety boundary');
+      if (boundary == 'account') {
+        expect(_sheet(), findsNothing,
+            reason: 'Switching accounts closes the old account detail route');
+      } else {
+        expect(_content(tester).uiState.contractSynchronized, isFalse);
+        expect(_content(tester).presentationUiState, isNull);
+        expect(_content(tester).actionsEnabled, isFalse);
+      }
+      harness.pending!.complete(harness.full(targetOrder));
+      await tester.pump();
+      await harness.close(tester);
+    });
+  }
+
+  testWidgets(
+      'compact worker denied detail refresh clears retained actions until validated recovery',
+      (tester) async {
+    final harness = _CompactHarness();
+    await harness.mount(tester);
+    await tester.tap(_workerRow('zakaz-a'));
+    await tester.pumpAndSettle();
+    final originalState = tester.state(_sheet());
+    final start = find.byKey(const ValueKey('production-order-start-action'));
+    expect(start, findsOneWidget);
+    expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+    final oldStart = _content(tester).onStart as VoidCallback;
+    harness
+      ..revision = 8
+      ..detailRevision = 8
+      ..detailError = const MobileApiException(
+          statusCode: 403, code: 'forbidden', message: 'Access revoked');
+    harness.events.add(harness.snapshot());
+    await tester.pumpAndSettle();
+    expect(harness.details, hasLength(2));
+    expect(_content(tester).uiState.contractSynchronized, isFalse);
+    expect(_content(tester).presentationUiState, isNull,
+        reason: 'A denied scoped read invalidates previously confirmed display');
+    expect(_content(tester).actionsEnabled, isFalse);
+    expect(start, findsNothing);
+    expect(find.byKey(const ValueKey('production-order-pause-complete-visible')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('production-order-merge-action')),
+        findsNothing);
+    final requests = <http.Request>[];
+    await TestModeController.instance.setEnabled(false);
+    try {
+      await http.runWithClient(() async {
+        oldStart();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(requests, isEmpty,
+            reason: 'A retained callback cannot operate after access denial');
+      }, () => MockClient((request) async {
+        requests.add(request);
+        return http.Response('{"error":"unexpected_denied_action"}', 503);
+      }));
+    } finally {
+      await TestModeController.instance.setEnabled(true);
+    }
+    harness
+      ..revision = 9
+      ..detailRevision = 9
+      ..detailError = null;
+    harness.events.add(harness.snapshot());
+    await tester.pumpAndSettle();
+    expect(harness.details, hasLength(3));
+    expect(_content(tester).uiState.contractSynchronized, isTrue);
+    expect(_content(tester).actionsEnabled, isTrue);
+    expect(start, findsOneWidget);
+    expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+    expect(identical(tester.state(_sheet()), originalState), isTrue);
     await harness.close(tester);
   });
 

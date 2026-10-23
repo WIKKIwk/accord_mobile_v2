@@ -12,11 +12,13 @@ class OrderAlertButton extends StatefulWidget {
     required this.orderId,
     required this.apparatusId,
     required this.kind,
+    this.enabled = true,
   });
 
   final String orderId;
   final String apparatusId;
   final OrderAlertKind kind;
+  final bool enabled;
 
   @override
   State<OrderAlertButton> createState() => _OrderAlertButtonState();
@@ -48,7 +50,7 @@ class _OrderAlertButtonState extends State<OrderAlertButton> {
   }
 
   Future<void> _send() async {
-    if (_sending || _sent) return;
+    if (!widget.enabled || _sending || _sent) return;
     final requestId = _requestId;
     setState(() {
       _sending = true;
@@ -87,7 +89,7 @@ class _OrderAlertButtonState extends State<OrderAlertButton> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         OutlinedButton.icon(
-          onPressed: _sending || _sent ? null : _send,
+          onPressed: !widget.enabled || _sending || _sent ? null : _send,
           style: OutlinedButton.styleFrom(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),

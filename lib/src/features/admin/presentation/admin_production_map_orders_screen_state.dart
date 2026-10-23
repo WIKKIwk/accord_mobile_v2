@@ -1155,6 +1155,7 @@ class _AdminProductionMapOrdersScreenState
           AdminApparatusQueueSnapshot? detail,
           ValueNotifier<AdminApparatusQueueSnapshot?> authority, {
           bool detailPending = false,
+          bool workerPresentationAllowed = true,
           String? detailError,
           VoidCallback? onRetryDetail,
         }) {
@@ -1173,6 +1174,13 @@ class _AdminProductionMapOrdersScreenState
           Widget buildSheet(({double? base, double? kg})? metrics) =>
               _ReadOnlyOrderDetailSheet(
             scopedWorkerDetail: workerHydrated,
+            currentQueueEpoch: () => _canonicalQueueSnapshot?.epoch ?? '',
+            workerPresentationAllowed: () {
+              final latest = _canonicalQueueSnapshot;
+              return workerPresentationAllowed && (latest == null ||
+                  (latest.orderControlFor(mapId) == AdminOrderControlState.active &&
+                      latest.queueStates[apparatus.id.trim()]?[mapId] != 'frozen'));
+            },
             baseMetraj: metrics?.base,
             orderKg: metrics?.kg,
             detailPending: detailPending,
@@ -1293,8 +1301,9 @@ class _AdminProductionMapOrdersScreenState
               load: () => workerHydrated
                   ? _readWorkerListDetail(apparatus, mapId)
                   : _readAdminSequenceDetail(apparatus, mapId),
-              builder: (detail, authority) => detailBuilder(detail, authority,
+              builder: (detail, authority, presentationAllowed) => detailBuilder(detail, authority,
                   detailPending: detail == null,
+                  workerPresentationAllowed: presentationAllowed,
                   detailError: error,
                   onRetryDetail: onRetry),
             );
