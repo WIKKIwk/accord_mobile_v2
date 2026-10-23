@@ -933,6 +933,10 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
+    final positions = _canonicalQueueSnapshot?.sequencePositionsByApparatus ?? const <String, Map<String, int>>{};
+    if (positions.length != snapshot.sequencePositionsByApparatus.length ||
+        snapshot.sequencePositionsByApparatus.entries.any(
+            (entry) => !mapEquals(positions[entry.key], entry.value))) return true;
     if (!mapEquals(_sequenceVersions, snapshot.sequenceVersions)) return true;
     if (!mapEquals(_sequenceRevisions, snapshot.sequenceRevisions)) return true;
     if (!setEquals(_earlyClosingOrderIds, snapshot.earlyClosingOrderIds)) return true;

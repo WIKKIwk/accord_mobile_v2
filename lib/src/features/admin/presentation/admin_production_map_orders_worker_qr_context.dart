@@ -197,6 +197,7 @@ Future<AdminApparatusQueueSnapshot?> _loadWorkerQrSnapshot({
       sequences: snapshot.sequences,
       sequenceVersions: snapshot.sequenceVersions,
       sequenceRevisions: snapshot.sequenceRevisions,
+      sequencePositionsByApparatus: snapshot.sequencePositionsByApparatus,
       visibleOrderIds: snapshot.visibleOrderIds,
       queueStates: {
         ...snapshot.queueStates,

@@ -398,7 +398,10 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     } else if (stateDelta) {
       query['protocol'] = compactStateDelta ? 'state_delta_v2' : 'state_delta_v1';
       query['worker_scope'] = '$workerScope';
-      if (queueLimit != null) query['queue_limit'] = '$queueLimit';
+      if (queueLimit != null) {
+        query['queue_limit'] = '$queueLimit';
+        if (workerScope) query['queue_positions'] = 'true';
+      }
       if (queueSearch.trim().isNotEmpty) query['queue_search'] = queueSearch.trim();
       query['epoch'] = epoch;
       query['scope'] = scope;

@@ -28,6 +28,7 @@ Map<String, dynamic> encodeProductionMapQueueSnapshot(
     'sequences': snapshot.sequences,
     'sequence_versions': snapshot.sequenceVersions,
     'sequence_revisions': snapshot.sequenceRevisions,
+    'sequence_positions_by_apparatus': snapshot.sequencePositionsByApparatus,
     'visible_order_ids': snapshot.visibleOrderIds,
     'queue_states': snapshot.queueStates,
     'stage_states': snapshot.stageStates,

@@ -99,7 +99,10 @@ extension MobileApiAdminQueueState on MobileApi {
               if (apparatus.isNotEmpty) 'apparatus': apparatus,
               if (apparatus.isNotEmpty) 'order_id': orderId,
               if (workerScope) 'worker_scope': 'true',
-              if (workerScope && queueLimit != null) 'queue_limit': '$queueLimit',
+              if (workerScope && queueLimit != null) ...{
+                'queue_limit': '$queueLimit',
+                'queue_positions': 'true',
+              },
               if (workerScope && queueSearch.trim().isNotEmpty) 'queue_search': queueSearch.trim(),
               if (since != null) ...{
                 'if_epoch': since.epoch,

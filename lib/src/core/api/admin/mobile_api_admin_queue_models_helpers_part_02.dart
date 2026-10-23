@@ -48,11 +48,45 @@ void _requireProductionMapQueueStates(Object? raw) {
   }
 }
 
+int _productionMapSequencePosition(Object? raw) {
+  if (raw is! int || raw <= 0) {
+    throw _productionMapQueueContractException('sequence position must be a positive integer');
+  }
+  return raw;
+}
+
+Map<String, Map<String, int>> _parseProductionMapSequencePositions(
+    Map<String, dynamic> payload) {
+  if (!payload.containsKey('sequence_positions_by_apparatus')) return const {};
+  final raw = payload['sequence_positions_by_apparatus'];
+  if (raw is! Map) {
+    throw _productionMapQueueContractException('sequence positions must be an object');
+  }
+  final result = <String, Map<String, int>>{};
+  for (final apparatus in raw.entries) {
+    if (apparatus.key is! String ||
+        !isCanonicalApparatusId(apparatus.key as String) ||
+        apparatus.value is! Map) {
+      throw _productionMapQueueContractException('invalid sequence position apparatus');
+    }
+    final positions = <String, int>{};
+    for (final order in (apparatus.value as Map).entries) {
+      if (order.key is! String || (order.key as String).trim().isEmpty) {
+        throw _productionMapQueueContractException('invalid sequence position order');
+      }
+      positions[order.key as String] = _productionMapSequencePosition(order.value);
+    }
+    result[apparatus.key as String] = Map.unmodifiable(positions);
+  }
+  return Map.unmodifiable(result);
+}
+
 class AdminApparatusQueueSnapshot {
   const AdminApparatusQueueSnapshot({
     required this.sequences,
     this.sequenceVersions = const {},
     this.sequenceRevisions = const {},
+    this.sequencePositionsByApparatus = const {},
     required this.visibleOrderIds,
     required this.queueStates,
     required this.queuePolicies,
@@ -74,6 +108,8 @@ class AdminApparatusQueueSnapshot {
   final Map<String, String> sequenceVersions;
   /// Durable cursors for each apparatus; unrelated to the global snapshot rev.
   final Map<String, int> sequenceRevisions;
+  /// One-based ranks in each full eligible queue, before search/windowing.
+  final Map<String, Map<String, int>> sequencePositionsByApparatus;
   final Map<String, List<String>> visibleOrderIds;
   final Map<String, Map<String, String>> queueStates;
   final Map<String, Map<String, String>> stageStates;
@@ -104,6 +140,17 @@ class AdminApparatusQueueSnapshot {
   }
 
   void validateContract() {
+    for (final apparatus in sequencePositionsByApparatus.entries) {
+      final visible = (visibleOrderIds[apparatus.key] ?? const <String>[]).toSet();
+      if (!isCanonicalApparatusId(apparatus.key) ||
+          apparatus.value.length != visible.length ||
+          apparatus.value.values.toSet().length != apparatus.value.length ||
+          apparatus.value.entries.any((order) =>
+              order.key.trim().isEmpty || order.value <= 0 ||
+              !visible.contains(order.key))) {
+        throw _productionMapQueueContractException('invalid sequence positions');
+      }
+    }
     _validateProductionMapQueueContract(
       sequences: sequences,
       visibleOrderIds: visibleOrderIds,

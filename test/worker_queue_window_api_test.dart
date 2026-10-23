@@ -52,6 +52,7 @@ void main() {
                 expect(request.url.queryParameters, {
                   'worker_scope': 'true',
                   'queue_limit': '$limit',
+                  'queue_positions': 'true',
                   'queue_search': 'old order',
                 });
                 return http.Response(
@@ -79,11 +80,16 @@ void main() {
         queueSearch: 'old order',
       );
       expect(uri.queryParameters['queue_limit'], '$limit');
+      expect(uri.queryParameters['queue_positions'], 'true');
       expect(uri.queryParameters['queue_search'], 'old order');
       expect(uri.queryParameters['worker_scope'], 'true');
       expect(uri.queryParameters['protocol'], 'state_delta_v2');
       final legacy = MobileApi.instance.adminProductionMapLiveUri(delta: true);
       expect(legacy.queryParameters.containsKey('queue_limit'), isFalse);
+      expect(legacy.queryParameters.containsKey('queue_positions'), isFalse);
+      final admin = MobileApi.instance.adminProductionMapLiveUri(
+          stateDelta: true, workerScope: false, queueLimit: limit);
+      expect(admin.queryParameters.containsKey('queue_positions'), isFalse);
     });
   }
 

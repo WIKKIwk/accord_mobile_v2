@@ -30,6 +30,7 @@ AdminApparatusQueueSnapshot _productionMapQueueSnapshotFromJson(
   final snapshot = AdminApparatusQueueSnapshot(
     sequenceVersions: _stringMapOfStrings(payload['sequence_versions']),
     sequenceRevisions: _parseSequenceRevisions(payload['sequence_revisions']),
+    sequencePositionsByApparatus: _parseProductionMapSequencePositions(payload),
     sequences:
         MobileApi.instance.parseApparatusSequenceMap(payload['sequences']),
     visibleOrderIds: visibleOrderIds,

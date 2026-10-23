@@ -135,6 +135,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     required super.sequences,
     super.sequenceVersions,
     super.sequenceRevisions,
+    super.sequencePositionsByApparatus,
     required super.visibleOrderIds,
     required super.queueStates,
     required super.queuePolicies,
@@ -170,6 +171,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     final snapshot = AdminProductionMapLiveSnapshot(
       sequenceVersions: _stringMapOfStrings(json['sequence_versions']),
       sequenceRevisions: _parseSequenceRevisions(json['sequence_revisions']),
+      sequencePositionsByApparatus: _parseProductionMapSequencePositions(json),
       maps: parseProductionMapSnapshotMaps(mapsRaw),
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],

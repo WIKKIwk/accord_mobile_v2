@@ -269,6 +269,7 @@ AdminApparatusQueueSnapshot _copyOrderPageSnapshot(
     {List<ProductionMapSaved>? maps}) => AdminApparatusQueueSnapshot(
   sequences: before.sequences, sequenceVersions: before.sequenceVersions,
   sequenceRevisions: before.sequenceRevisions, visibleOrderIds: before.visibleOrderIds,
+  sequencePositionsByApparatus: before.sequencePositionsByApparatus,
   queueStates: before.queueStates, queuePolicies: before.queuePolicies,
   orderControls: before.orderControls, earlyClosingOrderIds: before.earlyClosingOrderIds,
   queueActionControls: before.queueActionControls, stageStates: before.stageStates,

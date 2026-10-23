@@ -184,6 +184,7 @@ class AdminProductionMapLiveStateDelta
       'sequences',
       'sequence_versions',
       'sequence_revisions',
+      'sequence_positions_by_apparatus',
       'visible_order_ids',
       'queue_states',
       'stage_states',
@@ -284,6 +285,9 @@ class AdminProductionMapLiveStateDelta
           before.sequenceRevisions,
           patch['sequence_revisions'],
           (raw) => _parseSequenceRevisions({'revision': raw})['revision']!),
+      sequencePositionsByApparatus: _applyProductionMapNestedPatch(
+          before.sequencePositionsByApparatus,
+          patch['sequence_positions_by_apparatus'], _productionMapSequencePosition),
       visibleOrderIds: _applyProductionMapSequencePatch(
           before.visibleOrderIds, patch['visible_order_ids'],
           compact: protocol == 'state_delta_v2'),

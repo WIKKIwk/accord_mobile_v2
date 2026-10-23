@@ -597,6 +597,7 @@ class _AdminProductionMapOrdersScreenState
                       child: widget.workerMode
                           ? _WorkerWatchBody(
                               queueLimit: _workerQueueLimit,
+                              sequencePositionsByApparatus: _canonicalQueueSnapshot?.sequencePositionsByApparatus ?? const {},
                               apparatus: _workerVisibleApparatusFor(_apparatus),
                               assignedApparatus: AppSession
                                       .instance.profile?.assignedApparatus ??

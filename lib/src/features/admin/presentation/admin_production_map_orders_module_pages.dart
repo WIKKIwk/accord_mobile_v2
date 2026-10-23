@@ -704,6 +704,7 @@ class _AuditCountChip extends StatelessWidget {
 
 class _WorkerWatchBody extends StatelessWidget {
   const _WorkerWatchBody({
+    this.sequencePositionsByApparatus = const {},
     this.queueLimit = WorkerQueueLimitStore.defaultLimit,
     required this.workActivityByApparatus,
     required this.queuePoliciesByApparatus,
@@ -738,6 +739,7 @@ class _WorkerWatchBody extends StatelessWidget {
   final List<ProductionMapSaved> orders;
   final List<AdminCompletedQueueOrder> completedOrders;
   final Map<String, List<String>> sequenceByApparatus;
+  final Map<String, Map<String, int>> sequencePositionsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, Map<String, String>> queueStatesByApparatus;
   final Map<String, Map<String, String>> stageStatesByOrderId;
@@ -775,7 +777,8 @@ class _WorkerWatchBody extends StatelessWidget {
               : orders.take(queueLimit))
           .toList(growable: false);
 
-  List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item) {
+  List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item,
+      {bool unfiltered = false}) {
     final visibleOrders = _productionMapOrdersForApparatus(
       orders: orders,
       apparatus: item,
@@ -789,10 +792,18 @@ class _WorkerWatchBody extends StatelessWidget {
       workerMode: true,
       orderControlsByOrderId: orderControlsByOrderId,
       excludeFrozen: true,
-      query: searchQuery,
+      query: unfiltered ? '' : searchQuery,
     );
-    return _limitOrders(visibleOrders);
+    return unfiltered ? visibleOrders : _limitOrders(visibleOrders);
   }
+
+  Map<String, int> _sequencePositionsForApparatus(AdminApparatus item) =>
+      sequencePositionsByApparatus[item.id.trim()] ?? {
+        // Legacy full snapshots still retain ranks across local search.
+        for (final (index, order) in
+            _ordersForApparatus(item, unfiltered: true).indexed)
+          order.map.id.trim(): index + 1,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -841,6 +852,7 @@ class _WorkerWatchBody extends StatelessWidget {
                           onLongPressOrder: onLongPressCompletedOrder,
                         )
                       : _AparatchiWatchSequencePage(
+                          sequencePositions: _sequencePositionsForApparatus(tab.apparatus!),
                           queueActionControls:
                               queueActionControlsByApparatus[tab.apparatus!.id
                                   .trim()] ??
@@ -887,6 +899,7 @@ class _WorkerWatchBody extends StatelessWidget {
 
 class _AparatchiWatchSequencePage extends StatelessWidget {
   const _AparatchiWatchSequencePage({
+    this.sequencePositions = const {},
     required this.workActivity,
     required this.workerRole,
     required this.workerRef,
@@ -906,6 +919,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
   final String workerRole;
   final String workerRef;
   final AdminApparatus apparatus;
+  final Map<String, int> sequencePositions;
   final List<ProductionMapSaved> orders;
   final double bottomPadding;
   final bool isAssigned;
@@ -983,6 +997,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                               ),
                           order: orders[index],
                           index: index,
+                          position: sequencePositions[orders[index].map.id.trim()],
                           readOnly: true,
                           onTap: () => onTapOrder(orders[index]),
                           onLongPress: () => onLongPressOrder(orders[index]),
