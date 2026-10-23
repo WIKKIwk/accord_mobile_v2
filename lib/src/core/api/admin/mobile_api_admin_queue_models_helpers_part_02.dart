@@ -105,6 +105,7 @@ class AdminApparatusQueueSnapshot {
     this.workerListRows = const {},
     this.workerDisplayStates = const {},
     this.workerReportPrompts = const {},
+    this.workerPendingReportIds = const {},
     this.revision,
     this.epoch = '',
     this.scope = '',
@@ -116,6 +117,8 @@ class AdminApparatusQueueSnapshot {
   final Map<String, WorkerOrderListRow> workerListRows;
   final Map<String, Map<String, String>> workerDisplayStates;
   final Map<String, Map<String, WorkerStageReportPrompt>> workerReportPrompts;
+  /// Ordered report candidates for QR fallback, never action authority.
+  final Map<String, List<String>> workerPendingReportIds;
 
   final Map<String, List<String>> sequences;
   final Map<String, String> sequenceVersions;

@@ -179,6 +179,7 @@ class AdminProductionMapLiveStateDelta
     final patch = _productionMapPatchObject(json['patch']);
     const known = {
       'worker_list_rows', 'worker_display_states', 'worker_report_prompts',
+      'worker_pending_report_ids',
       'maps',
       'map_order',
       'map_order_edit',
@@ -287,6 +288,9 @@ class AdminProductionMapLiveStateDelta
     }
     final snapshot = AdminApparatusQueueSnapshot(
       projection: before.projection,
+      workerPendingReportIds: _applyProductionMapSequencePatch(
+          before.workerPendingReportIds, patch['worker_pending_report_ids'],
+          compact: protocol == 'state_delta_v2'),
       workerListRows: _applyProductionMapFieldPatch(before.workerListRows,
           patch['worker_list_rows'], (raw) => WorkerOrderListRow.fromJson(_productionMapPatchObject(raw))),
       workerDisplayStates: _applyProductionMapNestedPatch(before.workerDisplayStates,

@@ -38,6 +38,9 @@ Map<String, dynamic> _workerList() => {
           'work-history': 'completed'
         }
       },
+      'worker_pending_report_ids': {
+        _station: ['work-history', 'work-2']
+      },
       'worker_report_prompts': {
         _station: {
           'work-2': {'report_session_id': 'report-1', 'upstream_title': 'Bosma'}
@@ -146,6 +149,8 @@ void main() {
     ]) {
       expect(snapshot.isWorkerList, isTrue);
       expect(snapshot.maps, isEmpty);
+      expect(snapshot.workerPendingReportIds[_station],
+          ['work-history', 'work-2']);
       expect(snapshot.workerListRows.length, 3);
       expect(snapshot.workerListRows['work-1']!.title, 'Mahsulot 😀');
       expect(snapshot.workerDisplayStates[_station]!['work-2'], 'in_progress');
@@ -216,6 +221,7 @@ void main() {
     expect(after.isWorkerList, isTrue);
     expect(after.workerListRows.keys, before.workerListRows.keys);
     expect(after.workerDisplayStates, before.workerDisplayStates);
+    expect(after.workerPendingReportIds[_station], ['work-history', 'work-2']);
     expect(after.workerReportPrompts[_station]!['work-2']!.reportSessionId,
         'report-1');
     expect(after.maps, isEmpty);
@@ -236,6 +242,10 @@ void main() {
       (w) => w['worker_list_rows'].remove('work-1'),
       (w) => w['worker_list_rows'].remove('work-history'),
       (w) => w['worker_list_rows'] = [],
+      (w) => w['worker_pending_report_ids'] = {'bad': <String>[]},
+      (w) => w['worker_pending_report_ids'][_station] = ['work-1', 'work-1'],
+      (w) => w['worker_pending_report_ids'][_station] = ['unknown'],
+      (w) => w['worker_pending_report_ids'][_station] = [1],
       (w) => w['worker_display_states'][_station]['work-1'] = 'unknown',
       (w) => w['worker_display_states'][_station].remove('work-1'),
       (w) => w['worker_display_states']['bad'] = {},
@@ -426,10 +436,54 @@ void main() {
     };
     expect(() => _delta(removal).applyTo(before),
         throwsA(isA<MobileApiException>()));
-    final after =
-        _delta({...removal, 'completed_orders': <Object>[]}).applyTo(before);
+    final after = _delta({
+      ...removal,
+      'completed_orders': <Object>[],
+      'worker_pending_report_ids': _field({
+        _station: ['work-2']
+      })
+    }).applyTo(before);
     expect(after.workerListRows.containsKey('work-history'), isFalse);
     expect(before.workerListRows.containsKey('work-history'), isTrue);
+  });
+
+  test(
+      'pending report ordering is preserved through sparse deltas and warm copy',
+      () {
+    final before = decodeCachedProductionMapQueueSnapshot(_workerList());
+    final after = _delta({
+      'worker_pending_report_ids': _field({
+        _station: ['work-2', 'work-history']
+      })
+    }).applyTo(before);
+    expect(after.workerPendingReportIds[_station], ['work-2', 'work-history']);
+    expect(before.workerPendingReportIds[_station], ['work-history', 'work-2']);
+    final wrapped = workerWarmLiveSnapshot(after,
+        completed: (before as AdminProductionMapLiveSnapshot).completedOrders,
+        requests: before.completionRequests,
+        decisions: before.completionRequestDecisions);
+    expect(
+        identical(wrapped.workerPendingReportIds, after.workerPendingReportIds),
+        isTrue);
+    expect(
+        decodeCachedProductionMapQueueSnapshot(
+                encodeProductionMapQueueSnapshot(wrapped))
+            .workerPendingReportIds[_station],
+        ['work-2', 'work-history']);
+    expect(
+        () => _delta({
+              'worker_pending_report_ids': _field({
+                _station: ['work-1', 'work-1']
+              })
+            }).applyTo(before),
+        throwsA(isA<MobileApiException>()));
+    expect(
+        () => _delta({
+              'worker_pending_report_ids': _field({
+                _station: ['unknown']
+              })
+            }).applyTo(before),
+        throwsA(isA<MobileApiException>()));
   });
 
   test('worker single detail requests one ID and returns full action authority',

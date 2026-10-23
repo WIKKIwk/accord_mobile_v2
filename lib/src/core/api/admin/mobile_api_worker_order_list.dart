@@ -96,6 +96,7 @@ const _workerListFields = {
   'worker_list_rows',
   'worker_display_states',
   'worker_report_prompts',
+  'worker_pending_report_ids',
 };
 
 Map<String, WorkerOrderListRow> _parseWorkerListRows(Object? raw) {
@@ -116,6 +117,12 @@ Map<String, WorkerOrderListRow> _parseWorkerListRows(Object? raw) {
     rows[entry.key as String] = row;
   }
   return Map.unmodifiable(rows);
+}
+
+Map<String, List<String>> _parseWorkerPendingReportIds(Object? raw) {
+  if (raw == null) return const {};
+  _requireProductionMapStringListMap(raw, 'worker_pending_report_ids');
+  return MobileApi.instance.parseApparatusSequenceMap(raw);
 }
 
 String _workerDisplayState(Object? raw) {
@@ -192,6 +199,8 @@ AdminProductionMapLiveSnapshot _workerListSnapshotFromJson(
   _validateWorkerListControls(json['order_controls']);
   final snapshot = AdminProductionMapLiveSnapshot(
     projection: workerOrderListProjection,
+    workerPendingReportIds:
+        _parseWorkerPendingReportIds(json['worker_pending_report_ids']),
     workerListRows: _parseWorkerListRows(json['worker_list_rows']),
     workerDisplayStates: _parseWorkerListNested(
         json['worker_display_states'], _workerDisplayState),
@@ -273,6 +282,14 @@ void _validateWorkerListSnapshot(AdminApparatusQueueSnapshot snapshot) {
             !adminSequenceListDisplayStates.contains(e.value))) {
       throw _productionMapQueueContractException(
           'invalid worker display membership');
+    }
+  }
+  for (final scope in snapshot.workerPendingReportIds.entries) {
+    if (!isCanonicalApparatusId(scope.key) ||
+        scope.value.toSet().length != scope.value.length ||
+        scope.value.any((id) => !snapshot.workerListRows.containsKey(id))) {
+      throw _productionMapQueueContractException(
+          'invalid pending worker report membership');
     }
   }
   for (final scope in snapshot.workerReportPrompts.entries) {

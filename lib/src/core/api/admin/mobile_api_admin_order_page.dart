@@ -871,6 +871,7 @@ AdminApparatusQueueSnapshot _copyOrderPageSnapshot(
       workerListRows: before.workerListRows,
       workerDisplayStates: before.workerDisplayStates,
       workerReportPrompts: before.workerReportPrompts,
+      workerPendingReportIds: before.workerPendingReportIds,
       calculationTemplates: before.calculationTemplates,
       revision: revision,
       epoch: before.epoch,

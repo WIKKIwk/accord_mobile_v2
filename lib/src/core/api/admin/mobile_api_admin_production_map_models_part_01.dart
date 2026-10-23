@@ -136,6 +136,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     super.workerListRows = const {},
     super.workerDisplayStates = const {},
     super.workerReportPrompts = const {},
+    super.workerPendingReportIds = const {},
     super.calculationTemplates = const {},
     required super.sequences,
     super.sequenceVersions,

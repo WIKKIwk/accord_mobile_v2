@@ -450,6 +450,7 @@ AdminProductionMapLiveSnapshot workerWarmLiveSnapshot(
       workerListRows: snapshot.workerListRows,
       workerDisplayStates: snapshot.workerDisplayStates,
       workerReportPrompts: snapshot.workerReportPrompts,
+      workerPendingReportIds: snapshot.workerPendingReportIds,
       calculationTemplates: snapshot.calculationTemplates,
       sequences: snapshot.sequences,
       sequenceVersions: snapshot.sequenceVersions,

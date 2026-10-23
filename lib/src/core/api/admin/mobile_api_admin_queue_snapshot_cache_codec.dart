@@ -155,6 +155,7 @@ Map<String, dynamic> encodeProductionMapQueueSnapshot(
           entry.key: entry.value.toJson(),
       },
       'worker_display_states': snapshot.workerDisplayStates,
+      'worker_pending_report_ids': snapshot.workerPendingReportIds,
       'worker_report_prompts': {
         for (final scope in snapshot.workerReportPrompts.entries)
           scope.key: {
