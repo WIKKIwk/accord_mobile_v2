@@ -19,6 +19,9 @@ class _AdminOrderWindow {
   String? get cursor => pages.lastOrNull?.nextCursor;
   int get total => pages.firstOrNull?.total ?? 0;
   int get length => pages.fold(0, (sum, page) => sum + page.length);
+  Map<String, int> get sequencePositions => {
+        for (final page in pages) ...page.sequencePositions,
+      };
   List<ProductionMapSaved> get orders => [
         for (final page in pages)
           for (final id in page.orderIds)

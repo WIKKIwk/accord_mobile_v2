@@ -640,6 +640,12 @@ class _AdminProductionMapOrdersScreenState
                                   pagedOrders: _adminPaging ? _adminWindow('orders').orders : null,
                                   sequenceTotal: _adminPaging && _selectedApparatus != null
                                       ? _adminWindow('sequence', apparatus: _selectedApparatus!.id).pages.firstOrNull?.total : null,
+                                  // A complete unfiltered prefix follows the optimistic local order.
+                                  // Search results need ranks from the full server queue.
+                                  sequencePositions: _adminPaging && _selectedApparatus != null &&
+                                          _adminPageSearch.isNotEmpty
+                                      ? _adminWindow('sequence', apparatus: _selectedApparatus!.id).sequencePositions
+                                      : const {},
                                   loadClosedDetail: _adminPaging
                                       ? MobileApi.instance.adminClosedProductionOrderDetail : null,
                                   stageStatesByOrderId: _stageStatesByOrderId,

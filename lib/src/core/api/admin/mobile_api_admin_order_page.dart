@@ -31,6 +31,7 @@ class AdminProductionOrderPage {
     this.nextCursor,
     this.snapshot,
     this.orderIds = const [],
+    this.sequencePositions = const {},
     this.pendingOrders = const [],
     this.closedOrders = const [],
     this.calculationTemplates = const {},
@@ -48,6 +49,9 @@ class AdminProductionOrderPage {
   final String? nextCursor;
   final AdminApparatusQueueSnapshot? snapshot;
   final List<String> orderIds;
+
+  /// One-based ranks before server search and pagination, scoped to apparatus.
+  final Map<String, int> sequencePositions;
   final List<PendingOrder> pendingOrders;
   final List<AdminClosedProductionOrder> closedOrders;
   final Map<String, CalculateOrderTemplate> calculationTemplates;
@@ -60,6 +64,7 @@ class AdminProductionOrderPage {
 
   static Future<AdminProductionOrderPage> fromJson(
       Map<String, dynamic> json) async {
+    final orderIds = (json['order_ids'] as List? ?? const []).cast<String>();
     final page = AdminProductionOrderPage(
       wireValue: json,
       version: json['version'] as String? ?? '',
@@ -75,7 +80,8 @@ class AdminProductionOrderPage {
       snapshot: json.containsKey('maps')
           ? await decodeProductionMapQueueSnapshotPayload(jsonEncode(json))
           : null,
-      orderIds: (json['order_ids'] as List? ?? const []).cast<String>(),
+      orderIds: orderIds,
+      sequencePositions: _decodeSequencePositions(json, orderIds),
       pendingOrders: [
         for (final item in json['pending_orders'] as List? ?? const [])
           PendingOrder.fromJson((item as Map).cast<String, dynamic>()),
@@ -117,6 +123,24 @@ class AdminProductionOrderPage {
           message: 'Buyurtmalar sahifasi noto‘g‘ri. Qayta yuklang.');
     }
     return page;
+  }
+
+  static Map<String, int> _decodeSequencePositions(
+      Map<String, dynamic> wire, List<String> orderIds) {
+    // Older servers and non-sequence projections may omit this metadata.
+    if (!wire.containsKey('sequence_positions')) return const {};
+    final raw = wire['sequence_positions'];
+    if (raw is! Map ||
+        raw.entries.any((entry) => entry.key is! String ||
+            !orderIds.contains(entry.key) || entry.value is! int ||
+            (entry.value as int) <= 0) ||
+        (raw.isNotEmpty && raw.length != orderIds.length) ||
+        raw.values.toSet().length != raw.length) {
+      throw const MobileApiException(
+          code: 'order_page_invalid',
+          message: 'Buyurtmalar sahifasi noto‘g‘ri. Qayta yuklang.');
+    }
+    return Map<String, int>.unmodifiable(raw.cast<String, int>());
   }
 }
 
@@ -255,12 +279,15 @@ AdminApparatusQueueSnapshot _copyOrderPageSnapshot(
 );
 
 AdminProductionOrderPage _copyOrderPage(AdminProductionOrderPage page,
-    Map<String, dynamic> wire, {AdminApparatusQueueSnapshot? snapshot}) =>
+    Map<String, dynamic> wire, {AdminApparatusQueueSnapshot? snapshot,
+      Map<String, int>? sequencePositions}) =>
   AdminProductionOrderPage(
     version: wire['version'] as String, epoch: page.epoch,
     revision: wire['rev'] as int, nextCursor: wire['next_cursor'] as String?,
     total: page.total, offset: page.offset, snapshot: snapshot ?? page.snapshot,
-    orderIds: page.orderIds, pendingOrders: page.pendingOrders,
+    orderIds: page.orderIds,
+    sequencePositions: sequencePositions ?? page.sequencePositions,
+    pendingOrders: page.pendingOrders,
     closedOrders: page.closedOrders, calculationTemplates: page.calculationTemplates,
     workflowAudit: page.workflowAudit, wireValue: wire,
   );
@@ -327,10 +354,14 @@ Future<List<AdminProductionOrderPage>> applyAdminOrderPageWindow(
       if (index < before.length) {
         final previous = before[index];
         final oldWire = previous.wireValue!;
-        const metadata = {'version', 'rev', 'next_cursor'};
+        const metadata = {'version', 'rev', 'next_cursor', 'sequence_positions'};
         if (raw.length == oldWire.length && raw.keys.every(oldWire.containsKey) && raw.keys.every((key) =>
             metadata.contains(key) || identical(raw[key], oldWire[key]))) {
-          next.add(_copyOrderPage(previous, raw, snapshot: previous.snapshot == null ? null :
+          next.add(_copyOrderPage(previous, raw,
+              sequencePositions: identical(raw['sequence_positions'], oldWire['sequence_positions'])
+                  ? previous.sequencePositions
+                  : AdminProductionOrderPage._decodeSequencePositions(raw, previous.orderIds),
+              snapshot: previous.snapshot == null ? null :
               _copyOrderPageSnapshot(previous.snapshot!, message.revision)));
           continue;
         }

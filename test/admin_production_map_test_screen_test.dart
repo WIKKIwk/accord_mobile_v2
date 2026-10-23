@@ -111,6 +111,7 @@ part 'admin_production_map_connection_indicator_test_part.dart';
 part 'admin_production_map_page_cache_test_part.dart';
 part 'admin_production_map_persistent_page_cache_test_part.dart';
 part 'admin_production_map_sequence_stream_sync_test_part.dart';
+part 'admin_production_map_sequence_positions_test_part.dart';
 part 'admin_production_map_material_delivery_test_part.dart';
 part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
@@ -195,6 +196,7 @@ void main() {
   _registerAdminPageCacheTests();
   _registerAdminPersistentPageCacheTests();
   _registerSequenceStreamSyncTests();
+  _registerSequencePositionsTests();
   _registerMaterialDeliveryTests();
   _registerLaminationAstatkaScopeTests();
   _registerQolipAlternativeSetTests();

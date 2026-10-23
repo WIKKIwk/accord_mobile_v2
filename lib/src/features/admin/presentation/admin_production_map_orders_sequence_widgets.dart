@@ -3,6 +3,7 @@ part of 'admin_production_map_orders_screen.dart';
 class _SequenceModulePage extends StatefulWidget {
   const _SequenceModulePage({
     this.totalOrderCount,
+    this.sequencePositions = const {},
     required this.bottomPadding,
     required this.availableApparatus,
     required this.apparatus,
@@ -25,6 +26,7 @@ class _SequenceModulePage extends StatefulWidget {
   });
   final double bottomPadding;
   final int? totalOrderCount;
+  final Map<String, int> sequencePositions;
   final List<AdminApparatus> availableApparatus;
   final AdminApparatus? apparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
@@ -118,7 +120,9 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           orders.length,
         ),
         order: order,
-        index: sequenceIndices[order.map.id.trim()] ?? index,
+        index: index,
+        position: widget.sequencePositions[order.map.id.trim()] ??
+            (sequenceIndices[order.map.id.trim()] ?? index) + 1,
         readOnly: widget.readOnly,
         canReorder: canReorder,
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
@@ -416,6 +420,7 @@ class _SequenceOrderRow extends StatefulWidget {
     required this.slot,
     required this.order,
     required this.index,
+    this.position,
     required this.readOnly,
     this.canReorder = true,
     this.customerName = '',
@@ -434,6 +439,7 @@ class _SequenceOrderRow extends StatefulWidget {
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
   final int index;
+  final int? position;
   final bool readOnly;
   final bool canReorder;
   final String customerName;
@@ -453,7 +459,7 @@ class _SequenceOrderRow extends StatefulWidget {
   State<_SequenceOrderRow> createState() => _SequenceOrderRowState();
 
   Object get _visualIdentity => (
-    slot, order.map, index, readOnly, canReorder, customerName, apparatusLabel,
+    slot, order.map, index, position, readOnly, canReorder, customerName, apparatusLabel,
     tone, backgroundColor, titleColor, secondaryColor, statusLabel,
     statusBackgroundColor, statusForegroundColor,
     onTap != null, onInfo != null, onLongPress != null,
@@ -526,7 +532,7 @@ class _SequenceOrderRow extends StatefulWidget {
                 constraints: const BoxConstraints(minHeight: 45),
                 child: Row(
                   children: [
-                    _OpenedOrderIndexBadge(index: index),
+                    _OpenedOrderIndexBadge(index: (position ?? index + 1) - 1),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
