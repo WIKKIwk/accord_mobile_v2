@@ -4,6 +4,7 @@ class _SequenceModulePage extends StatefulWidget {
   const _SequenceModulePage({
     this.totalOrderCount,
     this.sequencePositions = const {},
+    this.sequenceRows = const {},
     required this.bottomPadding,
     required this.availableApparatus,
     required this.apparatus,
@@ -27,6 +28,7 @@ class _SequenceModulePage extends StatefulWidget {
   final double bottomPadding;
   final int? totalOrderCount;
   final Map<String, int> sequencePositions;
+  final Map<String, AdminSequenceListRow> sequenceRows;
   final List<AdminApparatus> availableApparatus;
   final AdminApparatus? apparatus;
   final List<AdminCompletionRequestNotification> completionRequests;
@@ -90,10 +92,11 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
       required ProductionMapSaved order,
       required Key key,
     }) {
+      final summary = widget.sequenceRows[order.map.id];
       final queueState = apparatusQueueOrderStateFromRaw(
         widget.queueStates[order.map.id.trim()],
       );
-      final apparatusState = !widget.reorderEnabled && selected != null
+      final apparatusState = summary == null && !widget.reorderEnabled && selected != null
           ? _apparatusOrderCardState(
               map: order.map,
               apparatusId: selected.id,
@@ -103,12 +106,13 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
               control: widget.queueActionControls[order.map.id.trim()],
             )
           : queueState;
-      final isFrozen = adminProductionMapOrderControlFor(
+      final isFrozen = summary != null ? summary.frozen : adminProductionMapOrderControlFor(
             widget.orderControlsByOrderId,
             order.map.id.trim(),
           ).isFrozen ||
           apparatusState == ApparatusQueueOrderState.frozen;
-      final canReorder = widget.reorderEnabled &&
+      final canReorder = (summary?.canReorder ?? true) &&
+          widget.reorderEnabled &&
           !widget.readOnly &&
           !apparatusState.isActive &&
           !isFrozen;
@@ -120,26 +124,29 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
           orders.length,
         ),
         order: order,
+        showApparatusCount: false,
         index: index,
         position: widget.sequencePositions[order.map.id.trim()] ??
             (sequenceIndices[order.map.id.trim()] ?? index) + 1,
         readOnly: widget.readOnly,
         canReorder: canReorder,
         customerName: widget.customerNameByMapId[order.map.id.trim()] ?? '',
-        tone: _resolveApparatusOrderCardTone(
-          printPreflightPassed: _orderPrintPreflightPassed(
-            orderId: order.map.id,
-            apparatusId: selected?.id ?? '',
-            queueStates: {selected?.id ?? '': widget.queueStates},
-            controls: {selected?.id ?? '': widget.queueActionControls},
-          ),
-          orderStatus: widget.orderStatusesByOrderId[order.map.id.trim()],
-          orderControl: adminProductionMapOrderControlFor(
-            widget.orderControlsByOrderId,
-            order.map.id.trim(),
-          ),
-          apparatusState: apparatusState,
-        ),
+        tone: summary != null
+            ? _adminSequenceTone(summary.displayState)
+            : _resolveApparatusOrderCardTone(
+                printPreflightPassed: _orderPrintPreflightPassed(
+                  orderId: order.map.id,
+                  apparatusId: selected?.id ?? '',
+                  queueStates: {selected?.id ?? '': widget.queueStates},
+                  controls: {selected?.id ?? '': widget.queueActionControls},
+                ),
+                orderStatus: widget.orderStatusesByOrderId[order.map.id.trim()],
+                orderControl: adminProductionMapOrderControlFor(
+                  widget.orderControlsByOrderId,
+                  order.map.id.trim(),
+                ),
+                apparatusState: apparatusState,
+              ),
         onTap: widget.onInfoOrder == null
             ? null
             : () => widget.onInfoOrder!(order),
@@ -419,6 +426,7 @@ class _SequenceOrderRow extends StatefulWidget {
     super.key,
     required this.slot,
     required this.order,
+    this.showApparatusCount = true,
     required this.index,
     this.position,
     required this.readOnly,
@@ -438,6 +446,7 @@ class _SequenceOrderRow extends StatefulWidget {
   });
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
+  final bool showApparatusCount;
   final int index;
   final int? position;
   final bool readOnly;
@@ -459,11 +468,26 @@ class _SequenceOrderRow extends StatefulWidget {
   State<_SequenceOrderRow> createState() => _SequenceOrderRowState();
 
   Object get _visualIdentity => (
-    slot, order.map, index, position, readOnly, canReorder, customerName, apparatusLabel,
-    tone, backgroundColor, titleColor, secondaryColor, statusLabel,
-    statusBackgroundColor, statusForegroundColor,
-    onTap != null, onInfo != null, onLongPress != null,
-  );
+        slot,
+        order.map,
+        showApparatusCount,
+        index,
+        position,
+        readOnly,
+        canReorder,
+        customerName,
+        apparatusLabel,
+        tone,
+        backgroundColor,
+        titleColor,
+        secondaryColor,
+        statusLabel,
+        statusBackgroundColor,
+        statusForegroundColor,
+        onTap != null,
+        onInfo != null,
+        onLongPress != null,
+      );
 
   Widget _buildVisual(BuildContext context, {
     required VoidCallback? tap, required VoidCallback? longPress,
@@ -474,7 +498,7 @@ class _SequenceOrderRow extends StatefulWidget {
     final orderSubtitle = _openedOrderSubtitle(
       map,
       customerName: customerName,
-      includeApparatusCount: true,
+      includeApparatusCount: showApparatusCount,
       l10n: context.l10n,
     );
     final subtitle = [

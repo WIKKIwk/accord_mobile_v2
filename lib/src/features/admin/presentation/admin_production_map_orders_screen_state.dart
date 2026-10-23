@@ -24,6 +24,8 @@ class _AdminProductionMapOrdersScreenState
   Completer<void>? _adminNotificationFinished;
   Timer? _adminNotificationRetry;
   final Map<String, _AdminOrderWindow> _adminWindows = {};
+  final Map<String, Future<AdminApparatusQueueSnapshot>> _adminDetailReads = {};
+  bool _adminDetailOpening = false;
   AdminOrderPageCacheVisit? _adminCacheVisit;
   String? _adminCacheScope;
   bool _adminCacheRestored = false;
@@ -319,7 +321,6 @@ class _AdminProductionMapOrdersScreenState
         unawaited(_restartAdminPagedLive());
         _startAdminNotifications();
         unawaited(_ensureAdminModule(_module, refresh: _adminLiveDescriptors().isEmpty));
-        unawaited(_prefetchAdminFirstPages());
       } else {
         _stopAdminNotifications();
         _cancelAdminSequenceSyncTimers();
@@ -641,7 +642,9 @@ class _AdminProductionMapOrdersScreenState
                                       ? _adminWindow('sequence', apparatus: _selectedApparatus!.id).pages.firstOrNull?.total : null,
                                   // A complete unfiltered prefix follows the optimistic local order.
                                   // Search results need ranks from the full server queue.
-                                  sequencePositions: _adminPaging && _selectedApparatus != null &&
+                                  sequenceRows: _adminSequenceRows,
+                                  sequencePositions: _adminPaging &&
+                                          _selectedApparatus != null &&
                                           _adminPageSearch.isNotEmpty
                                       ? _adminWindow('sequence', apparatus: _selectedApparatus!.id).sequencePositions
                                       : const {},
@@ -738,7 +741,7 @@ class _AdminProductionMapOrdersScreenState
                                       widget.supplyViewerMode &&
                                               !canViewSupplyOrderInfo
                                           ? null
-                                          : _showWatchOrderDetail,
+                                          : _openAdminSequenceDetail,
                                   customerNameByMapId: _customerByMapId,
                                   queueStatesByApparatus:
                                       _queueStatesByApparatus,
@@ -1070,12 +1073,14 @@ class _AdminProductionMapOrdersScreenState
     _ScannedWorkerWip? initialOrderSwitchBatch,
     String initialScanQrPayload = '',
     AdminApparatusQueueSnapshot? initialQueueSnapshot,
+    bool initialControlConfirmed = false,
     _WorkerFabPreparedScan? initialFabPreparedScan,
   }) {
-    if (widget.workerMode && (initialQueueSnapshot == null
-        ? _isWorkerOrderFrozen(order.map.id)
-        : initialQueueSnapshot.orderControlFor(order.map.id) ==
-            AdminOrderControlState.frozen)) {
+    if (widget.workerMode &&
+        (initialQueueSnapshot == null
+            ? _isWorkerOrderFrozen(order.map.id)
+            : initialQueueSnapshot.orderControlFor(order.map.id) ==
+                  AdminOrderControlState.frozen)) {
       showAdminTopNotice(
         context,
         _workerFrozenOrderMessage(context.l10n, order.map.title),
@@ -1088,8 +1093,11 @@ class _AdminProductionMapOrdersScreenState
     final readScope = currentSessionReadScope();
     final initialStates =
         initialQueueSnapshot?.queueStates ?? _queueStatesByApparatus;
-    final initialControls = initialQueueSnapshot?.queueActionControls ??
+    final initialControls =
+        initialQueueSnapshot?.queueActionControls ??
         _queueActionControlsByApparatus;
+    final detailAccount = _adminPageAccount;
+    final detailSearch = _adminPageSearch;
     final sheetFuture = showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -1099,71 +1107,120 @@ class _AdminProductionMapOrdersScreenState
       shape: _orderDetailSheetShape,
       clipBehavior: Clip.antiAlias,
       sheetAnimationStyle: AppMotion.sheetEaseOut,
-      builder: (context) => _ReadOnlyOrderDetailSheet(
-        order: order,
-        apparatus: apparatus,
-        apparatusCatalog: _apparatus,
-        busyOrderTitleLookup: (orderId) {
-          for (final candidate in _orders) {
-            if (candidate.map.id.trim() == orderId.trim()) {
-              return _busyOrderDisplayLabel(candidate, context.l10n);
-            }
-          }
-          return null;
-        },
-        workerMode: widget.workerMode,
-        stageFreezeSupported: initialQueueSnapshot?.stageFreezeSupported ??
-            _canonicalQueueSnapshot?.stageFreezeSupported ??
-            false,
-        currentQueueSnapshot: () => _canonicalQueueSnapshot,
-        queueSnapshotListenable: _sheetQueueSnapshot,
-        queueActionsInFlight: _sheetQueueActionsInFlight,
-        beginPrintPreflight: () => _beginQueueAction('${apparatus.id.trim()}|$mapId'),
-        endPrintPreflight: () => _endQueueAction('${apparatus.id.trim()}|$mapId'),
-        customerName: _customerByMapId[mapId] ?? order.map.customerName,
-        canManageQueue: widget.workerMode &&
-            _isAssignedWatchApparatus(
-              apparatus,
-              assignedApparatus:
-                  AppSession.instance.profile?.assignedApparatus ??
+      builder: (context) {
+        Widget detailBuilder(
+          AdminApparatusQueueSnapshot? detail,
+          ValueNotifier<AdminApparatusQueueSnapshot?> authority,
+        ) {
+          final detailOrder =
+              detail?.maps
+                  .where((saved) => saved.map.id.trim() == mapId)
+                  .firstOrNull ??
+              order;
+          final states = detail?.queueStates ?? initialStates;
+          final controls = detail?.queueActionControls ?? initialControls;
+          return _ReadOnlyOrderDetailSheet(
+            order: detailOrder,
+            apparatus: apparatus,
+            apparatusCatalog: _apparatus,
+            busyOrderTitleLookup: (orderId) {
+              for (final candidate in _orders) {
+                if (candidate.map.id.trim() == orderId.trim()) {
+                  return _busyOrderDisplayLabel(candidate, context.l10n);
+                }
+              }
+              return null;
+            },
+            workerMode: widget.workerMode,
+            initialControlConfirmed: initialControlConfirmed,
+            stageFreezeSupported:
+                detail?.stageFreezeSupported ??
+                _canonicalQueueSnapshot?.stageFreezeSupported ??
+                false,
+            currentQueueSnapshot: initialControlConfirmed && !widget.workerMode
+                ? () => authority.value
+                : () => _canonicalQueueSnapshot,
+            queueSnapshotListenable: authority,
+            queueActionsInFlight: _sheetQueueActionsInFlight,
+            beginPrintPreflight: () =>
+                _beginQueueAction('${apparatus.id.trim()}|$mapId'),
+            endPrintPreflight: () =>
+                _endQueueAction('${apparatus.id.trim()}|$mapId'),
+            customerName: initialControlConfirmed && detail != null
+                ? detail.orderCustomers[mapId] ?? detailOrder.map.customerName
+                : _customerByMapId[mapId] ?? detailOrder.map.customerName,
+            canManageQueue:
+                widget.workerMode &&
+                _isAssignedWatchApparatus(
+                  apparatus,
+                  assignedApparatus:
+                      AppSession.instance.profile?.assignedApparatus ??
                       const <String>[],
+                ),
+            initialQueueStates: _queueStatesForApparatus(
+              apparatus,
+              queueStatesByApparatus: states,
             ),
-        initialQueueStates: _queueStatesForApparatus(
-          apparatus,
-          queueStatesByApparatus: initialStates,
-        ),
-        queueStatesByApparatus: initialStates,
-        stageStatesByOrderId:
-            initialQueueSnapshot?.stageStates ?? _stageStatesByOrderId,
-        queueActionControl: initialControls[apparatus.id.trim()]?[mapId],
-        queueActionControlsByApparatus: initialControls,
-        queuePolicy: _queuePolicyForApparatus(
-          apparatus,
-          queuePoliciesByApparatus:
-              initialQueueSnapshot?.queuePolicies ?? _queuePoliciesByApparatus,
-        ),
-        sequenceOrderIds: _sequenceOrderIdsForApparatus(
-          apparatus,
-          sequenceByApparatus:
-              initialQueueSnapshot?.sequences ?? _displaySequenceByApparatus,
-        ),
-        visibleOrderIds:
-            initialQueueSnapshot?.visibleOrderIds[apparatus.id.trim()] ??
+            queueStatesByApparatus: states,
+            stageStatesByOrderId: detail?.stageStates ?? _stageStatesByOrderId,
+            queueActionControl: controls[apparatus.id.trim()]?[mapId],
+            queueActionControlsByApparatus: controls,
+            queuePolicy: _queuePolicyForApparatus(
+              apparatus,
+              queuePoliciesByApparatus:
+                  detail?.queuePolicies ?? _queuePoliciesByApparatus,
+            ),
+            sequenceOrderIds: _sequenceOrderIdsForApparatus(
+              apparatus,
+              sequenceByApparatus:
+                  detail?.sequences ?? _displaySequenceByApparatus,
+            ),
+            visibleOrderIds:
+                detail?.visibleOrderIds[apparatus.id.trim()] ??
                 _ordersForApparatus(apparatus)
-                    .map((item) => item.map.id).toList(growable: false),
-        onQueueAction: _handleQueueAction,
-        progressDriverUrlPicker: widget.progressDriverUrlPicker,
-        initialOrderControls:
-            initialQueueSnapshot?.orderControls ?? _orderControlsByOrderId,
-        initialOrderSwitchBatch: initialOrderSwitchBatch,
-        initialScanQrPayload: initialScanQrPayload,
-        initialFabPreparedScan: initialFabPreparedScan,
-        startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
-        startAstatkaOnOpen: startAstatkaOnOpen,
-        startBosmaFinishOnOpen: startBosmaFinishOnOpen,
-        startRollRemovalOnOpen: startRollRemovalOnOpen,
-        startResumeOnOpen: startResumeOnOpen,
-      ),
+                    .map((item) => item.map.id)
+                    .toList(growable: false),
+            onQueueAction: _handleQueueAction,
+            progressDriverUrlPicker: widget.progressDriverUrlPicker,
+            initialOrderControls:
+                detail?.orderControls ?? _orderControlsByOrderId,
+            initialOrderSwitchBatch: initialOrderSwitchBatch,
+            initialScanQrPayload: initialScanQrPayload,
+            initialFabPreparedScan: initialFabPreparedScan,
+            startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
+            startAstatkaOnOpen: startAstatkaOnOpen,
+            startBosmaFinishOnOpen: startBosmaFinishOnOpen,
+            startRollRemovalOnOpen: startRollRemovalOnOpen,
+            startResumeOnOpen: startResumeOnOpen,
+          );
+        }
+
+        if (initialControlConfirmed &&
+            !widget.workerMode &&
+            initialQueueSnapshot != null) {
+          return _AdminHydratedDetailHost(
+            initialSnapshot: initialQueueSnapshot,
+            isCurrent: () =>
+                mounted &&
+                detailAccount == _adminPageAccount &&
+                detailSearch == _adminPageSearch &&
+                _selectedApparatus?.id == apparatus.id &&
+                readScope == currentSessionReadScope(),
+            currentCursor: () {
+              final window = _adminWindow('sequence', apparatus: apparatus.id);
+              if (!window.sequenceRows.containsKey(mapId) ||
+                  window.pages.isEmpty) {
+                return null;
+              }
+              final page = window.pages.first;
+              return (epoch: page.epoch, revision: page.revision!);
+            },
+            load: () => _readAdminSequenceDetail(apparatus, mapId),
+            builder: detailBuilder,
+          );
+        }
+        return detailBuilder(initialQueueSnapshot, _sheetQueueSnapshot);
+      },
     );
     unawaited(
       sheetFuture.then((result) async {
@@ -2103,8 +2160,14 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _showOrderActions(ProductionMapSaved order,
-      {AdminApparatus? apparatus}) async {
+      {AdminApparatus? apparatus, bool hydrated = false}) async {
     final orderId = order.map.id.trim();
+    if (!hydrated && _adminPaging && _adminSequenceRows.containsKey(orderId)) {
+      if (apparatus != null) {
+        await _openAdminSequenceActions(apparatus, order);
+      }
+      return;
+    }
     if (widget.readOnly ||
         widget.workerMode ||
         widget.supplyViewerMode ||

@@ -22,10 +22,16 @@ class _AdminOrderWindow {
   Map<String, int> get sequencePositions => {
         for (final page in pages) ...page.sequencePositions,
       };
+  Map<String, AdminSequenceListRow> get sequenceRows => {
+        for (final page in pages) ...page.sequenceRows,
+      };
   List<ProductionMapSaved> get orders => [
         for (final page in pages)
           for (final id in page.orderIds)
-            ...?page.snapshot?.maps.where((saved) => saved.map.id == id),
+            if (page.isSequenceList)
+              page.sequenceRows[id]!.toPresentationOrder()
+            else
+              ...?page.snapshot?.maps.where((saved) => saved.map.id == id),
       ];
 }
 
@@ -118,27 +124,9 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       _updateScreenState(() => _loading = false);
       // Completion notifications are small and must not gate the first queue.
       unawaited(_refreshCompletionRequests());
-      unawaited(_prefetchAdminFirstPages());
+      // Hidden tabs load on selection; initial sequence has priority.
     } catch (error) {
       if (mounted) _applyInitialProductionMapLoadError(error);
-    }
-  }
-
-  Future<void> _prefetchAdminFirstPages() async {
-    for (final module in [
-      _OpenedOrderModule.orders,
-      _OpenedOrderModule.move,
-      _OpenedOrderModule.closed,
-      _OpenedOrderModule.audit
-    ]) {
-      if (!mounted || !_adminPaging || !_adminForeground) return;
-      // A selected tab takes priority over the next background page.
-      await _ensureAdminModule(_module);
-      if (!mounted || !_adminForeground) return;
-      for (final window in _adminModuleWindows(module)) {
-        if (!mounted || !_adminForeground) return;
-        if (!window.loaded) await _loadAdminWindow(window);
-      }
     }
   }
 
@@ -241,14 +229,13 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
             });
             return;
           }
-          final snapshot = page.snapshot;
           if (_retiredSnapshotEpochs.contains(page.epoch) ||
               (_adminLiveEpoch == page.epoch &&
                   (page.revision ?? -1) < _adminLiveRevision) ||
               (_adminLiveEpoch.isNotEmpty &&
                   _adminLiveEpoch != _lastAppliedSnapshotEpoch &&
                   page.epoch == _lastAppliedSnapshotEpoch) ||
-              (snapshot != null && _snapshotBehindSequenceMoves(snapshot))) {
+              _adminPageBehindSequenceMoves(page)) {
             throw const MobileApiException(
                 code: 'order_page_changed', message: 'Navbat yangilandi');
           }
@@ -489,7 +476,10 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         w.loaded)) {
       _sequenceByApparatus[window.request.apparatus] = [
         for (final p in window.pages)
-          ...?p.snapshot?.sequences[window.request.apparatus],
+          if (p.isSequenceList)
+            ...p.orderIds
+          else
+            ...?p.snapshot?.sequences[window.request.apparatus],
       ];
       final apparatus = window.request.apparatus;
       final ack = _adminSequenceAcks[apparatus];
@@ -502,6 +492,24 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
           // Background pages must not undo a confirmed move while this
           // apparatus's visible window is still waiting for reconciliation.
           _sequenceByApparatus[apparatus] = ack.orderIds;
+        }
+      }
+    }
+    // Summary rows are presentation data, never full canonical snapshots.
+    for (final window in windows.where((w) => w.loaded)) {
+      for (final page in window.pages.where((p) => p.isSequenceList)) {
+        final apparatus = window.request.apparatus;
+        for (final entry in page.sequenceRevisions.entries) {
+          if (entry.value >= (_sequenceRevisions[entry.key] ?? -1)) {
+            _sequenceRevisions[entry.key] = entry.value;
+            _sequenceVersions[entry.key] = page.sequenceVersions[entry.key]!;
+          }
+        }
+        _queuePoliciesByApparatus.addAll(page.queuePolicies);
+        for (final row in page.sequenceRows.values) {
+          _customerByMapId[row.id] = row.customerName;
+          _queueStatesByApparatus.putIfAbsent(apparatus, () => {})[row.id] =
+              row.queueState;
         }
       }
     }
@@ -603,6 +611,17 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         epoch: snapshots.last.epoch,
       );
     }
+    final activePages = [
+      for (final w in _adminModuleWindows(_module)) ...w.pages
+    ];
+    if (activePages.isNotEmpty && activePages.every((p) => p.isSequenceList)) {
+      final first = activePages.first;
+      _lastAppliedSnapshotEpoch = first.epoch;
+      _lastAppliedSnapshotRevision =
+          activePages.map((p) => p.revision!).reduce(min);
+      _canonicalQueueSnapshot = null;
+      _sheetQueueSnapshot.value = null;
+    }
     _queueSnapshotNeedsReconcile = _sequenceNeedsSnapshot.isNotEmpty ||
         _adminSequenceAcks.isNotEmpty ||
         !_adminActiveWindowVersionsMatch() ||
@@ -612,6 +631,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
 
   Future<void> _loadAdminPageMetrics(
       AdminProductionOrderPage page, String account) async {
+    if (page.isSequenceList) return;
     for (final order in page.snapshot?.maps ?? <ProductionMapSaved>[]) {
       final id = order.map.id;
       final template = page.calculationTemplates[id];

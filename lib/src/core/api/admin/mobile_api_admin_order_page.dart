@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 const adminSequenceListProjection = 'sequence_list_v1';
+final _adminSequencePresentationOrders = Expando<ProductionMapSaved>();
 
 /// Presentation states are deliberately separate from authoritative work states.
 const adminSequenceListDisplayStates = <String>{
@@ -26,6 +27,7 @@ class AdminSequenceListRow {
     required this.queueState,
     required this.displayState,
     required this.canReorder,
+    this.frozen = false,
   });
 
   final String id;
@@ -36,6 +38,7 @@ class AdminSequenceListRow {
   final String queueState;
   final String displayState;
   final bool canReorder;
+  final bool frozen;
 
   factory AdminSequenceListRow.fromJson(Map<String, dynamic> json) {
     const strings = {
@@ -51,7 +54,8 @@ class AdminSequenceListRow {
         (json['id'] as String).trim().isEmpty ||
         !_knownApparatusQueueStates.contains(json['queue_state']) ||
         !adminSequenceListDisplayStates.contains(json['display_state']) ||
-        json['can_reorder'] is! bool) {
+        json['can_reorder'] is! bool ||
+        (json.containsKey('frozen') && json['frozen'] is! bool)) {
       throw _invalidAdminOrderPage();
     }
     return AdminSequenceListRow(
@@ -63,12 +67,14 @@ class AdminSequenceListRow {
       queueState: json['queue_state'] as String,
       displayState: json['display_state'] as String,
       canReorder: json['can_reorder'] as bool,
+      frozen: json['frozen'] as bool? ?? json['queue_state'] == 'frozen',
     );
   }
 
   /// Compatibility for display widgets only. Never persist this shell as a
   /// canonical map or pass it to an editor/action: hydrate the detail first.
-  ProductionMapSaved toPresentationOrder() => ProductionMapSaved(
+  ProductionMapSaved toPresentationOrder() =>
+      _adminSequencePresentationOrders[this] ??= ProductionMapSaved(
         map: ProductionMapDefinition(
             id: id,
             code: code,

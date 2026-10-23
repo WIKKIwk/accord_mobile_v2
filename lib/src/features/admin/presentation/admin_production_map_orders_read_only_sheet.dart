@@ -7,6 +7,7 @@ const _queueActionControlRefreshTimeout = Duration(seconds: 5);
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     with WidgetsBindingObserver {
   bool _detailRecoveryNeeded = false;
+  bool _useInitialControlOnce = false;
   Object? _detailRecoveryCursor;
   Object? _detailRecoveryEventCursor;
   bool _detailForeground = true;
@@ -129,6 +130,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   void initState() {
     super.initState();
     _detailReadScope = currentSessionReadScope();
+    _useInitialControlOnce = widget.initialControlConfirmed;
     _observedDetailReadScope = _detailReadScope;
     AppSession.instance.revision.addListener(_onDetailSessionChanged);
     WidgetsBinding.instance.addObserver(this);
@@ -833,7 +835,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (!mounted || generation != _scanBootstrapGeneration) return;
     if (widget.apparatus != null) {
       try {
-        final refreshed = await _loadCurrentQueueActionControl();
+        final prepared =
+            _useInitialControlOnce ? _canonicalDetailControl() : null;
+        _useInitialControlOnce = false;
+        final refreshed =
+            prepared?.control ?? await _loadCurrentQueueActionControl();
+        if (prepared != null) _applyDetailControl(prepared);
         if (!mounted) return;
         if (refreshed?.isConsistentWith(
               _orderControlState,
@@ -3542,6 +3549,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.canManageQueue = false,
     this.stageFreezeSupported = false,
     this.workerMode = false,
+    this.initialControlConfirmed = false,
     this.currentQueueSnapshot,
     this.queueSnapshotListenable,
     this.queueActionsInFlight,
@@ -3580,6 +3588,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool canManageQueue;
   final bool stageFreezeSupported;
   final bool workerMode;
+  final bool initialControlConfirmed;
   final AdminApparatusQueueSnapshot? Function()? currentQueueSnapshot;
   final ValueListenable<AdminApparatusQueueSnapshot?>? queueSnapshotListenable;
   final ValueListenable<Set<String>>? queueActionsInFlight;

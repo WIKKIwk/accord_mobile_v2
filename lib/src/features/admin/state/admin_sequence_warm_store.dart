@@ -385,6 +385,8 @@ class AdminSequenceWarmStore {
         {
           'id': windowId,
           'view': 'sequence',
+          if (value.page.isSequenceList)
+            'projection': adminSequenceListProjection,
           'apparatus': value.selectedApparatusId,
           'target': '',
           'search': '',

@@ -249,6 +249,7 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     this.liveEventsLoader,
     this.notificationEventsLoader,
     this.orderPageLoader,
+    this.orderDetailLoader,
     this.sequenceWarmStore,
   }) : assert(!(workerMode && supplyViewerMode));
   final bool readOnly;
@@ -266,6 +267,10 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
   final Stream<Object> Function()? liveEventsLoader;
   final Stream<List<AdminCompletionRequestNotification>> Function()? notificationEventsLoader;
   final AdminProductionOrderPageLoader? orderPageLoader;
+  final Future<AdminApparatusQueueSnapshot> Function({
+    required String apparatus,
+    required String orderId,
+  })? orderDetailLoader;
   final AdminSequenceWarmStore? sequenceWarmStore;
 
   @override

@@ -142,7 +142,7 @@ void main() {
     ]) {
       final backend = MemoryProductionSnapshotBackend();
       final store = ProductionSnapshotStore(backend: backend);
-      await store.write(scope: 'account', key: 'admin-pages-v1', value: bad);
+      await store.write(scope: 'account', key: 'admin-pages-v2', value: bad);
       final cache = AdminOrderPageCache(persistence: store);
       expect(
           await cache.restore(
@@ -268,7 +268,7 @@ void main() {
     expect(backend.writeCount, 0);
     await cache.flush();
     expect(backend.writeCount, 1);
-    final durable = await store.read(scope: 'account', key: 'admin-pages-v1');
+    final durable = await store.read(scope: 'account', key: 'admin-pages-v2');
     expect(durable!['windows'][0]['pages'][0]['version'], 'v9');
     save();
     await cache.flush();

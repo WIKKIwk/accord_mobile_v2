@@ -95,6 +95,7 @@ class _AdminModulesBody extends StatelessWidget {
     this.pagedOrders,
     this.sequenceTotal,
     this.sequencePositions = const {},
+    this.sequenceRows = const {},
     this.loadClosedDetail,
     this.pendingOrders = const [],
     this.pendingOrdersError,
@@ -154,6 +155,7 @@ class _AdminModulesBody extends StatelessWidget {
   final List<ProductionMapSaved>? pagedOrders;
   final int? sequenceTotal;
   final Map<String, int> sequencePositions;
+  final Map<String, AdminSequenceListRow> sequenceRows;
   final Future<AdminClosedProductionOrder> Function(String)? loadClosedDetail;
   Widget _wrapModule(_OpenedOrderModule module, Widget child) =>
       pageWrapper?.call(module, child) ?? child;
@@ -270,6 +272,7 @@ class _AdminModulesBody extends StatelessWidget {
                 _wrapModule(module, switch (module) {
                   _OpenedOrderModule.sequence => _SequenceModulePage(
                       totalOrderCount: sequenceTotal,
+                      sequenceRows: sequenceRows,
                       queueActionControls: queueActionControlsByApparatus[
                               selectedApparatus?.id.trim()] ??
                           const {},

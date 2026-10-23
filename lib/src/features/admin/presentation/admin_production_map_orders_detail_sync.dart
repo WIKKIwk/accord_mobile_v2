@@ -111,9 +111,10 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
   }
 
   void _onCanonicalDetailSnapshot() {
+    final hydratedAdmin = !widget.workerMode && widget.initialControlConfirmed;
     if (!mounted ||
-        !widget.workerMode ||
-        _isTrainingOrder ||
+        (!widget.workerMode && !hydratedAdmin) ||
+        (_isTrainingOrder && !hydratedAdmin) ||
         _detailReadScope != currentSessionReadScope()) return;
     final snapshot = widget.queueSnapshotListenable?.value;
     final accepted = _acceptedDetailControl;
@@ -142,6 +143,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
         return;
       }
       setState(() => _queueActionControl = null);
+      if (hydratedAdmin) return;
       // A newer bounded projection can omit this order without removing it.
       // Disable actions, then re-read its scoped contract immediately.
       _markDetailRecoveryNeeded();
@@ -153,7 +155,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     final waitingForAction = _pendingDetailRevision != null;
     if (!_installCanonicalDetailSnapshot() || _queueActionBusy) return;
     if (!changed) {
-      if (recoveryNeeded) _queueDetailRecoveryFromStream();
+      if (recoveryNeeded && !hydratedAdmin) _queueDetailRecoveryFromStream();
       return;
     }
     if (_detailRefreshInFlight) {
@@ -164,7 +166,11 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       _scanBootstrapGeneration++;
       _materialLoadGeneration++;
       _detailSectionsNeedReload = true;
-      _queueDetailRecoveryFromStream();
+      if (hydratedAdmin) {
+        _refreshDetailSections();
+      } else {
+        _queueDetailRecoveryFromStream();
+      }
     } else {
       _refreshDetailSections();
     }

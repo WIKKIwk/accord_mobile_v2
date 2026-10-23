@@ -209,8 +209,10 @@ extension _AdminProductionMapOrdersMoveState
       return;
     }
     final moved = orders[oldIndex];
+    final summary = _adminPaging ? _adminSequenceRows[moved.map.id] : null;
+    if (summary != null && !summary.canReorder) return;
     final movedState = _moveOrderQueueState(moved, apparatus);
-    final isMovedFrozen = adminProductionMapOrderControlFor(
+    final isMovedFrozen = summary?.frozen ?? adminProductionMapOrderControlFor(
       _orderControlsByOrderId,
       moved.map.id.trim(),
     ).isFrozen;
@@ -239,11 +241,12 @@ extension _AdminProductionMapOrdersMoveState
 
     // Frozen rows remain visible with their status color, but the server's
     // editable queue excludes them. Never use one as a before/after anchor.
-    bool isSequenceMember(ProductionMapSaved order) =>
-        !adminProductionMapOrderControlFor(
-          _orderControlsByOrderId, order.map.id.trim(),
-        ).isFrozen &&
-        _moveOrderQueueState(order, apparatus) != ApparatusQueueOrderState.frozen;
+    bool isSequenceMember(ProductionMapSaved order) {
+      final row = _adminPaging ? _adminSequenceRows[order.map.id] : null;
+      return !(row?.frozen ?? adminProductionMapOrderControlFor(
+          _orderControlsByOrderId, order.map.id.trim()).isFrozen) &&
+          _moveOrderQueueState(order, apparatus) != ApparatusQueueOrderState.frozen;
+    }
     final previousIds = orders.where(isSequenceMember)
         .map((order) => order.map.id).toList();
     orders.removeAt(oldIndex);

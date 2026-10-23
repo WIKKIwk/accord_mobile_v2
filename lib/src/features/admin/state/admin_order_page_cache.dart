@@ -58,7 +58,7 @@ class AdminOrderPageCache {
   static final _instance =
       AdminOrderPageCache(persistence: ProductionSnapshotStore.instance);
   static AdminOrderPageCache get instance => debugOverride ?? _instance;
-  static const _persistentKey = 'admin-pages-v1';
+  static const _persistentKey = 'admin-pages-v2';
   final ProductionSnapshotStore? persistence;
   final Duration maxPersistedAge;
   final Duration maxAge;

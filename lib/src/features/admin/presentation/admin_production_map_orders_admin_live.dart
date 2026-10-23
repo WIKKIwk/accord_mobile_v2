@@ -15,6 +15,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
     _adminSequenceAcks.clear();
     _adminSequenceAckWindows.clear();
     _adminSequenceSyncAccount = account;
+    _adminDetailReads.clear();
   }
 
   bool _adminWindowCoversSequenceAck(
@@ -25,14 +26,15 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
     }
     return window.pages.every((page) {
       final snapshot = page.snapshot;
-      if (page.epoch != ack.epoch || snapshot == null ||
+      if (page.epoch != ack.epoch ||
+          (!page.isSequenceList && snapshot == null) ||
           page.version != window.pages.first.version ||
           page.revision != window.pages.first.revision) {
         return false;
       }
       final apparatus = window.request.apparatus;
-      final revision = snapshot.sequenceRevisions[apparatus];
-      final sameVersion = snapshot.sequenceVersions[apparatus] == ack.version;
+      final revision = page.sequenceRevisions[apparatus];
+      final sameVersion = page.sequenceVersions[apparatus] == ack.version;
       if (ack.revision == null) return sameVersion;
       return revision != null && (revision > ack.revision! ||
           (revision == ack.revision && sameVersion));
@@ -199,14 +201,24 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
   List<Map<String, Object?>> _adminLiveDescriptors() {
     if (_adminWindowLiveFallback) return const [];
     final windows = _adminModuleWindows(_module);
-    if (windows.isEmpty || windows.any((w) => !w.loaded ||
-        w.pages.any((p) => p.wireValue == null))) return const [];
-    return [for (final window in windows) {
-      'id': window.liveId, 'view': window.request.view,
-      'apparatus': window.request.apparatus, 'target': window.request.target,
-      'search': window.request.search, 'length': max(20, window.length),
-      'version': window.pages.first.version,
-    }];
+    if (windows.isEmpty ||
+        windows
+            .any((w) => !w.loaded || w.pages.any((p) => p.wireValue == null)))
+      return const [];
+    return [
+      for (final window in windows)
+        {
+          'id': window.liveId,
+          'view': window.request.view,
+          if (window.pages.first.isSequenceList)
+            'projection': adminSequenceListProjection,
+          'apparatus': window.request.apparatus,
+          'target': window.request.target,
+          'search': window.request.search,
+          'length': max(20, window.length),
+          'version': window.pages.first.version,
+        }
+    ];
   }
 
   String _adminWindowFingerprint() => jsonEncode([
@@ -255,9 +267,11 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
           message.revision < (before.first.revision ?? -1)) return;
       try {
         if (message.type == 'page_window_ready') {
-          if (message.value['resync'] != false || message.version != before.first.version ||
-              message.epoch != before.first.epoch || message.revision != before.first.revision ||
-              before.any((page) => page.snapshot != null && _snapshotBehindSequenceMoves(page.snapshot!))) {
+          if (message.value['resync'] != false ||
+              message.version != before.first.version ||
+              message.epoch != before.first.epoch ||
+              message.revision != before.first.revision ||
+              before.any(_adminPageBehindSequenceMoves)) {
             throw StateError('page window needs reconciliation');
           }
           _updateScreenState(() {
@@ -283,8 +297,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
           await _restartAdminPagedLive();
           return;
         }
-        if (next.any((page) => page.snapshot != null &&
-            _snapshotBehindSequenceMoves(page.snapshot!))) {
+        if (next.any(_adminPageBehindSequenceMoves)) {
           if (_adminSequenceAcks.containsKey(window.request.apparatus)) {
             // Retain the wire baseline for the next incremental patch without
             // publishing pre-ACK colors or action permissions to the widgets.

@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-23",
+  "scope": "Admin sequence_list_v1; existing worker and legacy clients preserved",
+  "baseline": {
+    "mobile": "ca1636b8",
+    "backend": "3efe0752"
+  },
+  "changes": [
+    "Distinct HTTP and WebSocket list projection with keyed rows",
+    "On-demand full single-order detail and event-driven open-detail refresh",
+    "No apparatus-count subtitle in sequence rows",
+    "Separate v2 persisted pages and bounded scope-checked detail futures",
+    "Frozen membership independent of row color; sequence ACK and CAS guards retained",
+    "Unchanged row presentation models reused; hidden tabs load on demand"
+  ],
+  "mobile_verification": {
+    "passed": 241,
+    "log": "/tmp/accord_sequence_final_tests.log",
+    "release_web_build": "passed",
+    "web_output": "/tmp/accord-sequence-list-web-validation",
+    "ios_build_started": false,
+    "physical_device_latency_measured": false
+  },
+  "backend_verification": {
+    "production_map_unit_passed": 69,
+    "worker_queue_window_integration_passed": 17,
+    "queue_commit_invalidation_passed": 4
+  },
+  "wire_benchmark": {
+    "environment": "Debug memory-store HTTP fixture; 60 orders, first 20; same gzip settings; no physical-phone/network measurement",
+    "full_raw_bytes": 39868,
+    "list_raw_bytes": 5245,
+    "full_gzip_bytes": 2444,
+    "list_gzip_bytes": 1013,
+    "cold_canonical_snapshot_still_required": true
+  },
+  "decode_benchmark": {
+    "test": "test/admin_sequence_list_decode_benchmark_test.dart",
+    "environment": "Synthetic 20-row fixture, desktop Flutter Test JIT, no isolates, 30 warmups, 150 alternating samples",
+    "nodes": 320,
+    "operations": 280,
+    "controls": 160,
+    "full_raw_utf8_bytes": 290630,
+    "list_raw_utf8_bytes": 5821,
+    "median_full_us": 2830,
+    "median_list_us": 76,
+    "p95_full_us": 3783,
+    "p95_list_us": 151
+  },
+  "preexisting_failures": {
+    "verified_before_changes": true,
+    "mobile_baseline_commit": "ca1636b8",
+    "mobile_queue_snapshot": "11 pass, same 3 failures on isolated baseline and current code",
+    "aggregate_widget": "Exact alternative visibility test reproduces 29px RenderFlex overflow in unchanged transfer_list.dart:162; broad suite stopped after repeated baseline failures",
+    "backend": "Historical queue_opening_projection hash mismatch in unchanged domain code path; baseline not regenerated",
+    "whole_project_analysis": "Existing backup imports/generated-code diagnostics; not a clean whole-project analysis"
+  },
+  "limits": [
+    "No guarantee of zero cold-load latency: authoritative apparatus snapshot remains necessary",
+    "No production server restarted or deployed",
+    "Physical iOS/Android multi-device and long-duration testing remains separate from the automated fixture verification"
+  ]
+}
