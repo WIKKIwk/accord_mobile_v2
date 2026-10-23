@@ -55,6 +55,7 @@ class _OrdersHarness {
   String detailEpoch = _epoch;
   String detailState = 'pending';
   String detailTitle = 'Full detail package';
+  String detailProductCode = 'FILM-ALPHA';
   Duration detailDelay = Duration.zero;
   final detailReplies = <Future<AdminApparatusQueueSnapshot>>[];
   final rowOverrides = <String, Map<String, dynamic>>{};
@@ -179,7 +180,7 @@ class _OrdersHarness {
               'title': detailTitle,
               'customer_name': 'Alpha customer',
               'image_id': 'image-$orderId',
-              'product_code': 'FILM-ALPHA',
+              'product_code': detailProductCode,
               'base_length': 15000,
               'order_kg': 200,
               'nodes': [
@@ -879,5 +880,116 @@ void main() {
     expect(find.textContaining('Shu bosqich:'), findsOneWidget);
     expect(find.text('Butun buyurtma'), findsNothing);
     await harness.dispose(tester);
+  });
+
+  testWidgets(
+      'orders hydrated revision refreshes material and mold counts once',
+      (tester) async {
+    final harness = _OrdersHarness();
+    var materialReads = 0;
+    var moldReads = 0;
+    var materialCount = 1;
+    var moldCount = 2;
+    final moldCodes = <String>[];
+    await TestModeController.instance.setEnabled(false);
+    await http.runWithClient(() async {
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pumpAndSettle();
+      expect(_detailSheet(), findsOneWidget);
+      final originalState = tester.state(_detailSheet());
+      expect(materialReads, 1);
+      expect(moldReads, 1);
+      expect(_detailContent(tester).materialsLoading, isFalse);
+      expect(_detailContent(tester).attachedQolipsLoading, isFalse);
+      final materials =
+          find.byKey(const ValueKey('production-materials-expansion'));
+      final molds =
+          find.byKey(const ValueKey('production-attached-qolips-expansion'));
+      expect((tester.widget(materials) as dynamic).countNumber, '1');
+      expect((tester.widget(molds) as dynamic).countNumber, '2');
+      expect(find.descendant(of: materials, matching: find.text('1')),
+          findsOneWidget);
+      expect(
+          find.descendant(of: molds, matching: find.text('2')), findsOneWidget);
+      materialCount = 3;
+      moldCount = 4;
+      harness
+        ..detailRevision = 8
+        ..detailTitle = 'Updated full package'
+        ..detailProductCode = 'FILM-BETA';
+      harness.patch([
+        {
+          'op': 'set',
+          'path': ['rows', 'order-a', 'display_state'],
+          'value': 'in_progress'
+        },
+      ]);
+      await tester.pumpAndSettle();
+      expect(identical(tester.state(_detailSheet()), originalState), isTrue);
+      expect(harness.detailReads, hasLength(2));
+      expect(materialReads, 2,
+          reason: 'One refresh per accepted full snapshot cursor');
+      expect(moldReads, 2,
+          reason: 'Changed product metadata must refresh attached molds');
+      expect(moldCodes, ['FILM-ALPHA', 'FILM-BETA']);
+      expect(_detailContent(tester).map.title, 'Updated full package');
+      expect(_detailContent(tester).materialsLoading, isFalse);
+      expect(_detailContent(tester).attachedQolipsLoading, isFalse);
+      expect((tester.widget(materials) as dynamic).countNumber, '3');
+      expect((tester.widget(molds) as dynamic).countNumber, '4');
+      expect(find.descendant(of: materials, matching: find.text('3')),
+          findsOneWidget);
+      expect(
+          find.descendant(of: molds, matching: find.text('4')), findsOneWidget);
+      // Expansions and the metric FutureBuilder can rebuild the existing sheet.
+      // Rebuilding the same accepted cursor may not refetch either section.
+      _detailContent(tester).onToggleSummaryExpanded();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+      expect(materialReads, 2);
+      expect(moldReads, 2);
+      expect(harness.detailReads, hasLength(2));
+      expect(identical(tester.state(_detailSheet()), originalState), isTrue);
+      await harness.dispose(tester);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/raw-material-assignments')) {
+                expect(request.url.queryParameters, {'order_id': 'order-a'});
+                materialReads++;
+                return http.Response(
+                    jsonEncode([
+                      for (var i = 0; i < materialCount; i++)
+                        {
+                          ...scanAssignment(),
+                          'order_id': 'order-a',
+                          'barcode': 'ROLL-$materialReads-$i',
+                        },
+                    ]),
+                    200);
+              }
+              if (request.url.path.endsWith('/qolip/shared-sets')) {
+                moldReads++;
+                final item = request.url.queryParameters['item_code']!;
+                moldCodes.add(item);
+                return http.Response(
+                    jsonEncode({
+                      'products': [
+                        for (var i = 0; i < moldCount; i++)
+                          {
+                            'code': item,
+                            'name': 'Package mold',
+                            'qolip_code': 'MOLD-$i',
+                            'warehouse': 'Molds A',
+                            'size': 40,
+                            'has_qolip_spec': true,
+                          },
+                      ]
+                    }),
+                    200);
+              }
+              return http.Response('{}', 404);
+            }));
   });
 }
