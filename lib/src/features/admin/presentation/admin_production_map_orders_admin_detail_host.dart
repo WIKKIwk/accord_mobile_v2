@@ -11,11 +11,11 @@ class _AdminHydratedDetailHost extends StatefulWidget {
     required this.builder,
   });
 
-  final AdminApparatusQueueSnapshot initialSnapshot;
+  final AdminApparatusQueueSnapshot? initialSnapshot;
   final bool Function() isCurrent;
   final ({String epoch, int revision})? Function() currentCursor;
   final Future<AdminApparatusQueueSnapshot?> Function() load;
-  final Widget Function(AdminApparatusQueueSnapshot,
+  final Widget Function(AdminApparatusQueueSnapshot?,
       ValueNotifier<AdminApparatusQueueSnapshot?>) builder;
 
   @override
@@ -24,7 +24,7 @@ class _AdminHydratedDetailHost extends StatefulWidget {
 }
 
 class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
-  late AdminApparatusQueueSnapshot _snapshot;
+  AdminApparatusQueueSnapshot? _snapshot;
   late final ValueNotifier<AdminApparatusQueueSnapshot?> _authority;
   bool _reading = false;
   bool _pending = false;
@@ -50,8 +50,22 @@ class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
     _authority.value = null;
   }
 
+  @override
+  void didUpdateWidget(covariant _AdminHydratedDetailHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final initial = widget.initialSnapshot;
+    if (_snapshot == null && initial != null) {
+      _snapshot = initial;
+      _authority.value = initial;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _productionChanged();
+      });
+    }
+  }
+
   void _productionChanged() {
-    if (!mounted ||
+    if (_snapshot == null ||
+        !mounted ||
         !widget.isCurrent() ||
         !ProductionDataRevision.isCurrentScope) {
       return;
@@ -64,8 +78,8 @@ class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
     // A scoped detail can be newer than the list event that caused it. Do not
     // fetch it again merely because that event finally reaches the list.
     if (_authority.value != null &&
-        _snapshot.epoch == cursor.epoch &&
-        (_snapshot.revision ?? -1) >= cursor.revision) {
+        _snapshot!.epoch == cursor.epoch &&
+        (_snapshot!.revision ?? -1) >= cursor.revision) {
       return;
     }
     // Keep the rendered map/form, but never let an older action contract
@@ -103,8 +117,8 @@ class _AdminHydratedDetailHostState extends State<_AdminHydratedDetailHost> {
             _authority.value = null;
             continue;
           }
-          if (_snapshot.epoch == next.epoch &&
-              (_snapshot.revision ?? -1) > (next.revision ?? -1)) {
+          if (_snapshot?.epoch == next.epoch &&
+              (_snapshot?.revision ?? -1) > (next.revision ?? -1)) {
             continue;
           }
           _snapshot = next;

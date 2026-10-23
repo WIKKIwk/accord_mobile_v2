@@ -494,6 +494,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           else if (uiState.showStartMaterials) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-start-materials-expansion'),
+              maxTitleLines: workerMode ? null : 1,
               title: context.l10n.productionText(
                 startMaterialsExpandable || materialsLoading
                     ? 'worker.materials.start'
@@ -554,6 +555,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           ] else if (uiState.showIntakeCandidates) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-intake-materials-expansion'),
+              maxTitleLines: workerMode ? null : 1,
               title: context.l10n.productionText(
                 intakeCandidatesExpandable
                     ? 'worker.materials.pending'
@@ -601,6 +603,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
           if (!workerStartMaterials) ...[
             _ScannedItemsExpansionHeader(
               key: const ValueKey('production-materials-expansion'),
+              maxTitleLines: workerMode ? null : 1,
               title: context.l10n.productionText(
                 attachedMaterialsExpandable
                     ? 'worker.materials.attached'
@@ -688,6 +691,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                       key: const ValueKey(
                         'production-attached-qolips-expansion',
                       ),
+                      maxTitleLines: 1,
                       title: context.l10n.productionText(
                         attachedExpandable || attachedQolipsLoading
                             ? 'worker.molds.attached'

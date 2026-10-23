@@ -537,6 +537,7 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
     this.hideZeroCount = false,
     this.showCount = true,
     this.trailing,
+    this.maxTitleLines,
   });
   final String title;
   final String countText;
@@ -556,6 +557,8 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
   final bool hideZeroCount;
   final bool showCount;
   final Widget? trailing;
+  // Admin rows stay one line when a late count or expansion arrow arrives.
+  final int? maxTitleLines;
 
   @override
   Widget build(BuildContext context) {
@@ -615,6 +618,9 @@ class _ScannedItemsExpansionHeader extends StatelessWidget {
                     child: Text(
                       title,
                       key: ValueKey<String>(title),
+                      maxLines: maxTitleLines,
+                      overflow:
+                          maxTitleLines == null ? null : TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: highlightedForeground,
                         fontWeight: FontWeight.w500,

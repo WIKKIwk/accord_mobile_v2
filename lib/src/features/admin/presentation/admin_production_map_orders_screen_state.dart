@@ -1112,16 +1112,27 @@ class _AdminProductionMapOrdersScreenState
       builder: (context) {
         Widget detailBuilder(
           AdminApparatusQueueSnapshot? detail,
-          ValueNotifier<AdminApparatusQueueSnapshot?> authority,
-        ) {
+          ValueNotifier<AdminApparatusQueueSnapshot?> authority, {
+          bool detailPending = false,
+          String? detailError,
+          VoidCallback? onRetryDetail,
+        }) {
           final detailOrder =
               detail?.maps
                   .where((saved) => saved.map.id.trim() == mapId)
                   .firstOrNull ??
               order;
-          final states = detail?.queueStates ?? initialStates;
-          final controls = detail?.queueActionControls ?? initialControls;
+          final states = detailPending
+              ? const <String, Map<String, String>>{}
+              : detail?.queueStates ?? initialStates;
+          final controls = detailPending
+              ? const <String,
+                  Map<String, AdminApparatusQueueOrderActionControl>>{}
+              : detail?.queueActionControls ?? initialControls;
           return _ReadOnlyOrderDetailSheet(
+            detailPending: detailPending,
+            detailError: detailError,
+            onRetryDetail: onRetryDetail,
             order: detailOrder,
             apparatus: apparatus,
             apparatusCatalog: _apparatus,
@@ -1148,9 +1159,11 @@ class _AdminProductionMapOrdersScreenState
                 _beginQueueAction('${apparatus.id.trim()}|$mapId'),
             endPrintPreflight: () =>
                 _endQueueAction('${apparatus.id.trim()}|$mapId'),
-            customerName: initialControlConfirmed && detail != null
-                ? detail.orderCustomers[mapId] ?? detailOrder.map.customerName
-                : _customerByMapId[mapId] ?? detailOrder.map.customerName,
+            customerName: detailPending
+                ? initialPreview?.customerName
+                : (initialControlConfirmed && detail != null
+                    ? detail.orderCustomers[mapId] ?? detailOrder.map.customerName
+                    : _customerByMapId[mapId] ?? detailOrder.map.customerName),
             canManageQueue:
                 widget.workerMode &&
                 _isAssignedWatchApparatus(
@@ -1164,7 +1177,9 @@ class _AdminProductionMapOrdersScreenState
               queueStatesByApparatus: states,
             ),
             queueStatesByApparatus: states,
-            stageStatesByOrderId: detail?.stageStates ?? _stageStatesByOrderId,
+            stageStatesByOrderId: detailPending
+                ? const {}
+                : detail?.stageStates ?? _stageStatesByOrderId,
             queueActionControl: controls[apparatus.id.trim()]?[mapId],
             queueActionControlsByApparatus: controls,
             queuePolicy: _queuePolicyForApparatus(
@@ -1182,10 +1197,11 @@ class _AdminProductionMapOrdersScreenState
                 _ordersForApparatus(apparatus)
                     .map((item) => item.map.id)
                     .toList(growable: false),
-            onQueueAction: _handleQueueAction,
+            onQueueAction: detailPending ? null : _handleQueueAction,
             progressDriverUrlPicker: widget.progressDriverUrlPicker,
-            initialOrderControls:
-                detail?.orderControls ?? _orderControlsByOrderId,
+            initialOrderControls: detailPending
+                ? const {}
+                : detail?.orderControls ?? _orderControlsByOrderId,
             initialOrderSwitchBatch: initialOrderSwitchBatch,
             initialScanQrPayload: initialScanQrPayload,
             initialFabPreparedScan: initialFabPreparedScan,
@@ -1210,21 +1226,25 @@ class _AdminProductionMapOrdersScreenState
           final page = window.pages.first;
           return (epoch: page.epoch, revision: page.revision!);
         }
-        Widget hydratedDetail(AdminApparatusQueueSnapshot snapshot) =>
+        Widget hydratedDetail(AdminApparatusQueueSnapshot? snapshot,
+                {String? error, VoidCallback? onRetry}) =>
             _AdminHydratedDetailHost(
               initialSnapshot: snapshot,
               isCurrent: detailIsCurrent,
               currentCursor: detailCursor,
               load: () => _readAdminSequenceDetail(apparatus, mapId),
-              builder: detailBuilder,
+              builder: (detail, authority) => detailBuilder(detail, authority,
+                  detailPending: detail == null,
+                  detailError: error,
+                  onRetryDetail: onRetry),
             );
         if (initialPreview != null) {
           return _AdminInitialDetailHost(
-            row: initialPreview,
             isCurrent: detailIsCurrent,
             load: () => _readAdminSequenceDetail(apparatus, mapId),
             onReady: _installAdminDetailAuthority,
-            builder: hydratedDetail,
+            builder: (snapshot, error, onRetry) =>
+                hydratedDetail(snapshot, error: error, onRetry: onRetry),
           );
         }
         if (initialControlConfirmed &&

@@ -117,6 +117,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   bool get _isTrainingOrder =>
       widget.order.map.id.trim().startsWith('training-');
   bool get _queueActionContractSynchronized =>
+      !widget.detailPending &&
       _detailReadScope == currentSessionReadScope() &&
       _queueActionControl?.isConsistentWith(
         _orderControlState,
@@ -134,7 +135,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     _observedDetailReadScope = _detailReadScope;
     AppSession.instance.revision.addListener(_onDetailSessionChanged);
     WidgetsBinding.instance.addObserver(this);
-    widget.queueSnapshotListenable?.addListener(_onCanonicalDetailSnapshot);
+    if (!widget.detailPending) {
+      widget.queueSnapshotListenable?.addListener(_onCanonicalDetailSnapshot);
+    }
     _sharedQueueActionInFlight = _sharedQueueActionPending;
     widget.queueActionsInFlight?.addListener(_onSharedQueueActionChanged);
     if (AppSession.instance.profile?.role == UserRole.tayyorlovMasteri) {
@@ -163,7 +166,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           imageId: widget.order.map.imageId),
       thumbnail: true,
     );
-    unawaited(_loadInitialInteractionAndScan());
+    if (!widget.detailPending) {
+      unawaited(_loadInitialInteractionAndScan());
+    }
     if (_orderImageBytes == null) {
       unawaited(_loadOrderImage());
     }
@@ -226,7 +231,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   void _setActionInFlight(bool value) => setState(() => _actionInFlight = value);
 
   void _onSharedQueueActionChanged() {
-    if (!mounted) return;
+    if (!mounted || widget.detailPending) return;
     final wasPending = _sharedQueueActionInFlight;
     setState(() => _sharedQueueActionInFlight = _sharedQueueActionPending);
     if (wasPending && !_sharedQueueActionInFlight && !_actionInFlight &&
@@ -244,6 +249,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _detailForeground = state == AppLifecycleState.resumed;
+    if (widget.detailPending) return;
     if (_detailForeground && !_queueActionContractSynchronized &&
         !_queueActionBusy && _detailReadScope == currentSessionReadScope()) {
       if (_pendingDetailRevision != null) {
@@ -286,9 +292,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   @override
   void didUpdateWidget(covariant _ReadOnlyOrderDetailSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.queueSnapshotListenable != widget.queueSnapshotListenable) {
+    if (oldWidget.queueSnapshotListenable != widget.queueSnapshotListenable ||
+        oldWidget.detailPending != widget.detailPending) {
       oldWidget.queueSnapshotListenable?.removeListener(_onCanonicalDetailSnapshot);
-      widget.queueSnapshotListenable?.addListener(_onCanonicalDetailSnapshot);
+      if (!widget.detailPending) {
+        widget.queueSnapshotListenable?.addListener(_onCanonicalDetailSnapshot);
+      }
     }
     if (oldWidget.queueActionsInFlight != widget.queueActionsInFlight) {
       oldWidget.queueActionsInFlight?.removeListener(_onSharedQueueActionChanged);
@@ -353,6 +362,31 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _orderImageLoading = false;
       unawaited(_loadInteractionContractAndSections());
       unawaited(_loadOrderImage());
+    }
+    if (oldWidget.detailPending && !widget.detailPending && !contextChanged) {
+      // The same sheet now receives a complete, scoped map. Its summary was
+      // display data only; initialize authority before starting section reads.
+      _useInitialControlOnce = widget.initialControlConfirmed;
+      _sharedQueueActionInFlight = _sharedQueueActionPending;
+      _queueStates = Map<String, String>.from(widget.initialQueueStates);
+      _orderControls =
+          Map<String, AdminOrderControlState>.from(widget.initialOrderControls);
+      _orderControlState = adminProductionMapOrderControlFor(
+          _orderControls, widget.order.map.id.trim());
+      final control = _canonicalDetailControl();
+      if (control != null && _sameDetailControl(control)) {
+        _applyDetailControl(control);
+      }
+      unawaited(_loadInitialInteractionAndScan());
+    }
+    if (!contextChanged &&
+        oldWidget.order.map.imageId != widget.order.map.imageId) {
+      _orderImageBytes = MobileApi.instance.peekCachedOrderImageBytes(
+        MobileApi.instance.adminProductionMapOrderImageUrl(widget.order.map.id,
+            imageId: widget.order.map.imageId),
+        thumbnail: true,
+      );
+      if (_orderImageBytes == null) unawaited(_loadOrderImage());
     }
     if (_actionInFlight || _acceptedDetailControl != null) {
       return;
@@ -544,6 +578,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     return PopScope(
       canPop: false,
       child: _ReadOnlyOrderDetailContent(
+        detailPending: widget.detailPending,
+        detailError: widget.detailError,
+        onRetryDetail: widget.onRetryDetail,
         noticeAnchorKey: _noticeAnchorKey,
         onMaterialsLinked: () =>
             unawaited(_loadInteractionContractAndSections()),
@@ -827,6 +864,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<void> _loadInteractionContractAndSections() async {
+    if (widget.detailPending) return;
     _detailRecoveryNeeded = false;
     _detailRecoveryEventCursor = null;
     _detailRecoveryCursor = _currentDetailRecoveryCursor();
@@ -3558,6 +3596,9 @@ class _MaterialAssignmentsSnapshot {
 class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   const _ReadOnlyOrderDetailSheet({
     required this.order,
+    this.detailPending = false,
+    this.detailError,
+    this.onRetryDetail,
     this.apparatusCatalog = const [],
     this.baseMetraj,
     this.orderKg,
@@ -3597,6 +3638,12 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.busyOrderTitleLookup,
   });
   final ProductionMapSaved order;
+
+  /// A list summary may render the real UI but cannot start detail effects or
+  /// authorize any action until its scoped full map has been validated.
+  final bool detailPending;
+  final String? detailError;
+  final VoidCallback? onRetryDetail;
   final List<AdminApparatus> apparatusCatalog;
   final double? baseMetraj;
   final double? orderKg;

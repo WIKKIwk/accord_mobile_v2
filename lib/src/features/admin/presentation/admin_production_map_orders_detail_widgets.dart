@@ -2,6 +2,9 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
+    this.detailPending = false,
+    this.detailError,
+    this.onRetryDetail,
     required this.order,
     required this.noticeAnchorKey,
     required this.onClose,
@@ -89,6 +92,9 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     this.onReceiveMaterial,
   });
   final GlobalKey noticeAnchorKey;
+  final bool detailPending;
+  final String? detailError;
+  final VoidCallback? onRetryDetail;
   final VoidCallback onClose;
   final ProductionMapDefinition map;
   final Uint8List? orderImageBytes;
@@ -214,6 +220,20 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
+                  if (detailError != null)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(children: [
+                        Text(detailError!),
+                        if (onRetryDetail != null)
+                          TextButton.icon(
+                            key: const ValueKey('admin-sequence-detail-retry'),
+                            onPressed: onRetryDetail,
+                            icon: const Icon(Icons.refresh),
+                            label: Text(context.l10n.retry),
+                          ),
+                      ]),
+                    ),
                   if (summaryOnlyMode)
                     _TayyorlovSummaryOrderHeader(
                       map: map,
@@ -417,11 +437,12 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     ),
                   if (!summaryOnlyMode) const SizedBox(height: 4),
                   _OrderSummaryCard(
+                    detailPending: detailPending,
                     map: map,
                     workerMode: workerMode,
                     baseMetraj: baseMetraj,
                     orderKg: orderKg,
-                    expanded: summaryExpanded,
+                    expanded: !detailPending && summaryExpanded,
                     onToggleExpanded: onToggleSummaryExpanded,
                   ),
                   if (summaryOnlyMode) const SizedBox(height: 10),
@@ -435,6 +456,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     const SizedBox(height: 4),
                   if (!summaryOnlyMode)
                     _OrderMapProgressCard(
+                      detailPending: detailPending,
                       order: order,
                       map: map,
                       orderControlState: orderControlState,
@@ -449,7 +471,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                           queueActionControlsByApparatus,
                       stageStates: stageStates,
                       currentStageNodeId: uiState.stageNodeId,
-                      expanded: workerMode ? summaryExpanded : mapExpanded,
+                      expanded: !detailPending &&
+                          (workerMode ? summaryExpanded : mapExpanded),
                       onToggleExpanded: onToggleMapExpanded,
                       onTapApparatus: onTapMapApparatus,
                     ),
@@ -861,6 +884,7 @@ class _OrderHomashyoPickerSheetState extends State<_OrderHomashyoPickerSheet> {
 
 class _OrderSummaryCard extends StatelessWidget {
   const _OrderSummaryCard({
+    this.detailPending = false,
     required this.map,
     required this.workerMode,
     this.baseMetraj,
@@ -869,6 +893,7 @@ class _OrderSummaryCard extends StatelessWidget {
     required this.onToggleExpanded,
   });
   final ProductionMapDefinition map;
+  final bool detailPending;
   final bool workerMode;
   final double? baseMetraj;
   final double? orderKg;
@@ -928,7 +953,7 @@ class _OrderSummaryCard extends StatelessWidget {
         ),
       );
     }
-    if (rows.isEmpty && !showCalculationDetails) {
+    if (!detailPending && rows.isEmpty && !showCalculationDetails) {
       return const SizedBox.shrink();
     }
     return _orderDetailSurfaceCard(
@@ -939,7 +964,7 @@ class _OrderSummaryCard extends StatelessWidget {
         children: [
           InkWell(
             borderRadius: BorderRadius.circular(18),
-            onTap: onToggleExpanded,
+            onTap: detailPending ? null : onToggleExpanded,
             child: Padding(
               padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 10, 14),
               child: Row(

@@ -295,11 +295,13 @@ class _DetailRouteObserver extends NavigatorObserver {
 
 Finder _row(String id) => find.byKey(ValueKey('sequence-row-$_apparatus-$id'));
 
-Finder _detailSheet() => find.byWidgetPredicate(
-    (widget) => widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet');
+Finder _detailSheet() => find.byWidgetPredicate((widget) =>
+    widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet' &&
+    !(widget as dynamic).detailPending);
 
-Finder _detailPreview() =>
-    find.byKey(const ValueKey('admin-sequence-detail-preview'));
+Finder _pendingDetailSheet() => find.byWidgetPredicate((widget) =>
+    widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet' &&
+    (widget as dynamic).detailPending);
 
 Finder _detailRetry() =>
     find.byKey(const ValueKey('admin-sequence-detail-retry'));
@@ -380,7 +382,8 @@ void main() {
     await harness.dispose(tester);
   });
 
-  testWidgets('sequence summary opens preview before one scoped detail read',
+  testWidgets(
+      'sequence summary opens the existing sheet before one scoped detail read',
       (tester) async {
     final harness = _SummaryHarness()
       ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
@@ -392,21 +395,30 @@ void main() {
     open();
     await tester.pump();
     expect(harness.detailReads, [(apparatus: _apparatus, orderId: 'order-a')]);
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     for (final text in ['0101', 'Alpha package', 'Alpha customer']) {
       expect(
           find.descendant(
-              of: _detailPreview(), matching: find.textContaining(text)),
+              of: _pendingDetailSheet(), matching: find.textContaining(text)),
           findsWidgets);
     }
-    for (final section in ['materials', 'qolips', 'map']) {
-      expect(find.byKey(ValueKey('admin-sequence-detail-pending-$section')),
-          findsOneWidget);
+    for (final section in [
+      'production-materials-expansion',
+      'production-attached-qolips-expansion'
+    ]) {
+      expect(find.byKey(ValueKey(section)), findsOneWidget);
     }
+    expect(_detailContent(tester).materialsLoading, isTrue);
+    expect(_detailContent(tester).attachedQolipsLoading, isTrue);
+    expect(find.byKey(const ValueKey('production-intake-materials-expansion')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('admin-sequence-detail-pending-map')),
+        findsNothing);
     expect(harness.routeObserver.popupRoutes, hasLength(1),
         reason: 'Repeated retained tap callbacks cannot stack modal routes');
     expect(_detailSheet(), findsNothing,
-        reason: 'Summary fields cannot authorize detailed actions');
+        reason:
+            'The summary can render the sheet but cannot authorize actions');
     harness.pendingDetail!.complete(harness.fullDetail('order-a'));
     await tester.pumpAndSettle();
     expect(_detailSheet(), findsOneWidget);
@@ -416,12 +428,76 @@ void main() {
         (sheet.order as ProductionMapSaved).map.title, 'Full detail package');
     expect(harness.detailReads, hasLength(1));
     expect(harness.routeObserver.popupRoutes, hasLength(1),
-        reason: 'Full detail must replace the preview inside the same route');
-    expect(_detailPreview(), findsNothing);
+        reason: 'The existing sheet must hydrate inside the same route');
+    expect(_pendingDetailSheet(), findsNothing);
     await harness.dispose(tester);
   });
 
-  testWidgets('sequence preview first frame is independent of one-second HTTP',
+  for (final title in [
+    'Alpha package',
+    'Uzun mahsulot nomi bilan ishlab chiqariladigan buyurtma qadoqlari',
+  ]) {
+    testWidgets('existing sheet geometry stays fixed while hydrating $title',
+        (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final harness = _SummaryHarness()
+        ..detailTitle = title
+        ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+      // Match the reported admin sheet: assigned materials and molds, with
+      // no additional worker start/intake section in this order's contract.
+      harness.detailControlOverrides['interaction'] = {
+        ...scanControl()['interaction'] as Map,
+        'start_materials_mode': 'hidden',
+        'material_scan_required': false,
+        'qolip_mode': 'not_required',
+      };
+      expect(
+          harness
+              .fullDetail('order-a')
+              .queueActionControls[_apparatus]!['order-a']!
+              .contractValid,
+          isTrue);
+      harness.rowOverrides['order-a'] = {'title': title};
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pumpAndSettle();
+      final originalState = tester.state(_pendingDetailSheet());
+      final dynamic pending = tester.widget(_pendingDetailSheet());
+      expect(pending.onQueueAction, isNull);
+      expect(_detailContent(tester).materialsLoading, isTrue);
+      expect(_detailContent(tester).attachedQolipsLoading, isTrue);
+      expect(find.text('..'), findsNWidgets(2));
+      final components = <Finder>[
+        for (final type in [
+          '_OrderStartUnifiedCard',
+          '_OrderSummaryCard',
+          '_OrderMapProgressCard',
+        ])
+          find.byWidgetPredicate(
+              (widget) => widget.runtimeType.toString() == type),
+        find.byKey(const ValueKey('production-order-detail-photo-thumbnail')),
+        find.byKey(const ValueKey('production-order-detail-close')),
+      ];
+      final before = components.map(tester.getRect).toList();
+      harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+      await tester.pumpAndSettle();
+      expect(identical(tester.state(_detailSheet()), originalState), isTrue,
+          reason: 'Hydration updates the existing sheet State');
+      for (var index = 0; index < components.length; index++) {
+        expect(tester.getRect(components[index]), before[index],
+            reason: 'Existing component $index must not jump or resize');
+      }
+      expect(harness.detailReads, hasLength(1));
+      expect(harness.routeObserver.popupRoutes, hasLength(1));
+      await harness.dispose(tester);
+    });
+  }
+
+  testWidgets(
+      'pending sequence sheet first frame is independent of one-second HTTP',
       (tester) async {
     final harness = _SummaryHarness();
     harness.detailDelay = const Duration(seconds: 1);
@@ -429,7 +505,7 @@ void main() {
     final tapAt = tester.binding.clock.now();
     await tester.tap(_row('order-a'));
     await tester.pump(const Duration(milliseconds: 16));
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     expect(_detailSheet(), findsNothing);
     final firstFrameMs =
         tester.binding.clock.now().difference(tapAt).inMilliseconds;
@@ -437,39 +513,43 @@ void main() {
         reason:
             'Preview cannot wait for the artificial one-second detail read');
     await tester.pump(const Duration(milliseconds: 400));
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     expect(_detailSheet(), findsNothing);
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
     expect(_detailSheet(), findsOneWidget);
     expect(harness.detailReads, hasLength(1));
     expect(harness.routeObserver.popupRoutes, hasLength(1));
-    debugPrint('Preview first frame: $firstFrameMs ms in widget-test clock; '
+    debugPrint(
+        'Existing sheet first frame: $firstFrameMs ms in widget-test clock; '
         'detail fixture delay: 1000 ms. Not a physical-device timing.');
     await harness.dispose(tester);
   });
 
-  testWidgets('sequence preview closed while pending never reopens on reply',
+  testWidgets(
+      'pending sequence sheet closed while pending never reopens on reply',
       (tester) async {
     final harness = _SummaryHarness()
       ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
     await harness.mount(tester);
     await tester.tap(_row('order-a'));
     await tester.pump(const Duration(milliseconds: 16));
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('admin-sequence-detail-close')));
+    await tester
+        .tap(find.byKey(const ValueKey('production-order-detail-close')));
     await tester.pumpAndSettle();
-    expect(_detailPreview(), findsNothing);
+    expect(_pendingDetailSheet(), findsNothing);
     harness.pendingDetail!.complete(harness.fullDetail('order-a'));
     await tester.pumpAndSettle();
     expect(_detailSheet(), findsNothing);
-    expect(_detailPreview(), findsNothing);
+    expect(_pendingDetailSheet(), findsNothing);
     expect(harness.routeObserver.popupRoutes, hasLength(1));
     await harness.dispose(tester);
   });
 
-  testWidgets('sequence preview retries failed detail inside the same modal',
+  testWidgets(
+      'pending sequence sheet retries failed detail inside the same modal',
       (tester) async {
     final harness = _SummaryHarness()
       ..detailError = const MobileApiException(
@@ -477,7 +557,7 @@ void main() {
     await harness.mount(tester);
     await tester.tap(_row('order-a'));
     await tester.pumpAndSettle();
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     expect(_detailRetry(), findsOneWidget);
     expect(_detailSheet(), findsNothing);
     final route = harness.routeObserver.popupRoutes.single;
@@ -487,7 +567,7 @@ void main() {
     await tester.tap(_detailRetry());
     await tester.pump();
     expect(harness.detailReads, hasLength(2));
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     harness.pendingDetail!.complete(harness.fullDetail('order-a'));
     await tester.pumpAndSettle();
     expect(_detailSheet(), findsOneWidget);
@@ -495,7 +575,8 @@ void main() {
     await harness.dispose(tester);
   });
 
-  testWidgets('sequence preview ignores detail reply during close animation',
+  testWidgets(
+      'pending sequence sheet ignores detail reply during close animation',
       (tester) async {
     final harness = _SummaryHarness()
       ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
@@ -503,26 +584,28 @@ void main() {
     await tester.tap(_row('order-a'));
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('admin-sequence-detail-close')));
+    await tester
+        .tap(find.byKey(const ValueKey('production-order-detail-close')));
     await tester.pump();
-    expect(_detailPreview(), findsOneWidget,
+    expect(_pendingDetailSheet(), findsOneWidget,
         reason: 'The route is still mounted while its reverse animation runs');
     harness.pendingDetail!.complete(harness.fullDetail('order-a'));
     await tester.pump(const Duration(milliseconds: 16));
     expect(
         find.byWidgetPredicate(
             (widget) =>
-                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet',
+                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet' &&
+                !(widget as dynamic).detailPending,
             skipOffstage: false),
         findsNothing,
         reason: 'A popped but mounted route cannot accept detail authority');
     await tester.pumpAndSettle();
-    expect(_detailPreview(), findsNothing);
+    expect(_pendingDetailSheet(), findsNothing);
     expect(harness.routeObserver.popupRoutes, hasLength(1));
     await harness.dispose(tester);
   });
 
-  testWidgets('sequence preview accepts detail while temporarily covered',
+  testWidgets('pending sequence sheet accepts detail while temporarily covered',
       (tester) async {
     final harness = _SummaryHarness()
       ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
@@ -530,7 +613,7 @@ void main() {
     await tester.tap(_row('order-a'));
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(milliseconds: 350));
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     final previewRoute = harness.routeObserver.popupRoutes.single;
     final navigator =
         tester.state<NavigatorState>(find.byType(Navigator).first);
@@ -544,7 +627,8 @@ void main() {
     expect(
         find.byWidgetPredicate(
             (widget) =>
-                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet',
+                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet' &&
+                !(widget as dynamic).detailPending,
             skipOffstage: false),
         findsOneWidget,
         reason:
@@ -552,7 +636,7 @@ void main() {
     navigator.pop();
     await tester.pumpAndSettle();
     expect(_detailSheet(), findsOneWidget);
-    expect(_detailPreview(), findsNothing);
+    expect(_pendingDetailSheet(), findsNothing);
     expect(harness.detailReads, hasLength(1));
     expect(harness.routeObserver.popupRoutes, [previewRoute],
         reason:
@@ -562,7 +646,7 @@ void main() {
 
   for (final awaitingValidation in [false, true]) {
     testWidgets(
-        'sequence preview close-reopen shares pending detail validation=$awaitingValidation',
+        'pending sequence sheet close-reopen shares pending detail validation=$awaitingValidation',
         (tester) async {
       final harness = _SummaryHarness()
         ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
@@ -579,14 +663,14 @@ void main() {
       await tester.tap(_row('order-a'));
       await tester.pump(const Duration(milliseconds: 16));
       await tester.pump(const Duration(milliseconds: 350));
-      expect(_detailPreview(), findsOneWidget);
+      expect(_pendingDetailSheet(), findsOneWidget);
       expect(harness.detailReads, hasLength(1));
       await tester
-          .tap(find.byKey(const ValueKey('admin-sequence-detail-close')));
+          .tap(find.byKey(const ValueKey('production-order-detail-close')));
       await tester.pumpAndSettle();
       await tester.tap(_row('order-a'));
       await tester.pump(const Duration(milliseconds: 16));
-      expect(_detailPreview(), findsOneWidget);
+      expect(_pendingDetailSheet(), findsOneWidget);
       expect(harness.detailReads, hasLength(1),
           reason: 'A pending scoped read survives closing its first preview');
       harness.pendingDetail!.complete(harness.fullDetail('order-a'));
@@ -600,14 +684,14 @@ void main() {
   }
 
   testWidgets(
-      'sequence preview rejects detail overtaken by a streamed revision',
+      'pending sequence sheet rejects detail overtaken by a streamed revision',
       (tester) async {
     final pending = Completer<AdminApparatusQueueSnapshot>();
     final harness = _SummaryHarness()..pendingDetail = pending;
     await harness.mount(tester);
     await tester.tap(_row('order-a'));
     await tester.pump(const Duration(milliseconds: 16));
-    expect(_detailPreview(), findsOneWidget);
+    expect(_pendingDetailSheet(), findsOneWidget);
     final obsolete = harness.fullDetail('order-a');
     harness.patch([
       {
@@ -1164,7 +1248,7 @@ void main() {
       expect(_detailSheet(), findsNothing);
       expect(find.text('Full detail package'), findsNothing);
       if (failure != 'scope') {
-        expect(_detailPreview(), findsOneWidget);
+        expect(_pendingDetailSheet(), findsOneWidget);
         expect(_detailRetry(), findsOneWidget);
       }
       await harness.dispose(tester);

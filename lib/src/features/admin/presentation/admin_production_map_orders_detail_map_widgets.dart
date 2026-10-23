@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _OrderMapProgressCard extends StatefulWidget {
   const _OrderMapProgressCard({
+    this.detailPending = false,
     required this.order,
     required this.map,
     required this.orderControlState,
@@ -20,6 +21,7 @@ class _OrderMapProgressCard extends StatefulWidget {
     required this.onTapApparatus,
   });
   final bool workerMode;
+  final bool detailPending;
   final ProductionMapSaved order;
   final ProductionMapDefinition map;
   final AdminOrderControlState orderControlState;
@@ -327,7 +329,7 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
         children: [
           InkWell(
             borderRadius: BorderRadius.circular(18),
-            onTap: onToggleExpanded,
+            onTap: widget.detailPending ? null : onToggleExpanded,
             child: Padding(
               padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 10, 14),
               child: Row(
@@ -344,15 +346,18 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _orderMapProgressSummary(
-                            l10n: context.l10n,
-                            steps: steps,
-                            orderId: orderId,
-                            currentStation: currentStation,
-                            queueStates: queueStates,
-                            queueStatesByApparatus: queueStatesByApparatus,
-                            stageStates: stageStates,
-                          ),
+                          widget.detailPending
+                              ? '\u00a0'
+                              : _orderMapProgressSummary(
+                                  l10n: context.l10n,
+                                  steps: steps,
+                                  orderId: orderId,
+                                  currentStation: currentStation,
+                                  queueStates: queueStates,
+                                  queueStatesByApparatus:
+                                      queueStatesByApparatus,
+                                  stageStates: stageStates,
+                                ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                             fontWeight: FontWeight.w600,
