@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/production/production_data_revision.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../shared/models/app_models.dart';
@@ -458,6 +459,10 @@ class AdminSequenceWarmStore {
       _reconnectAttempt = 0;
       _repairBudget = true;
       _lastError = null;
+      if (generation == _streamGeneration && _mayStream) {
+        ProductionDataRevision.notify(
+            epoch: event.epoch, revision: event.revision);
+      }
     } catch (_) {
       await _repair(generation);
     }

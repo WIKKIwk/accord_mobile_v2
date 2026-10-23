@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/production/production_data_revision.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_warm_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -536,5 +537,102 @@ void main() {
     await _settle();
     expect(harness.store.peek('scope'), isNull);
     expect(harness.requests, hasLength(1));
+  });
+
+  test('only accepted live revisions notify production detail listeners',
+      () async {
+    ProductionDataRevision.notify(epoch: 'before-admin-live-test', revision: 0);
+    final baseline = ProductionDataRevision.revision.value;
+    final harness = _Harness();
+    addTearDown(harness.close);
+    await harness.start();
+    // An HTTP projection has no live barrier and must not announce freshness.
+    expect(ProductionDataRevision.revision.value, baseline);
+    harness.controllers.last.add(_event('page_window_ready'));
+    await _settle();
+    expect(ProductionDataRevision.revision.value, baseline + 1);
+
+    harness.controllers.last
+        .add(_event('page_window_checkpoint', revision: 2, extra: {
+      'base_version': 'v1',
+      'next_cursors': [null]
+    }));
+    await _settle();
+    expect(ProductionDataRevision.revision.value, baseline + 2);
+
+    harness.controllers.last
+        .add(_event('page_window_delta', revision: 3, extra: {
+      'base_version': 'v2',
+      'page_count': 1,
+      'changes': [
+        {
+          'index': 0,
+          'ops': [
+            {
+              'op': 'set',
+              'path': ['version'],
+              'value': 'v3'
+            },
+            {
+              'op': 'set',
+              'path': ['rev'],
+              'value': 3
+            },
+          ],
+        },
+      ],
+    }));
+    await _settle();
+    expect(ProductionDataRevision.revision.value, baseline + 3);
+
+    // Duplicate and stale frames have already been represented by this page.
+    harness.controllers.last
+      ..add(_event('page_window_checkpoint', revision: 3))
+      ..add(_event('page_window_ready', revision: 2));
+    await _settle();
+    expect(ProductionDataRevision.revision.value, baseline + 3);
+
+    // Missing history invokes one HTTP repair, which is still unvalidated.
+    harness.controllers.last.add(_event('page_window_resync', revision: 4));
+    await _settle();
+    expect(harness.requests, hasLength(2));
+    expect(ProductionDataRevision.revision.value, baseline + 3);
+
+    final lease = harness.store.acquire('scope');
+    await lease.ready;
+    harness.controllers.last.add(_event('page_window_ready', revision: 2));
+    await _settle();
+    expect(ProductionDataRevision.revision.value, baseline + 3);
+    lease.release();
+  });
+
+  test('invalid and changed-scope live frames never notify detail listeners',
+      () async {
+    ProductionDataRevision.notify(
+        epoch: 'before-invalid-admin-live', revision: 0);
+    final baseline = ProductionDataRevision.revision.value;
+    var scope = 'scope';
+    final harness = _Harness(scopeReader: () => scope);
+    addTearDown(harness.close);
+    await harness.start();
+    harness.controllers.last
+        .add(_event('page_window_ready', extra: {'window': 'another-window'}));
+    await _settle();
+    expect(ProductionDataRevision.revision.value, baseline);
+
+    harness.controllers.last
+        .add(_event('page_window_checkpoint', revision: 2, extra: {
+      'base_version': 'invalid',
+      'next_cursors': [null]
+    }));
+    await _settle();
+    expect(harness.requests, hasLength(2));
+    expect(ProductionDataRevision.revision.value, baseline);
+
+    scope = 'another-account';
+    harness.controllers.last.add(_event('page_window_ready', revision: 2));
+    await _settle();
+    expect(ProductionDataRevision.revision.value, baseline);
+    expect(harness.store.peek('scope'), isNull);
   });
 }
