@@ -196,6 +196,30 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     for (var attempt = 0; attempt < 3; attempt++) {
       final invalidation = window.invalidation;
       try {
+        // The scoped store owns the one background Orders read. Joining it
+        // here also puts early tab taps under this window's in-flight guard.
+        // Keep hidden prefetched rows in the store so they build no images.
+        final warmScope = _adminOrdersWarmScope(window);
+        if (attempt == 0 &&
+            !append &&
+            !force &&
+            !window.loaded &&
+            !window.dirty &&
+            !_adminWindowLiveFallback &&
+            warmScope != null) {
+          final warm = _sequenceWarmStore.peekOrders(warmScope) ??
+              await _sequenceWarmStore.prepareOrders(warmScope);
+          if (!mounted ||
+              !_adminForeground ||
+              warmScope != _adminOrdersWarmScope(window)) {
+            return;
+          }
+          if (window.invalidation == invalidation &&
+              warm != null &&
+              _adoptAdminWarmOrders(window, warm)) {
+            return;
+          }
+        }
         var cursor = appendRead ? window.cursor : null;
         final staged =
             appendRead ? [...window.pages] : <AdminProductionOrderPage>[];

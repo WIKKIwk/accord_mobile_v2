@@ -90,10 +90,70 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
     _updateScreenState(() => _adoptAdminWarmSequence(ready));
   }
 
+  String? _adminOrdersWarmScope(_AdminOrderWindow window) {
+    final scope = _adminWarmScope;
+    if (scope == null ||
+        scope != currentAdminSequenceWarmScope() ||
+        window.account != _adminPageAccount ||
+        window.request.view != 'orders' ||
+        window.request.search.isNotEmpty ||
+        window.request.apparatus.isNotEmpty ||
+        window.request.target.isNotEmpty) {
+      return null;
+    }
+    return scope;
+  }
+
+  bool _adoptAdminWarmOrders(
+      _AdminOrderWindow window, AdminProductionOrderPage page) {
+    if (_adminOrdersWarmScope(window) == null ||
+        window.loaded ||
+        window.dirty ||
+        !page.isOrdersList ||
+        page.offset != 0 ||
+        page.length > 20 ||
+        page.version.isEmpty ||
+        page.epoch.isEmpty ||
+        page.revision == null ||
+        page.revision! < 0 ||
+        page.wireValue == null ||
+        _retiredSnapshotEpochs.contains(page.epoch) ||
+        (_lastAppliedSnapshotEpoch.isNotEmpty &&
+            _lastAppliedSnapshotEpoch != page.epoch)) {
+      return false;
+    }
+    _updateScreenState(() {
+      window.pages = [page];
+      // A prefetched list can render immediately; the visible window's socket
+      // still proves continuity before the existing action guards are released.
+      window.cacheNeedsValidation = true;
+      window.awaitingLive = true;
+      window.error = null;
+      _rebuildAdminPageState();
+      _loading = false;
+    });
+    return true;
+  }
+
   void _releaseAdminWarmSequence() {
     final lease = _adminWarmLease;
     _adminWarmLease = null;
     if (lease == null) return;
+    final scope = _adminWarmScope;
+    AdminProductionOrderPage? ordersPage;
+    if (scope != null && !_queueSnapshotContractError) {
+      final orders = _adminWindows.values.where((window) =>
+          _adminOrdersWarmScope(window) == scope &&
+          window.loaded &&
+          !window.dirty &&
+          !window.cacheNeedsValidation &&
+          !window.awaitingLive &&
+          window.inFlight == null &&
+          window.error == null).firstOrNull;
+      if (orders != null) {
+        ordersPage = orders.pages.first;
+      }
+    }
     final selected = _selectedApparatus;
     final windows = _adminWindows.values.where((window) =>
         window.account == _adminPageAccount &&
@@ -113,6 +173,7 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
       apparatus: _apparatus,
       selectedApparatusId: selected?.id,
       page: window?.pages.firstOrNull,
+      ordersPage: ordersPage,
       confirmed: window != null &&
           !window.cacheNeedsValidation &&
           !window.awaitingLive &&
