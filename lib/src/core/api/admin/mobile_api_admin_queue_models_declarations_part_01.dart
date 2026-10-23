@@ -358,9 +358,7 @@ class AdminApparatusQueueOrderActionControl {
           request.requestId.trim().isEmpty ||
           request.status.trim().toLowerCase() != 'pending' ||
           (request.targetApparatus.trim().isEmpty &&
-              !request.isGlobalWildcard) ||
-          (request.isGlobalWildcard &&
-              stageControlState == 'freeze_requested')) {
+              !request.isGlobalWildcard)) {
         return false;
       }
       if (normalizedState != 'print_preflight' &&
@@ -388,22 +386,42 @@ class AdminApparatusQueueOrderActionControl {
         queueState.trim().toLowerCase() != state.trim().toLowerCase()) {
       return false;
     }
+    final globalFreezeRequested =
+        orderControlState == AdminOrderControlState.freezeRequested;
     if (orderControlState == AdminOrderControlState.active &&
         const {'frozen', 'freeze_requested'}.contains(stageControlState)) {
       if (stageNodeId.trim().isEmpty) return false;
+      if (stageControlState == 'freeze_requested' &&
+          (freezeRequest?.scope != 'stage' ||
+              freezeRequest?.stageNodeId != stageNodeId ||
+              freezeRequest?.isGlobalWildcard != false)) {
+        return false;
+      }
       orderControlState = AdminOrderControlState.fromRaw(stageControlState);
     }
     final mode = interaction!.mode;
     if (orderControlState == AdminOrderControlState.frozen) {
       return mode == AdminQueueInteractionMode.frozen && allowedActions.isEmpty;
     }
+    if (orderControlState == AdminOrderControlState.freezeRequested) {
+      if (mode == AdminQueueInteractionMode.freezeRequested) {
+        return freezeRequest != null;
+      }
+      // Only running stations need an acknowledgement. Other stations remain
+      // blocked without pretending that their own local hold was removed.
+      return globalFreezeRequested &&
+          allowedActions.isEmpty &&
+          const {
+            AdminQueueInteractionMode.freshStartBlocked,
+            AdminQueueInteractionMode.requeuedWaiting,
+            AdminQueueInteractionMode.waitingPreviousStage,
+            AdminQueueInteractionMode.frozen,
+            AdminQueueInteractionMode.completed,
+          }.contains(mode);
+    }
     if (mode == AdminQueueInteractionMode.frozen ||
         state.trim().toLowerCase() == 'frozen') {
       return false;
-    }
-    if (orderControlState == AdminOrderControlState.freezeRequested) {
-      return mode == AdminQueueInteractionMode.freezeRequested &&
-          freezeRequest != null;
     }
     return mode != AdminQueueInteractionMode.freezeRequested;
   }

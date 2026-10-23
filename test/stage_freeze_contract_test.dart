@@ -168,9 +168,12 @@ void main() {
         isTrue);
     expect(global.isConsistentWith(AdminOrderControlState.active), isFalse);
     json['stage_control_state'] = 'freeze_requested';
-    expect(AdminApparatusQueueOrderActionControl.fromJson(json).contractValid,
-        isFalse,
-        reason: 'a local hold must always identify an exact apparatus/session');
+    final overlapping = AdminApparatusQueueOrderActionControl.fromJson(json);
+    expect(overlapping.isConsistentWith(AdminOrderControlState.freezeRequested),
+        isTrue,
+        reason: 'the global request takes precedence over the local request');
+    expect(overlapping.isConsistentWith(AdminOrderControlState.active), isFalse,
+        reason: 'a local hold cannot use a global wildcard');
     json['freeze_request'] = {
       'scope': 'stage',
       'stage_node_id': 'apparatus',
@@ -183,5 +186,35 @@ void main() {
     final local = AdminApparatusQueueOrderActionControl.fromJson(json);
     expect(local.isConsistentWith(AdminOrderControlState.active), isTrue);
     expect(local.freezeRequest?.isGlobalWildcard, isFalse);
+    (json['freeze_request'] as Map)['stage_node_id'] = 'another-occurrence';
+    expect(
+        AdminApparatusQueueOrderActionControl.fromJson(json)
+            .isConsistentWith(AdminOrderControlState.active),
+        isFalse);
+  });
+
+  test('global pending freeze blocks passive pending and locally frozen stages',
+      () {
+    for (final state in ['pending', 'frozen']) {
+      final json = scanControl()
+        ..['state'] = state
+        ..['allowed_actions'] = []
+        ..['stage_control_state'] = state == 'frozen' ? 'frozen' : '';
+      (json['interaction'] as Map)
+        ..['mode'] = state == 'frozen' ? 'frozen' : 'fresh_start_blocked'
+        ..['blocking_reason_code'] = 'order_freeze_requested';
+      final passive = AdminApparatusQueueOrderActionControl.fromJson(json);
+      expect(passive.contractValid, isTrue);
+      expect(passive.isConsistentWith(AdminOrderControlState.freezeRequested),
+          isTrue);
+      expect(passive.allows('start'), isFalse);
+      expect(passive.allows('resume'), isFalse);
+      json['allowed_actions'] = ['start'];
+      expect(
+          AdminApparatusQueueOrderActionControl.fromJson(json)
+              .isConsistentWith(AdminOrderControlState.freezeRequested),
+          isFalse,
+          reason: 'global freeze cannot permit production at passive stages');
+    }
   });
 }
