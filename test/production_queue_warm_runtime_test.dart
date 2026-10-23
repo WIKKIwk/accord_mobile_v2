@@ -45,8 +45,24 @@ void main() {
     admin = AdminSequenceWarmStore(
       apparatusLoader: () async => const [AdminApparatus(id: 'a', name: 'A')],
       selectedApparatusLoader: (_) async => 'a',
-      pageLoader: (_) async {
+      pageLoader: (request) async {
         adminReads++;
+        if (request.view == 'orders') {
+          return AdminProductionOrderPage.fromJson({
+            'projection': adminOrdersListProjection,
+            'version': 'orders-v1',
+            'epoch': 'server',
+            'rev': 1,
+            'scope': 'orders-scope',
+            'offset': 0,
+            'total': 0,
+            'next_cursor': null,
+            'order_ids': [],
+            'pending_ids': [],
+            'pending_rows': {},
+            'rows': {},
+          });
+        }
         return const AdminProductionOrderPage(
           version: 'v1',
           epoch: 'server',
@@ -98,9 +114,10 @@ void main() {
     await tester
         .pumpWidget(const ProductionQueueWarmRuntime(child: SizedBox()));
     await tester.pumpAndSettle();
-    expect(adminReads, 1);
+    expect(adminReads, 2);
     expect(workerReads, 0);
     expect(admin.peek(currentAdminSequenceWarmScope()), isNotNull);
+    expect(admin.peekOrders(currentAdminSequenceWarmScope()), isNotNull);
     expect(streams.single.hasListener, isTrue);
     await tester.pumpWidget(const SizedBox());
     expect(streams.single.hasListener, isFalse);
@@ -118,7 +135,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
     expect(streams.length, 2);
-    expect(adminReads, 1);
+    expect(adminReads, 2);
     await tester.pumpWidget(const SizedBox());
   });
 

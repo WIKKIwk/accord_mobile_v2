@@ -46,6 +46,36 @@ Future<AdminProductionOrderPage> _page(
       ],
     });
 
+Future<AdminProductionOrderPage> _ordersPage({
+  int revision = 1,
+  String epoch = 'server',
+  String title = 'Orders card',
+}) =>
+    AdminProductionOrderPage.fromJson({
+      'projection': adminOrdersListProjection,
+      'version': 'orders-v$revision',
+      'epoch': epoch,
+      'rev': revision,
+      'scope': 'orders-scope',
+      'offset': 0,
+      'total': 1,
+      'next_cursor': null,
+      'order_ids': ['o1'],
+      'pending_ids': [],
+      'pending_rows': {},
+      'rows': {
+        'o1': {
+          'id': 'o1',
+          'code': '1',
+          'title': title,
+          'customer_name': 'Customer',
+          'image_id': 'image-id-is-only-metadata',
+          'display_state': 'in_progress',
+          'watermarks': [],
+        },
+      },
+    });
+
 AdminProductionMapPageWindowMessage _event(String type,
         {int revision = 1, Map<String, dynamic> extra = const {}}) =>
     AdminProductionMapPageWindowMessage.fromJson({
@@ -69,6 +99,7 @@ class _Harness {
     Future<List<AdminApparatus>> Function()? catalog,
     Future<String?> Function(String?)? selection,
     AdminProductionOrderPageLoader? loadPage,
+    AdminProductionOrderPageLoader? loadOrders,
     Duration reconnectDelay = const Duration(milliseconds: 10),
     String Function()? scopeReader,
   }) {
@@ -76,6 +107,10 @@ class _Harness {
       apparatusLoader: catalog ?? () async => _apparatus,
       selectedApparatusLoader: selection ?? (_) async => 'a',
       pageLoader: (request) async {
+        if (request.view == 'orders') {
+          ordersRequests.add(request);
+          return loadOrders == null ? _ordersPage() : loadOrders(request);
+        }
         requests.add(request);
         return loadPage == null
             ? _page(revision: requests.length)
@@ -94,6 +129,7 @@ class _Harness {
 
   late final AdminSequenceWarmStore store;
   final requests = <AdminProductionOrderPageRequest>[];
+  final ordersRequests = <AdminProductionOrderPageRequest>[];
   final descriptors = <List<Map<String, Object?>>>[];
   final controllers = <StreamController<AdminProductionMapLiveMessage>>[];
 
@@ -634,5 +670,271 @@ void main() {
     await _settle();
     expect(ProductionDataRevision.revision.value, baseline);
     expect(harness.store.peek('scope'), isNull);
+  });
+
+  test('Orders preload follows decoded sequence without waiting for live ready',
+      () async {
+    final sequence = Completer<AdminProductionOrderPage?>();
+    final orders = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(
+      loadPage: (_) => sequence.future,
+      loadOrders: (_) => orders.future,
+    );
+    addTearDown(harness.close);
+    harness.store.configure(scope: 'scope', foreground: true);
+    final ready = harness.store.prepare('scope');
+    await _settle();
+    expect(harness.requests, hasLength(1));
+    expect(harness.ordersRequests, isEmpty);
+
+    sequence.complete(await _page());
+    expect((await ready)!.page.orderIds, ['o1']);
+    expect(orders.isCompleted, isFalse);
+    expect(harness.store.peek('scope'), isNotNull);
+    expect(harness.store.peekOrders('scope'), isNull);
+    expect(harness.ordersRequests, hasLength(1));
+    final request = harness.ordersRequests.single;
+    expect(request.apparatus, isEmpty);
+    expect(request.target, isEmpty);
+    expect(request.search, isEmpty);
+    expect(request.cursor, isNull);
+    expect(request.ifVersion, isNull);
+    // The background stream remains a single selected-sequence window.
+    expect(harness.descriptors.single, hasLength(1));
+    expect(harness.descriptors.single.single['view'], 'sequence');
+
+    final pending = harness.store.prepareOrders('scope');
+    final duplicate = harness.store.prepareOrders('scope');
+    expect(identical(pending, duplicate), isTrue);
+    orders.complete(await _ordersPage());
+    expect((await pending)!.isOrdersList, isTrue);
+    expect(harness.store.peekOrders('scope')!.orderRows['o1']!.imageId,
+        'image-id-is-only-metadata');
+    await _settle();
+    expect(harness.ordersRequests, hasLength(1));
+  });
+
+  test('Orders chaining continues when a screen acquired the sequence lease',
+      () async {
+    final sequence = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(loadPage: (_) => sequence.future);
+    addTearDown(harness.close);
+    harness.store.configure(scope: 'scope', foreground: true);
+    final lease = harness.store.acquire('scope');
+    await _settle();
+    expect(harness.ordersRequests, isEmpty);
+    sequence.complete(await _page());
+    await lease.ready;
+    await _settle();
+    expect(harness.controllers, isEmpty);
+    expect(harness.ordersRequests, hasLength(1));
+    expect(harness.store.peekOrders('scope'), isNotNull);
+    lease.release();
+    expect(harness.descriptors, hasLength(1));
+    expect(harness.descriptors.single.single['view'], 'sequence');
+  });
+
+  test(
+      'early Orders navigation starts immediately and shares the background read',
+      () async {
+    final sequence = Completer<AdminProductionOrderPage?>();
+    final orders = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(
+        loadPage: (_) => sequence.future, loadOrders: (_) => orders.future);
+    addTearDown(harness.close);
+    harness.store.configure(scope: 'scope', foreground: true);
+    final first = harness.store.prepareOrders('scope');
+    final second = harness.store.prepareOrders('scope');
+    expect(identical(first, second), isTrue);
+    expect(harness.ordersRequests, hasLength(1));
+    expect(sequence.isCompleted, isFalse);
+    orders.complete(await _ordersPage());
+    expect((await first)!.orderIds, ['o1']);
+    sequence.complete(await _page());
+    await harness.store.prepare('scope');
+    await _settle();
+    expect(harness.ordersRequests, hasLength(1));
+  });
+
+  test(
+      'background Orders failure is observed and explicit callers still receive it',
+      () async {
+    final orders = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(loadOrders: (_) => orders.future);
+    addTearDown(harness.close);
+    await harness.start();
+    final pending = harness.store.prepareOrders('scope');
+    final expected = expectLater(pending, throwsA(isA<StateError>()));
+    orders.completeError(StateError('Orders offline'));
+    await expected;
+    await _settle();
+    expect(harness.store.peek('scope'), isNotNull);
+    expect(harness.store.peekOrders('scope'), isNull);
+    harness.store.configure(scope: 'scope', foreground: false);
+    harness.store.configure(scope: 'scope', foreground: true);
+    await _settle();
+    expect(harness.ordersRequests, hasLength(1));
+  });
+
+  test('failed automatic Orders read never schedules HTTP retries', () async {
+    var fail = true;
+    final harness = _Harness(loadOrders: (_) async {
+      if (fail) throw StateError('Orders offline');
+      return _ordersPage();
+    });
+    addTearDown(harness.close);
+    await harness.start();
+    // No explicit observer is attached to this first automatic failure.
+    await _settle();
+    expect(harness.ordersRequests, hasLength(1));
+    expect(harness.store.peek('scope'), isNotNull);
+    expect(harness.store.peekOrders('scope'), isNull);
+    harness.controllers.last.add(_event('page_window_ready'));
+    await _settle();
+    expect(harness.ordersRequests, hasLength(1));
+    fail = false;
+    expect((await harness.store.prepareOrders('scope'))!.isOrdersList, isTrue);
+    expect(harness.ordersRequests, hasLength(2));
+  });
+
+  test('pause defers hidden Orders work until a later foreground transition',
+      () async {
+    final sequence = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(loadPage: (_) => sequence.future);
+    addTearDown(harness.close);
+    harness.store.configure(scope: 'scope', foreground: true);
+    final pending = harness.store.prepare('scope');
+    await _settle();
+    harness.store.configure(scope: 'scope', foreground: false);
+    sequence.complete(await _page());
+    expect(await pending, isNotNull);
+    expect(await harness.store.prepareOrders('scope'), isNull);
+    expect(harness.ordersRequests, isEmpty);
+    harness.store.configure(scope: 'scope', foreground: true);
+    await _settle();
+    expect(harness.ordersRequests, hasLength(1));
+    expect(harness.store.peekOrders('scope'), isNotNull);
+  });
+
+  test('Orders requests from a previous account cannot populate a new scope',
+      () async {
+    final oldOrders = Completer<AdminProductionOrderPage?>();
+    var calls = 0;
+    final harness = _Harness(loadOrders: (_) {
+      calls++;
+      return calls == 1 ? oldOrders.future : _ordersPage(revision: 9);
+    });
+    addTearDown(harness.close);
+    await harness.start(scope: 'old');
+    final old = harness.store.prepareOrders('old');
+    await harness.start(scope: 'new');
+    expect((await harness.store.prepareOrders('new'))!.revision, 9);
+    oldOrders.complete(await _ordersPage());
+    expect(await old, isNull);
+    expect(harness.store.peekOrders('old'), isNull);
+    expect(harness.store.peekOrders('new')!.revision, 9);
+    harness.store.configure(scope: null, foreground: false);
+    expect(harness.store.peekOrders('new'), isNull);
+  });
+
+  test('screen canonical Orders handback supersedes older in-flight responses',
+      () async {
+    final background = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(loadOrders: (_) => background.future);
+    addTearDown(harness.close);
+    await harness.start();
+    final pending = harness.store.prepareOrders('scope');
+    final canonical = await _ordersPage(revision: 7, title: 'Canonical');
+    harness.store.rememberOrders('scope', canonical);
+    expect(identical(harness.store.peekOrders('scope'), canonical), isTrue);
+    background.complete(await _ordersPage());
+    expect(identical(await pending, canonical), isTrue);
+    harness.store.rememberOrders('scope', await _ordersPage(revision: 3));
+    expect(harness.store.peekOrders('scope')!.revision, 7);
+    expect(harness.ordersRequests, hasLength(1));
+  });
+
+  test('newer Orders handback also supersedes an obsolete request failure',
+      () async {
+    final background = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(loadOrders: (_) => background.future);
+    addTearDown(harness.close);
+    await harness.start();
+    final pending = harness.store.prepareOrders('scope');
+    harness.store.rememberOrders('scope', await _ordersPage(revision: 7));
+    background.completeError(StateError('Old transport failed'));
+    expect((await pending)!.revision, 7);
+    expect(harness.store.peek('scope'), isNotNull);
+  });
+
+  test('Orders accepts only compact bounded first-page baselines', () async {
+    for (final invalid in [
+      await _page(),
+      const AdminProductionOrderPage(
+        projection: adminOrdersListProjection,
+        scope: 'orders-scope',
+        version: 'orders-v1',
+        epoch: 'server',
+        revision: 1,
+        offset: 20,
+        total: 20,
+        wireValue: {'projection': adminOrdersListProjection},
+      ),
+      AdminProductionOrderPage(
+        projection: adminOrdersListProjection,
+        scope: 'orders-scope',
+        version: 'orders-v1',
+        epoch: 'server',
+        revision: 1,
+        offset: 0,
+        total: 21,
+        orderIds: [for (var i = 0; i < 21; i++) 'o$i'],
+        wireValue: const {'projection': adminOrdersListProjection},
+      ),
+    ]) {
+      final harness = _Harness(loadOrders: (_) async => invalid);
+      addTearDown(harness.close);
+      // Foreground demand runs before sequence can start the automatic read.
+      harness.store.configure(scope: 'scope', foreground: true);
+      await expectLater(harness.store.prepareOrders('scope'),
+          throwsA(isA<MobileApiException>()));
+      expect(harness.store.peekOrders('scope'), isNull);
+      harness.store.rememberOrders('scope', invalid);
+      expect(harness.store.peekOrders('scope'), isNull);
+      await harness.store.prepare('scope');
+      expect(harness.ordersRequests, hasLength(1));
+    }
+  });
+
+  test('Orders reset rejects retired epochs and stale scope handbacks',
+      () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    await harness.start();
+    await harness.store.prepareOrders('scope');
+    harness.store.rememberOrders(
+        'scope', await _ordersPage(revision: 1, epoch: 'new-server'));
+    harness.store.rememberOrders('scope', await _ordersPage(revision: 99));
+    expect(harness.store.peekOrders('scope')!.epoch, 'new-server');
+    harness.store.rememberOrders(
+        'other-account', await _ordersPage(revision: 99, epoch: 'other'));
+    expect(harness.store.peekOrders('scope')!.epoch, 'new-server');
+  });
+
+  test('older route Orders handback cannot replace a newer route server epoch',
+      () async {
+    final oldResponse = Completer<AdminProductionOrderPage?>();
+    final harness = _Harness(loadOrders: (_) => oldResponse.future);
+    addTearDown(harness.close);
+    await harness.start();
+    final pending = harness.store.prepareOrders('scope');
+    final older = harness.store.acquire('scope');
+    final newer = harness.store.acquire('scope');
+    newer.release(ordersPage: await _ordersPage(epoch: 'new-server'));
+    older.release(ordersPage: await _ordersPage(revision: 99));
+    expect(harness.store.peekOrders('scope')!.epoch, 'new-server');
+    oldResponse.complete(await _ordersPage(revision: 100));
+    expect((await pending)!.epoch, 'new-server');
+    expect(harness.ordersRequests, hasLength(1));
   });
 }
