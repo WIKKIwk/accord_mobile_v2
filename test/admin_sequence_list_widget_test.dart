@@ -55,6 +55,7 @@ class _SummaryHarness {
   String detailState = 'pending';
   String detailTitle = 'Full detail package';
   final detailReplies = <Future<AdminApparatusQueueSnapshot>>[];
+  final rowOverrides = <String, Map<String, dynamic>>{};
   RouteSettings? editorRoute;
 
   Map<String, dynamic> payload(AdminProductionOrderPageRequest request) {
@@ -94,7 +95,9 @@ class _SummaryHarness {
           'reason': '',
         },
       ],
-      'rows': {for (final id in ids) id: _summaryRow(id)},
+      'rows': {
+        for (final id in ids) id: {..._summaryRow(id), ...?rowOverrides[id]},
+      },
     };
   }
 
@@ -592,6 +595,73 @@ void main() {
     await harness.dispose(tester);
   });
 
+  testWidgets('issue-colored frozen summary cannot move or become an anchor',
+      (tester) async {
+    final harness =
+        _SummaryHarness(orderIds: ['order-a', 'order-b', 'order-c', 'order-d']);
+    harness.rowOverrides['order-b'] = {
+      'queue_state': 'pending',
+      'display_state': 'issue',
+      'frozen': true,
+      // The visual/command guards must independently honor explicit frozen.
+      'can_reorder': true,
+    };
+    final writes = <http.Request>[];
+    final reply = Completer<http.Response>();
+    await http.runWithClient(() async {
+      await harness.mount(tester);
+      final dynamic frozenRow = tester.widget(_row('order-b'));
+      expect(frozenRow.tone.toString().split('.').last, 'issue');
+      expect(frozenRow.canReorder, isFalse);
+      await TestModeController.instance.setEnabled(false);
+      ReorderableListView list() =>
+          tester.widget<ReorderableListView>(find.byType(ReorderableListView));
+      list().onReorderItem!(1, 0);
+      await tester.pump();
+      await tester.pump();
+      expect(writes, isEmpty,
+          reason: 'Retained reorder callbacks must not move frozen rows');
+      list().onReorderItem!(3, 1);
+      await tester.pump();
+      await tester.pump();
+      expect(writes, hasLength(1));
+      final sent = jsonDecode(writes.single.body) as Map;
+      expect(sent['order_id'], 'order-d');
+      expect(sent['before_order_id'], 'order-c',
+          reason: 'Frozen order-b is visible but outside the editable queue');
+      expect(sent['after_order_id'], isNot('order-b'));
+      reply.complete(http.Response(
+          jsonEncode({
+            'ok': true,
+            'order_ids': ['order-a', 'order-d', 'order-c'],
+            'version': 'b' * 64,
+            'revision': 6,
+            'epoch': _epoch,
+            'adjusted': false,
+          }),
+          200));
+      await tester.pumpAndSettle();
+      await harness.dispose(tester);
+    },
+        () => MockClient((request) {
+              if (request.method == 'POST' &&
+                  request.url.path.endsWith('/production-maps/sequence')) {
+                writes.add(request);
+                return reply.future;
+              }
+              return Future.value(http.Response('{}', 404));
+            }));
+  });
+
+  test('sequence row rejects an incorrectly typed explicit frozen flag', () {
+    expect(
+        () => AdminSequenceListRow.fromJson({
+              ..._summaryRow('order-a'),
+              'frozen': 'true',
+            }),
+        throwsA(isA<MobileApiException>()));
+  });
+
   testWidgets(
       'open admin detail refreshes pushed status and retains expansions',
       (tester) async {
@@ -615,6 +685,9 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(harness.detailReads, hasLength(2));
+    final dynamic awaitingSheet = tester.widget(_detailSheet());
+    expect(awaitingSheet.currentQueueSnapshot(), isNull,
+        reason: 'New summary revision must withdraw old action authority');
     harness.patch([
       {
         'op': 'set',
@@ -638,6 +711,11 @@ void main() {
     expect(content.queueStates['order-a'], 'frozen');
     expect(content.orderControlState, AdminOrderControlState.frozen);
     expect(content.summaryExpanded, isTrue);
+    final dynamic refreshedSheet = tester.widget(_detailSheet());
+    expect(
+        (refreshedSheet.currentQueueSnapshot() as AdminApparatusQueueSnapshot)
+            .revision,
+        9);
     expect(harness.detailReads, hasLength(2),
         reason: 'A reply already covering the latest revision needs no reread');
     await harness.dispose(tester);
