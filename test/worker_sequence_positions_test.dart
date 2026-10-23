@@ -159,6 +159,80 @@ void main() {
   });
 
   for (final protocol in ['state_delta_v1', 'state_delta_v2']) {
+    testWidgets(
+        '$protocol free-pick search keeps display rank 3 and streams rank changes',
+        (tester) async {
+      final catalog = await MobileApi.instance.adminApparatus(limit: 200);
+      final events = StreamController<Object>.broadcast();
+      addTearDown(events.close);
+      var reads = 0;
+      Map<String, dynamic> wire({required bool searched}) {
+        final indices = searched ? [3] : [0, 1, 3, 2, 4];
+        final value = _wire(indices);
+        // Free-pick display order differs from the stored manual sequence.
+        (value['sequences'] as Map)[_apparatus] = [
+          for (final index in indices.reversed) 'zakaz-$index',
+        ];
+        value['queue_policies'] = [
+          {'apparatus_id': _apparatus, 'policy': 'free_pick'},
+        ];
+        value['sequence_positions_by_apparatus'] = {
+          _apparatus: {
+            for (final (index, id) in [0, 1, 3, 2, 4].indexed)
+              if (indices.contains(id)) 'zakaz-$id': index + 1,
+          },
+        };
+        final target = (value['maps'] as List)
+            .cast<Map>()
+            .firstWhere((saved) => (saved['map'] as Map)['id'] == 'zakaz-3');
+        (target['map'] as Map)
+          ..['code'] = '0139'
+          ..['order_number'] = '0139'
+          ..['title'] = 'Mir jele olcha';
+        return value;
+      }
+
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        home: AdminProductionMapOrdersScreen(
+          workerMode: true,
+          readOnly: true,
+          apparatusLoader: () async =>
+              catalog.where((a) => a.id == _apparatus).toList(),
+          queueSnapshotLoader: () async => decodeCachedProductionMapQueueSnapshot(
+              wire(searched: ++reads > 1)),
+          liveEventsLoader: () => events.stream,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: _row(3), matching: find.text('3')),
+          findsOneWidget);
+      await tester.enterText(find.byType(EditableText).first, '0139');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(reads, 2);
+      expect(_row(0), findsNothing);
+      expect(find.descendant(of: _row(3), matching: find.text('3')),
+          findsOneWidget);
+      final element = tester.element(_row(3));
+      events.add(_delta(protocol, position: 4));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: _row(3), matching: find.text('4')),
+          findsOneWidget);
+      expect(identical(tester.element(_row(3)), element), isTrue);
+      expect(reads, 2, reason: 'Rank delta must not reload the queue');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+
     test(
         '$protocol applies rank-only changes without replacing maps or old ranks',
         () {
