@@ -2,6 +2,131 @@ part of 'admin_production_map_orders_screen.dart';
 
 extension _ProductionOrdersSnapshotCache
     on _AdminProductionMapOrdersScreenState {
+  bool get _workerWarmEligible =>
+      widget.workerMode &&
+      !widget.supplyViewerMode &&
+      widget.queueSnapshotLoader == null &&
+      widget.apparatusLoader == null &&
+      widget.liveEventsLoader == null &&
+      AppSession.instance.isLoggedIn &&
+      !AppSession.instance.isTestModeSession;
+
+  bool _restoreWorkerWarmQueueImmediately() {
+    if (!_workerWarmEligible ||
+        _canonicalCacheOwner != _canonicalCacheRuntimeScope) {
+      return false;
+    }
+    final store = WorkerQueueWarmStore.instance;
+    final limit = store.preparedLimit;
+    if (limit == null) return false;
+    final scope = currentSessionReadScope();
+    final value = store.peek(scope: scope, queueLimit: limit);
+    if (value == null) return false;
+    _workerQueueLimit = limit;
+    // claim() detaches the background stream synchronously. Rendering this
+    // already decoded baseline must not wait for preferences or a future turn.
+    unawaited(store.claim(scope: scope, queueLimit: limit).then<void>((_) {}));
+    _workerWarmLease = store.pageLease;
+    _applyWorkerWarmQueue(value);
+    return true;
+  }
+
+  Future<bool> _restoreWorkerWarmQueue() async {
+    if (!_workerWarmEligible) return false;
+    if (_canonicalCacheAwaitingValidation &&
+        _canonicalQueueSnapshot != null &&
+        _workerWarmLease != null &&
+        identical(_workerWarmLease, WorkerQueueWarmStore.instance.pageLease) &&
+        _snapshotReadScope == currentSessionReadScope()) {
+      return true;
+    }
+    final owner = _canonicalCacheRuntimeScope;
+    final scope = currentSessionReadScope();
+    final window = _workerQueueWindowGeneration;
+    final store = WorkerQueueWarmStore.instance;
+    final ready = store.peek(
+        scope: scope,
+        queueLimit: _workerQueueLimit,
+        search: _workerServerSearch);
+    final pending = store.claim(
+        scope: scope,
+        queueLimit: _workerQueueLimit,
+        search: _workerServerSearch);
+    final lease = _workerWarmLease = store.pageLease;
+    // A slow prefetch must never hide the existing bounded local restore.
+    // Claim already detached its socket; an unfinished read may complete in
+    // the store, but cannot overwrite a disk baseline selected by this page.
+    if (ready == null && await _restoreCanonicalQueueCache()) return true;
+    final value = await pending;
+    if (value == null ||
+        !mounted ||
+        owner != _canonicalCacheRuntimeScope ||
+        !identical(lease, store.pageLease) ||
+        window != _workerQueueWindowGeneration ||
+        scope != currentSessionReadScope()) {
+      return false;
+    }
+    _applyWorkerWarmQueue(value);
+    return true;
+  }
+
+  void _applyWorkerWarmQueue(WorkerQueueWarmSnapshot value) {
+    final snapshot = value.snapshot;
+    // Warm rows are useful immediately. The page's socket certifies cursor
+    // continuity before its action guards become available.
+    _canonicalCacheAwaitingValidation = true;
+    _rememberSnapshotVersion(snapshot);
+    if (_workerWatchTabCount(_workerVisibleApparatusFor(value.apparatus)) !=
+        _tabController.length) {
+      _recreateWorkerTabController(value.apparatus);
+    }
+    _updateScreenState(() {
+      _apparatus = value.apparatus;
+      _workerCatalogReady = true;
+      _orders = _productionMapZakazOrders(snapshot.maps);
+      _replaceQueueSnapshotMaps(snapshot);
+      if (snapshot is AdminProductionMapLiveSnapshot) {
+        _replaceLiveSnapshotExtras(snapshot);
+      }
+      _loading = false;
+      _loadError = null;
+      _queueSnapshotNeedsReconcile = true;
+    });
+  }
+
+  void _releaseWorkerWarmQueue() {
+    if (!_workerWarmEligible) return;
+    final lease = _workerWarmLease;
+    _workerWarmLease = null;
+    if (lease == null) return;
+    final snapshot = _canonicalQueueSnapshot;
+    final safe = !_canonicalCacheAwaitingValidation &&
+        _canonicalCacheHasLiveExtras &&
+        !_queueSnapshotNeedsReconcile &&
+        !_queueSnapshotContractError &&
+        _pendingSequenceMoves.isEmpty &&
+        _sequenceNeedsSnapshot.isEmpty &&
+        _pendingQueueActionRevision == null &&
+        _apparatus.isNotEmpty &&
+        snapshot != null &&
+        _snapshotReadScope == currentSessionReadScope() &&
+        _canonicalCacheOwner == _canonicalCacheRuntimeScope &&
+        _workerServerSearch.isEmpty;
+    WorkerQueueWarmStore.instance.release(
+        scope: currentSessionReadScope(),
+        queueLimit: _workerQueueLimit,
+        expectedLease: lease,
+        // The next navigation opens the default window, never a stale search.
+        latest: safe
+            ? WorkerQueueWarmSnapshot(
+                snapshot: workerWarmLiveSnapshot(snapshot,
+                    completed: _completedWorkerOrders,
+                    requests: _completionRequests,
+                    decisions: _canonicalCompletionDecisions),
+                apparatus: _apparatus)
+            : null);
+  }
+
   String get _canonicalCacheKey => jsonEncode([
         'canonical-queue-v1',
         widget.workerMode,

@@ -105,7 +105,9 @@ extension _AdminProductionMapOrdersLiveState
     // Drop the previous provider's stream before awaiting any REST request.
     _stopWorkerLiveStream();
     final generation = _liveStreamGeneration;
-    final restored = await _restoreCanonicalQueueCache();
+    final restored = _workerWarmEligible
+        ? await _restoreWorkerWarmQueue()
+        : await _restoreCanonicalQueueCache();
     if (!mounted || !_workerForeground || generation != _liveStreamGeneration ||
         windowGeneration != _workerQueueWindowGeneration) return;
     if (restored) {
@@ -1412,7 +1414,8 @@ extension _AdminProductionMapOrdersLiveState
     final readScope = currentSessionReadScope();
     try {
       final pending = Future.wait<Object>([
-        _readOrdersSnapshot(fresh: widget.workerMode && _canonicalQueueSnapshot == null),
+        // Join existing scoped reads rather than bypassing the warm request.
+        _readOrdersSnapshot(),
         _readOrdersApparatus(),
       ], eagerError: true);
       // Keep the API's existing download budget on weak factory networks.
