@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
@@ -9,6 +10,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_top_notice.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_order_page_cache.dart';
@@ -18,6 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'production_snapshot_test_backend.dart';
 import 'order_scan_bootstrap_fixtures.dart';
@@ -47,6 +51,8 @@ class _SummaryHarness {
   Completer<AdminApparatusQueueSnapshot>? pendingDetail;
   Object? detailError;
   bool wrongDetailOrder = false;
+  int detailRevision = 7;
+  RouteSettings? editorRoute;
 
   Map<String, dynamic> payload(AdminProductionOrderPageRequest request) {
     final matching = orderIds
@@ -118,7 +124,7 @@ class _SummaryHarness {
       AdminApparatusQueueSnapshot(
         epoch: _epoch,
         scope: 'summary-detail-scope',
-        revision: 7,
+        revision: detailRevision,
         maps: [
           ProductionMapSaved.fromJson({
             'map': {
@@ -174,6 +180,12 @@ class _SummaryHarness {
             view: 'sequence', apparatus: _apparatus)));
     await AdminSequenceApparatusStore.instance.saveApparatus(_catalog);
     await tester.pumpWidget(MaterialApp(
+      onGenerateRoute: (settings) {
+        editorRoute = settings;
+        return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => const Scaffold(body: Text('Editor test route')));
+      },
       locale: const Locale('uz'),
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [
@@ -212,6 +224,38 @@ class _SummaryHarness {
     await tester.pump(const Duration(seconds: 35));
     expect(tester.takeException(), isNull);
   }
+
+  void patch(List<Map<String, dynamic>> ops,
+          {String baseVersion = 'v7-',
+          String version = 'v8',
+          int revision = 8}) =>
+      events.add(AdminProductionMapPageWindowMessage.fromJson({
+        'type': 'page_window_delta',
+        'window': 'w1',
+        'epoch': _epoch,
+        'rev': revision,
+        'base_version': baseVersion,
+        'version': version,
+        'page_count': 1,
+        'changes': [
+          {
+            'index': 0,
+            'ops': [
+              {
+                'op': 'set',
+                'path': ['version'],
+                'value': version
+              },
+              {
+                'op': 'set',
+                'path': ['rev'],
+                'value': revision
+              },
+              ...ops,
+            ],
+          },
+        ],
+      }));
 }
 
 Finder _row(String id) => find.byKey(ValueKey('sequence-row-$_apparatus-$id'));
@@ -310,6 +354,221 @@ void main() {
     expect(
         (sheet.order as ProductionMapSaved).map.title, 'Full detail package');
     expect(harness.detailReads, hasLength(1));
+    await harness.dispose(tester);
+  });
+
+  testWidgets('sequence summary long press hydrates before edit actions',
+      (tester) async {
+    final harness = _SummaryHarness()
+      ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+    final full = harness.fullDetail('order-a');
+    // This is the existing in-memory API fixture, never an ERP write.
+    await MobileApi.instance.adminSaveProductionMap(full.maps.single.map);
+    await harness.mount(tester);
+    await tester.longPress(_row('order-a'));
+    await tester.pump();
+    expect(harness.detailReads, [(apparatus: _apparatus, orderId: 'order-a')]);
+    expect(find.text('Mapni o‘zgartirish'), findsNothing);
+    expect(find.text('Buyurtmani tahrirlash'), findsNothing);
+    expect(harness.editorRoute, isNull);
+    harness.pendingDetail!.complete(full);
+    await tester.pumpAndSettle();
+    expect(find.text('Mapni o‘zgartirish'), findsOneWidget);
+    expect(find.text('Buyurtmani tahrirlash'), findsOneWidget);
+    await tester.tap(find.text('Mapni o‘zgartirish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editor test route'), findsOneWidget);
+    final args = harness.editorRoute!.arguments as ProductionMapTestArgs;
+    expect(args.savedMap!.id, 'order-a');
+    expect(args.savedMap!.nodes, hasLength(3),
+        reason: 'The editor must receive a full graph, never a summary shell');
+    expect(args.savedMap!.title, 'Full detail package');
+    expect(harness.detailReads, hasLength(1));
+    await harness.dispose(tester);
+  });
+
+  test('sequence summaries persist in v2 without canonical map shells',
+      () async {
+    final harness = _SummaryHarness();
+    final backend = MemoryProductionSnapshotBackend();
+    final store = ProductionSnapshotStore(backend: backend);
+    final first = AdminOrderPageCache(persistence: store);
+    final request = const AdminProductionOrderPageRequest(
+        view: 'sequence', apparatus: _apparatus);
+    final page =
+        await AdminProductionOrderPage.fromJson(harness.payload(request));
+    final catalog = _catalog.copyWith(
+      sourceRevision: 1,
+      sourceAasxSha256: 'a' * 64,
+      operation: 'print',
+      technology: 'gravure',
+    );
+    first.save(
+      visit: first.open('ram-scope'),
+      apparatus: [catalog],
+      selectedApparatusId: _apparatus,
+      windows: [
+        AdminOrderPageCacheWindow(request, [page])
+      ],
+      persistentScope: 'disk-scope',
+    );
+    await first.flush();
+    expect(await store.read(scope: 'disk-scope', key: 'admin-pages-v2'),
+        isNotNull);
+    expect(
+        await store.read(scope: 'disk-scope', key: 'admin-pages-v1'), isNull);
+    first.clear();
+    final restarted = AdminOrderPageCache(
+        persistence: ProductionSnapshotStore(backend: backend));
+    final restored = await restarted.restore(
+        visit: restarted.open('ram-scope'), persistentScope: 'disk-scope');
+    expect(restored, isNotNull);
+    final saved = restored!.windows.single.pages.single;
+    expect(saved.isSequenceList, isTrue);
+    expect(saved.snapshot, isNull);
+    expect(saved.wireValue!.containsKey('maps'), isFalse);
+    expect(saved.orderIds, ['order-a', 'order-b']);
+    expect(saved.sequenceRows['order-a']!.customerName, 'Alpha customer');
+    expect(saved.sequencePositions['order-b'], 2);
+    expect(saved.sequenceVersions[_apparatus], 'a' * 64);
+    restarted.clear();
+    await harness.events.close();
+  });
+
+  test('sequence v2 cache does not adopt a legacy v1 baseline', () async {
+    final store =
+        ProductionSnapshotStore(backend: MemoryProductionSnapshotBackend());
+    await store.write(scope: 'disk-scope', key: 'admin-pages-v1', value: {
+      'legacy': 'old full map baseline',
+    });
+    final cache = AdminOrderPageCache(persistence: store);
+    expect(
+        await cache.restore(
+            visit: cache.open('ram-scope'), persistentScope: 'disk-scope'),
+        isNull);
+    expect(await store.read(scope: 'disk-scope', key: 'admin-pages-v1'),
+        isNotNull);
+    cache.clear();
+  });
+
+  testWidgets(
+      'sequence reorder ACK waits for matching summary sequence version',
+      (tester) async {
+    final harness = _SummaryHarness();
+    final writes = <http.Request>[];
+    final reply = Completer<http.Response>();
+    await http.runWithClient(() async {
+      await harness.mount(tester);
+      final reads = harness.reads.length;
+      await TestModeController.instance.setEnabled(false);
+      tester
+          .widget<ReorderableListView>(find.byType(ReorderableListView))
+          .onReorderItem!(1, 0);
+      await tester.pump();
+      await tester.pump();
+      expect(writes, hasLength(1));
+      final sent = jsonDecode(writes.single.body) as Map;
+      expect(sent['expected_version'], 'a' * 64);
+      expect(sent['order_id'], 'order-b');
+      reply.complete(http.Response(
+          jsonEncode({
+            'ok': true,
+            'order_ids': ['order-b', 'order-a'],
+            'version': 'b' * 64,
+            'revision': 6,
+            'epoch': _epoch,
+            'adjusted': false,
+          }),
+          200));
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), ['order-b', 'order-a']);
+      // Equal sequence revision with a different version cannot certify ACK.
+      harness.patch([
+        {
+          'op': 'set',
+          'path': ['sequence_revisions', _apparatus],
+          'value': 6,
+        },
+      ]);
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), ['order-b', 'order-a'],
+          reason:
+              'Mismatched canonical version cannot undo accepted placement');
+      harness.patch([
+        {
+          'op': 'set',
+          'path': ['sequence_versions', _apparatus],
+          'value': 'b' * 64,
+        },
+        {
+          'op': 'set',
+          'path': ['order_ids'],
+          'value': ['order-b', 'order-a'],
+        },
+        {
+          'op': 'set',
+          'path': ['sequence_positions'],
+          'value': {'order-b': 1, 'order-a': 2},
+        },
+      ], baseVersion: 'v8', version: 'v9', revision: 9);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(_rowOrder(tester), ['order-b', 'order-a']);
+      expect(harness.reads.length, reads,
+          reason: 'Matching summary cursor settles ACK without recovery GET');
+      expect(harness.detailReads, isEmpty);
+      expect(writes, hasLength(1));
+      await harness.dispose(tester);
+    },
+        () => MockClient((request) {
+              if (request.method == 'POST' &&
+                  request.url.path.endsWith('/production-maps/sequence')) {
+                writes.add(request);
+                return reply.future;
+              }
+              return Future.value(http.Response('{}', 404));
+            }));
+  });
+
+  testWidgets(
+      'sequence detail reopen rejects cache older than streamed summary',
+      (tester) async {
+    final harness = _SummaryHarness();
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pumpAndSettle();
+    expect(_detailSheet(), findsOneWidget);
+    expect(harness.detailReads, hasLength(1));
+    harness.patch([
+      {
+        'op': 'set',
+        'path': ['rows', 'order-a', 'display_state'],
+        'value': 'frozen',
+      },
+      {
+        'op': 'set',
+        'path': ['rows', 'order-a', 'can_reorder'],
+        'value': false,
+      },
+    ]);
+    await tester.pumpAndSettle();
+    final dynamic sheet = tester.widget(_detailSheet());
+    expect(sheet.workerMode, isFalse);
+    expect(sheet.canManageQueue, isFalse,
+        reason: 'Admin information sheet cannot authorize worker mutations');
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+    harness.detailRevision = 8;
+    await tester.tap(_row('order-a'));
+    await tester.pumpAndSettle();
+    expect(harness.detailReads, hasLength(2),
+        reason: 'An old detail future must be replaced after newer summary');
+    expect(_detailSheet(), findsOneWidget);
+    final dynamic refreshed = tester.widget(_detailSheet());
+    final snapshot =
+        refreshed.currentQueueSnapshot() as AdminApparatusQueueSnapshot;
+    expect(snapshot.revision, 8);
     await harness.dispose(tester);
   });
 
