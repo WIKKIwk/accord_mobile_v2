@@ -100,9 +100,18 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     if (mounted && _refreshQueued && _canRefresh) unawaited(_refresh());
   }
 
-  Future<List<AdminPaddon>> _loadPaddons() =>
-      widget.loader?.call() ??
-      MobileApi.instance.adminPaddons(limit: 200, selectableOnly: true);
+  Future<List<AdminPaddon>> _loadPaddons() async {
+    final apparatus = widget.apparatusId;
+    final paddons = await (widget.loader?.call() ??
+        MobileApi.instance.adminPaddons(
+          limit: 200,
+          selectableOnly: true,
+          apparatus: apparatus,
+        ));
+    return paddons
+        .where((paddon) => paddon.apparatusId == apparatus)
+        .toList(growable: false);
+  }
 
   void _sessionChanged() {
     if (_observedScope != _scope) _resetScope();

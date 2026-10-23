@@ -25,6 +25,7 @@ import '../../shared/presentation/widgets/worker_wip_details.dart';
 import '../../shared/presentation/widgets/worker_wip_details_sheet.dart';
 import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_display.dart';
+import 'aparatchi_paddon_scope.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
 import '../../../core/localization/urdu_aware_text.dart';
@@ -132,7 +133,11 @@ class _AparatchiPaddonDetailScreenState
         drawer: widget.manageItems
             ? AparatchiNavigationDrawer(
                 selectedIndex: 2,
-                selectedRouteName: AppRoutes.apparatusPaddons,
+                apparatusLoader: () async => widget.apparatus ?? _apparatus,
+                selectedRouteName: widget.apparatusId.isEmpty
+                    ? AppRoutes.apparatusPaddons
+                    : apparatusPaddonsRoute(widget.apparatusId,
+                        apparatusName: widget.apparatusName),
                 onNavigate: (routeName) =>
                     AdminDrawerNavigation.openRoute(context, routeName),
               )

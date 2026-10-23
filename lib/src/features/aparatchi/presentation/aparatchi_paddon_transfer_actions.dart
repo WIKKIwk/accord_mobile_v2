@@ -11,12 +11,17 @@ extension _PaddonTransferActions on _AparatchiPaddonTransferScreenState {
       _dragging = null;
     });
     try {
-      final paddons = await MobileApi.instance
-          .adminPaddons(limit: 200, selectableOnly: true);
+      final paddons = await MobileApi.instance.adminPaddons(
+          limit: 200, selectableOnly: true, apparatus: widget.apparatusId);
       if (!mounted || generation != _generation || !_isCurrentScope(scope)) {
         return;
       }
-      final available = paddons.where((p) => !p.isLocked).toList();
+      final available = paddons
+          .where((p) =>
+              !p.isLocked &&
+              (widget.apparatusId.isEmpty ||
+                  p.apparatusId == widget.apparatusId))
+          .toList();
       final codes = available.map((p) => p.code).toSet();
       final sourceCode = codes.contains(_source?.paddon.code)
           ? _source!.paddon.code

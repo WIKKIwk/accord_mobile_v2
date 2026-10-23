@@ -11,6 +11,7 @@ class AdminPaddon {
     required this.createdAtUnix,
     required this.updatedAtUnix,
     required this.itemCount,
+    this.apparatusId = '',
     this.totalGrossKg,
     this.totalNetKg,
     this.lockedAtUnix,
@@ -25,6 +26,7 @@ class AdminPaddon {
   final int createdAtUnix;
   final int updatedAtUnix;
   final int itemCount;
+  final String apparatusId;
   final double? totalGrossKg;
   final double? totalNetKg;
   final int? lockedAtUnix;
@@ -41,6 +43,7 @@ class AdminPaddon {
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
       itemCount: (json['item_count'] as num?)?.toInt() ?? 0,
+      apparatusId: json['apparatus_id']?.toString() ?? '',
       totalGrossKg: _paddonWeight(json['total_gross_kg']),
       totalNetKg: _paddonWeight(json['total_net_kg']),
       lockedAtUnix: (json['locked_at_unix'] as num?)?.toInt(),
@@ -334,7 +337,7 @@ extension MobileApiPaddons on MobileApi {
   }
 
   Future<List<AdminPaddon>> adminPaddons(
-      {int limit = 100, bool selectableOnly = false}) async {
+      {int limit = 100, bool selectableOnly = false, String apparatus = ''}) async {
     final boundedLimit = limit.clamp(1, 200).toInt();
     final response = await _sendAuthorized(
       () => _get(
@@ -343,6 +346,7 @@ extension MobileApiPaddons on MobileApi {
         ).replace(
           queryParameters: {
             'limit': boundedLimit.toString(),
+            if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
             if (selectableOnly) 'selectable_only': 'true'
           },
         ),
@@ -487,6 +491,7 @@ extension MobileApiPaddons on MobileApi {
   Future<AdminPaddon> adminPaddonCreate({
     String location = '',
     String note = '',
+    String apparatus = '',
   }) async {
     final response = await _sendAuthorized(
       () => _post(
@@ -498,6 +503,7 @@ extension MobileApiPaddons on MobileApi {
         body: jsonEncode({
           'location': location.trim(),
           'note': note.trim(),
+          if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
         }),
       ),
     );

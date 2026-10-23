@@ -32,6 +32,7 @@ class _PrintServer {
   Map<String, dynamic> paddon({String code = '00001', bool? isLocked}) => {
         'id': 'paddon-$code',
         'code': code,
+        'apparatus_id': apparatus,
         'created_by_ref': 'original-worker',
         'item_count': 0,
         'created_at_unix': 1,

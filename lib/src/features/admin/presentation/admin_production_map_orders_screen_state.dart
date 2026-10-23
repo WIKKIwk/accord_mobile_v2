@@ -6,6 +6,7 @@ class _AdminProductionMapOrdersScreenState
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   late TabController _tabController;
+  int _workerTabIndex = 0;
   bool _loading = true;
   bool _adminPaging = false;
   bool _adminForeground = true;
@@ -228,6 +229,7 @@ class _AdminProductionMapOrdersScreenState
     }
     if (widget.workerMode) {
       _tabController = TabController(length: 1, vsync: this);
+      _tabController.addListener(_syncWorkerTab);
     } else {
       _tabController = TabController(
         length: _modules.length,
@@ -277,7 +279,9 @@ class _AdminProductionMapOrdersScreenState
     _workerRecoveryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _stopWorkerLiveStream();
-    if (!widget.workerMode) {
+    if (widget.workerMode) {
+      _tabController.removeListener(_syncWorkerTab);
+    } else {
       _tabController.removeListener(_syncModuleFromTab);
     }
     _tabController.dispose();
@@ -387,22 +391,7 @@ class _AdminProductionMapOrdersScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final role = AppSession.instance.profile?.role;
-    final assignedRezka = widget.workerMode
-        ? _apparatus
-            .where((apparatus) =>
-                apparatus.operation.trim() == 'cut' &&
-                _isAssignedWatchApparatus(apparatus,
-                    assignedApparatus:
-                        AppSession.instance.profile?.assignedApparatus ??
-                            const []))
-            .toList()
-        : <AdminApparatus>[];
-    final paddonApparatus = assignedRezka
-            .where((apparatus) => apparatus.id == _selectedApparatus?.id)
-            .firstOrNull ??
-        (_selectedApparatus == null && assignedRezka.length == 1
-            ? assignedRezka.single
-            : null);
+    final paddonApparatus = _workerPaddonApparatus;
     final isQolipchi = role == UserRole.qolipchi;
     final isMaterialTaminotchi = role == UserRole.materialTaminotchi;
     final isTayyorlovMasteri = role == UserRole.tayyorlovMasteri;
@@ -840,12 +829,40 @@ class _AdminProductionMapOrdersScreenState
     if (_tabController.length == length) {
       return;
     }
+    _tabController.removeListener(_syncWorkerTab);
     _tabController.dispose();
+    _workerTabIndex = 0;
     _tabController = TabController(
       length: length,
       vsync: this,
       initialIndex: 0,
     );
+    _tabController.addListener(_syncWorkerTab);
+  }
+
+  void _syncWorkerTab() {
+    final index = _tabController.index;
+    if (!mounted || _workerTabIndex == index) return;
+    setState(() => _workerTabIndex = index);
+  }
+
+  AdminApparatus? get _workerPaddonApparatus {
+    if (!widget.workerMode) return null;
+    final assigned = AppSession.instance.profile?.assignedApparatus ??
+        const <String>[];
+    final tabs = _workerWatchTabs(
+      apparatus: _workerVisibleApparatusFor(_apparatus),
+      assignedApparatus: assigned,
+    );
+    final index = _tabController.index;
+    if (index < 0 || index >= tabs.length) return null;
+    final apparatus = tabs[index].apparatus;
+    if (apparatus == null ||
+        apparatus.operation.trim() != 'cut' ||
+        !_isAssignedWatchApparatus(apparatus, assignedApparatus: assigned)) {
+      return null;
+    }
+    return apparatus;
   }
 
   bool _beginQueueAction(String actionKey) {

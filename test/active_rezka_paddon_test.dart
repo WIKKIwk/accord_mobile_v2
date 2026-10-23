@@ -62,6 +62,7 @@ Future<List<AdminPaddon>> paddons() async => [
         AdminPaddon(
             id: code,
             code: code,
+            apparatusId: apparatus,
             location: '',
             note: '',
             createdByRef: 'worker-1',

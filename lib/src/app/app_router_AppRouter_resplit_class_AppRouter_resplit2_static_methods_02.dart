@@ -2,6 +2,9 @@
 part of 'app_router.dart';
 
 bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
+  if (Uri.tryParse(routeName ?? '')?.path == AppRoutes.apparatusPaddons) {
+    routeName = AppRoutes.apparatusPaddons;
+  }
   if (routeName == null ||
       routeName == AppRoutes.login ||
       routeName == AppRoutes.profile ||

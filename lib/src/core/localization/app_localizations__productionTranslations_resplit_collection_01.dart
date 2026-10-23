@@ -12,6 +12,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart01 = {
     'en': 'Paddons',
     'ru': 'Паддоны',
   },
+  'worker.paddon.apparatus': {
+    'uz': 'Paddon {apparatus}',
+    'en': 'Paddon {apparatus}',
+    'ru': 'Паддон {apparatus}',
+  },
   'worker.instructions': {
     'uz': 'App yo‘riqnomasi',
     'en': 'App guide',

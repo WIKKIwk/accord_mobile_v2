@@ -2,9 +2,15 @@
 part of 'aparatchi_paddon_detail_screen.dart';
 
 class AparatchiPaddonDetailArgs {
-  const AparatchiPaddonDetailArgs({required this.code, this.initialSnapshot});
+  const AparatchiPaddonDetailArgs(
+      {required this.code,
+      this.initialSnapshot,
+      this.apparatusId = '',
+      this.apparatusName = ''});
 
   final String code;
+  final String apparatusId;
+  final String apparatusName;
   final AparatchiPaddonDetailSeed? initialSnapshot;
 }
 
@@ -47,9 +53,13 @@ class AparatchiPaddonDetailScreen extends StatefulWidget {
     this.footerBuilder,
     this.manageItems = true,
     this.busy = false,
+    this.apparatusId = '',
+    this.apparatusName = '',
   });
 
   final String code;
+  final String apparatusId;
+  final String apparatusName;
   final AparatchiPaddonDetailLoader? loader;
   final PaddonApparatusLoader? apparatusLoader;
   final AparatchiPaddonDetailSeed? initialSnapshot;

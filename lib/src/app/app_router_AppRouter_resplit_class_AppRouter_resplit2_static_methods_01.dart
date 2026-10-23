@@ -6,7 +6,11 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
   if (!AppRouter.canOpenRoute(settings.name)) {
     return AppRouter._buildRoute(settings, const _CapabilityDeniedScreen());
   }
-  switch (settings.name) {
+  final routeUri = Uri.tryParse(settings.name ?? '');
+  final routeName = routeUri?.path == AppRoutes.apparatusPaddons
+      ? AppRoutes.apparatusPaddons
+      : settings.name;
+  switch (routeName) {
     case AppRoutes.login:
       return AppRouter._buildRoute(settings, const AppEntryScreen());
     case AppRoutes.supplierHome:
@@ -413,7 +417,13 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
     case AppRoutes.apparatusDailyWork:
       return AppRouter._buildRoute(settings, const AparatchiDailyWorkScreen());
     case AppRoutes.apparatusPaddons:
-      return AppRouter._buildRoute(settings, const AparatchiPaddonsScreen());
+      return AppRouter._buildRoute(
+        settings,
+        AparatchiPaddonsScreen(
+          apparatusId: routeUri?.queryParameters['apparatus'] ?? '',
+          apparatusName: routeUri?.queryParameters['name'] ?? '',
+        ),
+      );
     case AppRoutes.apparatusPaddonDetail:
       final args = settings.arguments;
       final code = args is AparatchiPaddonDetailArgs
@@ -428,6 +438,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
           settings,
           AparatchiPaddonDetailScreen(
             code: code,
+            apparatusId: args is AparatchiPaddonDetailArgs ? args.apparatusId : '',
+            apparatusName: args is AparatchiPaddonDetailArgs ? args.apparatusName : '',
             initialSnapshot: args is AparatchiPaddonDetailArgs
                 ? args.initialSnapshot
                 : null,

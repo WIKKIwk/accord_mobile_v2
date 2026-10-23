@@ -20,7 +20,9 @@ import 'aparatchi_paddon_display.dart';
 part 'aparatchi_paddon_transfer_actions.dart';
 
 class AparatchiPaddonTransferScreen extends StatefulWidget {
-  const AparatchiPaddonTransferScreen({super.key});
+  const AparatchiPaddonTransferScreen({super.key, this.apparatusId = ''});
+
+  final String apparatusId;
 
   @override
   State<AparatchiPaddonTransferScreen> createState() =>

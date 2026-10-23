@@ -84,7 +84,11 @@ extension _PaddonPrintWorkflow on _AparatchiPaddonDetailScreenState {
         if (create != true || !mounted || scope != currentSessionReadScope()) {
           return;
         }
-        var apparatus = completion.apparatus;
+        var apparatus = completion.paddon.apparatusId.trim().isNotEmpty
+            ? completion.paddon.apparatusId
+            : widget.apparatusId.trim().isNotEmpty
+                ? widget.apparatusId
+                : completion.apparatus;
         apparatus ??= await showDialog<String>(
             context: context,
             builder: (context) => SimpleDialog(

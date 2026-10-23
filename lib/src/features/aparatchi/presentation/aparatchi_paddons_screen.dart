@@ -19,6 +19,7 @@ import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_detail_screen.dart';
+import 'aparatchi_paddon_scope.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
 import '../../../core/localization/urdu_aware_text.dart';
@@ -26,9 +27,12 @@ import '../../../core/localization/urdu_aware_text.dart';
 typedef AparatchiPaddonsLoader = Future<List<AdminPaddon>> Function();
 
 class AparatchiPaddonsScreen extends StatefulWidget {
-  const AparatchiPaddonsScreen({super.key, this.loader});
+  const AparatchiPaddonsScreen(
+      {super.key, this.loader, this.apparatusId = '', this.apparatusName = ''});
 
   final AparatchiPaddonsLoader? loader;
+  final String apparatusId;
+  final String apparatusName;
 
   @override
   State<AparatchiPaddonsScreen> createState() => _AparatchiPaddonsScreenState();
@@ -39,6 +43,23 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   bool _creatingPaddon = false;
   bool _deletingPaddon = false;
   bool _canTransfer = false;
+  late String _apparatusId;
+  late String _apparatusName;
+  List<AdminApparatus> _apparatusOptions = const [];
+  int _loadGeneration = 0;
+
+  bool get _needsApparatus =>
+      widget.loader == null &&
+      AppSession.instance.profile?.role == UserRole.aparatchi &&
+      _apparatusId.isEmpty;
+
+  String get _title => _apparatusName.isEmpty
+      ? context.l10n.productionText('worker.paddons')
+      : apparatusPaddonsTitle(context.l10n, _apparatusName);
+
+  String get _routeName => _apparatusId.isEmpty
+      ? AppRoutes.apparatusPaddons
+      : apparatusPaddonsRoute(_apparatusId, apparatusName: _apparatusName);
 
   bool get _canDeletePaddon =>
       AppSession.instance.profile?.hasAnyCapability(
@@ -53,42 +74,77 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   @override
   void initState() {
     super.initState();
+    _apparatusId = widget.apparatusId.trim();
+    _apparatusName = widget.apparatusName.trim();
     _future = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant AparatchiPaddonsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.apparatusId != widget.apparatusId ||
+        oldWidget.loader != widget.loader) {
+      _apparatusId = widget.apparatusId.trim();
+      _apparatusName = widget.apparatusName.trim();
+      _apparatusOptions = const [];
+      _future = _load();
+    }
   }
 
   Future<List<AdminPaddon>> _load() async {
     final scope = currentSessionReadScope();
+    final generation = ++_loadGeneration;
     final loader = widget.loader;
-    final paddons =
-        await (loader == null ? MobileApi.instance.adminPaddons() : loader());
     var canTransfer = false;
     final profile = AppSession.instance.profile;
-    if (loader == null &&
-        profile != null &&
-        profile.hasAnyCapability(
-            const ['admin.access', 'apparatus.queue.manage'])) {
-      if (profile.role == UserRole.admin) {
-        canTransfer = true;
-      } else if (profile.role == UserRole.aparatchi) {
-        try {
-          final apparatuses =
-              await MobileApi.instance.adminApparatus(limit: 10000);
-          canTransfer = apparatuses.any((a) =>
-              a.operation == 'cut' && profile.assignedApparatus.contains(a.id));
-        } catch (_) {
-          // The list remains usable when the equipment permissions cannot load.
+    if (loader == null && profile?.role == UserRole.aparatchi) {
+      final catalog = await MobileApi.instance.adminApparatus(limit: 10000);
+      if (!mounted ||
+          scope != currentSessionReadScope() ||
+          generation != _loadGeneration) {
+        return const [];
+      }
+      final options =
+          assignedPaddonApparatus(catalog, profile!.assignedApparatus);
+      _apparatusOptions = options;
+      if (_apparatusId.isEmpty && options.length == 1) {
+        _apparatusId = options.single.id;
+        _apparatusName = options.single.name;
+      } else if (_apparatusName.isEmpty) {
+        for (final apparatus in options) {
+          if (apparatus.id == _apparatusId) _apparatusName = apparatus.name;
         }
       }
+      canTransfer = options.any((a) => a.id == _apparatusId) &&
+          profile.hasAnyCapability(
+              const ['admin.access', 'apparatus.queue.manage']);
+    } else if (loader == null && profile?.role == UserRole.admin) {
+      canTransfer = true;
     }
-    if (mounted && scope == currentSessionReadScope()) {
+    final paddons = _needsApparatus
+        ? const <AdminPaddon>[]
+        : await (loader == null
+            ? MobileApi.instance.adminPaddons(
+                apparatus: _apparatusId,
+              )
+            : loader());
+    if (mounted &&
+        scope == currentSessionReadScope() &&
+        generation == _loadGeneration) {
       setState(() => _canTransfer = canTransfer);
     }
-    return paddons;
+    return _apparatusId.isEmpty
+        ? paddons
+        : paddons
+            .where(
+              (paddon) => paddon.apparatusId == _apparatusId,
+            )
+            .toList(growable: false);
   }
 
   Future<void> _openTransfer() async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => const AparatchiPaddonTransferScreen(),
+      builder: (_) => AparatchiPaddonTransferScreen(apparatusId: _apparatusId),
     ));
     if (mounted) await _retry();
   }
@@ -110,6 +166,8 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
       AppRoutes.apparatusPaddonDetail,
       arguments: AparatchiPaddonDetailArgs(
         code: paddon.code,
+        apparatusId: _apparatusId,
+        apparatusName: _apparatusName,
       ),
     );
     if (mounted) {
@@ -118,12 +176,14 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   }
 
   Future<void> _createPaddon() async {
-    if (_creatingPaddon) {
+    if (_creatingPaddon || _needsApparatus) {
       return;
     }
     setState(() => _creatingPaddon = true);
     try {
-      final paddon = await MobileApi.instance.adminPaddonCreate();
+      final paddon = await MobileApi.instance.adminPaddonCreate(
+        apparatus: _apparatusId,
+      );
       if (!mounted) {
         return;
       }
@@ -207,12 +267,13 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      title: context.l10n.productionText('worker.paddons'),
+      title: _title,
       subtitle: context.l10n.productionText('worker.paddon.subtitle'),
       nativeTopBar: true,
       drawer: AparatchiNavigationDrawer(
         selectedIndex: 2,
-        selectedRouteName: AppRoutes.apparatusPaddons,
+        selectedRouteName: _routeName,
+        apparatusLoader: () async => _apparatusOptions,
         onNavigate: (routeName) =>
             AdminDrawerNavigation.openRoute(context, routeName),
       ),
@@ -227,12 +288,13 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
               enabled: !_creatingPaddon && !_deletingPaddon,
               onTap: () => unawaited(_openTransfer()),
             ),
-          AdminFabMenuAction(
-            title: context.l10n.productionText('worker.paddon.create'),
-            icon: Icons.add_rounded,
-            enabled: !_creatingPaddon,
-            onTap: () => unawaited(_createPaddon()),
-          ),
+          if (!_needsApparatus)
+            AdminFabMenuAction(
+              title: context.l10n.productionText('worker.paddon.create'),
+              icon: Icons.add_rounded,
+              enabled: !_creatingPaddon,
+              onTap: () => unawaited(_createPaddon()),
+            ),
         ],
       ),
       contentPadding: EdgeInsets.zero,
@@ -258,6 +320,29 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
           );
         }
         final paddons = snapshot.data ?? const <AdminPaddon>[];
+        if (_needsApparatus) {
+          return RefreshIndicator(
+            onRefresh: _retry,
+            child: ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                for (final apparatus in _apparatusOptions)
+                  Material(
+                      child: ListTile(
+                    key: ValueKey('paddon-apparatus-${apparatus.id}'),
+                    leading: const Icon(Icons.inventory_2_outlined),
+                    title: Text(
+                        apparatusPaddonsTitle(context.l10n, apparatus.name)),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => AdminDrawerNavigation.openRoute(
+                        context,
+                        apparatusPaddonsRoute(apparatus.id,
+                            apparatusName: apparatus.name)),
+                  )),
+              ],
+            ),
+          );
+        }
         final wipCount = paddons.fold<int>(
           0,
           (total, paddon) => total + paddon.itemCount,
@@ -278,7 +363,7 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
               ),
               const SizedBox(height: 18),
               Text(
-                context.l10n.productionText('worker.paddons'),
+                _title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
