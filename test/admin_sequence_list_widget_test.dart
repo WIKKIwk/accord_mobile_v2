@@ -52,6 +52,9 @@ class _SummaryHarness {
   Object? detailError;
   bool wrongDetailOrder = false;
   int detailRevision = 7;
+  String detailState = 'pending';
+  String detailTitle = 'Full detail package';
+  final detailReplies = <Future<AdminApparatusQueueSnapshot>>[];
   RouteSettings? editorRoute;
 
   Map<String, dynamic> payload(AdminProductionOrderPageRequest request) {
@@ -116,6 +119,7 @@ class _SummaryHarness {
       {required String apparatus, required String orderId}) async {
     detailReads.add((apparatus: apparatus, orderId: orderId));
     if (detailError != null) throw detailError!;
+    if (detailReplies.isNotEmpty) return detailReplies.removeAt(0);
     if (pendingDetail != null) return pendingDetail!.future;
     return fullDetail(wrongDetailOrder ? 'another-order' : orderId);
   }
@@ -130,7 +134,7 @@ class _SummaryHarness {
             'map': {
               'id': orderId,
               'code': '0101',
-              'title': 'Full detail package',
+              'title': detailTitle,
               'customer_name': 'Alpha customer',
               'product_code': 'FILM-ALPHA',
               'base_length': 15000,
@@ -160,15 +164,25 @@ class _SummaryHarness {
           _apparatus: [orderId]
         },
         queueStates: {
-          _apparatus: {orderId: 'pending'},
+          _apparatus: {orderId: detailState},
         },
         queuePolicies: const {},
-        orderControls: const {},
+        orderControls: {
+          if (detailState == 'frozen') orderId: AdminOrderControlState.frozen,
+        },
         queueActionControls: {
           _apparatus: {
             orderId: AdminApparatusQueueOrderActionControl.fromJson({
               ...scanControl(),
               'stage_node_id': 'work',
+              if (detailState == 'frozen') ...{
+                'state': 'frozen',
+                'allowed_actions': <String>[],
+                'interaction': {
+                  ...scanControl()['interaction'] as Map,
+                  'mode': 'frozen',
+                },
+              },
             }),
           },
         },
@@ -263,6 +277,10 @@ Finder _row(String id) => find.byKey(ValueKey('sequence-row-$_apparatus-$id'));
 Finder _detailSheet() => find.byWidgetPredicate(
     (widget) => widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet');
 
+dynamic _detailContent(WidgetTester tester) =>
+    tester.widget(find.byWidgetPredicate((widget) =>
+        widget.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+
 List<String> _rowOrder(WidgetTester tester) => tester
     .widgetList(find.byWidgetPredicate(
         (widget) => widget.runtimeType.toString() == '_SequenceOrderRow'))
@@ -275,6 +293,7 @@ Color? _rowColor(WidgetTester tester, String id) => tester
     .color;
 
 void main() {
+  var sessionSerial = 0;
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(true);
@@ -285,11 +304,11 @@ void main() {
     OrderImageCache.debugOverride =
         OrderImageCache(disk: createOrderImageDiskStore());
     AppSession.instance.token = 'summary-test-token';
-    AppSession.instance.profile = const SessionProfile(
+    AppSession.instance.profile = SessionProfile(
       role: UserRole.admin,
       displayName: 'Admin',
       legalName: 'Admin',
-      ref: 'summary-widget-admin',
+      ref: 'summary-widget-admin-${++sessionSerial}',
       phone: '',
       avatarUrl: '',
       capabilities: ['admin.access'],
@@ -540,6 +559,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_detailSheet(), findsOneWidget);
     expect(harness.detailReads, hasLength(1));
+    harness.detailRevision = 8;
     harness.patch([
       {
         'op': 'set',
@@ -571,6 +591,101 @@ void main() {
     expect(snapshot.revision, 8);
     await harness.dispose(tester);
   });
+
+  testWidgets(
+      'open admin detail refreshes pushed status and retains expansions',
+      (tester) async {
+    final harness = _SummaryHarness();
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pumpAndSettle();
+    final originalState = tester.state(_detailSheet());
+    _detailContent(tester).onToggleSummaryExpanded();
+    await tester.pumpAndSettle();
+    expect(_detailContent(tester).summaryExpanded, isTrue);
+    final refresh = Completer<AdminApparatusQueueSnapshot>();
+    harness.detailReplies.add(refresh.future);
+    harness.patch([
+      {
+        'op': 'set',
+        'path': ['rows', 'order-a', 'display_state'],
+        'value': 'frozen',
+      },
+    ]);
+    await tester.pump();
+    await tester.pump();
+    expect(harness.detailReads, hasLength(2));
+    harness.patch([
+      {
+        'op': 'set',
+        'path': ['rows', 'order-a', 'can_reorder'],
+        'value': false,
+      },
+    ], baseVersion: 'v8', version: 'v9', revision: 9);
+    await tester.pump();
+    await tester.pump();
+    expect(harness.detailReads, hasLength(2),
+        reason: 'Revision bursts must share the active detail read');
+    harness
+      ..detailRevision = 9
+      ..detailState = 'frozen'
+      ..detailTitle = 'Live revised package';
+    refresh.complete(harness.fullDetail('order-a'));
+    await tester.pumpAndSettle();
+    expect(identical(tester.state(_detailSheet()), originalState), isTrue);
+    final content = _detailContent(tester);
+    expect(content.map.title, 'Live revised package');
+    expect(content.queueStates['order-a'], 'frozen');
+    expect(content.orderControlState, AdminOrderControlState.frozen);
+    expect(content.summaryExpanded, isTrue);
+    expect(harness.detailReads, hasLength(2),
+        reason: 'A reply already covering the latest revision needs no reread');
+    await harness.dispose(tester);
+  });
+
+  for (final outcome in ['closed', 'session changed']) {
+    testWidgets('open admin detail ignores pushed refresh after $outcome',
+        (tester) async {
+      final harness = _SummaryHarness();
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pumpAndSettle();
+      final refresh = Completer<AdminApparatusQueueSnapshot>();
+      harness.detailReplies.add(refresh.future);
+      harness.patch([
+        {
+          'op': 'set',
+          'path': ['rows', 'order-a', 'display_state'],
+          'value': 'frozen',
+        },
+      ]);
+      await tester.pump();
+      await tester.pump();
+      expect(harness.detailReads, hasLength(2));
+      if (outcome == 'closed') {
+        tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+        await tester.pumpAndSettle();
+      } else {
+        AppSession.instance.token = 'replacement-session';
+        await tester.pump();
+      }
+      harness
+        ..detailRevision = 8
+        ..detailState = 'frozen'
+        ..detailTitle = 'Obsolete refreshed package';
+      refresh.complete(harness.fullDetail('order-a'));
+      await tester.pumpAndSettle();
+      if (outcome == 'closed') {
+        expect(_detailSheet(), findsNothing);
+      } else {
+        expect(_detailContent(tester).map.title, 'Full detail package');
+        expect(_detailContent(tester).orderControlState,
+            AdminOrderControlState.active);
+      }
+      expect(find.text('Obsolete refreshed package'), findsNothing);
+      await harness.dispose(tester);
+    });
+  }
 
   for (final failure in ['missing', 'error', 'scope']) {
     testWidgets('sequence summary rejects $failure detail before actions',
