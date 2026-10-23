@@ -937,6 +937,13 @@ extension _AdminProductionMapOrdersLiveState
     if (positions.length != snapshot.sequencePositionsByApparatus.length ||
         snapshot.sequencePositionsByApparatus.entries.any(
             (entry) => !mapEquals(positions[entry.key], entry.value))) return true;
+    if (jsonEncode([for (final control in _stageOrderControls) control.payload]) !=
+        jsonEncode([for (final control in snapshot.stageOrderControls) control.payload])) {
+      return true;
+    }
+    if (_canonicalQueueSnapshot?.stageFreezeSupported != snapshot.stageFreezeSupported) {
+      return true;
+    }
     if (!mapEquals(_sequenceVersions, snapshot.sequenceVersions)) return true;
     if (!mapEquals(_sequenceRevisions, snapshot.sequenceRevisions)) return true;
     if (!setEquals(_earlyClosingOrderIds, snapshot.earlyClosingOrderIds)) return true;
@@ -1089,6 +1096,11 @@ extension _AdminProductionMapOrdersLiveState
     if (changed('frozen_orders_by_apparatus')) _frozenOrdersByApparatus
       ..clear()
       ..addAll(snapshot.frozenOrdersByApparatus);
+    if (changed('stage_order_controls')) {
+      _stageOrderControls
+        ..clear()
+        ..addAll(snapshot.stageOrderControls);
+    }
     if (changed('order_controls')) _orderControlsByOrderId
       ..clear()
       ..addAll(snapshot.orderControls);

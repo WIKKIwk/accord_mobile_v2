@@ -23,6 +23,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   AdminApparatusQueueOrderActionControl? _queueActionControl;
   AdminRezkaOutputReport? _lastRezkaOutputReport;
   late AdminOrderControlState _orderControlState;
+  AdminOrderControlState get _effectiveOrderControlState =>
+      _orderControlState != AdminOrderControlState.active
+          ? _orderControlState
+          : AdminOrderControlState.fromRaw(
+              _queueActionControl?.stageControlState);
+  bool get _stageFreezeSupported =>
+      (widget.currentQueueSnapshot?.call()?.stageFreezeSupported ??
+          widget.stageFreezeSupported);
   late Map<String, AdminOrderControlState> _orderControls;
   List<AdminRawMaterialAssignment> _materialAssignments = const [];
   List<AdminRawMaterialAssignment> _startAssignments = const [];
@@ -416,7 +424,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         apparatus: widget.apparatus,
         queueActionControl:
             _queueActionContractSynchronized ? _queueActionControl : null,
-        orderControlState: _orderControlState,
+        orderControlState: _effectiveOrderControlState,
         queueState: _queueStates[widget.order.map.id.trim()],
         materialAssignments: _materialAssignments,
         startMaterialAssignments: _startAssignments,
@@ -691,7 +699,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
         onComplete: () => unawaited(_runProgressAction('complete')),
         onResume: () => unawaited(_handleResumeAction()),
-        orderControlState: _orderControlState,
+        orderControlState: _effectiveOrderControlState,
         allowMaterialUnlink: _allowMaterialUnlink,
         onUnlinkMaterial: _unlinkMaterialAssignment,
         unlinkingMaterialBarcode: _unlinkingMaterialBarcode,
@@ -1303,10 +1311,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           request != null &&
           request.status.trim() == 'pending' &&
           request.requestId.trim().isNotEmpty &&
-          request.targetApparatus.trim() == apparatus &&
-          (isPrintPreflight
-              ? request.targetSessionId.trim().isEmpty
-              : request.targetSessionId.trim().isNotEmpty) &&
+          (request.targetApparatus.trim() == apparatus ||
+              (request.isGlobalWildcard &&
+                  _orderControlState ==
+                      AdminOrderControlState.freezeRequested)) &&
+          (request.isGlobalWildcard ||
+              (isPrintPreflight
+                  ? request.targetSessionId.trim().isEmpty
+                  : request.targetSessionId.trim().isNotEmpty)) &&
           (initialRequestId.isEmpty ||
               request.requestId.trim() == initialRequestId);
       if (!valid) {
@@ -1451,6 +1463,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     String preflightHoldId = '',
   }) async {
     final l10n = context.l10n;
+    if (freezeWithIssue && !_stageFreezeSupported) {
+      _showSheetNotice(
+          'Server bosqich bo‘yicha muzlatishni qo‘llamaydi. Serverni yangilang.');
+      return false;
+    }
     final actionOrderId = widget.order.map.id.trim();
     final actionApparatus = widget.apparatus?.id.trim() ?? '';
     if (_queueActionBusy ||
@@ -2373,7 +2390,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<void> _runInitialPauseFlow() async {
-    if (_orderControlState == AdminOrderControlState.freezeRequested) {
+    if (_effectiveOrderControlState == AdminOrderControlState.freezeRequested) {
       final request = await _loadAuthoritativeFreezeRequest();
       if (!mounted) return;
       final control = _queueActionControl;
@@ -2390,7 +2407,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       }
     }
     final outcome = await _runProgressAction(
-      _orderControlState == AdminOrderControlState.freezeRequested
+      _effectiveOrderControlState == AdminOrderControlState.freezeRequested
           ? 'detach_roll'
           : 'pause',
     );
@@ -2770,7 +2787,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           _showSheetNotice(_queueActionUnavailableText(
             l10n: context.l10n,
             control: latest,
-            orderControlState: _orderControlState,
+            orderControlState: _effectiveOrderControlState,
             queueState: _queueStates[widget.order.map.id.trim()],
             busyApparatusLabel: _unavailableBusyLabels().apparatus,
             busyOrderLabel: _unavailableBusyLabels().order,
@@ -2783,11 +2800,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         return _ProgressActionOutcome.failed;
       }
     }
-    if (_orderControlState == AdminOrderControlState.frozen) {
+    if (_effectiveOrderControlState == AdminOrderControlState.frozen) {
       return _ProgressActionOutcome.failed;
     }
     final freezeRequestSafeStop =
-        _orderControlState == AdminOrderControlState.freezeRequested;
+        _effectiveOrderControlState == AdminOrderControlState.freezeRequested;
     if (action == 'complete' &&
         widget.apparatus?.operation.trim() == 'laminate' &&
         (fullCompletionReportRequired ?? _completionNeedsFullReport(action)) &&
@@ -3523,6 +3540,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.customerName,
     this.apparatus,
     this.canManageQueue = false,
+    this.stageFreezeSupported = false,
     this.workerMode = false,
     this.currentQueueSnapshot,
     this.queueSnapshotListenable,
@@ -3560,6 +3578,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final String? customerName;
   final AdminApparatus? apparatus;
   final bool canManageQueue;
+  final bool stageFreezeSupported;
   final bool workerMode;
   final AdminApparatusQueueSnapshot? Function()? currentQueueSnapshot;
   final ValueListenable<AdminApparatusQueueSnapshot?>? queueSnapshotListenable;

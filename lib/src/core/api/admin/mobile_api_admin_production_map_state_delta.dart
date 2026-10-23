@@ -191,6 +191,7 @@ class AdminProductionMapLiveStateDelta
       'queue_policies',
       'queue_action_controls',
       'order_controls',
+      'stage_order_controls',
       'order_statuses',
       'frozen_orders_by_apparatus',
       'order_customers',
@@ -306,6 +307,10 @@ class AdminProductionMapLiveStateDelta
           (raw) => AdminApparatusQueueOrderActionControl.fromJson(
               _productionMapPatchObject(raw))),
       orderControls: controls,
+      stageFreezeSupported: before.stageFreezeSupported,
+      stageOrderControls: patch.containsKey('stage_order_controls')
+          ? _parseStageOrderControls(patch['stage_order_controls'])
+          : before.stageOrderControls,
       earlyClosingOrderIds: earlyClosing,
       orderCustomers: _applyProductionMapFieldPatch(before.orderCustomers,
           patch['order_customers'], _productionMapPatchString),

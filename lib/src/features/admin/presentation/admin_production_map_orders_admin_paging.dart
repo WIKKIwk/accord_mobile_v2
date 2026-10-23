@@ -419,6 +419,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     _stageStatesByOrderId.clear();
     _orderStatusesByOrderId.clear();
     _orderControlsByOrderId.clear();
+    _stageOrderControls.clear();
     _earlyClosingOrderIds.clear();
     _frozenOrdersByApparatus.clear();
     _visibleOrderIdsByApparatus.clear();
@@ -445,6 +446,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         }
         // Omitted overrides mean active, including after an unfreeze.
         _orderControlsByOrderId.remove(id);
+        _stageOrderControls.removeWhere((control) => control.orderId == id);
         _earlyClosingOrderIds.remove(id);
       }
       _sequenceVersions.addAll(snapshot.sequenceVersions);
@@ -452,6 +454,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
       _queuePoliciesByApparatus.addAll(snapshot.queuePolicies);
       _orderStatusesByOrderId.addAll(snapshot.orderStatuses);
       _orderControlsByOrderId.addAll(snapshot.orderControls);
+      _stageOrderControls.addAll(snapshot.stageOrderControls);
       _earlyClosingOrderIds.addAll(snapshot.earlyClosingOrderIds);
       _stageStatesByOrderId.addAll(snapshot.stageStates);
       _customerByMapId.addAll(snapshot.orderCustomers);
@@ -579,7 +582,12 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
             e.key: current(e.value)
         },
         queuePolicies: Map.of(_queuePoliciesByApparatus),
+        stageFreezeSupported: activeSnapshots.isNotEmpty &&
+            activeSnapshots.every((snapshot) => snapshot.stageFreezeSupported),
         orderControls: current(_orderControlsByOrderId),
+        stageOrderControls: _stageOrderControls
+            .where((control) => currentIds.contains(control.orderId))
+            .toList(growable: false),
         earlyClosingOrderIds: _earlyClosingOrderIds.intersection(currentIds),
         queueActionControls: {
           for (final e in _queueActionControlsByApparatus.entries)

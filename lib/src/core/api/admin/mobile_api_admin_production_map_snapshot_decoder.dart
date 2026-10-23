@@ -42,6 +42,9 @@ AdminApparatusQueueSnapshot _productionMapQueueSnapshotFromJson(
     queueActionControls:
         _parseAdminQueueActionControls(payload['queue_action_controls']),
     orderControls: orderControls,
+    stageOrderControls:
+        _parseStageOrderControls(payload['stage_order_controls']),
+    stageFreezeSupported: payload['stage_order_controls'] is List,
     orderCustomers: _stringMapOfStrings(payload['order_customers']),
     earlyClosingOrderIds: _parseEarlyClosingOrderIds(payload['order_controls']),
     orderStatuses: _parseAdminOrderStatuses(payload['order_statuses']),

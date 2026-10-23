@@ -81,6 +81,7 @@ part 'admin_production_map_worker_fab_latency_test_part.dart';
 part 'admin_production_map_inline_wip_guidance_test_part.dart';
 part 'admin_production_map_worker_qr_errors_test_part.dart';
 part 'admin_production_map_frozen_visibility_test_part.dart';
+part 'admin_production_map_stage_freeze_test_part.dart';
 part 'admin_production_map_wip_route_continuity_test_part.dart';
 part 'admin_production_map_mixed_wip_test_part.dart';
 part 'admin_production_map_worker_recovery_test_part.dart';
@@ -277,5 +278,6 @@ void main() {
   _registerWorkerCompletedWipTests();
   _registerWorkerMapWipTests();
   _registerFrozenWorkerVisibilityTests();
+  _registerStageFreezeScopeTests();
   _registerAdminMapWipFactsTests();
 }

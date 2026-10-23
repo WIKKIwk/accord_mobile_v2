@@ -136,22 +136,23 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
   final queueOrders = visibleOrders.where(
     (order) {
       final orderId = order.map.id.trim();
-      if (excludeFrozen && _workerOrderIsFrozen(
-        orderId: orderId,
-        orderControlsByOrderId: orderControlsByOrderId,
-        queueStatesByApparatus: queueStatesByApparatus,
-        queueActionControlsByApparatus: queueActionControlsByApparatus,
-        orderStatusesByOrderId: orderStatusesByOrderId,
-      )) {
+      if (excludeFrozen &&
+          _workerOrderIsFrozen(
+            orderId: orderId,
+            orderControlsByOrderId: orderControlsByOrderId,
+            queueStatesByApparatus: queueStatesByApparatus,
+            queueActionControlsByApparatus: queueActionControlsByApparatus,
+            orderStatusesByOrderId: orderStatusesByOrderId,
+          )) {
         return false;
       }
-      final status = orderStatusesByOrderId[orderId];
-      if (workerMode &&
-          freePick &&
-          orderControlsByOrderId[orderId] !=
-              AdminOrderControlState.freezeRequested &&
-          (status?.orderStatus == 'completed_with_issue' ||
-              (status?.completedWithIssueCount ?? 0) > 0)) {
+      // A hold or issue on an upstream node does not hide this node's WIP.
+      final ownControl = queueActionControlsByApparatus[apparatus.id]?[orderId];
+      if (excludeFrozen &&
+          (states[orderId] == 'frozen' ||
+              ownControl?.state == 'frozen' ||
+              ownControl?.interaction?.mode ==
+                  AdminQueueInteractionMode.frozen)) {
         return false;
       }
       final lifecycle = orderStatusesByOrderId[orderId]?.lifecycleStatus;
@@ -162,9 +163,10 @@ List<ProductionMapSaved> _productionMapOrdersForApparatus({
       // machine's actual work. Never manufacture a completion for an unused
       // candidate, or hide a later occurrence of the same physical machine.
       final occurrences = productionMapLinearWorkStages(order.map)
-          .where((stage) => stage.apparatusId == apparatus.id).toList();
-      final ownControl = queueActionControlsByApparatus[apparatus.id]?[orderId];
-      final stageStates = stageStatesByOrderId[orderId] ?? const <String, String>{};
+          .where((stage) => stage.apparatusId == apparatus.id)
+          .toList();
+      final stageStates =
+          stageStatesByOrderId[orderId] ?? const <String, String>{};
       bool stageCompleted(String nodeId) =>
           _apparatusStageCompleted(nodeId, stageStates, ownControl);
       if (occurrences.isNotEmpty &&

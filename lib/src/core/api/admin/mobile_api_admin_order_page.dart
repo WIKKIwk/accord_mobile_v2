@@ -271,6 +271,8 @@ AdminApparatusQueueSnapshot _copyOrderPageSnapshot(
   sequenceRevisions: before.sequenceRevisions, visibleOrderIds: before.visibleOrderIds,
   sequencePositionsByApparatus: before.sequencePositionsByApparatus,
   queueStates: before.queueStates, queuePolicies: before.queuePolicies,
+  stageOrderControls: before.stageOrderControls,
+  stageFreezeSupported: before.stageFreezeSupported,
   orderControls: before.orderControls, earlyClosingOrderIds: before.earlyClosingOrderIds,
   queueActionControls: before.queueActionControls, stageStates: before.stageStates,
   orderCustomers: before.orderCustomers, orderStatuses: before.orderStatuses,

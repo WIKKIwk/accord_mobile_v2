@@ -144,6 +144,7 @@ class _AdminModulesBody extends StatelessWidget {
     required this.onRefreshWorkflowAudit,
     required this.onInfoOrder,
     required this.onInfoSequenceOrder,
+    required this.onLongPressSequenceOrder,
     required this.onLongPressOrder,
   });
   final bool pageLoading;
@@ -217,6 +218,8 @@ class _AdminModulesBody extends StatelessWidget {
       queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final Map<String, AdminProductionOrderStatusDetail> orderStatusesByOrderId;
+  final void Function(AdminApparatus apparatus, ProductionMapSaved order)
+      onLongPressSequenceOrder;
   final String? sequenceInteractionHint;
   final Map<String, AdminOrderControlState> orderControlsByOrderId;
   final AdminProductionWorkflowAuditReport? workflowAudit;
@@ -298,7 +301,12 @@ class _AdminModulesBody extends StatelessWidget {
                                 apparatus: selectedApparatus!,
                                 order: order,
                               ),
-                      onLongPressOrder: onLongPressOrder,
+                      onLongPressOrder: (order) {
+                        final target = selectedApparatus;
+                        if (target != null) {
+                          onLongPressSequenceOrder(target, order);
+                        }
+                      },
                     ),
                   _OpenedOrderModule.orders => _OrdersModulePage(
                       queueActionControlsByApparatus:

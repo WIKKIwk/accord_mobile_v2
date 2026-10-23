@@ -194,6 +194,7 @@ class _AdminProductionMapOrdersScreenState
       _queueActionControlsByApparatus = {};
   final Map<String, List<AdminFrozenQueueOrder>> _frozenOrdersByApparatus = {};
   final Map<String, AdminOrderControlState> _orderControlsByOrderId = {};
+  final List<AdminStageOrderControl> _stageOrderControls = [];
   final Set<String> _earlyClosingOrderIds = {};
   final Map<String, AdminProductionOrderStatusDetail> _orderStatusesByOrderId =
       {};
@@ -743,10 +744,25 @@ class _AdminProductionMapOrdersScreenState
                                   orderControlsByOrderId:
                                       _orderControlsByOrderId,
                                   workflowAudit: _workflowAudit,
-                                  workflowAuditError: _adminPaging ? _adminWindow('audit').error : _workflowAuditError,
-                                  workflowAuditLoading: _adminPaging ? _adminWindow('audit').inFlight != null : _workflowAuditLoading,
+                                  workflowAuditError: _adminPaging
+                                      ? _adminWindow('audit').error
+                                      : _workflowAuditError,
+                                  workflowAuditLoading: _adminPaging
+                                      ? _adminWindow('audit').inFlight != null
+                                      : _workflowAuditLoading,
                                   onRefreshWorkflowAudit: () =>
                                       _refreshWorkflowAudit(force: true),
+                                  onLongPressSequenceOrder: (apparatus, order) {
+                                    unawaited(
+                                      widget.supplyViewerMode && isQolipchi
+                                          ? _showQolipsForOrder(order)
+                                          : widget.supplyViewerMode &&
+                                                  isMaterialTaminotchi
+                                              ? _showSupplyRawMaterialAssignment(order)
+                                              : _showOrderActions(order,
+                                                  apparatus: apparatus),
+                                    );
+                                  },
                                   onLongPressOrder: (order) {
                                     unawaited(
                                       widget.supplyViewerMode && isQolipchi
@@ -1088,6 +1104,9 @@ class _AdminProductionMapOrdersScreenState
           return null;
         },
         workerMode: widget.workerMode,
+        stageFreezeSupported: initialQueueSnapshot?.stageFreezeSupported ??
+            _canonicalQueueSnapshot?.stageFreezeSupported ??
+            false,
         currentQueueSnapshot: () => _canonicalQueueSnapshot,
         queueSnapshotListenable: _sheetQueueSnapshot,
         queueActionsInFlight: _sheetQueueActionsInFlight,
@@ -2075,7 +2094,8 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
-  Future<void> _showOrderActions(ProductionMapSaved order) async {
+  Future<void> _showOrderActions(ProductionMapSaved order,
+      {AdminApparatus? apparatus}) async {
     final orderId = order.map.id.trim();
     if (widget.readOnly ||
         widget.workerMode ||
@@ -2092,20 +2112,36 @@ class _AdminProductionMapOrdersScreenState
       );
       return;
     }
-    final control = adminProductionMapOrderControlFor(
-      _orderControlsByOrderId,
-      orderId,
-    );
-    final hasFrozenQueueState = _queueStatesByApparatus.values.any(
-      (states) => states[orderId]?.trim().toLowerCase() == 'frozen',
-    );
+    final scoped = apparatus != null;
+    final apparatusId = apparatus?.id.trim() ?? '';
+    final stageNodeId = scoped
+        ? (_queueActionControlsByApparatus[apparatusId]?[orderId]
+                ?.stageNodeId ??
+            '')
+        : '';
+    final globalControl =
+        adminProductionMapOrderControlFor(_orderControlsByOrderId, orderId);
+    final localControl = _stageOrderControls.where((item) =>
+        item.orderId == orderId &&
+        item.stageNodeId == stageNodeId &&
+        item.apparatus == apparatusId);
+    final control = scoped
+        ? (localControl.isEmpty
+            ? AdminOrderControlState.active
+            : localControl.first.state)
+        : globalControl;
+    final stageActionsBlocked = scoped &&
+        (stageNodeId.isEmpty ||
+            globalControl != AdminOrderControlState.active ||
+            _canonicalQueueSnapshot?.stageFreezeSupported != true);
     final closingEarly = _earlyClosingOrderIds.contains(orderId);
     final reopenApparatus = _printPreflightReopenApparatus(order);
     final action = await showModalBottomSheet<_OrderLongPressAction>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (reopenApparatus != null)
@@ -2113,31 +2149,39 @@ class _AdminProductionMapOrdersScreenState
                 onTap: () => Navigator.pop(
                     context, _OrderLongPressAction.reopenPrintPreflight),
               ),
-            if (control == AdminOrderControlState.active && hasFrozenQueueState)
-              const ListTile(
-                enabled: false,
-                leading: Icon(Icons.sync_problem_rounded),
-                title: UrduAwareText('Navbat holati sinxron emas'),
-                subtitle:
-                    UrduAwareText('Server holati yangilanishi kutilmoqda'),
-              ),
-            if (control == AdminOrderControlState.active && !closingEarly) ...[
-              if (!hasFrozenQueueState)
-                ListTile(
-                  leading: const Icon(Icons.ac_unit_rounded),
-                  title: Text(context.l10n.adminText('production.freeze')),
-                  onTap: () => Navigator.pop(
-                    context,
-                    _OrderLongPressAction.freeze,
-                  ),
+            ListTile(
+              title: UrduAwareText(scoped
+                  ? 'Shu bosqich: ${canonicalApparatusDisplayLabel(apparatusId, _apparatus)}'
+                  : 'Butun buyurtma'),
+              subtitle: UrduAwareText(scoped
+                  ? (_canonicalQueueSnapshot?.stageFreezeSupported != true
+                      ? 'Server bosqich bo‘yicha muzlatishni qo‘llamaydi. Serverni yangilang.'
+                      : stageActionsBlocked
+                      ? 'Butun buyurtma muzlatilgan yoki bosqich yangilanishi kutilmoqda'
+                      : 'Boshqa bosqichlardagi tayyor rulonlar davom etadi')
+                  : 'Muzlatish barcha bosqichlarni to‘xtatadi'),
+            ),
+            if (control == AdminOrderControlState.active &&
+                !closingEarly &&
+                !stageActionsBlocked)
+              ListTile(
+                leading: const Icon(Icons.ac_unit_rounded),
+                title: UrduAwareText(scoped
+                    ? 'Shu bosqichda muzlatish'
+                    : 'Butun buyurtmani muzlatish'),
+                onTap: () => Navigator.pop(
+                  context,
+                  _OrderLongPressAction.freeze,
                 ),
+              ),
+            if (globalControl == AdminOrderControlState.active && !closingEarly)
               ListTile(
                 leading: Icon(
                   Icons.delete_outline_rounded,
                   color: Theme.of(context).colorScheme.error,
                 ),
                 title: UrduAwareText(
-                  'O‘chirish',
+                  scoped ? 'Butun buyurtmani o‘chirish' : 'O‘chirish',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
                   ),
@@ -2147,9 +2191,9 @@ class _AdminProductionMapOrdersScreenState
                   _OrderLongPressAction.delete,
                 ),
               ),
-            ],
             if (control == AdminOrderControlState.freezeRequested &&
-                !closingEarly)
+                !closingEarly &&
+                !stageActionsBlocked)
               ListTile(
                 leading: const Icon(Icons.cancel_outlined),
                 title: Text(
@@ -2160,10 +2204,14 @@ class _AdminProductionMapOrdersScreenState
                   _OrderLongPressAction.cancelFreeze,
                 ),
               ),
-            if (control == AdminOrderControlState.frozen && !closingEarly)
+            if (control == AdminOrderControlState.frozen &&
+                !closingEarly &&
+                !stageActionsBlocked)
               ListTile(
                 leading: const Icon(Icons.play_circle_outline_rounded),
-                title: Text(context.l10n.adminText('production.unfreeze')),
+                title: UrduAwareText(scoped
+                    ? 'Shu bosqichni muzdan ochish'
+                    : 'Butun buyurtmani muzdan ochish'),
                 onTap: () => Navigator.pop(
                   context,
                   _OrderLongPressAction.unfreeze,
@@ -2201,7 +2249,7 @@ class _AdminProductionMapOrdersScreenState
                     Navigator.pop(context, _OrderLongPressAction.editOrder),
               ),
           ],
-        ),
+        )),
       ),
     );
     if (!mounted || action == null) return;
@@ -2340,13 +2388,19 @@ class _AdminProductionMapOrdersScreenState
       );
       if (!mounted || confirmed != true) return;
     }
-    await _runOrderControlAction(order, controlAction);
+    final stageAction =
+        scoped && controlAction != AdminOrderControlAction.delete;
+    await _runOrderControlAction(order, controlAction,
+        apparatus: stageAction ? apparatusId : '',
+        stageNodeId: stageAction ? stageNodeId : '');
   }
 
   Future<void> _runOrderControlAction(
     ProductionMapSaved order,
-    AdminOrderControlAction action,
-  ) async {
+    AdminOrderControlAction action, {
+    String apparatus = '',
+    String stageNodeId = '',
+  }) async {
     final orderId = order.map.id.trim();
     if (_queueSnapshotContractError) {
       showAdminTopNotice(
@@ -2366,6 +2420,10 @@ class _AdminProductionMapOrdersScreenState
       final next = await MobileApi.instance.adminProductionMapOrderControl(
         orderId: orderId,
         action: action,
+        apparatus: apparatus,
+        stageNodeId: stageNodeId,
+        stageFreezeSupported:
+            _canonicalQueueSnapshot?.stageFreezeSupported == true,
       );
       if (!mounted) return;
       setState(() {
@@ -2386,7 +2444,7 @@ class _AdminProductionMapOrdersScreenState
                 for (final id in sequence)
                   if (id.trim() != orderId) id,
               ]);
-        } else if (next != null) {
+        } else if (next != null && apparatus.isEmpty) {
           _orderControlsByOrderId[orderId] = next;
         }
       });
@@ -2395,11 +2453,15 @@ class _AdminProductionMapOrdersScreenState
         switch (action) {
           AdminOrderControlAction.freeze =>
             next == AdminOrderControlState.frozen
-                ? 'Buyurtma muzlatildi'
+                ? (apparatus.isEmpty
+                    ? 'Butun buyurtma muzlatildi'
+                    : 'Shu bosqich muzlatildi')
                 : 'Worker pauzasi kutilmoqda',
           AdminOrderControlAction.cancelFreeze =>
             'Muzlatish so‘rovi bekor qilindi',
-          AdminOrderControlAction.unfreeze => 'Buyurtma aktiv holatga qaytdi',
+          AdminOrderControlAction.unfreeze => apparatus.isEmpty
+              ? 'Butun buyurtma muzdan ochildi'
+              : 'Shu bosqich muzdan ochildi',
           AdminOrderControlAction.delete => 'Buyurtma o‘chirildi',
         },
         tone: AdminTopNoticeTone.success,

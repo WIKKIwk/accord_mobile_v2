@@ -214,6 +214,7 @@ class AdminApparatusQueueOrderActionControl {
     this.hasRequiredFields = true,
     this.previousStage = '',
     this.stageNodeId = '',
+    this.stageControlState = '',
     this.previousStageReady = false,
     this.rezkaOutputKadrCounts = const [],
     this.rezkaOutputReport,
@@ -242,6 +243,7 @@ class AdminApparatusQueueOrderActionControl {
   final bool hasRequiredFields;
   final String previousStage;
   final String stageNodeId;
+  final String stageControlState;
   final bool previousStageReady;
   final List<int> rezkaOutputKadrCounts;
   final AdminRezkaOutputReport? rezkaOutputReport;
@@ -355,10 +357,14 @@ class AdminApparatusQueueOrderActionControl {
       if (request == null ||
           request.requestId.trim().isEmpty ||
           request.status.trim().toLowerCase() != 'pending' ||
-          request.targetApparatus.trim().isEmpty) {
+          (request.targetApparatus.trim().isEmpty &&
+              !request.isGlobalWildcard) ||
+          (request.isGlobalWildcard &&
+              stageControlState == 'freeze_requested')) {
         return false;
       }
       if (normalizedState != 'print_preflight' &&
+          !request.isGlobalWildcard &&
           request.targetSessionId.trim().isEmpty) {
         return false;
       }
@@ -381,6 +387,11 @@ class AdminApparatusQueueOrderActionControl {
         queueState.trim().isNotEmpty &&
         queueState.trim().toLowerCase() != state.trim().toLowerCase()) {
       return false;
+    }
+    if (orderControlState == AdminOrderControlState.active &&
+        const {'frozen', 'freeze_requested'}.contains(stageControlState)) {
+      if (stageNodeId.trim().isEmpty) return false;
+      orderControlState = AdminOrderControlState.fromRaw(stageControlState);
     }
     final mode = interaction!.mode;
     if (orderControlState == AdminOrderControlState.frozen) {
@@ -537,6 +548,7 @@ class AdminApparatusQueueOrderActionControl {
           (!hasPrintPreflightField || printPreflight != null),
       previousStage: json['previous_stage']?.toString().trim() ?? '',
       stageNodeId: json['stage_node_id']?.toString().trim() ?? '',
+      stageControlState: json['stage_control_state']?.toString().trim() ?? '',
       previousStageReady: json['previous_stage_ready'] == true,
       rezkaOutputKadrCounts: List<int>.unmodifiable(rezkaOutputKadrCounts),
       rezkaOutputReport: rezkaOutputReport,

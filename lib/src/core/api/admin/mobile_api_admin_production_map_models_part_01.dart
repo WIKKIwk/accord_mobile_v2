@@ -145,6 +145,8 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     required this.completionRequests,
     required this.completionRequestDecisions,
     required super.orderControls,
+    super.stageOrderControls = const [],
+    super.stageFreezeSupported = false,
     super.earlyClosingOrderIds = const {},
     super.orderCustomers = const {},
     super.orderStatuses = const {},
@@ -209,6 +211,9 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
             ),
       ],
       orderControls: orderControls,
+      stageOrderControls:
+          _parseStageOrderControls(json['stage_order_controls']),
+      stageFreezeSupported: json['stage_order_controls'] is List,
       earlyClosingOrderIds: _parseEarlyClosingOrderIds(json['order_controls']),
       orderCustomers: _stringMapOfStrings(json['order_customers']),
       orderStatuses: _parseAdminOrderStatuses(json['order_statuses']),

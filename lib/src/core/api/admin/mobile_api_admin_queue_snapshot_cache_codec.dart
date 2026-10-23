@@ -43,6 +43,10 @@ Map<String, dynamic> encodeProductionMapQueueSnapshot(
             order.key: _cachedQueueActionContract(order.value),
         },
     },
+    if (snapshot.stageFreezeSupported)
+      'stage_order_controls': [
+        for (final control in snapshot.stageOrderControls) control.payload,
+      ],
     'order_controls': {
       for (final id in {
         ...snapshot.orderControls.keys,

@@ -42,6 +42,8 @@ bool _queueActionControlsEqual(
             other.completeRequiresFullReport ||
         control.closingOutputBatchId != other.closingOutputBatchId ||
         control.stageWork != other.stageWork ||
+        control.stageNodeId != other.stageNodeId ||
+        control.stageControlState != other.stageControlState ||
         control.contractValid != other.contractValid ||
         control.interaction?.mode != other.interaction?.mode ||
         control.interaction?.startMaterialsMode !=

@@ -318,6 +318,8 @@ class AdminProductionOrderFreezeDetails {
     required this.targetWorkerDisplayName,
     required this.requestedAtUnix,
     required this.transitionedAtUnix,
+    this.scope = 'order',
+    this.stageNodeId = '',
   });
 
   final String requestId;
@@ -329,17 +331,29 @@ class AdminProductionOrderFreezeDetails {
   final String targetWorkerDisplayName;
   final int requestedAtUnix;
   final int transitionedAtUnix;
+  final String scope;
+  final String stageNodeId;
+
+  bool get isGlobalWildcard =>
+      scope == 'order' &&
+      stageNodeId.isEmpty &&
+      targetApparatus.trim().isEmpty &&
+      targetSessionId.trim().isEmpty &&
+      targetWorkerRef.trim().isEmpty;
 
   factory AdminProductionOrderFreezeDetails.fromJson(
     Map<String, dynamic> json,
   ) {
     return AdminProductionOrderFreezeDetails(
+      scope: json['scope']?.toString() ?? 'order',
+      stageNodeId: json['stage_node_id']?.toString() ?? '',
       requestId: json['request_id']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       targetSessionId: json['target_session_id']?.toString() ?? '',
-      targetApparatus: _requireCanonicalApparatusId(
-        json['target_apparatus']?.toString() ?? '',
-      ),
+      targetApparatus: (json['target_apparatus']?.toString().trim() ?? '')
+              .isEmpty
+          ? ''
+          : _requireCanonicalApparatusId(json['target_apparatus'].toString()),
       targetWorkerRole: json['target_worker_role']?.toString() ?? '',
       targetWorkerRef: json['target_worker_ref']?.toString() ?? '',
       targetWorkerDisplayName:

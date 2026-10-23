@@ -248,20 +248,24 @@ void _registeradmin_production_map_test_screen_testCases11() {
     );
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.textContaining('Action menu order').first);
+    await tester.tap(find.text('Buyurtmalar'));
     await tester.pumpAndSettle();
-    expect(find.text('Muzlatish'), findsOneWidget);
+    await tester.longPress(find.byKey(const ValueKey('opened-order-zakaz-order-actions')));
+    await tester.pumpAndSettle();
+    expect(find.text('Butun buyurtmani muzlatish'), findsOneWidget);
     expect(find.text('O‘chirish'), findsOneWidget);
     expect(find.text('Mapni o‘zgartirish'), findsOneWidget);
-    Navigator.of(tester.element(find.text('Muzlatish'))).pop();
+    Navigator.of(tester.element(find.text('Butun buyurtmani muzlatish'))).pop();
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Ketma-ketlik'));
     await tester.pumpAndSettle();
-    await tester.longPress(find.textContaining('Action menu order').first);
+    await tester.longPress(find.byKey(const ValueKey('sequence-row-$_godexId-zakaz-order-actions')));
     await tester.pumpAndSettle();
-    expect(find.text('Muzlatish'), findsOneWidget);
-    expect(find.text('O‘chirish'), findsOneWidget);
+    expect(find.text('Butun buyurtmani muzlatish'), findsNothing);
+    expect(find.text('Shu bosqichda muzlatish'), findsNothing,
+        reason: 'the legacy demo has no scoped freeze capability');
+    expect(find.text('Butun buyurtmani o‘chirish'), findsOneWidget);
     expect(find.text('Mapni o‘zgartirish'), findsOneWidget);
   });
 
@@ -378,11 +382,14 @@ void _registeradmin_production_map_test_screen_testCases11() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pumpAndSettle();
     }
 
     await _usePhoneViewport(tester);
+    tester.view.physicalSize = const Size(1800, 2400);
     await pumpScreen();
-    await tester.longPress(find.textContaining('Control state order').first);
+    await tester.longPress(find.byKey(const ValueKey('opened-order-zakaz-order-control-states')));
     await tester.pumpAndSettle();
     expect(find.text('Muzlatish so‘rovini bekor qilish'), findsOneWidget);
     expect(find.text('O‘chirish'), findsNothing);
@@ -401,9 +408,9 @@ void _registeradmin_production_map_test_screen_testCases11() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     await pumpScreen();
-    await tester.longPress(find.textContaining('Control state order').first);
+    await tester.longPress(find.byKey(const ValueKey('opened-order-zakaz-order-control-states')));
     await tester.pumpAndSettle();
-    expect(find.text('Muzdan chiqarish'), findsOneWidget);
+    expect(find.text('Butun buyurtmani muzdan ochish'), findsOneWidget);
     expect(find.text('O‘chirish'), findsNothing);
   });
 }

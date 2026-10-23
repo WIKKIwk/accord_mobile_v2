@@ -91,6 +91,8 @@ class AdminApparatusQueueSnapshot {
     required this.queueStates,
     required this.queuePolicies,
     required this.orderControls,
+    this.stageOrderControls = const [],
+    this.stageFreezeSupported = false,
     this.earlyClosingOrderIds = const {},
     this.queueActionControls = const {},
     this.stageStates = const {},
@@ -115,6 +117,8 @@ class AdminApparatusQueueSnapshot {
   final Map<String, Map<String, String>> stageStates;
   final Map<String, AdminApparatusQueuePolicy> queuePolicies;
   final Map<String, AdminOrderControlState> orderControls;
+  final List<AdminStageOrderControl> stageOrderControls;
+  final bool stageFreezeSupported;
   final Set<String> earlyClosingOrderIds;
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControls;
@@ -161,6 +165,69 @@ class AdminApparatusQueueSnapshot {
       frozenOrdersByApparatus: frozenOrdersByApparatus,
     );
   }
+}
+
+/// A hold on one route node. Global order controls remain independent.
+class AdminStageOrderControl {
+  const AdminStageOrderControl(
+      {required this.orderId,
+      required this.stageNodeId,
+      required this.state,
+      required this.apparatus,
+      this.payload = const {}});
+  final String orderId;
+  final String stageNodeId;
+  final String apparatus;
+  final AdminOrderControlState state;
+  final Map<String, dynamic> payload;
+
+  factory AdminStageOrderControl.fromJson(Map<String, dynamic> json) {
+    final orderId = json['order_id'];
+    final node = json['stage_node_id'];
+    final state = json['state'];
+    if (orderId is! String ||
+        orderId.trim().isEmpty ||
+        node is! String ||
+        node.trim().isEmpty ||
+        !const {'active', 'freeze_requested', 'frozen'}.contains(state)) {
+      throw _productionMapQueueContractException('invalid stage order control');
+    }
+    final request = json['freeze_request'];
+    final apparatus = request is Map ? request['target_apparatus'] : null;
+    if (apparatus is! String || !isCanonicalApparatusId(apparatus)) {
+      throw _productionMapQueueContractException(
+          'invalid stage control apparatus');
+    }
+    return AdminStageOrderControl(
+        orderId: orderId,
+        stageNodeId: node,
+        state: AdminOrderControlState.fromRaw(state),
+        apparatus: apparatus,
+        payload: Map<String, dynamic>.unmodifiable(json));
+  }
+}
+
+List<AdminStageOrderControl> _parseStageOrderControls(Object? raw) {
+  if (raw == null) return const [];
+  if (raw is! List) {
+    throw _productionMapQueueContractException(
+        'stage order controls must be a list');
+  }
+  final result = <AdminStageOrderControl>[];
+  final keys = <(String, String)>{};
+  for (final item in raw) {
+    if (item is! Map) {
+      throw _productionMapQueueContractException('invalid stage order control');
+    }
+    final control =
+        AdminStageOrderControl.fromJson(item.cast<String, dynamic>());
+    if (!keys.add((control.orderId, control.stageNodeId))) {
+      throw _productionMapQueueContractException(
+          'duplicate stage order control');
+    }
+    result.add(control);
+  }
+  return List.unmodifiable(result);
 }
 
 enum AdminOrderControlState {

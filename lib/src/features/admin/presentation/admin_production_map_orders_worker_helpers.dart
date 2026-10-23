@@ -10,14 +10,7 @@ bool _workerOrderIsFrozen({
 }) {
   final id = orderId.trim();
   return orderControlsByOrderId[id] == AdminOrderControlState.frozen ||
-      orderStatusesByOrderId[id]?.orderStatus.trim().toLowerCase() == 'frozen' ||
-      queueStatesByApparatus.values.any(
-        (states) => apparatusQueueOrderStateFromRaw(states[id]) ==
-            ApparatusQueueOrderState.frozen,
-      ) ||
-      queueActionControlsByApparatus.values.any((controls) =>
-          controls[id]?.state.trim().toLowerCase() == 'frozen' ||
-          controls[id]?.interaction?.mode == AdminQueueInteractionMode.frozen);
+      orderStatusesByOrderId[id]?.orderStatus.trim().toLowerCase() == 'frozen';
 }
 
 String _workerFrozenOrderMessage(AppLocalizations l10n, String orderTitle) {

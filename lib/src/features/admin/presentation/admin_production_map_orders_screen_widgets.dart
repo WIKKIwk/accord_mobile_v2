@@ -133,6 +133,7 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
         sequenceByApparatus: snapshot.sequences,
       ),
       visibleOrderIds: visibleOrderIds,
+      stageFreezeSupported: snapshot.stageFreezeSupported,
       initialOrderControls: snapshot.orderControls,
     ),
   );
@@ -217,6 +218,7 @@ Future<bool> showProductionMapFreezePauseFlow(
         request,
         apparatusKey: request.apparatus.id.trim(),
       ),
+      stageFreezeSupported: snapshot.stageFreezeSupported,
       initialOrderControls: snapshot.orderControls,
       initialPauseRequestId: normalizedRequestId,
       startPauseOnOpen: true,

@@ -105,9 +105,21 @@ class _ChatOrderFreezeRequestCardState
     }
     setState(() => _actionInFlight = true);
     try {
+      final local = widget.data.scope == 'stage';
+      final snapshot = local
+          ? await MobileApi.instance.adminProductionMapQueueSnapshot(
+              apparatus: widget.data.targetApparatus,
+              orderId: widget.data.orderId,
+              fresh: true)
+          : null;
       await MobileApi.instance.adminProductionMapOrderControl(
         orderId: widget.data.orderId,
         action: AdminOrderControlAction.cancelFreeze,
+        apparatus:
+            widget.data.scope == 'stage' ? widget.data.targetApparatus : '',
+        stageNodeId:
+            widget.data.scope == 'stage' ? widget.data.stageNodeId : '',
+        stageFreezeSupported: snapshot?.stageFreezeSupported == true,
       );
       if (!mounted) return;
       setState(() => _status = OrderFreezeRequestCardStatus.cancelled);

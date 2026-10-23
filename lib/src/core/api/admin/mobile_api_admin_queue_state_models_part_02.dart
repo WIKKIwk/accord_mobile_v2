@@ -124,9 +124,37 @@ extension MobileApiAdminQueueState on MobileApi {
   Future<AdminOrderControlState?> adminProductionMapOrderControl({
     required String orderId,
     required AdminOrderControlAction action,
+    String apparatus = '',
+    String stageNodeId = '',
+    bool stageFreezeSupported = false,
   }) async {
     final normalizedOrderId = orderId.trim();
+    final scoped = apparatus.trim().isNotEmpty;
+    if (scoped && !stageFreezeSupported) {
+      throw const MobileApiException(
+          code: 'stage_freeze_unsupported',
+          message:
+              'Server bosqich bo‘yicha muzlatishni qo‘llamaydi. Serverni yangilang.');
+    }
+    if (scoped &&
+        (!isCanonicalApparatusId(apparatus.trim()) ||
+            stageNodeId.trim().isEmpty ||
+            action == AdminOrderControlAction.delete)) {
+      throw const MobileApiException(
+          code: 'stage_control_target_invalid',
+          message: 'Muzlatiladigan bosqich aniqlanmadi');
+    }
+    if (!scoped && stageNodeId.trim().isNotEmpty) {
+      throw const MobileApiException(
+          code: 'stage_control_target_invalid',
+          message: 'Muzlatiladigan apparat aniqlanmadi');
+    }
     if (await TestModeController.instance.isEnabled()) {
+      if (scoped) {
+        throw const MobileApiException(
+            code: 'stage_control_test_mode',
+            message: 'Bosqichni muzlatish amali demo rejimida bajarilmaydi');
+      }
       return _applyTestModeOrderControl(normalizedOrderId, action);
     }
     final response = await _sendAuthorized(
@@ -138,6 +166,11 @@ extension MobileApiAdminQueueState on MobileApi {
         body: jsonEncode({
           'order_id': normalizedOrderId,
           'action': action.apiValue,
+          'scope': scoped ? 'stage' : 'order',
+          if (scoped) ...{
+            'apparatus': apparatus.trim(),
+            'stage_node_id': stageNodeId.trim(),
+          },
         }),
       ),
     );
@@ -154,6 +187,15 @@ extension MobileApiAdminQueueState on MobileApi {
         code: 'order_control_invalid_response',
         message: 'Buyurtma holati olinmadi',
       );
+    }
+    if (scoped &&
+        (control['stage_node_id'] != stageNodeId.trim() ||
+            (control['freeze_request'] is Map &&
+                (control['freeze_request'] as Map)['target_apparatus'] !=
+                    apparatus.trim()))) {
+      throw const MobileApiException(
+          code: 'order_control_invalid_response',
+          message: 'Bosqich holati olinmadi');
     }
     return AdminOrderControlState.fromRaw(control['state']);
   }

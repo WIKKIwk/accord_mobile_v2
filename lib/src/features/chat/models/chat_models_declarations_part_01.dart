@@ -206,6 +206,8 @@ class OrderFreezeRequestCardData {
     required this.targetWorkerDisplayName,
     required this.requestedAtUnix,
     required this.transitionedAtUnix,
+    this.scope = 'order',
+    this.stageNodeId = '',
   });
 
   final int eventSequence;
@@ -224,6 +226,8 @@ class OrderFreezeRequestCardData {
   final String targetWorkerDisplayName;
   final int requestedAtUnix;
   final int transitionedAtUnix;
+  final String scope;
+  final String stageNodeId;
 
   bool get isValid =>
       requestId.trim().isNotEmpty &&
@@ -254,6 +258,8 @@ class OrderFreezeRequestCardData {
           json['target_worker_display_name']?.toString() ?? '',
       requestedAtUnix: (json['requested_at_unix'] as num?)?.toInt() ?? 0,
       transitionedAtUnix: (json['transitioned_at_unix'] as num?)?.toInt() ?? 0,
+      scope: json['scope']?.toString() ?? 'order',
+      stageNodeId: json['stage_node_id']?.toString() ?? '',
     );
   }
 }

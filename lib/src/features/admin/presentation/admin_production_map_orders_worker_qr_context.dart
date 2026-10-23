@@ -208,6 +208,8 @@ Future<AdminApparatusQueueSnapshot?> _loadWorkerQrSnapshot({
       },
       queuePolicies: snapshot.queuePolicies,
       orderControls: {...snapshot.orderControls, orderId: detail.orderControl},
+      stageOrderControls: snapshot.stageOrderControls,
+      stageFreezeSupported: snapshot.stageFreezeSupported,
       earlyClosingOrderIds: snapshot.earlyClosingOrderIds,
       queueActionControls: {
         ...snapshot.queueActionControls,
