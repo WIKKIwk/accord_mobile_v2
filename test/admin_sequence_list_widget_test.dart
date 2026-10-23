@@ -25,6 +25,7 @@ import 'package:http/testing.dart';
 
 import 'production_snapshot_test_backend.dart';
 import 'order_scan_bootstrap_fixtures.dart';
+import 'order_image_test_data.dart';
 
 const _apparatus = 'apparatus:default:bosma_7';
 const _catalog = AdminApparatus(id: _apparatus, name: 'Sequence machine');
@@ -52,11 +53,15 @@ class _SummaryHarness {
   Object? detailError;
   bool wrongDetailOrder = false;
   int detailRevision = 7;
+  String detailEpoch = _epoch;
   String detailState = 'pending';
   String detailTitle = 'Full detail package';
+  Duration detailDelay = Duration.zero;
   final detailReplies = <Future<AdminApparatusQueueSnapshot>>[];
   final rowOverrides = <String, Map<String, dynamic>>{};
+  final detailControlOverrides = <String, dynamic>{};
   RouteSettings? editorRoute;
+  final routeObserver = _DetailRouteObserver();
 
   Map<String, dynamic> payload(AdminProductionOrderPageRequest request) {
     final matching = orderIds
@@ -124,12 +129,13 @@ class _SummaryHarness {
     if (detailError != null) throw detailError!;
     if (detailReplies.isNotEmpty) return detailReplies.removeAt(0);
     if (pendingDetail != null) return pendingDetail!.future;
+    if (detailDelay > Duration.zero) await Future<void>.delayed(detailDelay);
     return fullDetail(wrongDetailOrder ? 'another-order' : orderId);
   }
 
   AdminApparatusQueueSnapshot fullDetail(String orderId) =>
       AdminApparatusQueueSnapshot(
-        epoch: _epoch,
+        epoch: detailEpoch,
         scope: 'summary-detail-scope',
         revision: detailRevision,
         maps: [
@@ -139,6 +145,7 @@ class _SummaryHarness {
               'code': '0101',
               'title': detailTitle,
               'customer_name': 'Alpha customer',
+              'image_id': 'image-$orderId',
               'product_code': 'FILM-ALPHA',
               'base_length': 15000,
               'order_kg': 200,
@@ -178,6 +185,7 @@ class _SummaryHarness {
             orderId: AdminApparatusQueueOrderActionControl.fromJson({
               ...scanControl(),
               'stage_node_id': 'work',
+              ...detailControlOverrides,
               if (detailState == 'frozen') ...{
                 'state': 'frozen',
                 'allowed_actions': <String>[],
@@ -197,6 +205,7 @@ class _SummaryHarness {
             view: 'sequence', apparatus: _apparatus)));
     await AdminSequenceApparatusStore.instance.saveApparatus(_catalog);
     await tester.pumpWidget(MaterialApp(
+      navigatorObservers: [routeObserver],
       onGenerateRoute: (settings) {
         editorRoute = settings;
         return MaterialPageRoute<void>(
@@ -234,7 +243,6 @@ class _SummaryHarness {
 
   Future<void> dispose(WidgetTester tester) async {
     dismissAdminTopNotice();
-    await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     await events.close();
@@ -275,10 +283,26 @@ class _SummaryHarness {
       }));
 }
 
+class _DetailRouteObserver extends NavigatorObserver {
+  final popupRoutes = <Route<dynamic>>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is PopupRoute) popupRoutes.add(route);
+    super.didPush(route, previousRoute);
+  }
+}
+
 Finder _row(String id) => find.byKey(ValueKey('sequence-row-$_apparatus-$id'));
 
 Finder _detailSheet() => find.byWidgetPredicate(
     (widget) => widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet');
+
+Finder _detailPreview() =>
+    find.byKey(const ValueKey('admin-sequence-detail-preview'));
+
+Finder _detailRetry() =>
+    find.byKey(const ValueKey('admin-sequence-detail-retry'));
 
 dynamic _detailContent(WidgetTester tester) =>
     tester.widget(find.byWidgetPredicate((widget) =>
@@ -356,16 +380,31 @@ void main() {
     await harness.dispose(tester);
   });
 
-  testWidgets('sequence summary tap waits for one scoped complete detail read',
+  testWidgets('sequence summary opens preview before one scoped detail read',
       (tester) async {
     final harness = _SummaryHarness()
       ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
     await harness.mount(tester);
+    final dynamic row = tester.widget(_row('order-a'));
+    final open = row.onTap as VoidCallback;
     await tester.tap(_row('order-a'));
     await tester.pump();
-    await tester.tap(_row('order-a'));
+    open();
     await tester.pump();
     expect(harness.detailReads, [(apparatus: _apparatus, orderId: 'order-a')]);
+    expect(_detailPreview(), findsOneWidget);
+    for (final text in ['0101', 'Alpha package', 'Alpha customer']) {
+      expect(
+          find.descendant(
+              of: _detailPreview(), matching: find.textContaining(text)),
+          findsWidgets);
+    }
+    for (final section in ['materials', 'qolips', 'map']) {
+      expect(find.byKey(ValueKey('admin-sequence-detail-pending-$section')),
+          findsOneWidget);
+    }
+    expect(harness.routeObserver.popupRoutes, hasLength(1),
+        reason: 'Repeated retained tap callbacks cannot stack modal routes');
     expect(_detailSheet(), findsNothing,
         reason: 'Summary fields cannot authorize detailed actions');
     harness.pendingDetail!.complete(harness.fullDetail('order-a'));
@@ -376,7 +415,302 @@ void main() {
     expect(
         (sheet.order as ProductionMapSaved).map.title, 'Full detail package');
     expect(harness.detailReads, hasLength(1));
+    expect(harness.routeObserver.popupRoutes, hasLength(1),
+        reason: 'Full detail must replace the preview inside the same route');
+    expect(_detailPreview(), findsNothing);
     await harness.dispose(tester);
+  });
+
+  testWidgets('sequence preview first frame is independent of one-second HTTP',
+      (tester) async {
+    final harness = _SummaryHarness();
+    harness.detailDelay = const Duration(seconds: 1);
+    await harness.mount(tester);
+    final tapAt = tester.binding.clock.now();
+    await tester.tap(_row('order-a'));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(_detailPreview(), findsOneWidget);
+    expect(_detailSheet(), findsNothing);
+    final firstFrameMs =
+        tester.binding.clock.now().difference(tapAt).inMilliseconds;
+    expect(firstFrameMs, lessThan(100),
+        reason:
+            'Preview cannot wait for the artificial one-second detail read');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(_detailPreview(), findsOneWidget);
+    expect(_detailSheet(), findsNothing);
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(_detailSheet(), findsOneWidget);
+    expect(harness.detailReads, hasLength(1));
+    expect(harness.routeObserver.popupRoutes, hasLength(1));
+    debugPrint('Preview first frame: $firstFrameMs ms in widget-test clock; '
+        'detail fixture delay: 1000 ms. Not a physical-device timing.');
+    await harness.dispose(tester);
+  });
+
+  testWidgets('sequence preview closed while pending never reopens on reply',
+      (tester) async {
+    final harness = _SummaryHarness()
+      ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(_detailPreview(), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('admin-sequence-detail-close')));
+    await tester.pumpAndSettle();
+    expect(_detailPreview(), findsNothing);
+    harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+    await tester.pumpAndSettle();
+    expect(_detailSheet(), findsNothing);
+    expect(_detailPreview(), findsNothing);
+    expect(harness.routeObserver.popupRoutes, hasLength(1));
+    await harness.dispose(tester);
+  });
+
+  testWidgets('sequence preview retries failed detail inside the same modal',
+      (tester) async {
+    final harness = _SummaryHarness()
+      ..detailError = const MobileApiException(
+          code: 'order_detail_failed', message: 'Detail unavailable');
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pumpAndSettle();
+    expect(_detailPreview(), findsOneWidget);
+    expect(_detailRetry(), findsOneWidget);
+    expect(_detailSheet(), findsNothing);
+    final route = harness.routeObserver.popupRoutes.single;
+    harness
+      ..detailError = null
+      ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+    await tester.tap(_detailRetry());
+    await tester.pump();
+    expect(harness.detailReads, hasLength(2));
+    expect(_detailPreview(), findsOneWidget);
+    harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+    await tester.pumpAndSettle();
+    expect(_detailSheet(), findsOneWidget);
+    expect(harness.routeObserver.popupRoutes, [route]);
+    await harness.dispose(tester);
+  });
+
+  testWidgets('sequence preview ignores detail reply during close animation',
+      (tester) async {
+    final harness = _SummaryHarness()
+      ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('admin-sequence-detail-close')));
+    await tester.pump();
+    expect(_detailPreview(), findsOneWidget,
+        reason: 'The route is still mounted while its reverse animation runs');
+    harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(
+        find.byWidgetPredicate(
+            (widget) =>
+                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet',
+            skipOffstage: false),
+        findsNothing,
+        reason: 'A popped but mounted route cannot accept detail authority');
+    await tester.pumpAndSettle();
+    expect(_detailPreview(), findsNothing);
+    expect(harness.routeObserver.popupRoutes, hasLength(1));
+    await harness.dispose(tester);
+  });
+
+  for (final awaitingValidation in [false, true]) {
+    testWidgets(
+        'sequence preview close-reopen shares pending detail validation=$awaitingValidation',
+        (tester) async {
+      final harness = _SummaryHarness()
+        ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+      await harness.mount(tester);
+      if (awaitingValidation) {
+        final dynamic viewport = tester.widget(find
+            .byWidgetPredicate((widget) =>
+                widget.runtimeType.toString() == '_AdminOrderPageViewport')
+            .hitTestable()
+            .first);
+        viewport.window.awaitingLive = true;
+        viewport.window.cacheNeedsValidation = true;
+      }
+      await tester.tap(_row('order-a'));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(_detailPreview(), findsOneWidget);
+      expect(harness.detailReads, hasLength(1));
+      await tester
+          .tap(find.byKey(const ValueKey('admin-sequence-detail-close')));
+      await tester.pumpAndSettle();
+      await tester.tap(_row('order-a'));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(_detailPreview(), findsOneWidget);
+      expect(harness.detailReads, hasLength(1),
+          reason: 'A pending scoped read survives closing its first preview');
+      harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+      await tester.pumpAndSettle();
+      expect(_detailSheet(), findsOneWidget);
+      expect(harness.routeObserver.popupRoutes, hasLength(2),
+          reason: 'Only the two explicit user opens may push modal routes');
+      expect(harness.detailReads, hasLength(1));
+      await harness.dispose(tester);
+    });
+  }
+
+  testWidgets(
+      'sequence preview rejects detail overtaken by a streamed revision',
+      (tester) async {
+    final pending = Completer<AdminApparatusQueueSnapshot>();
+    final harness = _SummaryHarness()..pendingDetail = pending;
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(_detailPreview(), findsOneWidget);
+    final obsolete = harness.fullDetail('order-a');
+    harness.patch([
+      {
+        'op': 'set',
+        'path': ['rows', 'order-a', 'display_state'],
+        'value': 'issue',
+      },
+    ]);
+    await tester.pump();
+    await tester.pump();
+    harness
+      ..pendingDetail = null
+      ..detailRevision = 8;
+    pending.complete(obsolete);
+    await tester.pumpAndSettle();
+    expect(harness.detailReads, hasLength(2));
+    expect(_detailSheet(), findsOneWidget);
+    final dynamic sheet = tester.widget(_detailSheet());
+    expect(
+        (sheet.currentQueueSnapshot() as AdminApparatusQueueSnapshot).revision,
+        8);
+    expect(harness.routeObserver.popupRoutes, hasLength(1));
+    await harness.dispose(tester);
+  });
+
+  testWidgets('admin detail skips hidden worker scan and WIP startup requests',
+      (tester) async {
+    final harness = _SummaryHarness();
+    final png = await tester.runAsync(() => orderImageTestPng(8, 8));
+    harness.detailControlOverrides.addAll({
+      'previous_stage': 'previous-apparatus',
+      'interaction': {
+        ...scanControl()['interaction'] as Map,
+        'previous_wip_mode': 'scan_required',
+        'opening_wip_mode': 'scan_required',
+      },
+    });
+    expect(
+        harness
+            .fullDetail('order-a')
+            .queueActionControls[_apparatus]!['order-a']!
+            .contractValid,
+        isTrue,
+        reason: 'The omitted reads must be enabled by a valid worker contract');
+    final requests = <http.Request>[];
+    await TestModeController.instance.setEnabled(false);
+    await http.runWithClient(() async {
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pumpAndSettle();
+      expect(_detailSheet(), findsOneWidget);
+      expect(harness.detailReads, hasLength(1));
+      expect(
+          requests.where((request) =>
+              request.url.path.endsWith('/qolip-validate') ||
+              request.url.path.endsWith('/wip-batches') ||
+              request.url.path.endsWith('/opening-wip/lookup')),
+          isEmpty,
+          reason:
+              'Read-only admin detail does not prepare worker scan pickers');
+      expect(
+          requests.any((request) =>
+              request.url.path.endsWith('/raw-material-start-requirements')),
+          isTrue,
+          reason:
+              'Visible material counts still require their authoritative read');
+      expect(
+          requests.any(
+              (request) => request.url.path.endsWith('/qolip/shared-sets')),
+          isTrue,
+          reason: 'Visible attached-mold counts must remain loaded');
+      expect(
+          requests.where((request) => request.url.path.endsWith('/sequence')),
+          isEmpty,
+          reason: 'Validated scoped detail must not trigger a duplicate read');
+      await harness.dispose(tester);
+    },
+        () => MockClient((request) async {
+              requests.add(request);
+              if (request.url.path.endsWith('/order-image/view')) {
+                return http.Response.bytes(png!, 200,
+                    headers: {'content-type': 'image/png'});
+              }
+              if (request.url.path
+                  .endsWith('/raw-material-start-requirements')) {
+                return http.Response(jsonEncode(scanMaterials()), 200);
+              }
+              if (request.url.path.endsWith('/qolip/shared-sets')) {
+                return http.Response(
+                    jsonEncode({
+                      'products': [],
+                    }),
+                    200);
+              }
+              return http.Response('', 404);
+            }));
+  });
+
+  testWidgets('admin detail first build reuses the authorized cached thumbnail',
+      (tester) async {
+    final harness = _SummaryHarness();
+    final png = await tester.runAsync(() => orderImageTestPng(8, 8));
+    final api = MobileApi.instance;
+    final imageUrl = api.adminProductionMapOrderImageUrl('order-a',
+        imageId: 'image-order-a');
+    var imageRequests = 0;
+    await TestModeController.instance.setEnabled(false);
+    await http.runWithClient(() async {
+      final cached = await api.cachedOrderImageBytes(imageUrl, thumbnail: true);
+      expect(cached, isNotNull);
+      await harness.mount(tester);
+      final beforeOpen = imageRequests;
+      await tester.tap(_row('order-a'));
+      await tester.pump();
+      await tester.pump();
+      expect(_detailSheet(), findsOneWidget);
+      final content = _detailContent(tester);
+      expect(identical(content.orderImageBytes, cached), isTrue,
+          reason: 'The first full detail build must seed the existing bytes');
+      expect(content.orderImageLoading, isFalse);
+      expect(imageRequests, beforeOpen,
+          reason: 'Preview/detail reuse must not redownload a fresh thumbnail');
+      await harness.dispose(tester);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/order-image/view')) {
+                if (request.url.queryParameters['order_id'] == 'order-a') {
+                  imageRequests++;
+                }
+                return http.Response.bytes(png!, 200,
+                    headers: {'content-type': 'image/png'});
+              }
+              if (request.url.path
+                  .endsWith('/raw-material-start-requirements')) {
+                return http.Response(jsonEncode(scanMaterials()), 200);
+              }
+              if (request.url.path.endsWith('/qolip/shared-sets')) {
+                return http.Response('{"products":[]}', 200);
+              }
+              return http.Response('', 404);
+            }));
   });
 
   testWidgets('sequence summary long press hydrates before edit actions',
@@ -765,7 +1099,7 @@ void main() {
     });
   }
 
-  for (final failure in ['missing', 'error', 'scope']) {
+  for (final failure in ['missing', 'error', 'scope', 'epoch', 'stale']) {
     testWidgets('sequence summary rejects $failure detail before actions',
         (tester) async {
       final harness = _SummaryHarness();
@@ -774,6 +1108,8 @@ void main() {
         harness.detailError = const MobileApiException(
             code: 'order_not_available', message: 'Unavailable');
       }
+      if (failure == 'epoch') harness.detailEpoch = 'retired-detail-server';
+      if (failure == 'stale') harness.detailRevision = 6;
       if (failure == 'scope') {
         harness.pendingDetail = Completer<AdminApparatusQueueSnapshot>();
       }
@@ -785,9 +1121,14 @@ void main() {
         harness.pendingDetail!.complete(harness.fullDetail('order-a'));
       }
       await tester.pumpAndSettle();
-      expect(harness.detailReads, hasLength(failure == 'missing' ? 2 : 1));
+      expect(harness.detailReads,
+          hasLength({'missing', 'epoch', 'stale'}.contains(failure) ? 2 : 1));
       expect(_detailSheet(), findsNothing);
       expect(find.text('Full detail package'), findsNothing);
+      if (failure != 'scope') {
+        expect(_detailPreview(), findsOneWidget);
+        expect(_detailRetry(), findsOneWidget);
+      }
       await harness.dispose(tester);
     });
   }
