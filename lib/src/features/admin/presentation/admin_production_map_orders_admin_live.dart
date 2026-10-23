@@ -170,7 +170,6 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
       _adminNotificationRetry = Timer(Duration(milliseconds:
         (delay.inMilliseconds * (0.5 + Random().nextDouble() * 0.5)).round()), retry.complete);
       await retry.future;
-      if (active()) unawaited(_refreshCompletionRequests());
     }
   }
 
@@ -268,6 +267,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
             window.error = null;
             _rebuildAdminPageState();
           });
+          ProductionDataRevision.notify(epoch: message.epoch, revision: message.revision);
           _saveAdminPageCache();
           return;
         }
@@ -299,6 +299,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
         window.pages = next;
         window.validated = window.invalidation;
         window.error = null;
+        ProductionDataRevision.notify(epoch: message.epoch, revision: message.revision);
         if (message.type == 'page_window_checkpoint' && !window.awaitingLive &&
             !_queueSnapshotNeedsReconcile && _adminActiveWindowVersionsMatch()) {
           // Certify the shared action snapshot only through the oldest active
@@ -379,6 +380,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
     }
     _adminLiveEpoch = epoch;
     _adminLiveRevision = revision;
+    ProductionDataRevision.notify(epoch: epoch, revision: revision);
     final invalidation = ++_adminPageInvalidation;
     _updateScreenState(() {
       for (final window in _adminWindows.values) {

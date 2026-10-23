@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/production/production_data_revision.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
@@ -23,8 +24,9 @@ class WorkerMaterialUsePanel extends StatefulWidget {
 class _WorkerMaterialUsePanelState extends State<WorkerMaterialUsePanel>
     with WidgetsBindingObserver {
   WorkerMaterialCandidates? _snapshot;
-  Timer? _poll, _feedbackTimer;
+  Timer? _feedbackTimer;
   Future<void>? _refreshing;
+  bool _refreshQueued = false;
   bool _scannerOpen = false, _busy = false, _confirming = false;
   ProductionQuickScanFeedback? _feedback;
   String _status = '';
@@ -34,7 +36,7 @@ class _WorkerMaterialUsePanelState extends State<WorkerMaterialUsePanel>
       (currentSessionReadScope(), widget.orderId, widget.apparatusId);
   bool _current(Object scope, int generation) =>
       mounted && scope == _scope && generation == _generation;
-  bool get _canPoll =>
+  bool get _canRefresh =>
       !_busy &&
       !_confirming &&
       (ModalRoute.of(context)?.isCurrent ?? true) &&
@@ -49,15 +51,15 @@ class _WorkerMaterialUsePanelState extends State<WorkerMaterialUsePanel>
     _observedScope = _scope;
     WidgetsBinding.instance.addObserver(this);
     AppSession.instance.revision.addListener(_sessionChanged);
-    _poll = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_canPoll) unawaited(_refresh());
-    });
+    ProductionDataRevision.revision.addListener(_productionChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_snapshot == null && _canPoll) unawaited(_refresh());
+    if ((_snapshot == null || _refreshQueued) && _canRefresh) {
+      unawaited(_refresh());
+    }
   }
 
   @override
@@ -70,27 +72,40 @@ class _WorkerMaterialUsePanelState extends State<WorkerMaterialUsePanel>
     if (_observedScope != _scope) _reset();
   }
 
+  void _productionChanged() {
+    if (!ProductionDataRevision.isCurrentScope) return;
+    _refreshQueued = true;
+    _drainRefresh();
+  }
+
+  void _drainRefresh() {
+    if (mounted && _refreshQueued && _canRefresh) unawaited(_refresh());
+  }
+
   void _reset() {
     _observedScope = _scope;
     _generation++;
     _refreshing = null;
+    _refreshQueued = false;
     setState(() {
       _snapshot = null;
       _scannerOpen = _busy = _confirming = false;
       _feedback = null;
       _status = '';
     });
-    if (_canPoll) unawaited(_refresh());
+    if (_canRefresh) unawaited(_refresh());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _canPoll) unawaited(_refresh());
+    if (state == AppLifecycleState.resumed && _canRefresh) {
+      unawaited(_refresh());
+    }
   }
 
   @override
   void dispose() {
-    _poll?.cancel();
+    ProductionDataRevision.revision.removeListener(_productionChanged);
     _feedbackTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     AppSession.instance.revision.removeListener(_sessionChanged);
@@ -99,9 +114,13 @@ class _WorkerMaterialUsePanelState extends State<WorkerMaterialUsePanel>
 
   Future<void> _refresh() {
     if (_refreshing case final pending?) return pending;
+    _refreshQueued = false;
     late Future<void> pending;
     pending = _read().whenComplete(() {
-      if (identical(_refreshing, pending)) _refreshing = null;
+      if (identical(_refreshing, pending)) {
+        _refreshing = null;
+        _drainRefresh();
+      }
     });
     return _refreshing = pending;
   }
@@ -190,10 +209,14 @@ class _WorkerMaterialUsePanelState extends State<WorkerMaterialUsePanel>
             _busy = false;
             _confirming = false;
           });
+          _drainRefresh();
         }
       }
     } finally {
-      if (_current(scope, generation)) setState(() => _confirming = false);
+      if (_current(scope, generation)) {
+        setState(() => _confirming = false);
+        _drainRefresh();
+      }
     }
   }
 

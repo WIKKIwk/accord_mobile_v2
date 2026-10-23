@@ -137,7 +137,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
           message: 'Order state changed while scan requirements loaded',
         );
       }
-      if (current()) _detailRecoveryAttempt = 0;
+      if (current()) _detailRecoveryNeeded = false;
       return true;
     } catch (error) {
       if (!mounted || !contextCurrent()) return true;
@@ -157,7 +157,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       if (context.mounted) {
         _showSheetNotice(context.l10n.productionText('worker.error.sync'));
       }
-      _scheduleDetailRecovery(error: error);
+      _markDetailRecoveryNeeded(error: error);
       return true;
     } finally {
       if (mounted) _setScanBootstrapState(() => _actionControlLoads--);

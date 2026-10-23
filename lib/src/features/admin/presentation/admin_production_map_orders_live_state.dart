@@ -9,30 +9,13 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
     if (!widget.workerMode || !mounted || !_workerForeground ||
-        !_workerRetryAllowed || _workerRecoveryTimer != null ||
-        (_workerCatalogReady && _workerHttpFallbackGeneration == _liveStreamGeneration)) {
+        !_workerRetryAllowed || _workerRecoveryTimer != null || _workerLiveHealthy) {
       return;
     }
     _workerRecoveryTimer = Timer(const Duration(seconds: 2), () {
       _workerRecoveryTimer = null;
-      unawaited(_recoverWorkerOrders());
+      unawaited(_restartWorkerLiveStream());
     });
-  }
-
-  Future<void> _recoverWorkerOrders() async {
-    if (!mounted || !_workerForeground || !_workerRetryAllowed) return;
-    // Initial/catalog failures need both reads, not a queue-only fallback.
-    // This is read-only; queue actions are never replayed by recovery.
-    await _refreshCanonicalInitial();
-    if (!mounted || !_workerForeground) return;
-    await _recoverOrdersSectionReads();
-    if (!mounted || !_workerForeground) return;
-    if (_loadError != null || _queueSnapshotContractError ||
-        !_workerCatalogReady || _reconnectingOrderReads.isNotEmpty) {
-      _scheduleWorkerRecovery();
-    } else {
-      await _restartWorkerLiveStream();
-    }
   }
 
   void _clearOrdersLoadError() {
@@ -49,7 +32,6 @@ extension _AdminProductionMapOrdersLiveState
       _OrdersReadSection.queue,
     });
     if (_reconnectingOrderReads.isNotEmpty) _scheduleWorkerRecovery();
-    _stopHealthyAdminPolling();
   }
 
   void _markOrdersReadConnectionError(_OrdersReadSection section, Object error) {
@@ -59,31 +41,8 @@ extension _AdminProductionMapOrdersLiveState
                 (error.statusCode ?? 0) >= 500));
     if (retryable) {
       _reconnectingOrderReads.add(section);
-      if (!widget.workerMode && !_adminPaging && _adminForeground) {
-        _startQueueSnapshotPolling();
-      }
     } else {
       _reconnectingOrderReads.remove(section);
-    }
-  }
-
-  Future<void> _recoverOrdersSectionReads() async {
-    if (_sectionRecoveryInFlight) return;
-    _sectionRecoveryInFlight = true;
-    try {
-      await Future.wait([
-        if (_reconnectingOrderReads.contains(_OrdersReadSection.completed))
-          _refreshWorkerCompletedOrders(),
-        if (_reconnectingOrderReads.contains(_OrdersReadSection.closed))
-          _refreshClosedOrders(),
-        if (_reconnectingOrderReads.contains(_OrdersReadSection.completionRequests))
-          _refreshCompletionRequests(),
-        if (_reconnectingOrderReads.contains(_OrdersReadSection.pending))
-          _refreshPendingOrders(),
-      ]);
-    } finally {
-      _sectionRecoveryInFlight = false;
-      _stopHealthyAdminPolling();
     }
   }
 
@@ -198,7 +157,6 @@ extension _AdminProductionMapOrdersLiveState
         _canonicalQueueSnapshot?.revision != null &&
         (_canonicalQueueSnapshot?.epoch.isNotEmpty ?? false)) {
       _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
-      _startQueueSnapshotPolling();
       _stopWorkerLiveStream();
       unawaited(_runWorkerLiveStream(_liveStreamGeneration));
       return;
@@ -208,8 +166,6 @@ extension _AdminProductionMapOrdersLiveState
       // The offline demo retains its in-memory queue fixture.
       _adminPaging = false;
       unawaited(_refreshPendingOrders());
-      _pendingOrderTimer = Timer.periodic(
-          const Duration(seconds: 10), (_) => _refreshPendingOrders());
       unawaited(_restoreSavedSequenceApparatusPreference());
     }
     await _refreshLive(initial: true);
@@ -222,7 +178,6 @@ extension _AdminProductionMapOrdersLiveState
       await _restartAdminPagedLive();
       return;
     }
-    _startQueueSnapshotPolling();
     if (_adminPaging && !_adminForeground) return;
     if ((_adminPaging || widget.liveEventsLoader == null) &&
         await TestModeController.instance.isEnabled()) {
@@ -233,46 +188,9 @@ extension _AdminProductionMapOrdersLiveState
     unawaited(_runWorkerLiveStream(_liveStreamGeneration));
   }
 
-  void _stopHealthyAdminPolling() {
-    if (!widget.workerMode && !_adminPaging && _stateDeltaLiveSupported && _workerLiveHealthy &&
-        !_queueSnapshotNeedsReconcile && _workerCatalogReady &&
-        _loadError == null && !_queueSnapshotContractError &&
-        _reconnectingOrderReads.isEmpty) {
-      _queueSnapshotPollTimer?.cancel();
-      _queueSnapshotPollTimer = null;
-    }
-  }
-
-  void _startQueueSnapshotPolling() {
-    if (_queueSnapshotPollTimer != null) return;
-    _queueSnapshotPollTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) {
-        if (!mounted || !_adminForeground || _queueSnapshotRefreshInFlight) {
-          return;
-        }
-        unawaited(_recoverOrdersSectionReads());
-        if (_stateDeltaLiveSupported && _workerLiveHealthy && !_queueSnapshotNeedsReconcile &&
-            _workerCatalogReady && _loadError == null &&
-            !_queueSnapshotContractError) return;
-        if (!_workerCatalogReady || _loadError != null) {
-          if (_reconnectingOrderReads.contains(_OrdersReadSection.initial)) {
-            unawaited(_refreshCanonicalInitial());
-          }
-          return;
-        }
-        if (_queueSnapshotContractError &&
-            !_reconnectingOrderReads.contains(_OrdersReadSection.queue)) return;
-        unawaited(_refreshQueueSnapshot());
-      },
-    );
-    _stopHealthyAdminPolling();
-  }
-
   void _stopWorkerLiveStream() {
     _liveStreamGeneration++;
     _workerLiveHealthy = false;
-    _stopWorkerHttpFallbackWait();
     _liveReconnectTimer?.cancel();
     final reconnect = _liveReconnectFinished;
     if (reconnect != null && !reconnect.isCompleted) reconnect.complete();
@@ -281,44 +199,6 @@ extension _AdminProductionMapOrdersLiveState
     final subscription = _liveStreamSubscription;
     _liveStreamSubscription = null;
     unawaited(subscription?.cancel());
-  }
-
-  void _stopWorkerHttpFallbackWait() {
-    _workerHttpFallbackTimer?.cancel();
-    _workerHttpFallbackTimer = null;
-    final wait = _workerHttpFallbackWait;
-    if (wait != null && !wait.isCompleted) wait.complete();
-    _workerHttpFallbackWait = null;
-  }
-
-  Future<void> _runWorkerHttpFallback(int generation) async {
-    if (_workerHttpFallbackGeneration == generation || !_workerCatalogReady) return;
-    _workerHttpFallbackGeneration = generation;
-    var attempt = 0;
-    bool active() => mounted && _workerForeground && _workerRetryAllowed &&
-        generation == _liveStreamGeneration && !_workerLiveHealthy;
-    try {
-      while (active()) {
-        // One bounded, revision/assignment-checked GET; no mutation replay.
-        await _refreshQueueSnapshot(waitForChanges: true);
-        if (!active()) break;
-        final base = _queueSnapshotContractError
-            ? productionMapLiveReconnectDelay(attempt++) : const Duration(seconds: 2);
-        if (!_queueSnapshotContractError) attempt = 0;
-        final wait = Completer<void>();
-        _workerHttpFallbackWait = wait;
-        final delay = _queueSnapshotContractError ? Duration(milliseconds:
-            (base.inMilliseconds * (0.5 + Random().nextDouble() * 0.5)).round()) : base;
-        _workerHttpFallbackTimer = Timer(delay, wait.complete);
-        await wait.future;
-        if (identical(_workerHttpFallbackWait, wait)) {
-          _workerHttpFallbackWait = null;
-          _workerHttpFallbackTimer = null;
-        }
-      }
-    } finally {
-      if (_workerHttpFallbackGeneration == generation) _workerHttpFallbackGeneration = -1;
-    }
   }
 
   Future<void> _runWorkerLiveStream(int generation) async {
@@ -334,18 +214,10 @@ extension _AdminProductionMapOrdersLiveState
           return;
         }
         _discardCanonicalCacheOnError(error);
-        if (!widget.workerMode && !_adminPaging &&
-            error is MobileApiException && error.code == 'state_delta_upgrade_required') {
-          _nonWorkerStateDeltaFallback = true;
-          _stateDeltaLiveSupported = false;
-          _liveRecoverySupported = false;
-        }
         if (!widget.workerMode && error is MobileApiException &&
             (error.statusCode == 401 || error.statusCode == 403 ||
                 const {'forbidden', 'unauthorized', 'permission_denied'}.contains(error.code))) {
           _workerLiveHealthy = false;
-          _queueSnapshotPollTimer?.cancel();
-          _queueSnapshotPollTimer = null;
           _invalidateQueueSnapshotContract(error.message, retryRead: false);
           return;
         }
@@ -358,15 +230,6 @@ extension _AdminProductionMapOrdersLiveState
             _queueSnapshotNeedsReconcile = true;
           });
           await _ensureAdminModule(_module);
-        }
-        final wasLoading = _loading;
-        // Keep the last good state on screen. Fall back to the canonical
-        // REST snapshot (revision-guarded) instead of clearing the list.
-        if (!_adminPaging && !widget.workerMode && wasLoading) {
-          await _refreshLive(initial: true);
-        } else if (!_adminPaging && !widget.workerMode &&
-            (!_liveRecoverySupported || error is TimeoutException)) {
-          await _refreshQueueSnapshot();
         }
       }
       if (!mounted || generation != _liveStreamGeneration) {
@@ -390,7 +253,6 @@ extension _AdminProductionMapOrdersLiveState
       _workerLiveHealthy = false;
       if (!_adminPaging && !widget.workerMode) {
         _updateScreenState(() => _queueSnapshotNeedsReconcile = true);
-        _startQueueSnapshotPolling();
       }
       if (widget.workerMode) {
         _workerLiveHealthy = false;
@@ -400,7 +262,6 @@ extension _AdminProductionMapOrdersLiveState
         _invalidateQueueSnapshotContract(_workerReadErrorText(error),
           retryRead: false, reconnecting: _workerRetryAllowed);
         if (!_workerRetryAllowed) return;
-        unawaited(_runWorkerHttpFallback(generation));
       }
       // Spread retries across devices, and cap repeated outages at 30s.
       final baseDelay = productionMapLiveReconnectDelay(_liveReconnectAttempt);
@@ -435,13 +296,13 @@ extension _AdminProductionMapOrdersLiveState
         completer.completeError(TimeoutException('First production snapshot'));
       }
     });
+    var receivedFirstMessage = false;
     late final StreamSubscription<Object> subscription;
     try {
       subscription =
         (widget.liveEventsLoader?.call() ??
             MobileApi.instance.adminProductionMapLiveStream(
-              stateDelta: !_adminPaging &&
-                  (widget.workerMode || !_nonWorkerStateDeltaFallback),
+              stateDelta: !_adminPaging,
               workerScope: widget.workerMode,
               pageWindows: pageWindows,
               paged: _adminPaging,
@@ -461,7 +322,7 @@ extension _AdminProductionMapOrdersLiveState
             !message.recoverySupported && !message.recovered) {
           // Older global HTTP snapshots omit actor-specific history and
           // requests. Their state-ready cursor cannot certify those sections.
-          // Use their full live snapshots until the server advertises parity.
+          // Require the matching state stream; never mask this with HTTP polling.
           if (!completer.isCompleted) {
             completer.completeError(const MobileApiException(
               code: 'state_delta_upgrade_required',
@@ -484,11 +345,15 @@ extension _AdminProductionMapOrdersLiveState
         // A fresh message means the stream is healthy: reset backoff.
         firstSnapshotTimer.cancel();
         _workerLiveHealthy = true;
-        if (message is AdminProductionMapLiveStateReady ||
-            message is AdminProductionMapLiveStateDelta) {
-          _stateDeltaLiveSupported = true;
+        if (!receivedFirstMessage) {
+          receivedFirstMessage = true;
+          _workerRecoveryTimer?.cancel();
+          _workerRecoveryTimer = null;
+          // Retry a failed bootstrap catalog once when a real stream connects.
+          if (!_adminPaging && !_workerCatalogReady) {
+            unawaited(_refreshApparatusCatalog());
+          }
         }
-        _stopWorkerHttpFallbackWait();
         _liveReconnectAttempt = 0;
         if (_adminPaging) {
           if (message is AdminProductionMapPageWindowMessage) {
@@ -520,6 +385,13 @@ extension _AdminProductionMapOrdersLiveState
           }
         } else if (message is AdminProductionMapLiveStateDelta) {
           _applyCanonicalStateDelta(message);
+        }
+        if (!_adminPaging && !_queueSnapshotNeedsReconcile) {
+          final snapshot = _canonicalQueueSnapshot;
+          final revision = snapshot?.revision;
+          if (snapshot != null && snapshot.epoch.isNotEmpty && revision != null) {
+            ProductionDataRevision.notify(epoch: snapshot.epoch, revision: revision);
+          }
         }
       },
       onError: (error, _) {
@@ -1040,9 +912,6 @@ extension _AdminProductionMapOrdersLiveState
     if (_adminPaging) {
       AdminOrderPageCache.instance.invalidate(_adminCacheVisit);
     }
-    if (reconnecting && !widget.workerMode && !_adminPaging && _adminForeground) {
-      _startQueueSnapshotPolling();
-    }
     if (_queueSnapshotContractError && !_loading &&
         _queueSnapshotErrorMessage == message &&
         _reconnectingOrderReads.contains(_OrdersReadSection.queue) == reconnecting) {
@@ -1061,9 +930,6 @@ extension _AdminProductionMapOrdersLiveState
       _loading = false;
     });
     if (retryRead) _scheduleWorkerRecovery();
-    if (reconnecting && !widget.workerMode && !_adminPaging && _adminForeground) {
-      _startQueueSnapshotPolling();
-    }
   }
 
   bool _queueSnapshotChanged(AdminApparatusQueueSnapshot snapshot) {
@@ -1637,7 +1503,8 @@ extension _AdminProductionMapOrdersLiveState
       if (!mounted || readScope != currentSessionReadScope() ||
           sessionRevision != AppSession.instance.revision.value ||
           cacheGeneration != ProductionSnapshotStore.instance.generation) return;
-      if (_apparatusListsHaveSameCanonicalRevisions(_apparatus, apparatus)) {
+      if (_workerCatalogReady &&
+          _apparatusListsHaveSameCanonicalRevisions(_apparatus, apparatus)) {
         return;
       }
       if (widget.workerMode &&
@@ -1647,6 +1514,10 @@ extension _AdminProductionMapOrdersLiveState
       }
       _updateScreenState(() {
         _apparatus = apparatus;
+        _workerCatalogReady = true;
+        if (_canonicalQueueSnapshot != null && !_queueSnapshotNeedsReconcile) {
+          _clearOrdersLoadError();
+        }
         if (!widget.workerMode) {
           _syncSelectedSequenceApparatus(apparatus);
           _syncMoveApparatusDefaults(apparatus);

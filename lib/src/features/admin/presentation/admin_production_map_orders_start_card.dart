@@ -655,7 +655,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             Offstage(
               key: const ValueKey('production-material-link-request'),
               offstage: !workerStartMaterials && !materialsExpanded,
-              // Keep polling while collapsed so approval refreshes the start card.
+              // Keep listening while collapsed so pushed approvals refresh the start card.
               child: materialLinkRequestPanel!,
             ),
           if (workerMaterialUsePanel != null) workerMaterialUsePanel!,

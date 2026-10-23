@@ -53,6 +53,15 @@ backend endpoint; the active saved server selection can be changed in the app.
 The separate GScale/RPS endpoint is configured through `API_BASE_URL` or LAN
 discovery and server selection.
 
+For the default test server, `make run` starts a loopback WebSocket bridge as
+well as the HTTP preview proxy. Browser sockets still stream from the public
+server; TLS verification stays enabled. The bridge is limited to the fixed test
+backend and `/v1/mobile/` paths. Native and release builds use direct WSS.
+
+For a manually launched Flutter web server, start `dart tools/runtime/dev_ws_proxy.dart`
+and pass both `--dart-define=ACCORD_DEV_API_PROXY=true` and
+`--dart-define=ACCORD_DEV_WS_PROXY_URL=ws://127.0.0.1:39119`.
+
 ## Build and Distribution
 
 Android builds require the Android SDK and JDK 17. The build helper provisions

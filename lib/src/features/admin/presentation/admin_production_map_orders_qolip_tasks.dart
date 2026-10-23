@@ -13,8 +13,6 @@ extension _QolipTasksScreen on _AdminProductionMapOrdersScreenState {
         apparatus.firstOrNull;
     return _QolipTasksPage(
       materialMode: widget.materialTasksMode,
-      snapshotEpoch: _lastAppliedSnapshotEpoch,
-      snapshotRevision: _lastAppliedSnapshotRevision,
       apparatus: apparatus,
       selected: selected,
       orders: selected == null ? const [] : _ordersForApparatus(selected),
@@ -34,8 +32,6 @@ extension _QolipTasksScreen on _AdminProductionMapOrdersScreenState {
 class _QolipTasksPage extends StatefulWidget {
   const _QolipTasksPage(
       {this.materialMode = false,
-      required this.snapshotEpoch,
-      required this.snapshotRevision,
       required this.apparatus,
       required this.selected,
       required this.orders,
@@ -46,8 +42,6 @@ class _QolipTasksPage extends StatefulWidget {
       required this.onSelect});
 
   final bool materialMode;
-  final String snapshotEpoch;
-  final int? snapshotRevision;
   final List<AdminApparatus> apparatus;
   final AdminApparatus? selected;
   final List<ProductionMapSaved> orders;
@@ -69,12 +63,12 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   bool _limitExpanded = false;
   bool _loading = true;
   bool _refreshing = false;
+  bool _reloadPending = false;
   bool _foreground = true;
   bool _adding = false;
   Object? _error;
   Map<String, QolipProduct?> _products = {};
   Map<String, List<GScaleOrderMaterialTask>> _materials = {};
-  Timer? _timer;
 
   List<ProductionMapSaved> get _window => widget.orders.take(_limit).toList();
 
@@ -91,25 +85,18 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
     WidgetsBinding.instance.addObserver(this);
     if (!widget.materialMode)
       QolipDataRevision.locations.addListener(_dataChanged);
+    ProductionDataRevision.revision.addListener(_productionChanged);
     unawaited(_load());
-    _timer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (_foreground && !_refreshing && !_adding) unawaited(_load());
-    });
   }
 
   @override
   void didUpdateWidget(covariant _QolipTasksPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     final windowChanged = _identity(oldWidget) != _identity(widget);
-    // Linking/unlinking materials advances the backend cursor even when the
-    // queue rows stay identical. Refresh without hiding the existing list.
-    final materialsChanged = widget.materialMode &&
-        (oldWidget.snapshotEpoch != widget.snapshotEpoch ||
-            oldWidget.snapshotRevision != widget.snapshotRevision);
     if (windowChanged) {
       _loading = true;
     }
-    if (windowChanged || materialsChanged) {
+    if (windowChanged) {
       unawaited(_load());
     }
   }
@@ -122,10 +109,16 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
 
   void _dataChanged() => unawaited(_load());
 
+  void _productionChanged() {
+    if (ProductionDataRevision.isCurrentScope && _foreground) {
+      unawaited(_load());
+    }
+  }
+
   @override
   void dispose() {
     _generation++;
-    _timer?.cancel();
+    ProductionDataRevision.revision.removeListener(_productionChanged);
     if (!widget.materialMode)
       QolipDataRevision.locations.removeListener(_dataChanged);
     WidgetsBinding.instance.removeObserver(this);
@@ -133,7 +126,14 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   }
 
   Future<void> _load() async {
+    if (_refreshing) {
+      _reloadPending = true;
+      return;
+    }
+    _reloadPending = false;
     final generation = ++_generation;
+    final scope = currentSessionReadScope();
+    final identity = _identity(widget);
     _refreshing = true;
     try {
       final ids = _window.map((order) => order.map.id).toList();
@@ -143,7 +143,12 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
       final products = widget.materialMode
           ? <String, QolipProduct?>{}
           : await MobileApi.instance.qolipOrderProducts(ids);
-      if (!mounted || generation != _generation) return;
+      if (!mounted ||
+          generation != _generation ||
+          scope != currentSessionReadScope() ||
+          identity != _identity(widget)) {
+        return;
+      }
       setState(() {
         _products = products;
         _materials = materials;
@@ -151,13 +156,21 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
         _error = null;
       });
     } catch (error) {
-      if (!mounted || generation != _generation) return;
+      if (!mounted ||
+          generation != _generation ||
+          scope != currentSessionReadScope() ||
+          identity != _identity(widget)) {
+        return;
+      }
       setState(() {
         _error = error;
         _loading = false;
       });
     } finally {
-      if (generation == _generation) _refreshing = false;
+      if (generation == _generation) {
+        _refreshing = false;
+        if (mounted && _reloadPending && _foreground) unawaited(_load());
+      }
     }
   }
 

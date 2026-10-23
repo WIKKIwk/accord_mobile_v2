@@ -6,8 +6,9 @@ const _queueActionControlRefreshTimeout = Duration(seconds: 5);
 
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     with WidgetsBindingObserver {
-  Timer? _detailRecoveryTimer;
-  int _detailRecoveryAttempt = 0;
+  bool _detailRecoveryNeeded = false;
+  Object? _detailRecoveryCursor;
+  Object? _detailRecoveryEventCursor;
   bool _detailForeground = true;
   int? _detailRefreshGeneration;
   bool _detailSectionsNeedReload = false;
@@ -194,7 +195,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   @override
   void dispose() {
-    _detailRecoveryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.queueSnapshotListenable?.removeListener(_onCanonicalDetailSnapshot);
     widget.queueActionsInFlight?.removeListener(_onSharedQueueActionChanged);
@@ -227,11 +227,13 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _detailForeground = state == AppLifecycleState.resumed;
-    if (!_detailForeground) {
-      _detailRecoveryTimer?.cancel();
-      _detailRecoveryTimer = null;
-    } else if (!_queueActionContractSynchronized) {
-      _scheduleDetailRecovery(delay: Duration.zero);
+    if (_detailForeground && !_queueActionContractSynchronized &&
+        !_queueActionBusy && _detailReadScope == currentSessionReadScope()) {
+      if (_pendingDetailRevision != null) {
+        unawaited(_refreshQueueActionControlAfterWrite());
+      } else {
+        unawaited(_loadInteractionContractAndSections());
+      }
     }
   }
 
@@ -239,7 +241,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final scope = currentSessionReadScope();
     if (scope == _observedDetailReadScope) return;
     _observedDetailReadScope = scope;
-    _detailRecoveryTimer?.cancel();
+    _detailRecoveryEventCursor = null;
+    _detailRecoveryCursor = null;
     _scanBootstrapGeneration++;
     _actionControlGeneration++;
     _materialLoadGeneration++;
@@ -803,9 +806,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<void> _loadInteractionContractAndSections() async {
+    _detailRecoveryNeeded = false;
+    _detailRecoveryEventCursor = null;
+    _detailRecoveryCursor = _currentDetailRecoveryCursor();
+    try {
+      await _readInteractionContractAndSections();
+    } finally {
+      _drainDetailRecoveryFromStream();
+    }
+  }
+
+  Future<void> _readInteractionContractAndSections() async {
     _detailSectionsNeedReload = false;
-    _detailRecoveryTimer?.cancel();
-    _detailRecoveryTimer = null;
     final generation = ++_scanBootstrapGeneration;
     _scanBootstrapRevision = null;
     _scanBootstrapEpoch = '';
@@ -831,7 +843,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           _showSheetNotice(
             context.l10n.productionText('worker.error.sync'),
           );
-          _scheduleDetailRecovery();
+          _markDetailRecoveryNeeded();
         }
       } catch (error) {
         if (!mounted) return;
@@ -840,7 +852,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _showSheetNotice(
           context.l10n.productionText('worker.error.sync'),
         );
-        _scheduleDetailRecovery(error: error);
+        _markDetailRecoveryNeeded(error: error);
       }
     }
     if (!mounted) return;
@@ -1707,8 +1719,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   Future<void> _refreshQueueActionControlAfterWrite() async {
     if (_detailRefreshGeneration == _actionControlGeneration) return;
-    _detailRecoveryTimer?.cancel();
-    _detailRecoveryTimer = null;
+    _detailRecoveryNeeded = false;
+    _detailRecoveryEventCursor = null;
+    _detailRecoveryCursor = _currentDetailRecoveryCursor();
     final generation = ++_actionControlGeneration;
     _detailRefreshGeneration = generation;
     try {
@@ -1716,21 +1729,22 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       if (!mounted || generation != _actionControlGeneration) return;
       setState(() => _queueActionControl = control);
       if (!_queueActionContractSynchronized) {
-        _scheduleDetailRecovery();
+        _markDetailRecoveryNeeded();
         return;
       }
       _pendingDetailRevision = null;
-      _detailRecoveryAttempt = 0;
+      _detailRecoveryNeeded = false;
       // Requirements depend on the new interaction, not the preceding action.
       _refreshDetailSections();
     } catch (error) {
       if (!_queueActionContractSynchronized) {
-        _scheduleDetailRecovery(error: error);
+        _markDetailRecoveryNeeded(error: error);
       }
       // The write already has its own result. A refresh failure must not be
       // reported as a failed write or hold the action's spinner open.
     } finally {
       if (_detailRefreshGeneration == generation) _detailRefreshGeneration = null;
+      _drainDetailRecoveryFromStream();
     }
   }
 
@@ -2716,7 +2730,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     } catch (error) {
       if (!mounted) return;
       _showSheetNotice(_sheetActionErrorText(error));
-      _scheduleDetailRecovery(error: error);
+      _markDetailRecoveryNeeded(error: error);
     }
   }
 

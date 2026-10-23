@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/production/production_data_revision.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../models/material_link_request.dart';
@@ -29,10 +30,10 @@ class MaterialLinkRequestPanel extends StatefulWidget {
 
 class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
     with WidgetsBindingObserver {
-  Timer? _timer;
   MaterialLinkOverview? _overview;
   final Set<String> _seenMaterialChanges = {};
   Future<void>? _refreshing;
+  bool _refreshQueued = false;
   bool _busy = false;
   bool _routeVisible = false;
   ModalRoute<dynamic>? _route;
@@ -47,7 +48,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
         widget.apparatusId,
       );
 
-  bool get _canPoll {
+  bool get _canRefresh {
     final state = WidgetsBinding.instance.lifecycleState;
     return (_route?.isCurrent ?? _routeVisible) &&
         !_busy &&
@@ -63,9 +64,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
     WidgetsBinding.instance.addObserver(this);
     _observedScope = _scope;
     AppSession.instance.revision.addListener(_sessionChanged);
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_canPoll) unawaited(_refresh());
-    });
+    ProductionDataRevision.revision.addListener(_productionChanged);
   }
 
   @override
@@ -75,12 +74,12 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
     final visible = _route?.isCurrent ?? true;
     final becameVisible = visible && !_routeVisible;
     _routeVisible = visible;
-    if (becameVisible && _canPoll) unawaited(_refresh());
+    if (becameVisible && _canRefresh) unawaited(_refresh());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _canPoll) {
+    if (state == AppLifecycleState.resumed && _canRefresh) {
       // Route dependency rebuilds may have been deferred while paused. Mark
       // the current visibility now so the resume frame does not read twice.
       _routeVisible = _route?.isCurrent ?? true;
@@ -101,22 +100,33 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
     if (_observedScope != _scope) _resetScope();
   }
 
+  void _productionChanged() {
+    if (!ProductionDataRevision.isCurrentScope) return;
+    _refreshQueued = true;
+    _drainRefresh();
+  }
+
+  void _drainRefresh() {
+    if (mounted && _refreshQueued && _canRefresh) unawaited(_refresh());
+  }
+
   void _resetScope() {
     _observedScope = _scope;
     _generation++;
     _refreshing = null;
+    _refreshQueued = false;
     setState(() {
       _overview = null;
       _seenMaterialChanges.clear();
       _error = '';
       _busy = false;
     });
-    if (_canPoll) unawaited(_refresh());
+    if (_canRefresh) unawaited(_refresh());
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    ProductionDataRevision.revision.removeListener(_productionChanged);
     WidgetsBinding.instance.removeObserver(this);
     AppSession.instance.revision.removeListener(_sessionChanged);
     super.dispose();
@@ -124,9 +134,13 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
 
   Future<void> _refresh() {
     if (_refreshing case final pending?) return pending;
+    _refreshQueued = false;
     late final Future<void> future;
     future = _readOverview().whenComplete(() {
-      if (identical(_refreshing, future)) _refreshing = null;
+      if (identical(_refreshing, future)) {
+        _refreshing = null;
+        _drainRefresh();
+      }
     });
     _refreshing = future;
     return future;
@@ -163,7 +177,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
     }
   }
 
-  // Invalidate any earlier poll before a mutation flow begins. Its late result
+  // Invalidate any earlier read before a mutation flow begins. Its late result
   // must not overwrite the authoritative post-write verification read.
   int _beginMutation() {
     _generation++;
@@ -239,6 +253,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
       if (_isCurrent(scope, generation)) {
         _routeVisible = _route?.isCurrent ?? true;
         setState(() => _busy = false);
+        _drainRefresh();
       }
     }
   }
@@ -265,6 +280,7 @@ class _MaterialLinkRequestPanelState extends State<MaterialLinkRequestPanel>
       if (_isCurrent(scope, generation)) {
         _routeVisible = _route?.isCurrent ?? true;
         setState(() => _busy = false);
+        _drainRefresh();
       }
     }
   }

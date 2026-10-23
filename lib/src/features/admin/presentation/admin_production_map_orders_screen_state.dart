@@ -36,7 +36,6 @@ class _AdminProductionMapOrdersScreenState
   Timer? _adminSearchDebounce;
   String? _loadError;
   final Set<_OrdersReadSection> _reconnectingOrderReads = {};
-  bool _sectionRecoveryInFlight = false;
   Future<void>? _initialRefresh;
   bool _workerCatalogReady = false;
   bool _workerForeground = true;
@@ -46,12 +45,7 @@ class _AdminProductionMapOrdersScreenState
   Timer? _workerRecoveryTimer;
   bool _workerLiveHealthy = false;
   bool _liveRecoverySupported = false;
-  bool _stateDeltaLiveSupported = false;
-  bool _nonWorkerStateDeltaFallback = false;
   String? _snapshotReadScope;
-  int _workerHttpFallbackGeneration = -1;
-  Timer? _workerHttpFallbackTimer;
-  Completer<void>? _workerHttpFallbackWait;
   bool _liveRefreshInFlight = false;
   bool _liveRefreshQueued = false;
   bool _mapsRefreshInFlight = false;
@@ -76,7 +70,6 @@ class _AdminProductionMapOrdersScreenState
   Completer<void>? _liveReconnectFinished;
   Timer? _liveReconnectTimer;
 
-  Timer? _queueSnapshotPollTimer;
   int? _lastAppliedSnapshotRevision;
   String _lastAppliedSnapshotEpoch = '';
   AdminApparatusQueueSnapshot? _canonicalQueueSnapshot;
@@ -126,7 +119,6 @@ class _AdminProductionMapOrdersScreenState
   AdminApparatus? _draggingMoveSource;
   List<ProductionMapSaved> _orders = const [];
   List<PendingOrder> _pendingOrders = const [];
-  Timer? _pendingOrderTimer;
   bool _pendingOrdersLoading = false;
   int _pendingOrdersGeneration = 0;
   String? _pendingOrdersError;
@@ -230,8 +222,6 @@ class _AdminProductionMapOrdersScreenState
     WidgetsBinding.instance.addObserver(this);
     if (!_adminPaging && !widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
       unawaited(_refreshPendingOrders());
-      _pendingOrderTimer = Timer.periodic(
-          const Duration(seconds: 10), (_) { if (_adminForeground) unawaited(_refreshPendingOrders()); });
     }
     if (widget.supplyViewerMode) {
       _module = _OpenedOrderModule.sequence;
@@ -284,12 +274,9 @@ class _AdminProductionMapOrdersScreenState
     }
     _sequenceRetryTimers.clear();
     _pendingSequenceMoves.clear();
-    _pendingOrderTimer?.cancel();
     _workerRecoveryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _stopWorkerLiveStream();
-    _queueSnapshotPollTimer?.cancel();
-    _queueSnapshotPollTimer = null;
     if (!widget.workerMode) {
       _tabController.removeListener(_syncModuleFromTab);
     }
@@ -310,8 +297,6 @@ class _AdminProductionMapOrdersScreenState
       if (_adminForeground) {
         unawaited(_startAdminLive());
       } else {
-        _queueSnapshotPollTimer?.cancel();
-        _queueSnapshotPollTimer = null;
         _stopWorkerLiveStream();
       }
     }

@@ -42,12 +42,12 @@ class _OrderMapProgressCard extends StatefulWidget {
 }
 
 class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
-  AdminApparatusQueueSnapshot? _snapshot;
   Map<String, ProductionMapStageWipFacts> _facts = const {};
   bool _loading = false;
   bool _loadError = false;
+  bool _factsLoaded = false;
+  bool _reloadPending = false;
   int _generation = 0;
-  Timer? _poll;
 
   ProductionMapDefinition get map => widget.map;
   String get orderId => widget.orderId;
@@ -70,13 +70,9 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
   VoidCallback get onToggleExpanded => widget.onToggleExpanded;
   ValueChanged<ProductionMapNode> get onTapApparatus => widget.onTapApparatus;
   Map<String, Map<String, String>> get queueStatesByApparatus =>
-      _snapshot?.queueStates ?? widget.queueStatesByApparatus;
-  Map<String, String> get queueStates => _snapshot == null
-      ? widget.queueStates
-      : _snapshot!.queueStates[currentStation] ?? const {};
-  Map<String, String> get _rawStageStates => _snapshot == null
-      ? widget.stageStates
-      : _snapshot!.stageStates[orderId] ?? const {};
+      widget.queueStatesByApparatus;
+  Map<String, String> get queueStates => widget.queueStates;
+  Map<String, String> get _rawStageStates => widget.stageStates;
   Map<String, String> get stageStates => {
         ..._rawStageStates,
         for (final node in map.nodes.where((node) => node.kind == 'apparatus'))
@@ -99,41 +95,46 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
       };
   Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       get queueActionControlsByApparatus =>
-          _snapshot?.queueActionControls ??
           widget.queueActionControlsByApparatus;
-  AdminOrderControlState get orderControlState =>
-      _snapshot?.orderControlFor(orderId) ?? widget.orderControlState;
+  AdminOrderControlState get orderControlState => widget.orderControlState;
 
   @override
   void initState() {
     super.initState();
-    if (expanded) _startRefresh();
+    ProductionDataRevision.revision.addListener(_productionChanged);
+    if (expanded) unawaited(_load());
   }
 
   @override
   void didUpdateWidget(covariant _OrderMapProgressCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.orderId != orderId || oldWidget.expanded != expanded) {
-      _poll?.cancel();
       _generation++;
       _loading = false;
+      _reloadPending = false;
       if (oldWidget.orderId != orderId) {
-        _snapshot = null;
         _facts = const {};
+        _factsLoaded = false;
       }
-      if (expanded) _startRefresh();
+      if (expanded) unawaited(_load());
     }
   }
 
-  void _startRefresh() {
-    unawaited(_load());
-    _poll =
-        Timer.periodic(const Duration(seconds: 15), (_) => unawaited(_load()));
+  void _productionChanged() {
+    if (ProductionDataRevision.isCurrentScope && expanded) {
+      unawaited(_load());
+    }
   }
 
   Future<void> _load() async {
-    if (_loading || !expanded) return;
+    if (!expanded) return;
+    if (_loading) {
+      _reloadPending = true;
+      return;
+    }
+    _reloadPending = false;
     final generation = ++_generation;
+    final scope = currentSessionReadScope();
     final requestedOrder = widget.order;
     final training = orderId.startsWith('training-');
     setState(() {
@@ -142,7 +143,6 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
     });
     try {
       final results = await Future.wait<Object>([
-        MobileApi.instance.adminProductionMapQueueSnapshot(),
         training
             ? Future.value(const <AdminProgressBatch>[])
             : MobileApi.instance
@@ -152,35 +152,46 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
             : MobileApi.instance.adminOpeningWipRecords(
                 status: 'all', orderId: orderId, limit: 500),
       ]).timeout(const Duration(seconds: 12));
-      if (!mounted || generation != _generation) return;
+      if (!mounted ||
+          generation != _generation ||
+          scope != currentSessionReadScope()) {
+        return;
+      }
       final batches = _mergeWorkerWipBatches(
-        results[1] as List<AdminProgressBatch>,
+        results[0] as List<AdminProgressBatch>,
         _openingWipBatchesProducedByApparatus(
-            results[2] as List<AdminOpeningWipRecord>,
+            results[1] as List<AdminOpeningWipRecord>,
             order: requestedOrder),
       );
       setState(() {
-        _snapshot = results[0] as AdminApparatusQueueSnapshot;
         _facts = {
           for (final node
               in map.nodes.where((node) => node.kind == 'apparatus'))
             node.id: productionMapStageWipFacts(
                 map: map, node: node, batches: batches),
         };
+        _factsLoaded = true;
         _loading = false;
       });
     } catch (_) {
-      if (!mounted || generation != _generation) return;
+      if (!mounted ||
+          generation != _generation ||
+          scope != currentSessionReadScope()) return;
       setState(() {
         _loading = false;
         _loadError = true;
       });
+    } finally {
+      if (mounted && generation == _generation && _reloadPending && expanded) {
+        _loading = false;
+        unawaited(_load());
+      }
     }
   }
 
   @override
   void dispose() {
-    _poll?.cancel();
+    ProductionDataRevision.revision.removeListener(_productionChanged);
     _generation++;
     super.dispose();
   }
@@ -221,7 +232,7 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     children: [
-                      if (_loading && _snapshot == null)
+                      if (_loading && !_factsLoaded)
                         const Padding(
                             padding: EdgeInsets.all(16),
                             child: LinearProgressIndicator())

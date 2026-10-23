@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/api/mobile_api.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/production/active_rezka_paddon_store.dart';
+import '../../../../core/production/production_data_revision.dart';
 import '../../../../core/session/session.dart';
 import '../../../../core/session/session_read_scope.dart';
 import '../../../../core/widgets/shell/app_loading_indicator.dart';
@@ -30,8 +31,8 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
   final _selection = ValueNotifier<AsyncSnapshot<String?>>(
     const AsyncSnapshot.waiting(),
   );
-  Timer? _timer;
   Future<void>? _refreshing;
+  bool _refreshQueued = false;
   Future<List<AdminPaddon>>? _pickerPaddons;
   bool _busy = false;
   bool _saving = false;
@@ -44,7 +45,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
 
   Object get _scope => (currentSessionReadScope(), widget.apparatusId);
 
-  bool get _canPoll {
+  bool get _canRefresh {
     final state = WidgetsBinding.instance.lifecycleState;
     // The owned picker displays this same selection and remains live.
     final visible = (_route?.isCurrent ?? _routeVisible) ||
@@ -67,11 +68,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     _observedScope = _scope;
     AppSession.instance.revision.addListener(_sessionChanged);
     ActiveRezkaPaddonStore.revision.addListener(_paddonChanged);
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_canPoll) {
-        unawaited(_refresh());
-      }
-    });
+    ProductionDataRevision.revision.addListener(_productionChanged);
   }
 
   @override
@@ -81,7 +78,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     final visible = _route?.isCurrent ?? true;
     final becameVisible = visible && !_routeVisible;
     _routeVisible = visible;
-    if (becameVisible && _canPoll && !_busy) unawaited(_refresh());
+    if (becameVisible && _canRefresh && !_busy) unawaited(_refresh());
   }
 
   @override
@@ -91,7 +88,16 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
   }
 
   void _paddonChanged() {
-    if (_canPoll) unawaited(_refresh());
+    _refreshQueued = true;
+    _drainRefresh();
+  }
+
+  void _productionChanged() {
+    if (ProductionDataRevision.isCurrentScope) _paddonChanged();
+  }
+
+  void _drainRefresh() {
+    if (mounted && _refreshQueued && _canRefresh) unawaited(_refresh());
   }
 
   Future<List<AdminPaddon>> _loadPaddons() =>
@@ -106,16 +112,17 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
     _observedScope = _scope;
     _generation++;
     _refreshing = null;
+    _refreshQueued = false;
     _busy = false;
     _saving = false;
     _pickerRoute = null;
     _selection.value = const AsyncSnapshot.waiting();
-    if (_canPoll) unawaited(_refresh());
+    if (_canRefresh) unawaited(_refresh());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _canPoll) {
+    if (state == AppLifecycleState.resumed && _canRefresh) {
       // Route dependency rebuilds may have been deferred while paused. Mark
       // the current visibility now so the resume frame does not read twice.
       _routeVisible = _route?.isCurrent ?? true;
@@ -125,9 +132,13 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
 
   Future<void> _refresh() {
     if (_refreshing case final pending?) return pending;
+    _refreshQueued = false;
     late final Future<void> future;
     future = _readSelection().whenComplete(() {
-      if (identical(_refreshing, future)) _refreshing = null;
+      if (identical(_refreshing, future)) {
+        _refreshing = null;
+        _drainRefresh();
+      }
     });
     _refreshing = future;
     return future;
@@ -154,7 +165,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
 
   @override
   void dispose() {
-    _timer?.cancel();
+    ProductionDataRevision.revision.removeListener(_productionChanged);
     WidgetsBinding.instance.removeObserver(this);
     AppSession.instance.revision.removeListener(_sessionChanged);
     ActiveRezkaPaddonStore.revision.removeListener(_paddonChanged);
@@ -267,6 +278,7 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
         _saving = false;
         _routeVisible = _route?.isCurrent ?? true;
         setState(() => _busy = false);
+        _drainRefresh();
       }
     }
   }

@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := deps
+
 HOST_OS := $(shell uname -s)
 API_URL ?= https://mini-rs-erp-test.wspace.sbs
 LOCAL_API_URL ?= http://127.0.0.1:18081
@@ -33,6 +35,7 @@ PRINT_BRIDGE_URL ?= http://$(PRINT_BRIDGE_HOST):$(PRINT_BRIDGE_PORT)
 PRINT_BRIDGE_HELPER ?= $(CURDIR)/garbage/accord_mac_usb_raw_write
 PRINT_BRIDGE_PID ?= garbage/.accord_print_bridge.pid
 PRINT_BRIDGE_LOG ?= garbage/accord_print_bridge.log
+DEV_WS_PROXY_URL := ws://127.0.0.1:39119
 
 ifeq ($(HOST_OS),Darwin)
 RUN_DEVICE ?= web-server
@@ -66,6 +69,30 @@ RUN_PREREQ := mock-backend
 else
 RUN_PREREQ := prepare-run
 endif
+
+# The fixed test upstream uses the same loopback bridge as local web HTTP.
+# Other backends and native applications keep their direct WebSocket transport.
+ifeq ($(API_URL),https://mini-rs-erp-test.wspace.sbs)
+ifneq ($(filter chrome web-server,$(RUN_DEVICE))$(filter web web-local,$(MAKECMDGOALS)),)
+DEV_WS_BROWSER_FLAG := --dart-define=ACCORD_DEV_WS_PROXY_URL=$(DEV_WS_PROXY_URL)
+RUN_BROWSER_FLAGS += $(DEV_WS_BROWSER_FLAG)
+prepare-run: dev-ws-proxy-up
+endif
+endif
+
+.PHONY: dev-ws-proxy-up
+dev-ws-proxy-up:
+	@mkdir -p garbage
+	@if [ "$(API_URL)" != 'https://mini-rs-erp-test.wspace.sbs' ]; then exit 0; fi; \
+	if ! curl -fsS http://127.0.0.1:39119/healthz 2>/dev/null | grep -q 'accord-dev-ws-proxy-v1'; then \
+		nohup "$(DART_BIN)" tools/runtime/dev_ws_proxy.dart >garbage/dev_ws_proxy.log 2>&1 < /dev/null & \
+		echo $$! >garbage/.dev_ws_proxy.pid; \
+		for attempt in 1 2 3 4 5; do \
+			if curl -fsS http://127.0.0.1:39119/healthz 2>/dev/null | grep -q 'accord-dev-ws-proxy-v1'; then exit 0; fi; \
+			sleep 1; \
+		done; \
+		echo 'Development WebSocket bridge failed; see garbage/dev_ws_proxy.log' >&2; exit 1; \
+	fi
 
 # Release APKs: arm64-v8a only (typical phones); no universal/fat APK.
 FLUTTER_APK_RELEASE_FLAGS := --release --target-platform android-arm64
@@ -270,7 +297,7 @@ web: prepare-run deps
 ifeq ($(HOST_OS),Darwin)
 web: print-bridge-up
 endif
-	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d chrome $(CHROME_WEB_BROWSER_FLAGS) --dart-define=ACCORD_DEV_API_PROXY=true --dart-define=MOBILE_API_BASE_URL=$(API_URL) --dart-define=ACCORD_PRINT_BRIDGE_URL=$(PRINT_BRIDGE_URL)
+	@CHROME_EXECUTABLE="$(CHROME_EXECUTABLE)" $(FLUTTER_BIN) run -d chrome $(CHROME_WEB_BROWSER_FLAGS) $(DEV_WS_BROWSER_FLAG) --dart-define=ACCORD_DEV_API_PROXY=true --dart-define=MOBILE_API_BASE_URL=$(API_URL) --dart-define=ACCORD_PRINT_BRIDGE_URL=$(PRINT_BRIDGE_URL)
 
 run-local: API_URL=$(LOCAL_API_URL)
 run-local: run

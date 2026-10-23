@@ -106,11 +106,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     if (control == null || !_liveAllowsDetailControl(control)) return false;
     setState(() => _applyDetailControl(control));
     _pendingDetailRevision = null;
-    _detailRecoveryAttempt = 0;
-    if (!_detailSectionsNeedReload) {
-      _detailRecoveryTimer?.cancel();
-      _detailRecoveryTimer = null;
-    }
+    if (!_detailSectionsNeedReload) _detailRecoveryNeeded = false;
     return true;
   }
 
@@ -148,16 +144,18 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       setState(() => _queueActionControl = null);
       // A newer bounded projection can omit this order without removing it.
       // Disable actions, then re-read its scoped contract immediately.
-      _scheduleDetailRecovery(
-        delay: omitted && accepted != null && live?.epoch == accepted.epoch
-            ? Duration.zero : null,
-      );
+      _markDetailRecoveryNeeded();
+      _queueDetailRecoveryFromStream();
       return;
     }
     final changed = !_sameDetailControl(control);
+    final recoveryNeeded = _detailRecoveryNeeded || _detailSectionsNeedReload;
     final waitingForAction = _pendingDetailRevision != null;
-    if (!_installCanonicalDetailSnapshot() || !changed || _queueActionBusy)
+    if (!_installCanonicalDetailSnapshot() || _queueActionBusy) return;
+    if (!changed) {
+      if (recoveryNeeded) _queueDetailRecoveryFromStream();
       return;
+    }
     if (_detailRefreshInFlight) {
       _actionControlGeneration++;
       _refreshDetailSections();
@@ -166,7 +164,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       _scanBootstrapGeneration++;
       _materialLoadGeneration++;
       _detailSectionsNeedReload = true;
-      _scheduleDetailRecovery();
+      _queueDetailRecoveryFromStream();
     } else {
       _refreshDetailSections();
     }
@@ -182,14 +180,11 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     }
   }
 
-  void _scheduleDetailRecovery({Object? error, Duration? delay}) {
+  void _markDetailRecoveryNeeded({Object? error}) {
     if (!mounted ||
         !widget.workerMode ||
-        !_detailForeground ||
-        _queueActionBusy ||
         widget.apparatus == null ||
-        _detailReadScope != currentSessionReadScope() ||
-        _detailRecoveryTimer != null) return;
+        _detailReadScope != currentSessionReadScope()) return;
     if (error is MobileApiException &&
         (error.statusCode == 401 ||
             error.statusCode == 403 ||
@@ -199,21 +194,38 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
               'order_not_available',
               'training_order_scan_bootstrap_unsupported',
             }.contains(error.code))) return;
-    final seconds = 1 << _detailRecoveryAttempt.clamp(0, 3);
-    _detailRecoveryAttempt++;
-    _detailRecoveryTimer = Timer(delay ?? Duration(seconds: seconds), () {
-      _detailRecoveryTimer = null;
-      if (!mounted ||
-          !_detailForeground ||
-          _queueActionBusy ||
-          _detailReadScope != currentSessionReadScope()) return;
-      if (_actionControlLoads > 0 || _detailRefreshInFlight) {
-        _scheduleDetailRecovery();
-      } else if (_pendingDetailRevision != null) {
-        unawaited(_refreshQueueActionControlAfterWrite());
-      } else {
-        unawaited(_loadInteractionContractAndSections());
-      }
-    });
+    // A failed HTTP read waits for a pushed revision or an explicit retry.
+    _detailRecoveryNeeded = true;
+  }
+
+  Object? _currentDetailRecoveryCursor() {
+    final snapshot = widget.queueSnapshotListenable?.value ??
+        widget.currentQueueSnapshot?.call();
+    if (snapshot == null || snapshot.epoch.isEmpty ||
+        snapshot.revision == null) return null;
+    return (snapshot.epoch, snapshot.revision);
+  }
+
+  void _queueDetailRecoveryFromStream() {
+    final cursor = _currentDetailRecoveryCursor();
+    if (cursor == null || cursor == _detailRecoveryCursor) return;
+    _detailRecoveryEventCursor = cursor;
+    _drainDetailRecoveryFromStream();
+  }
+
+  void _drainDetailRecoveryFromStream() {
+    if (!mounted || !_detailForeground || _queueActionBusy ||
+        _detailReadScope != currentSessionReadScope() ||
+        _actionControlLoads > 0 || _detailRefreshInFlight ||
+        _detailRecoveryEventCursor == null) return;
+    final cursor = _detailRecoveryEventCursor;
+    _detailRecoveryEventCursor = null;
+    if (cursor == _detailRecoveryCursor) return;
+    _detailRecoveryCursor = cursor;
+    if (_pendingDetailRevision != null) {
+      unawaited(_refreshQueueActionControlAfterWrite());
+    } else {
+      unawaited(_loadInteractionContractAndSections());
+    }
   }
 }

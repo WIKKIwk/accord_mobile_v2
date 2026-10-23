@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/production/production_data_revision.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../shared/models/app_models.dart';
 import '../models/material_link_request.dart';
@@ -18,9 +20,9 @@ class MaterialLinkRequestCard extends StatefulWidget {
 
 class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
   late MaterialLinkRequest _request = widget.request;
-  Timer? _timer;
   bool _busy = false;
-  bool _refreshing = false;
+  Future<bool>? _refreshing;
+  bool _refreshQueued = false;
   String _error = '';
 
   bool get _canDecide {
@@ -35,9 +37,7 @@ class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_request.pending && !_busy) unawaited(_refresh());
-    });
+    ProductionDataRevision.revision.addListener(_productionChanged);
   }
 
   @override
@@ -51,16 +51,45 @@ class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    ProductionDataRevision.revision.removeListener(_productionChanged);
     super.dispose();
   }
 
-  Future<bool> _refresh() async {
-    if (_refreshing) return false;
-    _refreshing = true;
+  void _productionChanged() {
+    if (!ProductionDataRevision.isCurrentScope || !_request.pending) return;
+    _refreshQueued = true;
+    _drainRefresh();
+  }
+
+  void _drainRefresh() {
+    if (mounted && _refreshQueued && !_busy && _request.pending) {
+      unawaited(_refresh());
+    }
+  }
+
+  Future<bool> _refresh() {
+    if (_refreshing case final pending?) return pending;
+    _refreshQueued = false;
+    late final Future<bool> future;
+    future = _readRequest().whenComplete(() {
+      if (identical(_refreshing, future)) {
+        _refreshing = null;
+        _drainRefresh();
+      }
+    });
+    return _refreshing = future;
+  }
+
+  Future<bool> _readRequest() async {
+    final scope = currentSessionReadScope();
+    final requestId = _request.id;
     try {
-      final request = await MobileApi.instance.materialLinkRequest(_request.id);
-      if (!mounted) return false;
+      final request = await MobileApi.instance.materialLinkRequest(requestId);
+      if (!mounted ||
+          currentSessionReadScope() != scope ||
+          _request.id != requestId) {
+        return false;
+      }
       if (request.revision >= _request.revision) {
         setState(() {
           _request = request;
@@ -69,10 +98,12 @@ class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
       }
       return true;
     } catch (error) {
-      if (mounted) setState(() => _error = _errorText(error));
+      if (mounted &&
+          currentSessionReadScope() == scope &&
+          _request.id == requestId) {
+        setState(() => _error = _errorText(error));
+      }
       return false;
-    } finally {
-      _refreshing = false;
     }
   }
 
@@ -110,7 +141,10 @@ class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
       // A timeout may have happened after commit. Recover from the shared server state.
       await _refresh();
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        _drainRefresh();
+      }
     }
   }
 
