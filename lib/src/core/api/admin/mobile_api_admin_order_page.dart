@@ -2,8 +2,8 @@ part of '../mobile_api.dart';
 
 const adminSequenceListProjection = 'sequence_list_v1';
 
-/// Temporary transport experiment, scoped to compact admin pages and details.
-/// Set false to restore normal server content-encoding negotiation.
+/// Diagnostic opt-in for compact admin pages and single-order details.
+/// Normal content-encoding negotiation remains the default after comparison.
 const adminProductionReadIdentityCompression = bool.fromEnvironment(
     'ACCORD_ADMIN_IDENTITY_COMPRESSION',
     defaultValue: false);

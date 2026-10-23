@@ -35,11 +35,16 @@ extension _AdminSequenceDetails on _AdminProductionMapOrdersScreenState {
       if (attempt == 0 &&
           (window.dirty ||
               window.cacheNeedsValidation ||
-              window.awaitingLive)) {
+              window.awaitingLive) &&
+          !_adminPendingDetailReads.contains(key)) {
         _adminDetailReads.remove(key);
       }
-      final future = _adminDetailReads.putIfAbsent(
-          key, () => loader(apparatus: apparatus.id, orderId: orderId));
+      final future = _adminDetailReads.putIfAbsent(key, () {
+        _adminPendingDetailReads.add(key);
+        return Future<AdminApparatusQueueSnapshot>.sync(
+          () => loader(apparatus: apparatus.id, orderId: orderId),
+        ).whenComplete(() => _adminPendingDetailReads.remove(key));
+      });
       AdminApparatusQueueSnapshot snapshot;
       try {
         snapshot = await future;
@@ -111,7 +116,18 @@ extension _AdminSequenceDetails on _AdminProductionMapOrdersScreenState {
       _showWatchOrderDetail(apparatus: apparatus, order: order);
       return;
     }
-    unawaited(_hydrateAdminSequence(apparatus, order, actions: false));
+    if (_adminDetailOpening) return;
+    _adminDetailOpening = true;
+    try {
+      _showWatchOrderDetail(
+          apparatus: apparatus,
+          order: order,
+          initialPreview: _adminSequenceRows[order.map.id],
+          initialControlConfirmed: true);
+    } catch (_) {
+      _adminDetailOpening = false;
+      rethrow;
+    }
   }
 
   Future<void> _openAdminSequenceActions(

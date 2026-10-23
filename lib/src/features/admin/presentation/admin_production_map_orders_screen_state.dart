@@ -26,6 +26,7 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, _AdminOrderWindow> _adminWindows = {};
   final Map<String, Future<AdminApparatusQueueSnapshot>> _adminDetailReads = {};
   bool _adminDetailOpening = false;
+  final Set<String> _adminPendingDetailReads = {};
   AdminOrderPageCacheVisit? _adminCacheVisit;
   String? _adminCacheScope;
   bool _adminCacheRestored = false;
@@ -1074,6 +1075,7 @@ class _AdminProductionMapOrdersScreenState
     String initialScanQrPayload = '',
     AdminApparatusQueueSnapshot? initialQueueSnapshot,
     bool initialControlConfirmed = false,
+    AdminSequenceListRow? initialPreview,
     _WorkerFabPreparedScan? initialFabPreparedScan,
   }) {
     if (widget.workerMode &&
@@ -1195,35 +1197,47 @@ class _AdminProductionMapOrdersScreenState
           );
         }
 
+        bool detailIsCurrent() => mounted &&
+            detailAccount == _adminPageAccount &&
+            detailSearch == _adminPageSearch &&
+            _selectedApparatus?.id == apparatus.id &&
+            readScope == currentSessionReadScope();
+        ({String epoch, int revision})? detailCursor() {
+          final window = _adminWindow('sequence', apparatus: apparatus.id);
+          if (!window.sequenceRows.containsKey(mapId) || window.pages.isEmpty) {
+            return null;
+          }
+          final page = window.pages.first;
+          return (epoch: page.epoch, revision: page.revision!);
+        }
+        Widget hydratedDetail(AdminApparatusQueueSnapshot snapshot) =>
+            _AdminHydratedDetailHost(
+              initialSnapshot: snapshot,
+              isCurrent: detailIsCurrent,
+              currentCursor: detailCursor,
+              load: () => _readAdminSequenceDetail(apparatus, mapId),
+              builder: detailBuilder,
+            );
+        if (initialPreview != null) {
+          return _AdminInitialDetailHost(
+            row: initialPreview,
+            isCurrent: detailIsCurrent,
+            load: () => _readAdminSequenceDetail(apparatus, mapId),
+            onReady: _installAdminDetailAuthority,
+            builder: hydratedDetail,
+          );
+        }
         if (initialControlConfirmed &&
             !widget.workerMode &&
             initialQueueSnapshot != null) {
-          return _AdminHydratedDetailHost(
-            initialSnapshot: initialQueueSnapshot,
-            isCurrent: () =>
-                mounted &&
-                detailAccount == _adminPageAccount &&
-                detailSearch == _adminPageSearch &&
-                _selectedApparatus?.id == apparatus.id &&
-                readScope == currentSessionReadScope(),
-            currentCursor: () {
-              final window = _adminWindow('sequence', apparatus: apparatus.id);
-              if (!window.sequenceRows.containsKey(mapId) ||
-                  window.pages.isEmpty) {
-                return null;
-              }
-              final page = window.pages.first;
-              return (epoch: page.epoch, revision: page.revision!);
-            },
-            load: () => _readAdminSequenceDetail(apparatus, mapId),
-            builder: detailBuilder,
-          );
+          return hydratedDetail(initialQueueSnapshot);
         }
         return detailBuilder(initialQueueSnapshot, _sheetQueueSnapshot);
       },
     );
     unawaited(
       sheetFuture.then((result) async {
+        if (initialPreview != null) _adminDetailOpening = false;
         if (!mounted || readScope != currentSessionReadScope()) return;
         if (result == true && initialOrderSwitchBatch != null) {
           // Revalidate the scanned order even when it is outside the list window.

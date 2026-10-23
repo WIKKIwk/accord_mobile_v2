@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-23",
+  "scope": "Immediate admin sequence detail sheet, startup cost reduction, reversible HTTP compression comparison",
+  "behavior": {
+    "opening": "Open one modal from the typed summary before awaiting HTTP; start the scoped detail read after the first frame.",
+    "initial_fields": ["order code", "product title", "customer display label", "authorized thumbnail"],
+    "hydration": "Mount the complete detail and its effects in the same route only after account, apparatus, row membership, epoch and revision validation.",
+    "unknown_fields": "Static loading placeholders; no invented material, mold or production-map counts.",
+    "authority": "Presentation-only summaries never authorize work. Full validated detail retains existing live revision synchronization.",
+    "retry": "Visible below the header, reuses the same modal.",
+    "cancellation": "A popped route rejects late replies even while its closing animation is mounted; an active temporarily covered route may finish hydration.",
+    "pending_reads": "Close and explicit reopen share one pending scoped detail HTTP read, including while the list is awaiting live validation.",
+    "polling_added": false
+  },
+  "startup_costs": {
+    "thumbnail": "Seed the full sheet synchronously from fresh authorized RAM bytes using identical account/session/version/variant keys; do not copy an existing Uint8List.",
+    "thumbnail_expiry": "RAM peek preserves existing freshness, rejects expired and future timestamps, and never waits for disk or network.",
+    "image_decode_limit": "Preview uses the existing thumbnail provider; the full sheet uses MemoryImage. Reused encoded bytes do not guarantee eliminating a second codec decode across provider types.",
+    "hidden_reads_removed": "Read-only admin viewers skip worker-only WIP start/resume candidates and scan-mold requirement requests.",
+    "visible_reads_preserved": "Material and attached-mold counts remain loaded because their collapsed headers display the counts.",
+    "worker_path": "Existing worker authorization and startup reads remain enabled.",
+    "loading_animation": "Static placeholders; no repeating shimmer timer."
+  },
+  "compression_decision": {
+    "default": "gzip negotiation restored",
+    "reason": "Identity reduced debug localhost CPU time but sent approximately 3.9 to 5.3 times more body bytes and was slower in the 5 Mbps paced TCP comparison.",
+    "diagnostic_mobile_opt_in": "--dart-define=ACCORD_ADMIN_IDENTITY_COMPRESSION=true",
+    "diagnostic_server_opt_in": "compression=identity on compact admin sequence pages and explicitly requested single-order details",
+    "worker_and_websocket_compression": "unchanged",
+    "semantic_scopes_versions_cursors": "unchanged by the compression query"
+  },
+  "compression_experiment": {
+    "backend_commit": "2525f0e7",
+    "profile": "debug",
+    "fixture": {"store": "MemoryProductionMapStore", "orders": 60, "sequence_rows": 20, "detail_graph_nodes": 3, "gzip_level": 8},
+    "loopback": {
+      "transport": "real TCP on 127.0.0.1",
+      "warmup_pairs": 4,
+      "measured_pairs": 10,
+      "alternating_request_order": true,
+      "includes_receive_inflate_json_parse": true,
+      "sequence20": {"gzip_bytes": 997, "identity_bytes": 5251, "gzip_median_ms": 2.0437, "identity_median_ms": 1.1162},
+      "detail1": {"gzip_bytes": 1121, "identity_bytes": 4338, "gzip_median_ms": 1.3920, "identity_median_ms": 0.7343}
+    },
+    "paced_tcp": {
+      "label": "SIMULATED_NETWORK_REAL_TCP",
+      "warmup_pairs": 4,
+      "measured_pairs": 20,
+      "chunk_bytes": 1024,
+      "algorithm": "Buffer negotiated response, send chunks at absolute deadlines from cumulative body bytes and bandwidth; same algorithm for both modes.",
+      "host_network_configuration_modified": false,
+      "cases": [
+        {"case": "sequence20", "bandwidth_mbps": 5, "gzip_bytes": 1004, "identity_bytes": 5257, "gzip_median_ms": 5.6580, "identity_median_ms": 11.2706, "identity_minus_gzip_ms": 5.6126},
+        {"case": "detail1", "bandwidth_mbps": 5, "gzip_bytes": 1126, "identity_bytes": 4344, "gzip_median_ms": 5.7836, "identity_median_ms": 9.8041, "identity_minus_gzip_ms": 4.0205},
+        {"case": "sequence20", "bandwidth_mbps": 20, "gzip_bytes": 1004, "identity_bytes": 5257, "gzip_median_ms": 4.5795, "identity_median_ms": 5.1246, "identity_minus_gzip_ms": 0.5451},
+        {"case": "detail1", "bandwidth_mbps": 20, "gzip_bytes": 1126, "identity_bytes": 4344, "gzip_median_ms": 3.6393, "identity_median_ms": 3.6501, "interpretation": "Effectively tied; difference is timing noise."}
+      ]
+    },
+    "codec_cpu": {
+      "iterations_each": 20000,
+      "identical_payload_bytes": 5245,
+      "payload_sha256": "c98261a61ef6c6baab8568574d2dfb8517c1cad5516a8c241db897e4adecd8d3",
+      "gzip_encode_inflate_parse_cpu_seconds": 18.20,
+      "identity_clone_parse_cpu_seconds": 3.41,
+      "includes_one_time_fixture_setup": true
+    },
+    "p95": null,
+    "p95_reason": "Harness records medians; individual timing arrays were not persisted.",
+    "limitations": [
+      "Synthetic memory-store fixture and debug Rust build, not production or physical-phone measurements.",
+      "Body bytes exclude headers, TLS and packet overhead.",
+      "Pacing simulates bandwidth, not LTE latency, loss, radio behavior or congestion.",
+      "Timer resolution and concurrent machine activity affect small differences.",
+      "Paired modes use identical payloads; separate fixtures have slightly different principal/epoch sizes.",
+      "Sub-millisecond codec differences do not explain a one-second pre-open network wait."
+    ]
+  },
+  "verification": {
+    "mobile_focused_cases": 271,
+    "instant_preview_widget_cases_included": 31,
+    "widget_first_frame": {"elapsed_ms": 16, "artificial_http_delay_ms": 1000, "physical_phone_measurement": false},
+    "widget_contracts": [
+      "one modal route before and after hydration",
+      "no full detail or mutation controls before validated response",
+      "retry without replacing the modal",
+      "close before reply and reply during reverse animation",
+      "covered active route finishes hydration",
+      "close and reopen share one pending GET",
+      "stale revision, epoch, account and selection guards",
+      "live sparse delta and row identity behavior",
+      "fresh thumbnail available at first full-detail build without another GET",
+      "hidden admin worker reads skipped and visible counts retained"
+    ],
+    "transport_api_cases_default_gzip": 14,
+    "transport_api_cases_identity_opt_in": 14,
+    "backend_focused_cases": 24,
+    "backend_cpu_explicit_runs": 2,
+    "analysis": "Targeted changed-entrypoint analysis clean",
+    "web_release_build": "/tmp/accord-instant-sheet-web-validation",
+    "ios_build_started": false,
+    "production_deployed": false,
+    "full_repository_test_suite_claimed": false,
+    "logs": ["/tmp/accord_instant_sheet_regressions.log", "/tmp/accord_instant_sheet_final_analysis.log", "/tmp/accord_instant_sheet_web_build.log"],
+    "backend_reproduction": "cargo test --features verification --test worker_queue_window --test queue_commit_invalidation -- --nocapture",
+    "limitation": "Physical-device responsiveness and long-duration multi-device stability require a build installed on those devices; these results do not claim that validation."
+  }
+}
