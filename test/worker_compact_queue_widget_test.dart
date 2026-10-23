@@ -54,6 +54,7 @@ class _CompactHarness {
   String detailTitle = 'Alpha package';
   String detailState = 'pending';
   bool wrongOrder = false;
+  bool includeDetailControl = true;
   Object? detailError;
   bool reportPrompt = false;
   bool detailReportRequired = true;
@@ -176,29 +177,31 @@ class _CompactHarness {
         stageStates: const {},
         queueActionControls: {
           _station: {
-            id: AdminApparatusQueueOrderActionControl.fromJson({
-              ...scanControl(),
-              'stage_node_id': 'work',
-              'state': detailState,
-              'allowed_actions':
-                  detailState == 'pending' ? ['start'] : ['pause', 'complete'],
-              'interaction': {
-                ...scanControl()['interaction'] as Map,
-                'mode':
-                    detailState == 'pending' ? 'fresh_start' : 'in_progress',
-                'start_materials_mode': 'hidden',
-                'material_scan_required': false,
-                'qolip_mode': 'not_required',
-              },
-              if (reportPrompt)
-                'stage_work': {
-                  'upstream_closed': true,
-                  'astatka_available': true,
-                  'astatka_required': detailReportRequired,
-                  'report_session_id': detailReportSessionId,
-                  'upstream_title': 'Upstream print machine',
+            if (includeDetailControl)
+              id: AdminApparatusQueueOrderActionControl.fromJson({
+                ...scanControl(),
+                'stage_node_id': 'work',
+                'state': detailState,
+                'allowed_actions': detailState == 'pending'
+                    ? ['start']
+                    : ['pause', 'complete'],
+                'interaction': {
+                  ...scanControl()['interaction'] as Map,
+                  'mode':
+                      detailState == 'pending' ? 'fresh_start' : 'in_progress',
+                  'start_materials_mode': 'hidden',
+                  'material_scan_required': false,
+                  'qolip_mode': 'not_required',
                 },
-            })
+                if (reportPrompt)
+                  'stage_work': {
+                    'upstream_closed': true,
+                    'astatka_available': true,
+                    'astatka_required': detailReportRequired,
+                    'report_session_id': detailReportSessionId,
+                    'upstream_title': 'Upstream print machine',
+                  },
+              })
           }
         },
       );
@@ -339,6 +342,13 @@ void main() {
     open();
     await tester.pump();
     expect(_sheet(pending: true), findsOneWidget);
+    expect(
+        find.text(AppLocalizations(const Locale('uz'))
+            .productionText('worker.error.sync')),
+        findsNothing,
+        reason:
+            'Missing controls are expected while compact detail is loading');
+    expect(_content(tester).uiState.contractSynchronized, isFalse);
     expect(harness.details, [(apparatus: _station, orderId: 'zakaz-a')]);
     final dynamic sheet = tester.widget(_sheet(pending: true));
     expect(sheet.onQueueAction, isNull);
@@ -428,12 +438,35 @@ void main() {
         ..detailError = null;
       final retry = find.byKey(const ValueKey('admin-sequence-detail-retry'));
       expect(retry, findsOneWidget);
+      expect(
+          find.text(AppLocalizations(const Locale('uz'))
+              .productionText('worker.error.sync')),
+          findsNothing,
+          reason: 'A failed detail read keeps its scoped error and retry');
       await tester.tap(retry);
       await tester.pumpAndSettle();
       expect(_sheet(pending: false), findsOneWidget);
       await harness.close(tester);
     });
   }
+
+  testWidgets(
+      'compact worker settled missing control still warns and blocks actions',
+      (tester) async {
+    final harness = _CompactHarness()..includeDetailControl = false;
+    await harness.mount(tester);
+    await tester.tap(_workerRow('zakaz-a'));
+    await tester.pumpAndSettle();
+    expect(_sheet(pending: false), findsOneWidget);
+    expect(_content(tester).uiState.contractSynchronized, isFalse);
+    expect(
+        find.text(AppLocalizations(const Locale('uz'))
+            .productionText('worker.error.sync')),
+        findsWidgets,
+        reason: 'A settled missing contract remains a real sync warning');
+    expect(find.widgetWithText(FilledButton, 'Boshlash'), findsNothing);
+    await harness.close(tester);
+  });
 
   testWidgets(
       'compact worker stream changes row tone without graph or detail read',

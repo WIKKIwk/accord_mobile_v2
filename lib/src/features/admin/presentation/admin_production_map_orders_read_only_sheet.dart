@@ -651,6 +651,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         uiState: uiState,
         showContractWarning: widget.workerMode &&
             widget.canManageQueue &&
+            !widget.detailPending &&
             !_queueActionBusy &&
             _pendingDetailRevision == null &&
             _actionControlLoads == 0,
