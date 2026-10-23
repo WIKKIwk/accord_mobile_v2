@@ -313,6 +313,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   bool _rezkaSyncRequired = false;
   bool _rezkaConfirmationBusy = false;
   final Map<int, String> _rezkaPrintStatus = {};
+  // A saved WIP alone does not confirm that its label was printed.
+  final Set<int> _rezkaPrintedFrameIndexes = <int>{};
 
   _ProgressPrinterOption? _rezkaPrinter;
 

@@ -324,6 +324,29 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       _rezkaPrintQueueProcessing = false;
       if (mounted) _updateRezkaPrint(() => _rezkaPrintBusy = false);
     }
+    if (mounted && _canAutoConfirmRezkaPause) {
+      await _confirmProgressQty();
+    }
+  }
+
+  bool get _canAutoConfirmRezkaPause {
+    if (widget.action != 'pause' ||
+        !_canPrintRezkaFrames ||
+        _progressQtyBusy ||
+        _rezkaSyncRequired ||
+        _rezkaPrintQueuePaused ||
+        _rezkaPrintQueue.isNotEmpty) {
+      return false;
+    }
+    for (var index = 0; index < _rezkaFrameCount; index++) {
+      final saved = _rezkaReport?.frameAt(index);
+      if (saved == null ||
+          saved.isIssue ||
+          !_rezkaPrintedFrameIndexes.contains(index)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _performRezkaFramePrint(_RezkaPrintRequest request) async {
@@ -433,7 +456,10 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         );
         if (!printed.ok) throw StateError('print_failed');
       }
-      _updateRezkaPrint(() => _rezkaPrintStatus[index] = _rezkaText('printed'));
+      _updateRezkaPrint(() {
+        _rezkaPrintStatus[index] = _rezkaText('printed');
+        _rezkaPrintedFrameIndexes.add(index);
+      });
     } catch (error) {
       // A timed-out save may have committed. Reconcile before pausing the
       // queue so retry always uses the saved QR rather than creating a new one.
