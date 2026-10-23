@@ -3,6 +3,9 @@ part of 'admin_production_map_orders_screen.dart';
 class _OrdersModulePage extends StatelessWidget {
   const _OrdersModulePage({
     this.pendingOrders = const [],
+    this.orderRows = const {},
+    this.pendingRows = const [],
+    this.onPendingRow,
     this.pendingOrdersError,
     this.onPendingOrder,
     this.onRetryPendingOrders,
@@ -22,6 +25,9 @@ class _OrdersModulePage extends StatelessWidget {
   });
   final double bottomPadding;
   final List<PendingOrder> pendingOrders;
+  final Map<String, AdminOrderListRow> orderRows;
+  final List<AdminPendingOrderListRow> pendingRows;
+  final ValueChanged<AdminPendingOrderListRow>? onPendingRow;
   final String? pendingOrdersError;
   final ValueChanged<PendingOrder>? onPendingOrder;
   final VoidCallback? onRetryPendingOrders;
@@ -57,11 +63,11 @@ class _OrdersModulePage extends StatelessWidget {
               trailing: IconButton(
                   onPressed: onRetryPendingOrders,
                   icon: const Icon(Icons.refresh)))),
-        if (orders.isEmpty && pendingOrders.isEmpty)
+        if (orders.isEmpty && pendingOrders.isEmpty && pendingRows.isEmpty)
           SliverToBoxAdapter(child: _EmptyOpenedOrders(
             message: context.l10n.adminText('production.open_empty'),
           ))
-        else if (visibleOrders.isEmpty && pendingOrders.isEmpty)
+        else if (visibleOrders.isEmpty && pendingOrders.isEmpty && pendingRows.isEmpty)
           SliverToBoxAdapter(child: _EmptyOpenedOrders(
             message: context.l10n.adminText('production.search_empty'),
           ))
@@ -69,6 +75,9 @@ class _OrdersModulePage extends StatelessWidget {
           _OpenedOrderList(
             asSliver: true,
             pendingOrders: pendingOrders,
+            orderRows: orderRows,
+            pendingRows: pendingRows,
+            onPendingRow: onPendingRow,
             onPendingOrder: onPendingOrder,
             orders: visibleOrders,
             apparatusCatalog: apparatusCatalog,
@@ -98,6 +107,9 @@ class _AdminModulesBody extends StatelessWidget {
     this.sequenceRows = const {},
     this.loadClosedDetail,
     this.pendingOrders = const [],
+    this.orderRows = const {},
+    this.pendingRows = const [],
+    this.onPendingRow,
     this.pendingOrdersError,
     this.onPendingOrder,
     this.onRetryPendingOrders,
@@ -160,6 +172,9 @@ class _AdminModulesBody extends StatelessWidget {
   Widget _wrapModule(_OpenedOrderModule module, Widget child) =>
       pageWrapper?.call(module, child) ?? child;
   final List<PendingOrder> pendingOrders;
+  final Map<String, AdminOrderListRow> orderRows;
+  final List<AdminPendingOrderListRow> pendingRows;
+  final ValueChanged<AdminPendingOrderListRow>? onPendingRow;
   final String? pendingOrdersError;
   final ValueChanged<PendingOrder>? onPendingOrder;
   final VoidCallback? onRetryPendingOrders;
@@ -241,11 +256,14 @@ class _AdminModulesBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeOrders = _activeProductionMapOrders(
-      orders: pagedOrders ?? orders,
-      orderStatusesByOrderId: orderStatusesByOrderId,
-      queueStatesByApparatus: queueStatesByApparatus,
-    );
+    final activeOrders = currentModule == _OpenedOrderModule.orders &&
+            orderRows.isNotEmpty
+        ? pagedOrders ?? orders
+        : _activeProductionMapOrders(
+            orders: pagedOrders ?? orders,
+            orderStatusesByOrderId: orderStatusesByOrderId,
+            queueStatesByApparatus: queueStatesByApparatus,
+          );
     final sequenceOrders = selectedApparatus == null
         ? const <ProductionMapSaved>[]
         : ordersForApparatus(selectedApparatus!);
@@ -314,6 +332,9 @@ class _AdminModulesBody extends StatelessWidget {
                   _OpenedOrderModule.orders => _OrdersModulePage(
                       queueActionControlsByApparatus:
                           queueActionControlsByApparatus,
+                      orderRows: orderRows,
+                      pendingRows: pendingRows,
+                      onPendingRow: onPendingRow,
                       pendingOrders: pendingOrders
                           .where((o) => o.matches(searchQuery))
                           .toList(),

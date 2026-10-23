@@ -98,6 +98,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   bool _attachedQolipsLoading = true;
   String _attachedQolipsError = '';
   int _attachedQolipsLoadGeneration = 0;
+  ({String epoch, int? revision})? _globalDetailSectionsCursor;
   bool _mapExpanded = false;
   bool _summaryExpanded = false;
 
@@ -167,6 +168,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       thumbnail: true,
     );
     if (!widget.detailPending) {
+      final initial = widget.currentQueueSnapshot?.call();
+      if (!widget.workerMode && widget.apparatus == null && initial != null) {
+        _globalDetailSectionsCursor =
+            (epoch: initial.epoch, revision: initial.revision);
+      }
       unawaited(_loadInitialInteractionAndScan());
     }
     if (_orderImageBytes == null) {
@@ -309,6 +315,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final contextChanged =
         oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
         oldStation != station;
+    if (!widget.workerMode && !widget.detailPending &&
+        widget.initialControlConfirmed &&
+        station.isEmpty) {
+      // All-order details have global controls but no apparatus contract.
+      // Keep those controls current when the same sheet receives a live read.
+      _orderControls = Map<String, AdminOrderControlState>.from(
+          widget.initialOrderControls);
+      _orderControlState = adminProductionMapOrderControlFor(
+          _orderControls, widget.order.map.id.trim());
+      final snapshot = widget.currentQueueSnapshot?.call();
+      if (snapshot != null) {
+        final cursor = (epoch: snapshot.epoch, revision: snapshot.revision);
+        if (_globalDetailSectionsCursor != cursor) {
+          _globalDetailSectionsCursor = cursor;
+          if (!oldWidget.detailPending && !contextChanged) {
+            unawaited(_loadMaterialAssignments(showLoading: false));
+            unawaited(_loadAttachedQolips());
+          }
+        }
+      }
+    }
     if (!_actionInFlight && (_acceptedDetailControl == null || contextChanged)) {
       _queueActionControl = widget.queueActionControl;
     }

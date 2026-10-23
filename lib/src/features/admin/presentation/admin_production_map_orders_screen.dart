@@ -119,6 +119,7 @@ part 'admin_production_map_orders_detail_sync.dart';
 part 'admin_production_map_orders_live_state.dart';
 part 'admin_production_map_orders_admin_paging.dart';
 part 'admin_production_map_orders_admin_detail.dart';
+part 'admin_production_map_orders_admin_orders_detail.dart';
 part 'admin_production_map_orders_admin_detail_host.dart';
 part 'admin_production_map_orders_admin_detail_preview.dart';
 part 'admin_production_map_orders_page_cache.dart';

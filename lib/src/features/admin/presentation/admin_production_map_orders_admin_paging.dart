@@ -30,6 +30,8 @@ class _AdminOrderWindow {
           for (final id in page.orderIds)
             if (page.isSequenceList)
               page.sequenceRows[id]!.toPresentationOrder()
+            else if (page.isOrdersList)
+              page.orderRows[id]!.toPresentationOrder()
             else
               ...?page.snapshot?.maps.where((saved) => saved.map.id == id),
       ];
@@ -521,6 +523,13 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         }
       }
     }
+    for (final window in windows.where((w) => w.loaded)) {
+      for (final page in window.pages.where((p) => p.isOrdersList)) {
+        for (final row in page.orderRows.values) {
+          _customerByMapId[row.id] = row.customerName;
+        }
+      }
+    }
     _orders = maps.values.toList();
     final ordersWindow = _adminWindow('orders');
     _pendingOrders = [for (final p in ordersWindow.pages) ...p.pendingOrders];
@@ -614,7 +623,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     final activePages = [
       for (final w in _adminModuleWindows(_module)) ...w.pages
     ];
-    if (activePages.isNotEmpty && activePages.every((p) => p.isSequenceList)) {
+    if (activePages.isNotEmpty && activePages.every((p) => p.isList)) {
       final first = activePages.first;
       _lastAppliedSnapshotEpoch = first.epoch;
       _lastAppliedSnapshotRevision =
@@ -631,7 +640,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
 
   Future<void> _loadAdminPageMetrics(
       AdminProductionOrderPage page, String account) async {
-    if (page.isSequenceList) return;
+    if (page.isList) return;
     for (final order in page.snapshot?.maps ?? <ProductionMapSaved>[]) {
       final id = order.map.id;
       final template = page.calculationTemplates[id];

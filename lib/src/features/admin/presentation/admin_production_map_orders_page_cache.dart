@@ -49,7 +49,9 @@ extension _AdminOrdersPageCache on _AdminProductionMapOrdersScreenState {
     _syncMoveApparatusDefaults(_apparatus);
     for (final cached in snapshot.windows) {
       final request = cached.request;
-      if (request.search.isNotEmpty) continue;
+      if (request.search.isNotEmpty ||
+          (request.view == 'orders' &&
+              cached.pages.any((page) => !page.isOrdersList))) continue;
       final window = _adminWindow(request.view,
           apparatus: request.apparatus, target: request.target);
       window.pages = List.of(cached.pages);

@@ -19,19 +19,63 @@ class PendingOrderCard extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
 
   @override
+  Widget build(BuildContext context) => _PendingOrderCardContent(
+      id: order.id,
+      code: order.template.orderNumber,
+      title: order.template.product,
+      customer: order.template.customer,
+      imageId: order.template.imageId,
+      kg: order.template.kg,
+      slot: slot,
+      onTap: onTap);
+}
+
+class PendingOrderSummaryCard extends StatelessWidget {
+  const PendingOrderSummaryCard(
+      {super.key,
+      required this.row,
+      required this.onTap,
+      this.slot = M3SegmentVerticalSlot.top});
+  final AdminPendingOrderListRow row;
+  final VoidCallback onTap;
+  final M3SegmentVerticalSlot slot;
+  @override
+  Widget build(BuildContext context) => _PendingOrderCardContent(
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      customer: row.customerName,
+      imageId: row.imageId,
+      kg: row.kg,
+      slot: slot,
+      onTap: onTap);
+}
+
+class _PendingOrderCardContent extends StatelessWidget {
+  const _PendingOrderCardContent(
+      {required this.id,
+      required this.code,
+      required this.title,
+      required this.customer,
+      required this.imageId,
+      required this.kg,
+      required this.slot,
+      required this.onTap});
+  final String id, code, title, customer, imageId;
+  final double kg;
+  final M3SegmentVerticalSlot slot;
+  final VoidCallback onTap;
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final template = order.template;
     final imageUrl = Uri.parse(
       '${MobileApi.baseUrl}/v1/mobile/admin/pending-orders/image',
     ).replace(queryParameters: {
-      'id': order.id,
-      if (template.imageId.trim().isNotEmpty)
-        'image_id': template.imageId.trim(),
+      'id': id,
+      if (imageId.trim().isNotEmpty) 'image_id': imageId.trim(),
     }).toString();
-    final subtitle =
-        '${template.customer} · ${template.kg} kg · Chala buyurtma';
+    final subtitle = '$customer · $kg kg · Chala buyurtma';
     final codeStyle = theme.textTheme.labelMedium?.copyWith(
       color: scheme.onSurfaceVariant,
       fontWeight: FontWeight.w800,
@@ -54,8 +98,8 @@ class PendingOrderCard extends StatelessWidget {
             width: kAdminOrderCoverWidth,
             child: AdminOrderCoverThumb(
               imageUrl: imageUrl,
-              displayName: template.product,
-              heroTag: 'pending-order-cover-${order.id}',
+              displayName: title,
+              heroTag: 'pending-order-cover-$id',
             ),
           ),
           Padding(
@@ -70,8 +114,7 @@ class PendingOrderCard extends StatelessWidget {
                     children: [
                       Text.rich(
                         TextSpan(children: [
-                          TextSpan(
-                              text: template.orderNumber, style: codeStyle),
+                          TextSpan(text: code, style: codeStyle),
                           TextSpan(
                             text: ' • ',
                             style: codeStyle?.copyWith(
@@ -80,7 +123,7 @@ class PendingOrderCard extends StatelessWidget {
                             ),
                           ),
                           TextSpan(
-                            text: template.product,
+                            text: title,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),

@@ -26,6 +26,8 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, _AdminOrderWindow> _adminWindows = {};
   final Map<String, Future<AdminApparatusQueueSnapshot>> _adminDetailReads = {};
   bool _adminDetailOpening = false;
+  final Map<String, Future<({double? base, double? kg})>>
+      _adminOrderDetailMetrics = {};
   final Set<String> _adminPendingDetailReads = {};
   AdminOrderPageCacheVisit? _adminCacheVisit;
   String? _adminCacheScope;
@@ -655,6 +657,9 @@ class _AdminProductionMapOrdersScreenState
                                   queueActionControlsByApparatus:
                                       _queueActionControlsByApparatus,
                                   pendingOrders: _pendingOrders,
+                                  orderRows: _adminOrdersRows,
+                                  pendingRows: _adminPendingRows.values.toList(growable: false),
+                                  onPendingRow: _showPendingOrderRow,
                                   pendingOrdersError: _reconnectingOrderReads
                                           .contains(_OrdersReadSection.pending)
                                       ? null
@@ -1029,6 +1034,10 @@ class _AdminProductionMapOrdersScreenState
   }
 
   Future<void> _showOrderDetail(ProductionMapSaved order) async {
+    if (_adminOrdersRows.containsKey(order.map.id)) {
+      await _showOrdersListDetail(order);
+      return;
+    }
     final mapId = order.map.id.trim();
     await showModalBottomSheet<void>(
       context: context,
@@ -2196,6 +2205,10 @@ class _AdminProductionMapOrdersScreenState
   Future<void> _showOrderActions(ProductionMapSaved order,
       {AdminApparatus? apparatus, bool hydrated = false}) async {
     final orderId = order.map.id.trim();
+    if (!hydrated && _adminOrdersRows.containsKey(orderId)) {
+      await _openOrdersListActions(order);
+      return;
+    }
     if (!hydrated && _adminPaging && _adminSequenceRows.containsKey(orderId)) {
       if (apparatus != null) {
         await _openAdminSequenceActions(apparatus, order);

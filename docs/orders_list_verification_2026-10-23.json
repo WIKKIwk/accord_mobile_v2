@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-23",
+  "projection": "orders_list_v1",
+  "canonical_row_fields": ["id", "code", "title", "customer_name", "image_id", "display_state", "watermarks"],
+  "watermark_fields": ["apparatus_id", "kind"],
+  "pending_row_fields": ["id", "code", "title", "customer_name", "image_id", "kg"],
+  "list_omits": ["full maps", "programs", "calculation templates", "queue action contracts", "pending templates"],
+  "behavior": {
+    "paging": "20 combined canonical/pending rows; existing cursor, search, permissions and revision contracts",
+    "live": "HTTP bootstrap and WebSocket delta use the same compact projection",
+    "canonical_detail": "Existing sheet mounts immediately using display-only fields; exact one-order scoped read hydrates the same State before detail effects or authority",
+    "actions": "Full scoped order is validated before freeze, early close, edit or editor actions",
+    "pending_detail": "Existing pending-order detail and resume use the complete template fetched by ID on demand",
+    "metrics": "Only selected-order calculation fallback is computed after detail read; no eager list calculations",
+    "cache": "Compact rows persist; legacy full orders windows are discarded on restore while sequence cache is retained",
+    "compression": "Default gzip retained",
+    "polling_added": false
+  },
+  "wire_comparison": {
+    "backend_commit": "3c45468d",
+    "fixture_orders": 61,
+    "page_rows": 20,
+    "full_raw_bytes": 39551,
+    "compact_raw_bytes": 3817,
+    "full_gzip_bytes": 2371,
+    "compact_gzip_bytes": 795,
+    "limitations": "Synthetic serialized fixture with the same default compressor; excludes images and transport overhead; not phone timing"
+  },
+  "verification": {
+    "mobile_combined_tests_passed": 291,
+    "orders_widget_tests_passed": 18,
+    "api_agent_focused_tests_passed": 69,
+    "backend_integration_tests_passed": 25,
+    "backend_projector_unit_tests_passed": 7,
+    "backend_preexisting_ignored_tests": 1,
+    "targeted_analysis": "No issues found",
+    "web_release_output": "/tmp/accord-orders-list-web-validation",
+    "ios_build_started": false,
+    "deployed_or_restarted_production": false,
+    "physical_device_timing_measured": false,
+    "logs": ["/tmp/accord_orders_list_regressions_final.log", "/tmp/accord-orders-widget-final-18.log", "/tmp/accord_orders_list_analysis.log", "/tmp/accord_orders_list_web_build.log", "/tmp/accord_orders_backend_regression_final.log", "/tmp/accord_orders_backend_units.log"]
+  }
+}

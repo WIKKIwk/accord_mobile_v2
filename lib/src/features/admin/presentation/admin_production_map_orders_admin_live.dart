@@ -16,6 +16,7 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
     _adminSequenceAckWindows.clear();
     _adminSequenceSyncAccount = account;
     _adminDetailReads.clear();
+    _adminOrderDetailMetrics.clear();
   }
 
   bool _adminWindowCoversSequenceAck(
@@ -210,8 +211,8 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
         {
           'id': window.liveId,
           'view': window.request.view,
-          if (window.pages.first.isSequenceList)
-            'projection': adminSequenceListProjection,
+          if (window.pages.first.isList)
+            'projection': window.pages.first.projection,
           'apparatus': window.request.apparatus,
           'target': window.request.target,
           'search': window.request.search,
