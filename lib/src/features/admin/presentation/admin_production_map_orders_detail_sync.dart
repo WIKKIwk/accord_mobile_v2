@@ -111,7 +111,8 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
   }
 
   void _onCanonicalDetailSnapshot() {
-    final hydratedAdmin = !widget.workerMode && widget.initialControlConfirmed;
+    final hydratedAdmin = widget.initialControlConfirmed &&
+        (!widget.workerMode || widget.scopedWorkerDetail);
     if (!mounted ||
         (!widget.workerMode && !hydratedAdmin) ||
         (_isTrainingOrder && !hydratedAdmin) ||

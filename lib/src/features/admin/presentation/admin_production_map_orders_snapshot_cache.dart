@@ -83,7 +83,7 @@ extension _ProductionOrdersSnapshotCache
     _updateScreenState(() {
       _apparatus = value.apparatus;
       _workerCatalogReady = true;
-      _orders = _productionMapZakazOrders(snapshot.maps);
+      _orders = _ordersInQueueSnapshot(snapshot);
       _replaceQueueSnapshotMaps(snapshot);
       if (snapshot is AdminProductionMapLiveSnapshot) {
         _replaceLiveSnapshotExtras(snapshot);
@@ -199,9 +199,11 @@ extension _ProductionOrdersSnapshotCache
         throw const FormatException('Invalid production cache');
       }
       final maps = rawSnapshot['maps'];
+      final workerRows = rawSnapshot['worker_list_rows'];
       final controls = rawSnapshot['queue_action_controls'];
       final completed = rawSnapshot['completed_orders'];
       final large = (maps is List && maps.length > 20) ||
+          (workerRows is Map && workerRows.length > 20) ||
           rawApparatus.length >= 50 ||
           (completed is List && completed.length > 100) ||
           (controls is Map &&
@@ -217,8 +219,8 @@ extension _ProductionOrdersSnapshotCache
       if (snapshot.revision == null ||
           snapshot.epoch.isEmpty ||
           (widget.workerMode && snapshot.scope.isEmpty) ||
-          maps is! List ||
-          snapshot.maps.length != maps.length ||
+          (!snapshot.isWorkerList &&
+              (maps is! List || snapshot.maps.length != maps.length)) ||
           snapshot.maps.map((saved) => saved.map.id).toSet().length !=
               snapshot.maps.length ||
           apparatus.map((value) => value.id).toSet().length !=
@@ -238,7 +240,7 @@ extension _ProductionOrdersSnapshotCache
       _updateScreenState(() {
         _apparatus = apparatus;
         _workerCatalogReady = true;
-        _orders = _productionMapZakazOrders(snapshot.maps);
+        _orders = _ordersInQueueSnapshot(snapshot);
         _replaceQueueSnapshotMaps(snapshot);
         if (snapshot is AdminProductionMapLiveSnapshot) {
           _replaceLiveSnapshotExtras(snapshot);
@@ -431,6 +433,7 @@ class _CanonicalSnapshotCacheInput {
 
   bool get large =>
       snapshot.maps.length > 20 ||
+      snapshot.workerListRows.length > 20 ||
       snapshot.maps.fold<int>(
               0,
               (count, saved) =>

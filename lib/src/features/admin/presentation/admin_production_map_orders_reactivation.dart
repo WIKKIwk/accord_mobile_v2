@@ -4,6 +4,10 @@ extension _AdminProductionMapOrdersReactivation
     on _AdminProductionMapOrdersScreenState {
   Future<void> _showCompletedOrderReactivation(
       _WorkerCompletedOrderEntry entry) async {
+    if (isWorkerListPresentationOrder(entry.order)) {
+      await _hydrateWorkerHistory(entry, reactivate: true);
+      return;
+    }
     final apparatus = entry.apparatus;
     if (!widget.workerMode ||
         apparatus?.operation.trim() != 'print' ||

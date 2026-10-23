@@ -8,6 +8,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     with WidgetsBindingObserver {
   bool _detailRecoveryNeeded = false;
   bool _useInitialControlOnce = false;
+  bool _initialDetailActionScheduled = false;
   Object? _detailRecoveryCursor;
   Object? _detailRecoveryEventCursor;
   bool _detailForeground = true;
@@ -178,31 +179,36 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (_orderImageBytes == null) {
       unawaited(_loadOrderImage());
     }
-    if (widget.startPauseOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_runInitialPauseFlow());
-      });
-    } else if (widget.startBosmaFinishOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_runInitialBosmaFinishFlow());
-      });
-    } else if (widget.startAstatkaOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_runInitialAstatkaFlow());
-      });
-    } else if (widget.startWorkerHandoffOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_runInitialWorkerHandoffFlow());
-      });
-    } else if (widget.startRollRemovalOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_runInitialRollRemovalFlow());
-      });
-    } else if (widget.startResumeOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_runInitialResumeFlow());
-      });
+    _scheduleInitialDetailAction();
+  }
+
+  void _scheduleInitialDetailAction() {
+    if (widget.detailPending || _initialDetailActionScheduled) {
+      return;
     }
+    if (widget.startAstatkaOnOpen && widget.expectedReportSessionId.isNotEmpty) {
+      final work = _queueActionControl?.stageWork;
+      if (work?.needsReportPrompt != true ||
+          work?.reportSessionId != widget.expectedReportSessionId) {
+        return;
+      }
+    }
+    final Future<void> Function()? action = widget.startPauseOnOpen
+        ? _runInitialPauseFlow : widget.startBosmaFinishOnOpen
+        ? _runInitialBosmaFinishFlow : widget.startAstatkaOnOpen
+        ? _runInitialAstatkaFlow : widget.startWorkerHandoffOnOpen
+        ? _runInitialWorkerHandoffFlow : widget.startRollRemovalOnOpen
+        ? _runInitialRollRemovalFlow : widget.startResumeOnOpen
+        ? _runInitialResumeFlow : null;
+    if (action == null) {
+      return;
+    }
+    _initialDetailActionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !widget.detailPending) {
+        unawaited(action());
+      }
+    });
   }
 
   @override
@@ -405,6 +411,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _applyDetailControl(control);
       }
       unawaited(_loadInitialInteractionAndScan());
+      _scheduleInitialDetailAction();
     }
     if (!contextChanged &&
         oldWidget.order.map.imageId != widget.order.map.imageId) {
@@ -3622,6 +3629,7 @@ class _MaterialAssignmentsSnapshot {
 
 class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   const _ReadOnlyOrderDetailSheet({
+    this.scopedWorkerDetail = false,
     required this.order,
     this.detailPending = false,
     this.detailError,
@@ -3659,6 +3667,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.startPauseOnOpen = false,
     this.startWorkerHandoffOnOpen = false,
     this.startAstatkaOnOpen = false,
+    this.expectedReportSessionId = '',
     this.startBosmaFinishOnOpen = false,
     this.startRollRemovalOnOpen = false,
     this.startResumeOnOpen = false,
@@ -3679,6 +3688,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool canManageQueue;
   final bool stageFreezeSupported;
   final bool workerMode;
+  final bool scopedWorkerDetail;
   final bool initialControlConfirmed;
   final AdminApparatusQueueSnapshot? Function()? currentQueueSnapshot;
   final ValueListenable<AdminApparatusQueueSnapshot?>? queueSnapshotListenable;
@@ -3705,6 +3715,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final bool startPauseOnOpen;
   final bool startWorkerHandoffOnOpen;
   final bool startAstatkaOnOpen;
+  final String expectedReportSessionId;
   final bool startBosmaFinishOnOpen;
   final bool startRollRemovalOnOpen;
   final bool startResumeOnOpen;

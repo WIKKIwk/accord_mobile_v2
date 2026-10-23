@@ -736,6 +736,8 @@ class _AuditCountChip extends StatelessWidget {
 
 class _WorkerWatchBody extends StatelessWidget {
   const _WorkerWatchBody({
+    this.compactList = false,
+    this.displayStatesByApparatus = const {},
     this.sequencePositionsByApparatus = const {},
     this.queueLimit = WorkerQueueLimitStore.defaultLimit,
     required this.workActivityByApparatus,
@@ -795,6 +797,8 @@ class _WorkerWatchBody extends StatelessWidget {
   })
   onLongPressWatchOrder;
   final int queueLimit;
+  final bool compactList;
+  final Map<String, Map<String, String>> displayStatesByApparatus;
 
   String _tabLabel(BuildContext context, _WorkerWatchTab tab) {
     if (tab.isCompleted) {
@@ -811,6 +815,16 @@ class _WorkerWatchBody extends StatelessWidget {
 
   List<ProductionMapSaved> _ordersForApparatus(AdminApparatus item,
       {bool unfiltered = false}) {
+    if (compactList) {
+      final byId = {for (final order in orders) order.map.id: order};
+      return [
+        for (final id in visibleOrderIdsByApparatus[item.id] ?? const <String>[])
+          if (byId[id] != null &&
+              queueStatesByApparatus[item.id]?[id] != 'frozen' &&
+              orderControlsByOrderId[id] != AdminOrderControlState.frozen)
+            byId[id]!,
+      ];
+    }
     final visibleOrders = _productionMapOrdersForApparatus(
       orders: orders,
       apparatus: item,
@@ -884,6 +898,7 @@ class _WorkerWatchBody extends StatelessWidget {
                           onLongPressOrder: onLongPressCompletedOrder,
                         )
                       : _AparatchiWatchSequencePage(
+                          displayStates: displayStatesByApparatus[tab.apparatus!.id] ?? const {},
                           sequencePositions: _sequencePositionsForApparatus(tab.apparatus!),
                           queueActionControls:
                               queueActionControlsByApparatus[tab.apparatus!.id
@@ -931,6 +946,7 @@ class _WorkerWatchBody extends StatelessWidget {
 
 class _AparatchiWatchSequencePage extends StatelessWidget {
   const _AparatchiWatchSequencePage({
+    this.displayStates = const {},
     this.sequencePositions = const {},
     required this.workActivity,
     required this.workerRole,
@@ -948,6 +964,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
     required this.onLongPressOrder,
   });
   final Map<String, AdminQueueWorkActivity> workActivity;
+  final Map<String, String> displayStates;
   final String workerRole;
   final String workerRef;
   final AdminApparatus apparatus;
@@ -1028,12 +1045,15 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                                 orders.length,
                               ),
                           order: orders[index],
+                          showApparatusCount: !isWorkerListPresentationOrder(orders[index]),
                           index: index,
                           position: sequencePositions[orders[index].map.id.trim()],
                           readOnly: true,
                           onTap: () => onTapOrder(orders[index]),
                           onLongPress: () => onLongPressOrder(orders[index]),
-                          tone: _resolveWorkerOrderCardTone(
+                          tone: displayStates.containsKey(orders[index].map.id)
+                              ? _adminSequenceTone(displayStates[orders[index].map.id]!)
+                              : _resolveWorkerOrderCardTone(
                             printPreflightPassed: _orderPrintPreflightPassed(
                               orderId: orders[index].map.id,
                               apparatusId: apparatus.id,

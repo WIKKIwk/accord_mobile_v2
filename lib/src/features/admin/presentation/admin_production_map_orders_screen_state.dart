@@ -26,6 +26,8 @@ class _AdminProductionMapOrdersScreenState
   final Map<String, _AdminOrderWindow> _adminWindows = {};
   final Map<String, Future<AdminApparatusQueueSnapshot>> _adminDetailReads = {};
   bool _adminDetailOpening = false;
+  AdminApparatusQueueSnapshot? _workerPreparedDetail;
+  String? _workerPreparedDetailScope;
   final Map<String, Future<({double? base, double? kg})>>
       _adminOrderDetailMetrics = {};
   final Set<String> _adminPendingDetailReads = {};
@@ -448,6 +450,12 @@ class _AdminProductionMapOrdersScreenState
                   selectedIndex: 0,
                   selectedRouteName: AppRoutes.apparatusQueue,
                   onNavigate: _openDrawerRoute,
+                  // The page already owns this catalog. Opening/rebuilding a
+                  // drawer must not download it again or cross an account.
+                  apparatusLoader: () async =>
+                      _canonicalCacheOwner == _canonicalCacheRuntimeScope
+                          ? _apparatus
+                          : const [],
                 )
               : AdminNavigationDrawer(
                   selectedIndex: 0,
@@ -598,6 +606,8 @@ class _AdminProductionMapOrdersScreenState
                     Expanded(
                       child: widget.workerMode
                           ? _WorkerWatchBody(
+                              compactList: _canonicalQueueSnapshot?.isWorkerList ?? false,
+                              displayStatesByApparatus: _canonicalQueueSnapshot?.workerDisplayStates ?? const {},
                               queueLimit: _workerQueueLimit,
                               sequencePositionsByApparatus: _canonicalQueueSnapshot?.sequencePositionsByApparatus ?? const {},
                               apparatus: _workerVisibleApparatusFor(_apparatus),
@@ -1077,6 +1087,7 @@ class _AdminProductionMapOrdersScreenState
     required ProductionMapSaved order,
     bool startWorkerHandoffOnOpen = false,
     bool startAstatkaOnOpen = false,
+    String expectedReportSessionId = '',
     bool startBosmaFinishOnOpen = false,
     bool startRollRemovalOnOpen = false,
     bool startResumeOnOpen = false,
@@ -1087,6 +1098,23 @@ class _AdminProductionMapOrdersScreenState
     AdminSequenceListRow? initialPreview,
     _WorkerFabPreparedScan? initialFabPreparedScan,
   }) {
+    final workerHydrated = widget.workerMode &&
+        _canonicalQueueSnapshot?.isWorkerList == true;
+    if (workerHydrated && initialQueueSnapshot == null &&
+        !isWorkerListPresentationOrder(order)) {
+      final prepared = _workerPreparedDetail;
+      final baseline = _canonicalQueueSnapshot!;
+      if (_workerPreparedDetailScope == currentSessionReadScope() &&
+          prepared?.maps.length == 1 &&
+          prepared!.maps.single.map.id == order.map.id &&
+          prepared.epoch == baseline.epoch &&
+          (prepared.revision ?? -1) >= (baseline.revision ?? -1)) {
+        initialQueueSnapshot = prepared;
+      }
+    }
+    final workerPreview = widget.workerMode &&
+        (isWorkerListPresentationOrder(order) ||
+            (workerHydrated && initialQueueSnapshot == null));
     if (widget.workerMode &&
         (initialQueueSnapshot == null
             ? _isWorkerOrderFrozen(order.map.id)
@@ -1099,6 +1127,10 @@ class _AdminProductionMapOrdersScreenState
         tone: AdminTopNoticeTone.error,
       );
       return;
+    }
+    if (workerPreview) {
+      if (_adminDetailOpening) return;
+      _adminDetailOpening = true;
     }
     final mapId = order.map.id.trim();
     final readScope = currentSessionReadScope();
@@ -1138,7 +1170,11 @@ class _AdminProductionMapOrdersScreenState
               ? const <String,
                   Map<String, AdminApparatusQueueOrderActionControl>>{}
               : detail?.queueActionControls ?? initialControls;
-          return _ReadOnlyOrderDetailSheet(
+          Widget buildSheet(({double? base, double? kg})? metrics) =>
+              _ReadOnlyOrderDetailSheet(
+            scopedWorkerDetail: workerHydrated,
+            baseMetraj: metrics?.base,
+            orderKg: metrics?.kg,
             detailPending: detailPending,
             detailError: detailError,
             onRetryDetail: onRetryDetail,
@@ -1154,12 +1190,13 @@ class _AdminProductionMapOrdersScreenState
               return null;
             },
             workerMode: widget.workerMode,
-            initialControlConfirmed: initialControlConfirmed,
+            initialControlConfirmed: initialControlConfirmed || workerHydrated,
             stageFreezeSupported:
                 detail?.stageFreezeSupported ??
                 _canonicalQueueSnapshot?.stageFreezeSupported ??
                 false,
-            currentQueueSnapshot: initialControlConfirmed && !widget.workerMode
+            currentQueueSnapshot: (initialControlConfirmed || workerHydrated) &&
+                    (!widget.workerMode || workerHydrated)
                 ? () => authority.value
                 : () => _canonicalQueueSnapshot,
             queueSnapshotListenable: authority,
@@ -1216,18 +1253,30 @@ class _AdminProductionMapOrdersScreenState
             initialFabPreparedScan: initialFabPreparedScan,
             startWorkerHandoffOnOpen: startWorkerHandoffOnOpen,
             startAstatkaOnOpen: startAstatkaOnOpen,
+            expectedReportSessionId: expectedReportSessionId,
             startBosmaFinishOnOpen: startBosmaFinishOnOpen,
             startRollRemovalOnOpen: startRollRemovalOnOpen,
             startResumeOnOpen: startResumeOnOpen,
           );
+          if (workerHydrated) {
+            return FutureBuilder<({double? base, double? kg})>(
+                future: detail == null ? null : _workerScopedDetailMetrics(detail, detailOrder),
+                builder: (_, result) => buildSheet(result.data));
+          }
+          return buildSheet(null);
         }
 
         bool detailIsCurrent() => mounted &&
             detailAccount == _adminPageAccount &&
             detailSearch == _adminPageSearch &&
-            _selectedApparatus?.id == apparatus.id &&
+            (widget.workerMode || _selectedApparatus?.id == apparatus.id) &&
             readScope == currentSessionReadScope();
         ({String epoch, int revision})? detailCursor() {
+          if (workerHydrated) {
+            final baseline = _canonicalQueueSnapshot;
+            return baseline?.revision == null ? null :
+                (epoch: baseline!.epoch, revision: baseline.revision!);
+          }
           final window = _adminWindow('sequence', apparatus: apparatus.id);
           if (!window.sequenceRows.containsKey(mapId) || window.pages.isEmpty) {
             return null;
@@ -1241,23 +1290,28 @@ class _AdminProductionMapOrdersScreenState
               initialSnapshot: snapshot,
               isCurrent: detailIsCurrent,
               currentCursor: detailCursor,
-              load: () => _readAdminSequenceDetail(apparatus, mapId),
+              load: () => workerHydrated
+                  ? _readWorkerListDetail(apparatus, mapId)
+                  : _readAdminSequenceDetail(apparatus, mapId),
               builder: (detail, authority) => detailBuilder(detail, authority,
                   detailPending: detail == null,
                   detailError: error,
                   onRetryDetail: onRetry),
             );
-        if (initialPreview != null) {
+        if (initialPreview != null || workerPreview) {
           return _AdminInitialDetailHost(
             isCurrent: detailIsCurrent,
-            load: () => _readAdminSequenceDetail(apparatus, mapId),
-            onReady: _installAdminDetailAuthority,
+            load: () => workerPreview
+                ? _readWorkerListDetail(apparatus, mapId)
+                : _readAdminSequenceDetail(apparatus, mapId),
+            onReady: workerPreview
+                ? (_) {} : _installAdminDetailAuthority,
             builder: (snapshot, error, onRetry) =>
                 hydratedDetail(snapshot, error: error, onRetry: onRetry),
           );
         }
-        if (initialControlConfirmed &&
-            !widget.workerMode &&
+        if ((initialControlConfirmed || workerHydrated) &&
+            (!widget.workerMode || workerHydrated) &&
             initialQueueSnapshot != null) {
           return hydratedDetail(initialQueueSnapshot);
         }
@@ -1266,7 +1320,7 @@ class _AdminProductionMapOrdersScreenState
     );
     unawaited(
       sheetFuture.then((result) async {
-        if (initialPreview != null) _adminDetailOpening = false;
+        if (initialPreview != null || workerPreview) _adminDetailOpening = false;
         if (!mounted || readScope != currentSessionReadScope()) return;
         if (result == true && initialOrderSwitchBatch != null) {
           // Revalidate the scanned order even when it is outside the list window.
@@ -1347,6 +1401,9 @@ class _AdminProductionMapOrdersScreenState
         (order) => order.map.id.trim() == targetOrderId,
       );
       ProductionMapSaved? targetOrder = targetMaps.firstOrNull;
+      if (targetOrder != null && isWorkerListPresentationOrder(targetOrder)) {
+        targetOrder = null;
+      }
       orderTitle = targetOrder?.map.title.trim() ?? '';
       final providedControl = providedSnapshot?.orderControlFor(targetOrderId);
       if (providedControl != null &&
@@ -1576,6 +1633,10 @@ class _AdminProductionMapOrdersScreenState
           ?.key;
       if (activeId == null &&
           currentOrder != null &&
+          _canonicalQueueSnapshot?.workerPendingReportIds[station.id]
+                  ?.contains(currentOrder.map.id) != true &&
+          _canonicalQueueSnapshot?.workerReportPrompts[station.id]
+                  ?[currentOrder.map.id] == null &&
           _queueActionControlForApparatus(
                 apparatus: station,
                 orderId: currentOrder.map.id,
@@ -1589,6 +1650,14 @@ class _AdminProductionMapOrdersScreenState
           currentOrder = targetOrder;
           currentSnapshot = targetSnapshot;
         } else {
+          if (_canonicalQueueSnapshot?.isWorkerList == true) {
+            currentSnapshot = await _readWorkerListDetail(station, activeId);
+            if (!mounted || scope != currentSessionReadScope() ||
+                currentSnapshot == null) {
+              return;
+            }
+            currentOrder = currentSnapshot.maps.single;
+          } else {
           currentOrder =
               targetSnapshot.maps
                   .where((order) => order.map.id.trim() == activeId)
@@ -1620,7 +1689,16 @@ class _AdminProductionMapOrdersScreenState
               currentSnapshot == null) {
             return;
           }
+          }
         }
+      }
+      if (currentOrder != null && isWorkerListPresentationOrder(currentOrder)) {
+        currentSnapshot = await _readWorkerListDetail(station, currentOrder.map.id);
+        if (!mounted || scope != currentSessionReadScope() ||
+            currentSnapshot == null) {
+          return;
+        }
+        currentOrder = currentSnapshot.maps.single;
       }
       // Only an actual handoff may temporarily tolerate the busy-machine gate.
       final currentControl = currentSnapshot?.queueActionControls[station.id.trim()]
@@ -1847,6 +1925,25 @@ class _AdminProductionMapOrdersScreenState
   ProductionMapSaved? _workerCurrentOrderForApparatus({
     required AdminApparatus apparatus,
   }) {
+    final compact = _canonicalQueueSnapshot;
+    if (compact?.isWorkerList == true) {
+      final states = compact!.queueStates[apparatus.id] ?? const {};
+      for (final entry in states.entries) {
+        if (const {'in_progress', 'print_preflight'}.contains(entry.value) &&
+            !_isWorkerOrderFrozen(entry.key)) {
+          return compact.workerListRows[entry.key]?.toPresentationOrder();
+        }
+      }
+      final reportIds = compact.workerPendingReportIds[apparatus.id] ??
+          compact.workerReportPrompts[apparatus.id]?.keys.toList() ??
+          const <String>[];
+      for (final id in reportIds) {
+        if (!_isWorkerOrderFrozen(id)) {
+          return compact.workerListRows[id]?.toPresentationOrder();
+        }
+      }
+      return null;
+    }
     AdminQueueInteractionMode? modeFor(ProductionMapSaved order) {
       if (_isWorkerOrderFrozen(order.map.id)) return null;
       final orderId = order.map.id.trim();
@@ -1966,6 +2063,10 @@ class _AdminProductionMapOrdersScreenState
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
   }) async {
+    if (widget.workerMode && isWorkerListPresentationOrder(order)) {
+      await _hydrateWorkerActions(apparatus, order);
+      return;
+    }
     final operation = apparatus.operation.trim().toLowerCase();
     final isLaminatsiya = apparatus.usesLaminationWorkflow;
     final isBosma = operation == 'print';
@@ -2605,6 +2706,10 @@ class _AdminProductionMapOrdersScreenState
   }
 
   void _showCompletedOrderDetail(_WorkerCompletedOrderEntry entry) {
+    if (isWorkerListPresentationOrder(entry.order)) {
+      unawaited(_hydrateWorkerHistory(entry));
+      return;
+    }
     if (entry.isFrozen || _isWorkerOrderFrozen(entry.order.map.id)) return;
     if (entry.hasFreezeIssue) {
       _showWorkerFrozenOrderDetails(entry);

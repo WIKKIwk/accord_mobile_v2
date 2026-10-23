@@ -454,7 +454,7 @@ extension _AdminProductionMapOrdersLiveState
       _showNewRejectedCompletionDecisionNotices(snapshot.completionRequestDecisions);
       return;
     }
-    final orders = _productionMapZakazOrders(snapshot.maps);
+    final orders = _ordersInQueueSnapshot(snapshot);
     if (decision == CanonicalSnapshotDecision.applyLegacy) {
       // Legacy live payload without `rev`: only rebuild when content
       // actually changed to avoid duplicate rebuilds.
@@ -538,7 +538,11 @@ extension _AdminProductionMapOrdersLiveState
         // Recovery can advance a cursor through unrelated changes. Keep it
         // without rebuilding the list or replacing unchanged maps.
         _queueSnapshotGeneration++;
-        _canonicalQueueSnapshot = snapshot;
+        if (snapshot.isWorkerList) {
+          _updateScreenState(() => _replaceQueueSnapshotMaps(snapshot));
+        } else {
+          _canonicalQueueSnapshot = snapshot;
+        }
         _rememberSnapshotVersion(snapshot);
         _sheetQueueSnapshot.value = snapshot;
         _scheduleCanonicalCacheSave();
@@ -558,7 +562,10 @@ extension _AdminProductionMapOrdersLiveState
       _queueSnapshotNeedsReconcile = false;
       _rememberSnapshotVersion(snapshot);
       _updateScreenState(() {
-        if (!identical(snapshot.maps, before.maps)) _orders = _productionMapZakazOrders(snapshot.maps);
+        if (!identical(snapshot.maps, before.maps) ||
+            !identical(snapshot.workerListRows, before.workerListRows)) {
+          _orders = _ordersInQueueSnapshot(snapshot);
+        }
         _replaceQueueSnapshotMaps(snapshot,
           changedFields: replaceAll ? null : delta.patch.keys.toSet());
         if (nextCompleted != null) {
@@ -853,7 +860,7 @@ extension _AdminProductionMapOrdersLiveState
         _liveReconnectAttempt = 0;
         final hasMaps = queueSnapshot.maps.isNotEmpty || queueSnapshot.epoch.isNotEmpty;
         final nextOrders =
-            hasMaps ? _productionMapZakazOrders(queueSnapshot.maps) : null;
+            hasMaps ? _ordersInQueueSnapshot(queueSnapshot) : null;
         _updateScreenState(() {
           if (nextOrders != null) {
             _orders = nextOrders;
@@ -1041,7 +1048,8 @@ extension _AdminProductionMapOrdersLiveState
     }
     _canonicalQueueSnapshot = snapshot;
     if (widget.workerMode) _recreateWorkerTabController(_apparatus);
-    bool changed(String field) => changedFields == null || changedFields.contains(field);
+    bool changed(String field) => snapshot.isWorkerList ||
+        changedFields == null || changedFields.contains(field);
     // Queue/live updates also invalidate the separately loaded archive when
     // an order closes (including the worker finishing a pending early close).
     Map<String, String> closedLifecycles(
@@ -1122,6 +1130,10 @@ extension _AdminProductionMapOrdersLiveState
   Future<void> _showPendingStageAstatkaPrompt() async {
     if (!widget.workerMode || !_workerForeground || _stageAstatkaPromptOpen ||
         ModalRoute.of(context)?.isCurrent != true) return;
+    if (_canonicalQueueSnapshot?.isWorkerList == true) {
+      await _showCompactStageAstatkaPrompt();
+      return;
+    }
     for (final apparatus in _apparatus) {
       if (!_isAssignedWatchApparatus(apparatus, assignedApparatus:
           AppSession.instance.profile?.assignedApparatus ?? const <String>[])) continue;
@@ -1428,7 +1440,7 @@ extension _AdminProductionMapOrdersLiveState
       final apparatus = results[1] as List<AdminApparatus>;
       List<ProductionMapSaved> orders;
       if (queueSnapshot.maps.isNotEmpty || queueSnapshot.epoch.isNotEmpty) {
-        orders = _productionMapZakazOrders(queueSnapshot.maps);
+        orders = _ordersInQueueSnapshot(queueSnapshot);
       } else {
         final legacyMaps = await MobileApi.instance.adminProductionMaps();
         if (!mounted || readScope != currentSessionReadScope()) return;
@@ -1646,6 +1658,9 @@ extension _AdminProductionMapOrdersLiveState
   }
 
   Future<void> _refreshOrderBaseMetraj(List<ProductionMapSaved> orders) async {
+    if (widget.workerMode && _canonicalQueueSnapshot?.isWorkerList == true) {
+      return;
+    }
     try {
       await CalculateOrderTemplateStore.instance.load(force: true);
     } catch (_) {
