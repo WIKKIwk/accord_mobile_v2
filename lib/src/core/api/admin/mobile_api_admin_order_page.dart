@@ -6,7 +6,7 @@ const adminSequenceListProjection = 'sequence_list_v1';
 /// Set false to restore normal server content-encoding negotiation.
 const adminProductionReadIdentityCompression = bool.fromEnvironment(
     'ACCORD_ADMIN_IDENTITY_COMPRESSION',
-    defaultValue: true);
+    defaultValue: false);
 final _adminSequencePresentationOrders = Expando<ProductionMapSaved>();
 
 /// Presentation states are deliberately separate from authoritative work states.
