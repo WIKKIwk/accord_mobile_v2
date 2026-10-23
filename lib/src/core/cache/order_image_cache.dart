@@ -33,6 +33,26 @@ class OrderImageCache {
   final _full = _ImageDownloadPool(2);
   int _generation = 0;
 
+  /// A synchronous first-frame seed. Only fresh memory entries qualify; this
+  /// never waits for disk/network or extends an entry's freshness lifetime.
+  Uint8List? peek({
+    required String key,
+    required bool immutable,
+    bool Function()? isCurrent,
+  }) {
+    if (!(isCurrent?.call() ?? true)) return null;
+    final digest = sha256.convert(utf8.encode(key)).toString();
+    final now = _now();
+    if (_missingUntil[digest]?.isAfter(now) == true) return null;
+    final entry = _memory[digest];
+    if (entry == null) return null;
+    final age = now.difference(entry.storedAt);
+    final ttl =
+        immutable ? const Duration(days: 1) : const Duration(seconds: 30);
+    if (age.isNegative || age >= ttl) return null;
+    return entry.bytes;
+  }
+
   Future<Uint8List?> load(
       {required String key,
       required bool thumbnail,

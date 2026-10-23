@@ -158,8 +158,15 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
     _initialQrScanPending = widget.initialScanQrPayload.trim().isNotEmpty;
     _pendingFabPreparedScan = widget.initialFabPreparedScan;
+    _orderImageBytes = MobileApi.instance.peekCachedOrderImageBytes(
+      MobileApi.instance.adminProductionMapOrderImageUrl(widget.order.map.id,
+          imageId: widget.order.map.imageId),
+      thumbnail: true,
+    );
     unawaited(_loadInitialInteractionAndScan());
-    unawaited(_loadOrderImage());
+    if (_orderImageBytes == null) {
+      unawaited(_loadOrderImage());
+    }
     if (widget.startPauseOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_runInitialPauseFlow());
@@ -743,7 +750,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       setState(() {
         // Keep one buffer for this loaded photo: MemoryImage uses its identity
         // as the cache key, so sheet actions must not create fresh copies.
-        _orderImageBytes = bytes == null ? null : Uint8List.fromList(bytes);
+        _orderImageBytes = bytes == null
+            ? null
+            : bytes is Uint8List
+                ? bytes
+                : Uint8List.fromList(bytes);
         _orderImageLoading = false;
       });
     } catch (error) {
@@ -1148,6 +1159,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<void> _loadQolipRequirements({bool Function()? readIsCurrent}) async {
+    // Admin information sheets show attached-mold counts separately. Start/
+    // resume scan requirements are not rendered when this viewer cannot act.
+    if (!widget.workerMode && !widget.canManageQueue) return;
     final apparatus = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
     if (!_queueActionContractSynchronized ||
@@ -3208,6 +3222,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     bool Function()? readIsCurrent,
     List<AdminProgressBatch>? preparedBatches,
   }) async {
+    // Read-only admin sheets load graph/history WIP on expansion instead of
+    // preparing a hidden worker start/resume candidate picker at startup.
+    if (!widget.workerMode && !widget.canManageQueue) return;
     final station = widget.apparatus?.id.trim() ?? '';
     if (station.isEmpty) {
       return;

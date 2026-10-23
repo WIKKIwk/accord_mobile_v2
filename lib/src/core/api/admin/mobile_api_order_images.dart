@@ -34,6 +34,34 @@ extension MobileApiOrderImages on MobileApi {
     return uri.replace(queryParameters: query);
   }
 
+  String _orderImageCacheKey(Uri uri) =>
+      jsonEncode([orderImageCacheScope, uri.toString()]);
+
+  bool _orderImageIsImmutable(Uri uri) =>
+      uri.origin == Uri.parse(MobileApi.baseUrl).origin &&
+      (uri.queryParameters['id']?.isNotEmpty == true ||
+          uri.queryParameters['image_id']?.isNotEmpty == true);
+
+  /// Reads an already-authorized, fresh in-memory image for immediate display.
+  /// Uses exactly the same account/session/version/variant key as normal load.
+  Uint8List? peekCachedOrderImageBytes(String imageUrl,
+      {bool thumbnail = false}) {
+    if (imageUrl.trim().isEmpty || AppSession.instance.isTestModeSession) {
+      return null;
+    }
+    final uri = orderImageRequestUri(imageUrl, thumbnail: thumbnail);
+    if (uri.origin == Uri.parse(MobileApi.baseUrl).origin &&
+        (AppSession.instance.token?.isNotEmpty != true)) {
+      return null;
+    }
+    final scope = orderImageAccountScope;
+    return OrderImageCache.instance.peek(
+      key: _orderImageCacheKey(uri),
+      immutable: _orderImageIsImmutable(uri),
+      isCurrent: () => scope == orderImageAccountScope,
+    );
+  }
+
   Future<Uint8List?> cachedOrderImageBytes(String imageUrl,
       {bool thumbnail = false}) async {
     if (imageUrl.trim().isEmpty ||
@@ -44,13 +72,10 @@ extension MobileApiOrderImages on MobileApi {
     final internal = uri.origin == Uri.parse(MobileApi.baseUrl).origin;
     if (internal) requireToken();
     final scope = orderImageAccountScope;
-    final immutable = internal &&
-        (uri.queryParameters['id']?.isNotEmpty == true ||
-            uri.queryParameters['image_id']?.isNotEmpty == true);
     return OrderImageCache.instance.load(
-      key: jsonEncode([orderImageCacheScope, uri.toString()]),
+      key: _orderImageCacheKey(uri),
       thumbnail: thumbnail,
-      immutable: immutable,
+      immutable: _orderImageIsImmutable(uri),
       isCurrent: () => scope == orderImageAccountScope,
       fetch: (etag) async {
         final conditional = {if (etag != null) 'If-None-Match': etag};
