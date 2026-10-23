@@ -100,6 +100,7 @@ class AdminApparatusQueueSnapshot {
     this.orderStatuses = const {},
     this.frozenOrdersByApparatus = const {},
     this.maps = const [],
+    this.calculationTemplates = const {},
     this.revision,
     this.epoch = '',
     this.scope = '',
@@ -130,6 +131,10 @@ class AdminApparatusQueueSnapshot {
   /// Empty on legacy backends — callers must use the legacy
   /// `adminProductionMaps()` fallback once, without showing partial UI.
   final List<ProductionMapSaved> maps;
+
+  /// Full, scoped order details may carry a calculation fallback for older maps.
+  /// Compact list rows never populate this field.
+  final Map<String, CalculateOrderTemplate> calculationTemplates;
 
   /// Monotonic snapshot revision (`rev`). Null on legacy backends.
   final int? revision;

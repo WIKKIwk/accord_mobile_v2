@@ -273,6 +273,7 @@ class AdminProductionMapLiveStateDelta
     }
     final snapshot = AdminApparatusQueueSnapshot(
       maps: maps,
+      calculationTemplates: before.calculationTemplates,
       revision: revision,
       epoch: epoch,
       scope: scope,

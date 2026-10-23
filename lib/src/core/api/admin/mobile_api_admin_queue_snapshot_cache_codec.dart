@@ -25,6 +25,11 @@ Map<String, dynamic> encodeProductionMapQueueSnapshot(
     'maps': [
       for (final saved in snapshot.maps) encodeCachedProductionMap(saved)
     ],
+    if (snapshot.calculationTemplates.isNotEmpty)
+      'calculation_templates': {
+        for (final entry in snapshot.calculationTemplates.entries)
+          entry.key: entry.value.toJson(),
+      },
     'sequences': snapshot.sequences,
     'sequence_versions': snapshot.sequenceVersions,
     'sequence_revisions': snapshot.sequenceRevisions,

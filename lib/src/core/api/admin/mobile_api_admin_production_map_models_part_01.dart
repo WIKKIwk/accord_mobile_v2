@@ -132,6 +132,7 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
     implements AdminProductionMapLiveMessage {
   const AdminProductionMapLiveSnapshot({
     required super.maps,
+    super.calculationTemplates = const {},
     required super.sequences,
     super.sequenceVersions,
     super.sequenceRevisions,
@@ -175,6 +176,8 @@ class AdminProductionMapLiveSnapshot extends AdminApparatusQueueSnapshot
       sequenceRevisions: _parseSequenceRevisions(json['sequence_revisions']),
       sequencePositionsByApparatus: _parseProductionMapSequencePositions(json),
       maps: parseProductionMapSnapshotMaps(mapsRaw),
+      calculationTemplates:
+          _parseSnapshotCalculationTemplates(json['calculation_templates']),
       sequences: MobileApi.instance.parseApparatusSequenceMap(
         json['sequences'],
       ),

@@ -51,6 +51,8 @@ AdminApparatusQueueSnapshot _productionMapQueueSnapshotFromJson(
     frozenOrdersByApparatus: _parseAdminFrozenOrdersByApparatus(
         payload['frozen_orders_by_apparatus']),
     maps: parseProductionMapSnapshotMaps(payload['maps']),
+    calculationTemplates:
+        _parseSnapshotCalculationTemplates(payload['calculation_templates']),
     revision: parseProductionMapSnapshotRevisionFromJson(payload),
     epoch: payload['epoch'] is String ? payload['epoch'] as String : '',
     scope: payload['scope'] is String ? payload['scope'] as String : '',
@@ -63,3 +65,20 @@ AdminApparatusQueueSnapshot _productionMapQueueSnapshotFromJson(
 AdminProductionMapLiveSnapshot _decodeProductionMapLiveSnapshot(
         Map<String, dynamic> payload) =>
     AdminProductionMapLiveSnapshot.fromJson(payload);
+
+Map<String, CalculateOrderTemplate> _parseSnapshotCalculationTemplates(
+    Object? raw) {
+  if (raw == null) return const {};
+  if (raw is! Map ||
+      raw.entries.any((entry) =>
+          entry.key is! String ||
+          (entry.key as String).trim().isEmpty ||
+          entry.value is! Map)) {
+    throw _productionMapQueueContractException('invalid calculation templates');
+  }
+  return Map.unmodifiable({
+    for (final entry in raw.entries)
+      entry.key as String: CalculateOrderTemplate.fromJson(
+          (entry.value as Map).cast<String, dynamic>()),
+  });
+}

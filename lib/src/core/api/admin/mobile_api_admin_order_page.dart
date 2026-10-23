@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 const adminSequenceListProjection = 'sequence_list_v1';
+const adminOrdersListProjection = 'orders_list_v1';
 
 /// Diagnostic opt-in for compact admin pages and single-order details.
 /// Normal content-encoding negotiation remains the default after comparison.
@@ -95,6 +96,130 @@ class AdminSequenceListRow {
       );
 }
 
+/// A compact Orders card; these values carry no editor or action authority.
+class AdminOrderListRow {
+  const AdminOrderListRow({
+    required this.id,
+    required this.code,
+    required this.title,
+    required this.customerName,
+    required this.imageId,
+    required this.displayState,
+    this.watermarks = const [],
+  });
+
+  final String id;
+  final String code;
+  final String title;
+  final String customerName;
+  final String imageId;
+  final String displayState;
+  final List<AdminOrderListWatermark> watermarks;
+
+  factory AdminOrderListRow.fromJson(Map<String, dynamic> json) {
+    _validateOrderListLabels(json);
+    final watermarks = json['watermarks'];
+    if (!adminSequenceListDisplayStates.contains(json['display_state']) ||
+        watermarks is! List) {
+      throw _invalidAdminOrderPage();
+    }
+    return AdminOrderListRow(
+      id: json['id'] as String,
+      code: json['code'] as String,
+      title: json['title'] as String,
+      customerName: json['customer_name'] as String,
+      imageId: json['image_id'] as String,
+      displayState: json['display_state'] as String,
+      watermarks: List.unmodifiable([
+        for (final value in watermarks)
+          if (value is Map)
+            AdminOrderListWatermark.fromJson(value.cast<String, dynamic>())
+          else
+            throw _invalidAdminOrderPage(),
+      ]),
+    );
+  }
+
+  /// Display compatibility only; hydrate before opening any action or editor.
+  ProductionMapSaved toPresentationOrder() =>
+      _adminOrdersPresentationOrders[this] ??= ProductionMapSaved(
+        map: ProductionMapDefinition(
+            id: id,
+            code: code,
+            title: title,
+            productCode: '',
+            customerName: customerName,
+            imageId: imageId,
+            nodes: const [],
+            edges: const []),
+        program: ProductionMapProgram(
+            mapId: id, productCode: '', operations: const []),
+      );
+}
+
+final _adminOrdersPresentationOrders = Expando<ProductionMapSaved>();
+
+class AdminOrderListWatermark {
+  const AdminOrderListWatermark(
+      {required this.apparatusId, required this.kind});
+  final String apparatusId;
+  final String kind;
+
+  factory AdminOrderListWatermark.fromJson(Map<String, dynamic> json) {
+    final apparatus = json['apparatus_id'];
+    final kind = json['kind'];
+    if (apparatus is! String ||
+        (apparatus.isNotEmpty && !isCanonicalApparatusId(apparatus)) ||
+        !const {'active', 'paused', 'frozen', 'issue', 'waiting'}
+            .contains(kind)) {
+      throw _invalidAdminOrderPage();
+    }
+    return AdminOrderListWatermark(
+        apparatusId: apparatus, kind: kind as String);
+  }
+}
+
+/// An unfinished order card contains no calculation template. Fetch the full
+/// pending order by its ID before opening its details or resuming calculation.
+class AdminPendingOrderListRow {
+  const AdminPendingOrderListRow({
+    required this.id,
+    required this.code,
+    required this.title,
+    required this.customerName,
+    required this.imageId,
+    required this.kg,
+  });
+  final String id;
+  final String code;
+  final String title;
+  final String customerName;
+  final String imageId;
+  final double kg;
+
+  factory AdminPendingOrderListRow.fromJson(Map<String, dynamic> json) {
+    _validateOrderListLabels(json);
+    final kg = json['kg'];
+    if (kg is! num || !kg.isFinite) throw _invalidAdminOrderPage();
+    return AdminPendingOrderListRow(
+      id: json['id'] as String,
+      code: json['code'] as String,
+      title: json['title'] as String,
+      customerName: json['customer_name'] as String,
+      imageId: json['image_id'] as String,
+      kg: kg.toDouble(),
+    );
+  }
+}
+
+void _validateOrderListLabels(Map<String, dynamic> json) {
+  if (const {'id', 'code', 'title', 'customer_name', 'image_id'}
+          .any((key) => json[key] is! String) ||
+      (json['id'] as String).trim().isEmpty) {
+    throw _invalidAdminOrderPage();
+  }
+}
+
 MobileApiException _invalidAdminOrderPage() => const MobileApiException(
       code: 'order_page_invalid',
       message: 'Buyurtmalar sahifasi noto‘g‘ri. Qayta yuklang.',
@@ -137,6 +262,9 @@ class AdminProductionOrderPage {
     this.orderIds = const [],
     this.sequencePositions = const {},
     this.sequenceRows = const {},
+    this.orderRows = const {},
+    this.pendingRows = const {},
+    this.pendingIds = const [],
     Map<String, String> sequenceVersions = const {},
     Map<String, int> sequenceRevisions = const {},
     Map<String, AdminApparatusQueuePolicy> queuePolicies = const {},
@@ -158,6 +286,8 @@ class AdminProductionOrderPage {
   final String scope;
   final String projection;
   bool get isSequenceList => projection == adminSequenceListProjection;
+  bool get isOrdersList => projection == adminOrdersListProjection;
+  bool get isList => isSequenceList || isOrdersList;
   final int? revision;
   final String? nextCursor;
   final AdminApparatusQueueSnapshot? snapshot;
@@ -166,6 +296,9 @@ class AdminProductionOrderPage {
   /// One-based ranks before server search and pagination, scoped to apparatus.
   final Map<String, int> sequencePositions;
   final Map<String, AdminSequenceListRow> sequenceRows;
+  final Map<String, AdminOrderListRow> orderRows;
+  final Map<String, AdminPendingOrderListRow> pendingRows;
+  final List<String> pendingIds;
   final Map<String, String> _sequenceVersions;
   final Map<String, int> _sequenceRevisions;
   final Map<String, AdminApparatusQueuePolicy> _queuePolicies;
@@ -181,6 +314,7 @@ class AdminProductionOrderPage {
   final AdminProductionWorkflowAuditReport? workflowAudit;
   int get length =>
       orderIds.length +
+      pendingIds.length +
       pendingOrders.length +
       closedOrders.length +
       (workflowAudit?.violations.length ?? 0);
@@ -205,7 +339,7 @@ class AdminProductionOrderPage {
     AdminApparatusQueueSnapshot? snapshot;
     _validateOrderPageProjection(json);
     if (json.containsKey('maps') &&
-        json['projection'] != adminSequenceListProjection) {
+        !_isAdminListProjection(json['projection'])) {
       // Cached pages and sparse deltas are already decoded. Keep large model
       // conversions off the native UI isolate without encoding the page again.
       snapshot = !kIsWeb &&
@@ -222,25 +356,32 @@ class AdminProductionOrderPage {
       Map<String, dynamic> json, AdminApparatusQueueSnapshot? snapshot) {
     _validateOrderPageProjection(json);
     final orderIds = (json['order_ids'] as List? ?? const []).cast<String>();
-    final summary = json['projection'] == adminSequenceListProjection;
-    final rows = summary
+    final sequenceSummary = json['projection'] == adminSequenceListProjection;
+    final ordersSummary = json['projection'] == adminOrdersListProjection;
+    final summary = sequenceSummary || ordersSummary;
+    final rows = sequenceSummary
         ? _decodeSequenceRows(json, orderIds)
         : const <String, AdminSequenceListRow>{};
-    final versions =
-        summary ? _decodeSummaryVersions(json) : const <String, String>{};
-    final revisions = summary
+    final versions = sequenceSummary
+        ? _decodeSummaryVersions(json)
+        : const <String, String>{};
+    final revisions = sequenceSummary
         ? _decodeSummaryRevisions(json, versions.keys.single)
         : const <String, int>{};
-    final policies = summary
+    final policies = sequenceSummary
         ? MobileApi.instance
             .parseApparatusQueuePolicyMap(json['queue_policies'])
         : const <String, AdminApparatusQueuePolicy>{};
-    if (summary &&
+    if (sequenceSummary &&
         (policies.length != 1 ||
             policies.keys.single != versions.keys.single ||
             policies.values.single.apparatusId != versions.keys.single)) {
       throw _invalidAdminOrderPage();
     }
+    final pendingIds = ordersSummary
+        ? List<String>.unmodifiable(
+            (json['pending_ids'] as List).cast<String>())
+        : const <String>[];
     final page = AdminProductionOrderPage(
       wireValue: json,
       version: json['version'] as String? ?? '',
@@ -258,6 +399,15 @@ class AdminProductionOrderPage {
       snapshot: snapshot,
       orderIds: orderIds,
       sequenceRows: rows,
+      orderRows: ordersSummary
+          ? _decodeKeyedListRows(json['rows'], orderIds,
+              AdminOrderListRow.fromJson, (row) => row.id)
+          : const {},
+      pendingRows: ordersSummary
+          ? _decodeKeyedListRows(json['pending_rows'], pendingIds,
+              AdminPendingOrderListRow.fromJson, (row) => row.id)
+          : const {},
+      pendingIds: pendingIds,
       sequenceVersions: versions,
       sequenceRevisions: revisions,
       queuePolicies: policies,
@@ -271,15 +421,17 @@ class AdminProductionOrderPage {
           AdminClosedProductionOrder.fromJson(
               (item as Map).cast<String, dynamic>()),
       ],
-      calculationTemplates: {
-        for (final entry
-            in (json['calculation_templates'] as Map? ?? const {}).entries)
-          entry.key.toString(): CalculateOrderTemplate.fromJson(
-              (entry.value as Map).cast<String, dynamic>()),
-      },
+      calculationTemplates: snapshot?.calculationTemplates ??
+          {
+            for (final entry
+                in (json['calculation_templates'] as Map? ?? const {}).entries)
+              entry.key.toString(): CalculateOrderTemplate.fromJson(
+                  (entry.value as Map).cast<String, dynamic>()),
+          },
     );
     final ids = [
       ...page.orderIds,
+      ...page.pendingIds,
       ...page.pendingOrders.map((o) => o.id),
       ...page.closedOrders.map((o) => o.orderId)
     ];
@@ -298,7 +450,9 @@ class AdminProductionOrderPage {
         (summary &&
             (page.snapshot != null ||
                 page.scope.isEmpty ||
-                page.sequencePositions.length != page.orderIds.length ||
+                (sequenceSummary &&
+                    page.sequencePositions.length != page.orderIds.length) ||
+                (ordersSummary && page.sequencePositions.isNotEmpty) ||
                 page.pendingOrders.isNotEmpty ||
                 page.closedOrders.isNotEmpty ||
                 page.workflowAudit != null ||
@@ -313,6 +467,24 @@ class AdminProductionOrderPage {
           message: 'Buyurtmalar sahifasi noto‘g‘ri. Qayta yuklang.');
     }
     return page;
+  }
+
+  static Map<String, T> _decodeKeyedListRows<T>(Object? raw, List<String> ids,
+      T Function(Map<String, dynamic>) decode, String Function(T) rowId) {
+    if (raw is! Map ||
+        raw.length != ids.length ||
+        raw.keys.any((key) => key is! String || !ids.contains(key))) {
+      throw _invalidAdminOrderPage();
+    }
+    final rows = <String, T>{};
+    for (final id in ids) {
+      final value = raw[id];
+      if (value is! Map) throw _invalidAdminOrderPage();
+      final row = decode(value.cast<String, dynamic>());
+      if (rowId(row) != id) throw _invalidAdminOrderPage();
+      rows[id] = row;
+    }
+    return Map.unmodifiable(rows);
   }
 
   static Map<String, AdminSequenceListRow> _decodeSequenceRows(
@@ -381,12 +553,15 @@ class AdminProductionOrderPage {
   }
 }
 
+bool _isAdminListProjection(Object? value) =>
+    value == adminSequenceListProjection || value == adminOrdersListProjection;
+
 void _validateOrderPageProjection(Map<String, dynamic> json) {
   if (json.containsKey('projection') &&
-      json['projection'] != adminSequenceListProjection) {
+      !_isAdminListProjection(json['projection'])) {
     throw _invalidAdminOrderPage();
   }
-  if (json['projection'] == adminSequenceListProjection &&
+  if (_isAdminListProjection(json['projection']) &&
       (json.containsKey('maps') ||
           json['order_ids'] is! List ||
           (json['order_ids'] as List)
@@ -397,18 +572,39 @@ void _validateOrderPageProjection(Map<String, dynamic> json) {
           json['rev'] is! int ||
           json['offset'] is! int ||
           json['total'] is! int ||
-          (json['next_cursor'] != null && json['next_cursor'] is! String) ||
-          json['queue_policies'] is! List)) {
+          (json['next_cursor'] != null && json['next_cursor'] is! String))) {
     throw _invalidAdminOrderPage();
   }
   if (json['projection'] == adminSequenceListProjection) {
-    final policies = json['queue_policies'] as List;
-    if (policies.length != 1 || policies.single is! Map) {
+    final policies = json['queue_policies'];
+    if (policies is! List || policies.length != 1 || policies.single is! Map) {
       throw _invalidAdminOrderPage();
     }
     final policy = policies.single as Map;
     if (!const {'strict_sequence', 'free_pick'}
         .contains(policy['discipline'] ?? policy['policy'])) {
+      throw _invalidAdminOrderPage();
+    }
+  }
+  if (json['projection'] == adminOrdersListProjection) {
+    final ids = json['pending_ids'];
+    if (ids is! List ||
+        ids.any((id) => id is! String || id.trim().isEmpty) ||
+        const {
+          'sequence_versions',
+          'sequence_revisions',
+          'queue_policies',
+          'queue_states',
+          'stage_order_controls',
+          'order_controls',
+          'stage_states',
+          'order_statuses',
+          'queue_action_controls',
+          'calculation_templates',
+          'pending_orders',
+          'closed_orders',
+          'workflow_audit'
+        }.any(json.containsKey)) {
       throw _invalidAdminOrderPage();
     }
   }
@@ -489,7 +685,9 @@ extension MobileApiAdminOrderPage on MobileApi {
             'limit': '20',
             if (request.view == 'sequence')
               'projection': adminSequenceListProjection,
-            if (request.view == 'sequence' &&
+            if (request.view == 'orders')
+              'projection': adminOrdersListProjection,
+            if ((request.view == 'sequence' || request.view == 'orders') &&
                 adminProductionReadIdentityCompression)
               'compression': 'identity',
             if (request.apparatus.isNotEmpty) 'apparatus': request.apparatus,
@@ -513,14 +711,15 @@ extension MobileApiAdminOrderPage on MobileApi {
     required String apparatus,
     required String orderId,
   }) async {
-    final station = _requireCanonicalApparatusId(apparatus);
+    final station =
+        apparatus.trim().isEmpty ? '' : _requireCanonicalApparatusId(apparatus);
     final id = orderId.trim();
     if (id.isEmpty) throw _invalidAdminOrderPage();
     final response = await _sendAuthorized(() => _get(
           Uri.parse(
                   '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/sequence')
               .replace(queryParameters: {
-            'apparatus': station,
+            if (station.isNotEmpty) 'apparatus': station,
             'order_id': id,
             'detail': 'true',
             if (adminProductionReadIdentityCompression)
@@ -538,10 +737,29 @@ extension MobileApiAdminOrderPage on MobileApi {
         snapshot.revision == null ||
         snapshot.revision! < 0 ||
         snapshot.epoch.isEmpty ||
-        snapshot.scope.isEmpty) {
+        snapshot.scope.isEmpty ||
+        snapshot.calculationTemplates.keys.any((key) => key != id)) {
       throw _invalidAdminOrderPage();
     }
     return snapshot;
+  }
+
+  Future<PendingOrder> pendingOrderDetail(String orderId) async {
+    final id = orderId.trim();
+    if (id.isEmpty) throw _invalidAdminOrderPage();
+    final response = await _sendAuthorized(() => _get(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/pending-orders')
+              .replace(queryParameters: {'id': id}),
+          headers: _headers(requireToken()),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'pending_order_detail');
+    }
+    final wire = jsonDecode(response.body);
+    if (wire is! Map || wire['id'] != id || wire['template'] is! Map) {
+      throw _invalidAdminOrderPage();
+    }
+    return PendingOrder.fromJson(wire.cast<String, dynamic>());
   }
 
   Future<AdminClosedProductionOrder> adminClosedProductionOrderDetail(
@@ -649,6 +867,7 @@ AdminApparatusQueueSnapshot _copyOrderPageSnapshot(
       orderStatuses: before.orderStatuses,
       frozenOrdersByApparatus: before.frozenOrdersByApparatus,
       maps: maps ?? before.maps,
+      calculationTemplates: before.calculationTemplates,
       revision: revision,
       epoch: before.epoch,
       scope: before.scope,
@@ -659,7 +878,9 @@ AdminProductionOrderPage _copyOrderPage(
         AdminProductionOrderPage page, Map<String, dynamic> wire,
         {AdminApparatusQueueSnapshot? snapshot,
         Map<String, int>? sequencePositions,
-        Map<String, AdminSequenceListRow>? sequenceRows}) =>
+        Map<String, AdminSequenceListRow>? sequenceRows,
+        Map<String, AdminOrderListRow>? orderRows,
+        Map<String, AdminPendingOrderListRow>? pendingRows}) =>
     AdminProductionOrderPage(
       version: wire['version'] as String,
       epoch: page.epoch,
@@ -673,6 +894,9 @@ AdminProductionOrderPage _copyOrderPage(
       orderIds: page.orderIds,
       sequencePositions: sequencePositions ?? page.sequencePositions,
       sequenceRows: sequenceRows ?? page.sequenceRows,
+      orderRows: orderRows ?? page.orderRows,
+      pendingRows: pendingRows ?? page.pendingRows,
+      pendingIds: page.pendingIds,
       sequenceVersions: page.sequenceVersions,
       sequenceRevisions: page.sequenceRevisions,
       queuePolicies: page.queuePolicies,
@@ -797,6 +1021,28 @@ Future<List<AdminProductionOrderPage>> applyAdminOrderPageWindow(
         }
       }
       if (index < before.length &&
+          page.isOrdersList &&
+          before[index].isOrdersList) {
+        final previous = before[index];
+        Map<String, T> preserve<T>(
+            String key, Map<String, T> rows, Map<String, T> oldRows) {
+          final oldWire = previous.wireValue![key];
+          final newWire = raw[key];
+          if (oldWire is! Map || newWire is! Map) return rows;
+          return Map.unmodifiable({
+            for (final entry in rows.entries)
+              entry.key: identical(oldWire[entry.key], newWire[entry.key])
+                  ? oldRows[entry.key] ?? entry.value
+                  : entry.value,
+          });
+        }
+
+        page = _copyOrderPage(page, raw,
+            orderRows: preserve('rows', page.orderRows, previous.orderRows),
+            pendingRows: preserve(
+                'pending_rows', page.pendingRows, previous.pendingRows));
+      }
+      if (index < before.length &&
           page.snapshot != null &&
           before[index].snapshot != null) {
         final oldRaw = before[index].wireValue!['maps'];
@@ -833,7 +1079,7 @@ Future<List<AdminProductionOrderPage>> applyAdminOrderPageWindow(
     if (page.epoch != message.epoch ||
         page.revision != message.revision ||
         page.projection != before.first.projection ||
-        (page.isSequenceList && page.scope != before.first.scope) ||
+        (page.isList && page.scope != before.first.scope) ||
         page.version != message.version ||
         page.offset != offset ||
         page.total != next.first.total ||
@@ -842,6 +1088,7 @@ Future<List<AdminProductionOrderPage>> applyAdminOrderPageWindow(
             (page.offset + page.length == page.total) ||
         [
           ...page.orderIds,
+          ...page.pendingIds,
           ...page.pendingOrders.map((o) => o.id),
           ...page.closedOrders.map((o) => o.orderId)
         ].any((id) => !ids.add(id))) {
