@@ -62,8 +62,39 @@ class AdminProductionOrderPage {
       closedOrders.length +
       (workflowAudit?.violations.length ?? 0);
 
+  /// Decode the HTTP body and construct models together, without serializing
+  /// an already-decoded page to JSON a second time on the UI isolate.
+  static Future<AdminProductionOrderPage> fromPayload(
+    String source, {
+    int backgroundThresholdCodeUnits = defaultBackgroundJsonThresholdCodeUnits,
+  }) async {
+    if (!kIsWeb && source.length >= backgroundThresholdCodeUnits) {
+      return compute(_decodeAdminProductionOrderPagePayload, source,
+          debugLabel: 'production-order-page');
+    }
+    return _decodeAdminProductionOrderPagePayload(source);
+  }
+
   static Future<AdminProductionOrderPage> fromJson(
-      Map<String, dynamic> json) async {
+    Map<String, dynamic> json, {
+    int backgroundThresholdCodeUnits = defaultBackgroundJsonThresholdCodeUnits,
+  }) async {
+    AdminApparatusQueueSnapshot? snapshot;
+    if (json.containsKey('maps')) {
+      // Cached pages and sparse deltas are already decoded. Keep large model
+      // conversions off the native UI isolate without encoding the page again.
+      snapshot = !kIsWeb &&
+              _adminOrderPageNeedsBackgroundDecode(
+                  json, backgroundThresholdCodeUnits)
+          ? await compute(decodeCachedProductionMapQueueSnapshot, json,
+              debugLabel: 'production-order-page-models')
+          : decodeCachedProductionMapQueueSnapshot(json);
+    }
+    return _fromDecodedJson(json, snapshot);
+  }
+
+  static AdminProductionOrderPage _fromDecodedJson(
+      Map<String, dynamic> json, AdminApparatusQueueSnapshot? snapshot) {
     final orderIds = (json['order_ids'] as List? ?? const []).cast<String>();
     final page = AdminProductionOrderPage(
       wireValue: json,
@@ -77,9 +108,7 @@ class AdminProductionOrderPage {
           ? AdminProductionWorkflowAuditReport.fromJson(
               (json['workflow_audit'] as Map).cast<String, dynamic>())
           : null,
-      snapshot: json.containsKey('maps')
-          ? await decodeProductionMapQueueSnapshotPayload(jsonEncode(json))
-          : null,
+      snapshot: snapshot,
       orderIds: orderIds,
       sequencePositions: _decodeSequencePositions(json, orderIds),
       pendingOrders: [
@@ -144,6 +173,46 @@ class AdminProductionOrderPage {
   }
 }
 
+AdminProductionOrderPage _decodeAdminProductionOrderPagePayload(String source) {
+  final json = (jsonDecode(source) as Map).cast<String, dynamic>();
+  return AdminProductionOrderPage._fromDecodedJson(
+      json, json.containsKey('maps')
+          ? decodeCachedProductionMapQueueSnapshot(json)
+          : null);
+}
+
+/// A bounded size estimate chooses an isolate without allocating a JSON copy.
+/// The threshold is a scheduling hint, never part of contract validation.
+bool _adminOrderPageNeedsBackgroundDecode(Object? value, int threshold) {
+  if (threshold <= 0) return true;
+  var remaining = threshold;
+  void visit(Object? value) {
+    if (remaining <= 0) return;
+    if (value is String) {
+      remaining -= value.length + 2;
+    } else if (value is Map) {
+      remaining -= 2;
+      for (final entry in value.entries) {
+        visit(entry.key);
+        remaining -= 2;
+        visit(entry.value);
+        if (remaining <= 0) break;
+      }
+    } else if (value is List) {
+      remaining -= 2;
+      for (final item in value) {
+        visit(item);
+        remaining--;
+        if (remaining <= 0) break;
+      }
+    } else {
+      remaining -= value == null ? 4 : 8;
+    }
+  }
+  visit(value);
+  return remaining <= 0;
+}
+
 class AdminProductionOrderPageRequest {
   const AdminProductionOrderPageRequest({
     required this.view,
@@ -186,8 +255,7 @@ extension MobileApiAdminOrderPage on MobileApi {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'order_page_failed');
     }
-    return AdminProductionOrderPage.fromJson(
-        (jsonDecode(response.body) as Map).cast<String, dynamic>());
+    return AdminProductionOrderPage.fromPayload(response.body);
   }
 
   Future<AdminClosedProductionOrder> adminClosedProductionOrderDetail(
