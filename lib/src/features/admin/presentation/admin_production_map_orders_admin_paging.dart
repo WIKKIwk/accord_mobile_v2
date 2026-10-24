@@ -189,6 +189,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
 
   Future<void> _readAdminWindow(_AdminOrderWindow window,
       {required bool append, required bool force}) async {
+    _syncAdminWarmSession();
+    final readScope = currentSessionReadScope();
     final loader =
         widget.orderPageLoader ?? MobileApi.instance.adminProductionOrderPage;
     var appendRead = append;
@@ -207,12 +209,34 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
             !window.dirty &&
             !_adminWindowLiveFallback &&
             warmScope != null) {
-          final warm = _sequenceWarmStore.peekOrders(warmScope) ??
-              await _sequenceWarmStore.prepareOrders(warmScope);
+          AdminProductionOrderPage? warm;
+          try {
+            warm = _sequenceWarmStore.peekOrders(warmScope) ??
+                await _sequenceWarmStore.prepareOrders(warmScope);
+          } catch (error) {
+            final transient = error is TimeoutException ||
+                error is http.ClientException ||
+                (error is MobileApiException &&
+                    error.statusCode != 401 &&
+                    error.statusCode != 403 &&
+                    (error.code == 'order_page_changed' ||
+                        error.statusCode == 408 ||
+                        error.statusCode == 429 ||
+                        (error.statusCode ?? 0) >= 500));
+            if (!transient) rethrow;
+          }
           if (!mounted ||
               !_adminForeground ||
-              warmScope != _adminOrdersWarmScope(window)) {
+              window.account != _adminPageAccount ||
+              readScope != currentSessionReadScope()) {
             return;
+          }
+          if (warmScope != _adminOrdersWarmScope(window)) {
+            // A same-account session refresh replaced the shared preparation
+            // while this window joined it. Join the current generation.
+            if (_adminOrdersWarmScope(window) == null) return;
+            attempt = -1;
+            continue;
           }
           if (window.invalidation == invalidation &&
               warm != null &&
@@ -239,7 +263,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
                 ? window.pages.first.version
                 : null,
           ));
-          if (!mounted || window.account != _adminPageAccount) return;
+          if (!mounted || window.account != _adminPageAccount ||
+              readScope != currentSessionReadScope()) return;
           if (page == null) {
             if (window.invalidation != invalidation) {
               throw const MobileApiException(
@@ -350,7 +375,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         }
         return;
       } catch (error) {
-        if (!mounted || window.account != _adminPageAccount) return;
+        if (!mounted || window.account != _adminPageAccount ||
+            readScope != currentSessionReadScope()) return;
         if (error is MobileApiException &&
             (error.statusCode == 401 || error.statusCode == 403)) {
           AdminOrderPageCache.instance.invalidate(_adminCacheVisit);

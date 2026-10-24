@@ -209,6 +209,23 @@ class _WarmUiHarness {
     await tester.pumpAndSettle();
   }
 
+  Future<void> readyOrders(WidgetTester tester) async {
+    final viewport = tester.widgetList(find.byWidgetPredicate((widget) =>
+        widget.runtimeType.toString() == '_AdminOrderPageViewport')).firstWhere(
+        (widget) => (widget as dynamic).window.request.view == 'orders');
+    final dynamic window = (viewport as dynamic).window;
+    final AdminProductionOrderPage page = window.pages.first;
+    events.add(AdminProductionMapPageWindowMessage.fromJson({
+      'type': 'page_window_ready',
+      'window': window.liveId,
+      'epoch': page.epoch,
+      'rev': page.revision,
+      'version': page.version,
+      'resync': false,
+    }));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> close(WidgetTester tester) async {
     dismissAdminTopNotice();
     await tester.pumpWidget(const SizedBox.shrink());
@@ -319,6 +336,155 @@ void main() {
       expect(harness.warmOrdersReads, 1);
       expect(harness.foregroundOrdersReads, 0);
       expect(harness.detailReads, isEmpty);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('joined transient Orders prefetch failure uses foreground loader',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(harness.foregroundOrdersReads, 0);
+      harness.ordersReply!.completeError(
+          http.ClientException('Background Orders transport interrupted'));
+      // The warm store has a finite transient retry budget before this
+      // independently authorized visible loader takes over.
+      await tester.pump();
+      for (var frame = 0;
+          frame < 30 && harness.foregroundOrdersReads == 0;
+          frame++) {
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+      await tester.pumpAndSettle();
+      expect(harness.foregroundOrdersReads, 1);
+      expect(find.textContaining('Foreground order item 0'), findsWidgets);
+      expect(_order('orders-only-0'), findsOneWidget);
+      expect(harness.detailReads, isEmpty);
+      await harness.readyOrders(tester);
+      final reads = harness.warmReads.length + harness.foregroundReads.length;
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pumpAndSettle();
+      expect(harness.warmReads.length + harness.foregroundReads.length, reads);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('joined forbidden Orders prefetch never falls through HTTP',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pump(const Duration(milliseconds: 400));
+      harness.ordersReply!.completeError(const MobileApiException(
+          code: 'forbidden', statusCode: 403, message: 'Orders access denied'));
+      await tester.pumpAndSettle();
+      expect(harness.foregroundOrdersReads, 0);
+      expect(_order('orders-only-0'), findsNothing);
+      expect(find.text('Orders access denied'), findsOneWidget);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('same-account profile revision rebinds Orders warm preparation',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      final oldScope = harness.scope;
+      final oldReply = harness.ordersReply!;
+      await harness.mount(tester);
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(_order('orders-only-0'), findsNothing);
+      harness
+        ..ordersReply = null
+        ..ordersTitle = 'Current generation order';
+      final readScope = currentSessionReadScope();
+      AppSession.instance.profile = AppSession.instance.profile!
+          .copyWith(displayName: 'Refreshed admin profile');
+      AppSession.instance.revision.value++;
+      expect(currentSessionReadScope(), readScope);
+      expect(harness.scope, isNot(oldScope));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Current generation order 0'), findsWidgets,
+          reason: 'The obsolete HTTP request must not block the new scope');
+      oldReply.complete(await _ordersPage(title: 'Obsolete generation order'));
+      await tester.pumpAndSettle();
+      expect(harness.store.peekOrders(oldScope), isNull);
+      expect(harness.store.peekOrders(harness.scope), isNotNull);
+      expect(harness.backgroundStreams.where((stream) => stream.hasListener),
+          isEmpty,
+          reason:
+              'The rebound screen lease retains exclusive socket ownership');
+      await harness.showOrders(tester);
+      expect(find.textContaining('Current generation order 0'), findsWidgets);
+      expect(find.textContaining('Obsolete generation order'), findsNothing);
+      expect(harness.foregroundOrdersReads, 0);
+      expect(harness.detailReads, isEmpty);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('mounted Orders preparation cannot rebind across account change',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      final oldReply = harness.ordersReply!;
+      await harness.mount(tester);
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pump(const Duration(milliseconds: 400));
+      final reads = harness.warmReads.length;
+      _session('another-mounted-account');
+      AppSession.instance.revision.value++;
+      oldReply.complete(await _ordersPage(title: 'Private original account'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Private original account'), findsNothing);
+      expect(_order('orders-only-0'), findsNothing);
+      expect(harness.warmReads, hasLength(reads));
+      expect(harness.foregroundOrdersReads, 0);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('same-account token refresh loads the current Orders window',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      final oldScope = harness.scope;
+      final oldReply = harness.ordersReply!;
+      await harness.mount(tester);
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pump(const Duration(milliseconds: 400));
+      harness
+        ..ordersReply = null
+        ..ordersTitle = 'Reauthenticated order';
+      final readScope = currentSessionReadScope();
+      AppSession.instance.token = '${AppSession.instance.token}-renewed';
+      AppSession.instance.revision.value++;
+      expect(currentSessionReadScope(), readScope);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Reauthenticated order 0'), findsWidgets,
+          reason: 'The old account-keyed window must not block navigation');
+      oldReply.complete(await _ordersPage(title: 'Old token order'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Old token order'), findsNothing);
+      expect(harness.store.peekOrders(oldScope), isNull);
+      expect(harness.foregroundOrdersReads, 0);
+      expect(harness.backgroundStreams.where((stream) => stream.hasListener),
+          isEmpty);
       await harness.close(tester);
     }, () => MockClient(harness.httpRead));
   });

@@ -11,6 +11,55 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _selectedApparatus = 'apparatus:default:bosma_7';
+
+AdminProductionOrderPage _runtimeSequencePage() =>
+    const AdminProductionOrderPage(
+      version: 'sequence-v1',
+      epoch: 'server',
+      revision: 1,
+      scope: 'sequence-scope',
+      projection: adminSequenceListProjection,
+      total: 0,
+      offset: 0,
+      wireValue: {
+        'projection': adminSequenceListProjection,
+        'version': 'sequence-v1',
+        'epoch': 'server',
+        'rev': 1,
+        'scope': 'sequence-scope',
+        'offset': 0,
+        'order_ids': [],
+        'rows': {}
+      },
+    );
+
+Future<AdminProductionOrderPage> _runtimeOrdersPage() =>
+    AdminProductionOrderPage.fromJson({
+      'projection': adminOrdersListProjection,
+      'version': 'orders-v1',
+      'epoch': 'server',
+      'rev': 1,
+      'scope': 'orders-scope',
+      'offset': 0,
+      'total': 1,
+      'next_cursor': null,
+      'order_ids': ['order-1'],
+      'pending_ids': [],
+      'pending_rows': {},
+      'rows': {
+        'order-1': {
+          'id': 'order-1',
+          'code': '1',
+          'title': 'Product',
+          'customer_name': 'Customer',
+          'image_id': 'metadata-only',
+          'display_state': 'pending',
+          'watermarks': []
+        }
+      },
+    });
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late AdminSequenceWarmStore admin;
@@ -19,11 +68,12 @@ void main() {
   late int adminReads;
   late int workerReads;
 
-  void session(UserRole role, List<String> capabilities) {
+  void session(UserRole role, List<String> capabilities,
+      {String ref = 'warm-runtime'}) {
     AppSession.instance.token = 'warm-runtime-test';
     AppSession.instance.profile = SessionProfile(
       role: role,
-      ref: 'warm-runtime',
+      ref: ref,
       displayName: 'Runtime',
       legalName: '',
       phone: '',
@@ -192,5 +242,154 @@ void main() {
       expect(supplyTasksRoleKind(),
           role == UserRole.qolipchi ? 'qolip' : 'material');
     }
+  });
+
+  testWidgets(
+      'foreground home warms selected Sequence then exactly one compact Orders page',
+      (tester) async {
+    final sequence = Completer<AdminProductionOrderPage?>();
+    final orders = Completer<AdminProductionOrderPage?>();
+    final requests = <AdminProductionOrderPageRequest>[];
+    var catalogReads = 0;
+    var preferenceReads = 0;
+    admin = AdminSequenceWarmStore(
+      apparatusLoader: () async {
+        catalogReads++;
+        return const [
+          AdminApparatus(id: 'apparatus:default:other', name: 'Other'),
+          AdminApparatus(id: _selectedApparatus, name: 'Selected')
+        ];
+      },
+      selectedApparatusLoader: (profile) async {
+        preferenceReads++;
+        expect(profile, 'warm-runtime');
+        return _selectedApparatus;
+      },
+      pageLoader: (request) {
+        requests.add(request);
+        return request.view == 'sequence' ? sequence.future : orders.future;
+      },
+      liveLoader: (_) => live(),
+      scopeReader: currentAdminSequenceWarmScope,
+    );
+    AdminSequenceWarmStore.debugOverride = admin;
+    session(UserRole.admin, ['admin.access']);
+    await tester
+        .pumpWidget(const ProductionQueueWarmRuntime(child: SizedBox()));
+    await tester.pumpAndSettle();
+    expect(requests.map((request) => request.view), ['sequence']);
+    expect(requests.single.apparatus, _selectedApparatus);
+    expect(admin.peekOrders(currentAdminSequenceWarmScope()), isNull);
+
+    sequence.complete(_runtimeSequencePage());
+    await tester.pumpAndSettle();
+    expect(requests.map((request) => request.view), ['sequence', 'orders']);
+    expect(admin.peek(currentAdminSequenceWarmScope())!.selectedApparatusId,
+        _selectedApparatus);
+    expect(admin.peekOrders(currentAdminSequenceWarmScope()), isNull);
+    expect(requests.last.apparatus, isEmpty);
+    expect(requests.last.target, isEmpty);
+    expect(requests.last.search, isEmpty);
+    expect(requests.every((request) => request.cursor == null), isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(requests, hasLength(2),
+        reason: 'Resume joins the pending Orders read');
+    orders.complete(_runtimeOrdersPage());
+    await tester.pumpAndSettle();
+    final prepared = admin.peekOrders(currentAdminSequenceWarmScope())!;
+    expect(prepared.isOrdersList, isTrue);
+    expect(prepared.orderRows['order-1']!.imageId, 'metadata-only');
+    expect(prepared.snapshot, isNull);
+    expect(prepared.calculationTemplates, isEmpty);
+    expect(prepared.length, 1);
+    expect(find.byType(Image), findsNothing);
+    expect(catalogReads, 1);
+    expect(preferenceReads, 1);
+    expect(workerReads, 0);
+    await tester.pump(const Duration(seconds: 3));
+    expect(requests, hasLength(2),
+        reason: 'Ready state does not poll list/details');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'runtime defers Orders when Sequence becomes ready while app is paused',
+      (tester) async {
+    final sequence = Completer<AdminProductionOrderPage?>();
+    final requests = <String>[];
+    admin = AdminSequenceWarmStore(
+      apparatusLoader: () async =>
+          const [AdminApparatus(id: _selectedApparatus, name: 'Selected')],
+      selectedApparatusLoader: (_) async => _selectedApparatus,
+      pageLoader: (request) {
+        requests.add(request.view);
+        return request.view == 'sequence'
+            ? sequence.future
+            : _runtimeOrdersPage();
+      },
+      liveLoader: (_) => live(),
+      scopeReader: currentAdminSequenceWarmScope,
+    );
+    AdminSequenceWarmStore.debugOverride = admin;
+    session(UserRole.admin, ['admin.access']);
+    await tester
+        .pumpWidget(const ProductionQueueWarmRuntime(child: SizedBox()));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    sequence.complete(_runtimeSequencePage());
+    await tester.pumpAndSettle();
+    expect(admin.peek(currentAdminSequenceWarmScope()), isNotNull);
+    expect(requests, ['sequence']);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(requests, ['sequence', 'orders']);
+    expect(admin.peekOrders(currentAdminSequenceWarmScope()), isNotNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'account switch rejects pending old Sequence and warms only current Orders',
+      (tester) async {
+    final oldSequence = Completer<AdminProductionOrderPage?>();
+    final newSequence = Completer<AdminProductionOrderPage?>();
+    final ordersAccounts = <String>[];
+    var sequenceReads = 0;
+    admin = AdminSequenceWarmStore(
+      apparatusLoader: () async =>
+          const [AdminApparatus(id: _selectedApparatus, name: 'Selected')],
+      selectedApparatusLoader: (_) async => _selectedApparatus,
+      pageLoader: (request) {
+        if (request.view == 'sequence') {
+          return ++sequenceReads == 1 ? oldSequence.future : newSequence.future;
+        }
+        ordersAccounts.add(AppSession.instance.profile!.ref);
+        return _runtimeOrdersPage();
+      },
+      liveLoader: (_) => live(),
+      scopeReader: currentAdminSequenceWarmScope,
+    );
+    AdminSequenceWarmStore.debugOverride = admin;
+    session(UserRole.admin, ['admin.access'], ref: 'old-admin');
+    await tester
+        .pumpWidget(const ProductionQueueWarmRuntime(child: SizedBox()));
+    await tester.pumpAndSettle();
+    final oldScope = currentAdminSequenceWarmScope();
+    session(UserRole.admin, ['admin.access'], ref: 'new-admin');
+    await tester.pumpAndSettle();
+    expect(sequenceReads, 2);
+    oldSequence.complete(_runtimeSequencePage());
+    await tester.pumpAndSettle();
+    expect(ordersAccounts, isEmpty);
+    expect(admin.peek(oldScope), isNull);
+    newSequence.complete(_runtimeSequencePage());
+    await tester.pumpAndSettle();
+    expect(ordersAccounts, ['new-admin']);
+    expect(admin.peekOrders(currentAdminSequenceWarmScope()), isNotNull);
+    await tester.pumpWidget(const SizedBox());
   });
 }

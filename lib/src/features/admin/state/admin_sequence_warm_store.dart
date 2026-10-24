@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
+
 import '../../../core/api/mobile_api.dart';
 import '../../../core/production/production_data_revision.dart';
 import '../../../core/session/session_read_scope.dart';
@@ -85,7 +87,8 @@ class AdminSequenceWarmLease {
 /// After the selected sequence is ready, one compact Orders prefix is prepared
 /// without delaying sequence readiness. Neither preload resolves image URLs or
 /// reads details/following pages. Only the sequence has a background live window;
-/// timers reconnect sockets only, with no recurring HTTP refresh or polling.
+/// Transient reads have a bounded retry budget; there is no recurring HTTP
+/// refresh or polling after that preparation finishes.
 class AdminSequenceWarmStore {
   AdminSequenceWarmStore({
     Future<List<AdminApparatus>> Function()? apparatusLoader,
@@ -93,6 +96,7 @@ class AdminSequenceWarmStore {
     AdminProductionOrderPageLoader? pageLoader,
     AdminSequenceWarmLiveLoader? liveLoader,
     Duration Function(int attempt)? reconnectDelay,
+    this.readRetryDelay = const Duration(milliseconds: 250),
     String Function()? scopeReader,
     this.firstMessageTimeout = const Duration(seconds: 10),
   })  : _apparatusLoader = apparatusLoader ??
@@ -120,6 +124,7 @@ class AdminSequenceWarmStore {
   final Duration Function(int attempt) _reconnectDelay;
   final String Function()? _scopeReader;
   final Duration firstMessageTimeout;
+  final Duration readRetryDelay;
 
   String? _scope;
   String? _profileRef;
@@ -129,6 +134,7 @@ class AdminSequenceWarmStore {
   bool _disposed = false;
   bool _authorizationBlocked = false;
   int _generation = 0;
+  final Set<Completer<void>> _activeReadCancellations = {};
   int _snapshotSerial = 0;
   int _leaseSerial = 0;
   final Set<int> _leases = {};
@@ -137,7 +143,7 @@ class AdminSequenceWarmStore {
   AdminProductionOrderPage? _ordersPage;
   Future<AdminProductionOrderPage?>? _preparingOrders;
   int _ordersSerial = 0;
-  bool _ordersAutoAttempted = false;
+  final Map<Completer<void>, Timer> _readRetryWaits = {};
   final Set<String> _retiredOrdersEpochs = {};
   StreamSubscription<AdminProductionMapLiveMessage>? _subscription;
   Timer? _reconnectTimer;
@@ -171,6 +177,8 @@ class AdminSequenceWarmStore {
     final resumed = foreground && !_foreground;
     if (changed) {
       _generation++;
+      _endReadGeneration();
+      _cancelReadRetries();
       _snapshotSerial++;
       _stopLive();
       _scope = nextScope;
@@ -217,7 +225,6 @@ class AdminSequenceWarmStore {
     final pending = _preparingOrders;
     if (pending != null) return pending;
     if (!_foreground) return Future.value();
-    _ordersAutoAttempted = true;
     late final Future<AdminProductionOrderPage?> future;
     future = _readOrders(_generation, _ordersSerial).whenComplete(() {
       if (identical(_preparingOrders, future)) _preparingOrders = null;
@@ -245,7 +252,6 @@ class AdminSequenceWarmStore {
       _retiredOrdersEpochs.add(current.epoch);
     }
     _ordersSerial++;
-    _ordersAutoAttempted = true;
     _ordersPage = page;
   }
 
@@ -258,17 +264,22 @@ class AdminSequenceWarmStore {
   Future<AdminProductionOrderPage?> _readOrders(
       int generation, int serial) async {
     try {
-      final page = await _pageLoader(
-          const AdminProductionOrderPageRequest(view: 'orders'));
+      final page = await _readWithRetry(generation, () async {
+        final page = await _pageLoader(
+            const AdminProductionOrderPageRequest(view: 'orders'));
+        if (page == null || !_validOrdersPage(page)) {
+          throw const MobileApiException(
+              code: 'order_page_invalid',
+              message: 'Buyurtmalar sahifasi noto‘g‘ri. Qayta yuklang.');
+        }
+        return page;
+      }, isCurrent: () => serial == _ordersSerial);
       if (!_owns(generation)) return null;
       if (serial != _ordersSerial) return _ordersPage;
-      if (page == null || !_validOrdersPage(page)) {
-        throw const MobileApiException(
-            code: 'order_page_invalid',
-            message: 'Buyurtmalar sahifasi noto‘g‘ri. Qayta yuklang.');
-      }
+      if (page == null) return null;
       if (_retiredOrdersEpochs.contains(page.epoch)) return _ordersPage;
       _ordersPage = page;
+      _lastError = null;
       return page;
     } catch (error) {
       if (!_owns(generation)) return null;
@@ -282,7 +293,8 @@ class AdminSequenceWarmStore {
     if (!_owns(_generation) ||
         !_foreground ||
         _snapshot == null ||
-        _ordersAutoAttempted) {
+        _ordersPage != null ||
+        _preparingOrders != null) {
       return;
     }
     // Attaching the observer immediately keeps a failed speculative request
@@ -296,7 +308,6 @@ class AdminSequenceWarmStore {
     _ordersSerial++;
     _ordersPage = null;
     _preparingOrders = null;
-    _ordersAutoAttempted = false;
     _retiredOrdersEpochs.clear();
   }
 
@@ -336,8 +347,8 @@ class AdminSequenceWarmStore {
     final catalog = _knownApparatus == null
         ? _readCatalog(generation)
         : Future<List<AdminApparatus>?>.value(_knownApparatus);
-    final speculative = selected.then(
-        (id) => id == null || id.isEmpty ? null : _readFirst(id, generation));
+    final speculative = selected.then((id) =>
+        id == null || id.isEmpty ? null : _readFirst(id, generation, serial));
     final apparatus = await catalog;
     final selectedId = await selected;
     if (!_owns(generation)) return null;
@@ -347,7 +358,7 @@ class AdminSequenceWarmStore {
     final target = remembered ?? apparatus.first;
     final page = target.id == selectedId
         ? await speculative
-        : await _readFirst(target.id, generation);
+        : await _readFirst(target.id, generation, serial);
     if (!_owns(generation)) return null;
     // A screen may have returned a newer canonical page while this read ran.
     if (serial != _snapshotSerial) return _snapshot;
@@ -378,14 +389,16 @@ class AdminSequenceWarmStore {
 
   Future<List<AdminApparatus>?> _readCatalog(int generation) async {
     try {
-      final apparatus = await _apparatusLoader();
-      if (!_owns(generation)) return null;
-      if (apparatus.length > 200 ||
-          apparatus.any((item) => item.id.trim().isEmpty) ||
-          apparatus.map((item) => item.id).toSet().length != apparatus.length) {
-        throw StateError('Invalid warm apparatus catalog');
-      }
-      return List.unmodifiable(apparatus);
+      return await _readWithRetry(generation, () async {
+        final apparatus = await _apparatusLoader();
+        if (apparatus.length > 200 ||
+            apparatus.any((item) => item.id.trim().isEmpty) ||
+            apparatus.map((item) => item.id).toSet().length !=
+                apparatus.length) {
+          throw StateError('Invalid warm apparatus catalog');
+        }
+        return List<AdminApparatus>.unmodifiable(apparatus);
+      });
     } catch (error) {
       _recordReadError(generation, error);
       return null;
@@ -393,19 +406,97 @@ class AdminSequenceWarmStore {
   }
 
   Future<AdminProductionOrderPage?> _readFirst(
-      String apparatus, int generation) async {
+      String apparatus, int generation, int serial) async {
     if (!_owns(generation)) return null;
     try {
-      final page = await _pageLoader(AdminProductionOrderPageRequest(
-          view: 'sequence', apparatus: apparatus));
-      if (!_owns(generation)) return null;
-      if (page == null || !_validFirstPage(page)) {
-        throw StateError('Invalid warm sequence page');
-      }
-      return page;
+      return await _readWithRetry(generation, () async {
+        final page = await _pageLoader(AdminProductionOrderPageRequest(
+            view: 'sequence', apparatus: apparatus));
+        if (page == null || !_validFirstPage(page)) {
+          throw StateError('Invalid warm sequence page');
+        }
+        return page;
+      }, isCurrent: () => serial == _snapshotSerial);
     } catch (error) {
       _recordReadError(generation, error);
       return null;
+    }
+  }
+
+  /// One preparation gets at most three attempts, shared by all its callers.
+  /// Only transient failures qualify. A new foreground transition or explicit
+  /// navigation can start another preparation after the budget is exhausted.
+  Future<T?> _readWithRetry<T>(int generation, Future<T> Function() read,
+      {bool Function()? isCurrent}) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (!_owns(generation) ||
+          !_foreground ||
+          (isCurrent != null && !isCurrent())) {
+        return null;
+      }
+      try {
+        // Retiring a session must release callers immediately, even if its
+        // old HTTP transport takes longer to finish. Future.any observes late
+        // errors too; ownership below still fences every eventual response.
+        final canceled = Completer<void>();
+        _activeReadCancellations.add(canceled);
+        final T? value;
+        try {
+          value = await Future.any<T?>([
+            read(),
+            canceled.future.then<T?>((_) => null),
+          ]);
+        } finally {
+          _activeReadCancellations.remove(canceled);
+          if (!canceled.isCompleted) canceled.complete();
+        }
+        return _owns(generation) && (isCurrent == null || isCurrent())
+            ? value
+            : null;
+      } catch (error) {
+        if (!_owns(generation) || (isCurrent != null && !isCurrent())) {
+          return null;
+        }
+        if (!_foreground || attempt == 2 || !_isTransientReadError(error)) {
+          rethrow;
+        }
+        final ready = Completer<void>();
+        final timer = Timer(readRetryDelay * (attempt + 1), ready.complete);
+        _readRetryWaits[ready] = timer;
+        try {
+          await ready.future;
+        } finally {
+          _readRetryWaits.remove(ready)?.cancel();
+        }
+      }
+    }
+    return null;
+  }
+
+  static bool _isTransientReadError(Object error) =>
+      !_isAuthorizationError(error) &&
+      (error is TimeoutException ||
+          error is http.ClientException ||
+          (error is MobileApiException &&
+              (error.code == 'order_page_changed' ||
+                  error.statusCode == 408 ||
+                  error.statusCode == 429 ||
+                  (error.statusCode ?? 0) >= 500)));
+
+  void _endReadGeneration() {
+    final reads = _activeReadCancellations.toList();
+    _activeReadCancellations.clear();
+    for (final read in reads) {
+      if (!read.isCompleted) read.complete();
+    }
+  }
+
+  void _cancelReadRetries() {
+    final waits = Map.of(_readRetryWaits);
+    _readRetryWaits.clear();
+    for (final entry in waits.entries) {
+      entry.value.cancel();
+      if (!entry.key.isCompleted) entry.key.complete();
     }
   }
 
@@ -582,7 +673,7 @@ class AdminSequenceWarmStore {
     }
   }
 
-  /// One HTTP repair is allowed between validated stream baselines. A broken
+  /// One bounded repair is allowed between validated stream baselines. A broken
   /// server cannot turn repeated resync frames into an HTTP polling loop.
   Future<void> _repair(int streamGeneration) async {
     if (streamGeneration != _streamGeneration || !_mayStream) return;
@@ -596,7 +687,8 @@ class AdminSequenceWarmStore {
     final generation = _generation;
     final serial = _snapshotSerial;
     final before = _snapshot!;
-    final page = await _readFirst(before.selectedApparatusId, generation);
+    final page =
+        await _readFirst(before.selectedApparatusId, generation, serial);
     if (!_owns(generation) || serial != _snapshotSerial) return;
     if (page != null) {
       _snapshot = before._copy(page: page, fresh: false);
@@ -645,6 +737,8 @@ class AdminSequenceWarmStore {
     _lastError = error;
     if (_isAuthorizationError(error)) {
       _authorizationBlocked = true;
+      _endReadGeneration();
+      _cancelReadRetries();
       _snapshotSerial++;
       _snapshot = null;
       _knownApparatus = null;
@@ -661,6 +755,8 @@ class AdminSequenceWarmStore {
   void dispose() {
     _disposed = true;
     _generation++;
+    _endReadGeneration();
+    _cancelReadRetries();
     _snapshotSerial++;
     _stopLive();
     _scope = null;

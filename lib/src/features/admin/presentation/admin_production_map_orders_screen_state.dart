@@ -36,6 +36,7 @@ class _AdminProductionMapOrdersScreenState
   bool _adminCacheRestored = false;
   AdminSequenceWarmLease? _adminWarmLease;
   String? _adminWarmScope;
+  String? _adminWarmReadScope;
   bool _adminWarmAdopted = false;
   final Map<String, int> _adminMetricSignatures = {};
   final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
@@ -233,6 +234,9 @@ class _AdminProductionMapOrdersScreenState
     _adminPaging = _adminPagingCandidate;
     _restoreAdminPageCache();
     _claimAdminWarmSequence();
+    if (_adminWarmReadScope != null) {
+      AppSession.instance.revision.addListener(_syncAdminWarmSession);
+    }
     WidgetsBinding.instance.addObserver(this);
     if (!_adminPaging && !widget.workerMode && !widget.supplyViewerMode && !widget.readOnly) {
       unawaited(_refreshPendingOrders());
@@ -275,6 +279,7 @@ class _AdminProductionMapOrdersScreenState
 
   @override
   void dispose() {
+    AppSession.instance.revision.removeListener(_syncAdminWarmSession);
     _releaseAdminWarmSequence();
     _releaseWorkerWarmQueue();
     _flushCanonicalCache();
@@ -323,6 +328,7 @@ class _AdminProductionMapOrdersScreenState
     if (_adminPaging) {
       _adminForeground = state == AppLifecycleState.resumed;
       if (_adminForeground) {
+        _syncAdminWarmSession();
         unawaited(_restartAdminPagedLive());
         _startAdminNotifications();
         unawaited(_ensureAdminModule(_module, refresh: _adminLiveDescriptors().isEmpty));

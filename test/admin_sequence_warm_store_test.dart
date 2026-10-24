@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/features/admin/models/production_map_models
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_warm_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 const _apparatus = [
   AdminApparatus(id: 'a', name: 'Apparatus A'),
@@ -101,6 +102,7 @@ class _Harness {
     AdminProductionOrderPageLoader? loadPage,
     AdminProductionOrderPageLoader? loadOrders,
     Duration reconnectDelay = const Duration(milliseconds: 10),
+    Duration readRetryDelay = Duration.zero,
     String Function()? scopeReader,
   }) {
     store = AdminSequenceWarmStore(
@@ -123,6 +125,7 @@ class _Harness {
         return controller.stream;
       },
       reconnectDelay: (_) => reconnectDelay,
+      readRetryDelay: readRetryDelay,
       scopeReader: scopeReader,
     );
   }
@@ -388,8 +391,9 @@ void main() {
     harness.store.configure(scope: 'new', foreground: true);
     final current = await harness.store.prepare('new');
     expect(current!.page.revision, 9);
-    oldResponse.complete(await _page());
+    // Retiring the generation releases the caller before old HTTP finishes.
     expect(await old, isNull);
+    oldResponse.complete(await _page());
     expect(harness.store.peek('old'), isNull);
     oldLease.release(
         apparatus: _apparatus,
@@ -773,10 +777,10 @@ void main() {
     harness.store.configure(scope: 'scope', foreground: false);
     harness.store.configure(scope: 'scope', foreground: true);
     await _settle();
-    expect(harness.ordersRequests, hasLength(1));
+    expect(harness.ordersRequests, hasLength(2));
   });
 
-  test('failed automatic Orders read never schedules HTTP retries', () async {
+  test('nontransient Orders failure does not schedule HTTP retries', () async {
     var fail = true;
     final harness = _Harness(loadOrders: (_) async {
       if (fail) throw StateError('Orders offline');
@@ -795,6 +799,156 @@ void main() {
     fail = false;
     expect((await harness.store.prepareOrders('scope'))!.isOrdersList, isTrue);
     expect(harness.ordersRequests, hasLength(2));
+  });
+
+  test('transient Orders failures recover within the shared bounded read',
+      () async {
+    for (final failure in [
+      TimeoutException('offline'),
+      http.ClientException('offline'),
+      const MobileApiException(
+          code: 'order_page_changed', message: 'changed', statusCode: 409),
+      for (final status in [408, 429, 503])
+        MobileApiException(
+            code: 'temporary', message: 'temporary', statusCode: status),
+    ]) {
+      var reads = 0;
+      final first = Completer<AdminProductionOrderPage?>();
+      final harness = _Harness(loadOrders: (_) {
+        if (++reads == 1) return first.future;
+        return _ordersPage();
+      });
+      addTearDown(harness.close);
+      await harness.start();
+      final pending = harness.store.prepareOrders('scope');
+      expect(identical(pending, harness.store.prepareOrders('scope')), isTrue);
+      first.completeError(failure);
+      expect((await pending)!.isOrdersList, isTrue);
+      expect(harness.requests, hasLength(1));
+      expect(harness.ordersRequests, hasLength(2));
+      expect(harness.store.peekOrders('scope'), isNotNull);
+      expect(harness.store.lastError, isNull);
+      await harness.close();
+    }
+  });
+
+  test('exhausted Orders retry budget recovers on resume without polling',
+      () async {
+    var fail = true;
+    final harness = _Harness(loadOrders: (_) async {
+      if (fail) throw TimeoutException('offline');
+      return _ordersPage();
+    });
+    addTearDown(harness.close);
+    await harness.start();
+    await expectLater(
+        harness.store.prepareOrders('scope'), throwsA(isA<TimeoutException>()));
+    expect(harness.ordersRequests, hasLength(3));
+    expect(harness.store.peek('scope'), isNotNull);
+    expect(harness.store.peekOrders('scope'), isNull);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(harness.ordersRequests, hasLength(3));
+    fail = false;
+    harness.store.configure(scope: 'scope', foreground: false);
+    harness.store.configure(scope: 'scope', foreground: true);
+    expect((await harness.store.prepareOrders('scope'))!.isOrdersList, isTrue);
+    expect(harness.ordersRequests, hasLength(4));
+    harness.store.configure(scope: 'scope', foreground: false);
+    harness.store.configure(scope: 'scope', foreground: true);
+    await _settle();
+    expect(harness.requests, hasLength(1));
+    expect(harness.ordersRequests, hasLength(4));
+  });
+
+  test(
+      'transient catalog and sequence failures still chain Orders after success',
+      () async {
+    var catalogs = 0;
+    var sequences = 0;
+    final harness = _Harness(catalog: () async {
+      if (++catalogs == 1) throw http.ClientException('offline');
+      return _apparatus;
+    }, loadPage: (_) async {
+      if (++sequences == 1) {
+        throw const MobileApiException(
+            code: 'order_page_changed', message: 'changed', statusCode: 409);
+      }
+      return _page();
+    });
+    addTearDown(harness.close);
+    expect((await harness.start()).selectedApparatusId, 'a');
+    await _settle();
+    expect(catalogs, 2);
+    expect(harness.requests, hasLength(2));
+    expect(harness.ordersRequests, hasLength(1));
+    expect(harness.store.peekOrders('scope'), isNotNull);
+  });
+
+  test('exhausted sequence retries never start Orders before recovery',
+      () async {
+    var fail = true;
+    final harness = _Harness(loadPage: (_) async {
+      if (fail) throw TimeoutException('offline');
+      return _page();
+    });
+    addTearDown(harness.close);
+    harness.store.configure(scope: 'scope', foreground: true);
+    expect(await harness.store.prepare('scope'), isNull);
+    expect(harness.requests, hasLength(3));
+    expect(harness.ordersRequests, isEmpty);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(harness.requests, hasLength(3));
+    fail = false;
+    harness.store.configure(scope: 'scope', foreground: false);
+    harness.store.configure(scope: 'scope', foreground: true);
+    expect(await harness.store.prepare('scope'), isNotNull);
+    await _settle();
+    expect(harness.requests, hasLength(4));
+    expect(harness.ordersRequests, hasLength(1));
+  });
+
+  test(
+      'pause during Orders backoff starts no hidden retries and resumes safely',
+      () async {
+    var reads = 0;
+    final harness = _Harness(
+      readRetryDelay: const Duration(milliseconds: 20),
+      loadOrders: (_) async {
+        if (++reads == 1) throw TimeoutException('offline');
+        return _ordersPage();
+      },
+    );
+    addTearDown(harness.close);
+    await harness.start();
+    final pending = harness.store.prepareOrders('scope');
+    await _settle();
+    harness.store.configure(scope: 'scope', foreground: false);
+    expect(await pending, isNull);
+    expect(harness.ordersRequests, hasLength(1));
+    harness.store.configure(scope: 'scope', foreground: true);
+    expect((await harness.store.prepareOrders('scope'))!.isOrdersList, isTrue);
+    expect(harness.ordersRequests, hasLength(2));
+  });
+
+  test('scope change cancels old Orders backoff before the next request',
+      () async {
+    var reads = 0;
+    final harness = _Harness(
+      readRetryDelay: const Duration(seconds: 30),
+      loadOrders: (_) async {
+        if (++reads == 1) throw TimeoutException('offline');
+        return _ordersPage(revision: 9);
+      },
+    );
+    addTearDown(harness.close);
+    await harness.start(scope: 'old');
+    final old = harness.store.prepareOrders('old');
+    await _settle();
+    await harness.start(scope: 'new');
+    expect(await old, isNull);
+    expect((await harness.store.prepareOrders('new'))!.revision, 9);
+    expect(harness.ordersRequests, hasLength(2));
+    expect(harness.store.peekOrders('old'), isNull);
   });
 
   test('pause defers hidden Orders work until a later foreground transition',
@@ -829,8 +983,9 @@ void main() {
     final old = harness.store.prepareOrders('old');
     await harness.start(scope: 'new');
     expect((await harness.store.prepareOrders('new'))!.revision, 9);
-    oldOrders.complete(await _ordersPage());
     expect(await old, isNull);
+    oldOrders.completeError(StateError('Late old-account transport failure'));
+    await _settle();
     expect(harness.store.peekOrders('old'), isNull);
     expect(harness.store.peekOrders('new')!.revision, 9);
     harness.store.configure(scope: null, foreground: false);
@@ -892,7 +1047,9 @@ void main() {
         wireValue: const {'projection': adminOrdersListProjection},
       ),
     ]) {
-      final harness = _Harness(loadOrders: (_) async => invalid);
+      final sequence = Completer<AdminProductionOrderPage?>();
+      final harness = _Harness(
+          loadPage: (_) => sequence.future, loadOrders: (_) async => invalid);
       addTearDown(harness.close);
       // Foreground demand runs before sequence can start the automatic read.
       harness.store.configure(scope: 'scope', foreground: true);
@@ -901,8 +1058,11 @@ void main() {
       expect(harness.store.peekOrders('scope'), isNull);
       harness.store.rememberOrders('scope', invalid);
       expect(harness.store.peekOrders('scope'), isNull);
+      sequence.complete(await _page());
       await harness.store.prepare('scope');
-      expect(harness.ordersRequests, hasLength(1));
+      // Sequence readiness is a new preparation trigger after this explicit
+      // invalid read, but neither invalid response consumes transient retries.
+      expect(harness.ordersRequests, hasLength(2));
     }
   });
 

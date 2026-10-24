@@ -13,6 +13,7 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
                 widget.apparatusLoader != null ||
                 widget.liveEventsLoader != null))) return;
     final scope = currentAdminSequenceWarmScope();
+    _adminWarmReadScope = currentSessionReadScope();
     _adminWarmScope = scope;
     _sequenceWarmStore.configure(
       scope: scope,
@@ -22,6 +23,39 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
     final ready = _sequenceWarmStore.peek(scope);
     _adminWarmLease = _sequenceWarmStore.acquire(scope);
     if (ready != null) _adoptAdminWarmSequence(ready);
+  }
+
+  void _syncAdminWarmSession() {
+    if (!mounted || _adminWarmReadScope == null) return;
+    if (!AppSession.instance.isLoggedIn ||
+        _adminWarmReadScope != currentSessionReadScope()) {
+      _adminWarmLease?.release();
+      _adminWarmLease = null;
+      _adminWarmScope = null;
+      return;
+    }
+    if (!_adminForeground) return;
+    final scope = currentAdminSequenceWarmScope();
+    if (scope == _adminWarmScope) return;
+    final previous = _adminWarmLease;
+    _adminWarmScope = scope;
+    _sequenceWarmStore.configure(
+      scope: scope,
+      profileRef: AppSession.instance.profile?.ref,
+      foreground: _adminForeground,
+    );
+    // Configure retires the old generation before releasing its lease, so it
+    // cannot restart an old background socket while this screen is active.
+    previous?.release();
+    _adminWarmLease = _sequenceWarmStore.acquire(scope);
+    scheduleMicrotask(() {
+      if (mounted &&
+          _adminForeground &&
+          _adminWarmScope == scope &&
+          _adminWarmReadScope == currentSessionReadScope()) {
+        unawaited(_ensureAdminModule(_module));
+      }
+    });
   }
 
   bool _adoptAdminWarmSequence(AdminSequenceWarmSnapshot ready) {
