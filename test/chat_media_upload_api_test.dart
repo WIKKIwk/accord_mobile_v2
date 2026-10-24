@@ -16,6 +16,54 @@ void main() {
     AppSession.instance.token = null;
   });
 
+  test('cleartext media instructions fail before sending or consuming content',
+      () async {
+    var sent = false;
+    var consumed = false;
+    final client = MockClient((request) async {
+      sent = true;
+      return http.Response('', 200);
+    });
+    addTearDown(client.close);
+    final content = Stream<List<int>>.multi((controller) {
+      consumed = true;
+      controller.add([1, 2, 3, 4]);
+      controller.close();
+    });
+    const instruction = ChatMediaUploadInstruction(
+      strategy: 'local_proxy',
+      method: 'PUT',
+      url: 'http://erp.example.com/upload/{chunk_index}',
+      headers: {},
+      expiresAtUnix: 100,
+    );
+    await expectLater(
+        MobileApi.instance.chatUploadMedia(
+          instruction: instruction,
+          content: content,
+          sizeBytes: 4,
+          onProgress: (_) {},
+          client: client,
+        ),
+        throwsA(isA<http.ClientException>()));
+    await expectLater(
+        MobileApi.instance.chatUploadMediaChunk(
+          instruction: instruction,
+          bounds: const ChatMediaChunkBounds(
+            index: 0,
+            startByte: 0,
+            endByteExclusive: 4,
+            totalSizeBytes: 4,
+          ),
+          content: content,
+          onProgress: (_) {},
+          client: client,
+        ),
+        throwsA(isA<http.ClientException>()));
+    expect(sent, isFalse);
+    expect(consumed, isFalse);
+  });
+
   test('chunk upload sends exact range and reports aggregate-ready media',
       () async {
     final progress = <double>[];

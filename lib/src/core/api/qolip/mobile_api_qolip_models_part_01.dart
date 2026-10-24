@@ -2,6 +2,9 @@
 part of '../mobile_api.dart';
 
 void resetMobileApiQolipTestModeData() {
+  _testModeQolipReworks.clear();
+  _testModeQolipReworkRequests.clear();
+  _testModeQolipMileage.clear();
   _testModeQolipTransfers.clear();
   _testModeQolipSetLinks.clear();
   _testModeManagedSets.clear();
@@ -37,6 +40,17 @@ String qolipErrorMessage(
   };
   if (sharedKey != null && l10n != null)
     return l10n.qolipSharedSetText(sharedKey);
+  if (l10n != null && code == 'qolip_in_rework') {
+    return l10n.qolipReworkText('already_away');
+  }
+  if (l10n != null && code == 'session_scope_changed') {
+    return l10n.qolipReworkText('session_changed');
+  }
+  if (l10n != null && const {
+    'qolip_rework_conflict', 'qolip_rework_request_conflict',
+  }.contains(code)) {
+    return l10n.qolipReworkText('conflict');
+  }
   if (code == 'color_required') {
     return l10n?.qolipManagementText('color_required') ?? 'Rangni tanlang';
   }

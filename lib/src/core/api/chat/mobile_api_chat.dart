@@ -178,7 +178,11 @@ extension MobileApiChat on MobileApi {
     http.Client? client,
   }) async {
     final uri = Uri.parse(MobileApi.baseUrl).resolve(instruction.url);
-    final request = http.StreamedRequest(instruction.method, uri);
+    if (!allowsApiTransport(uri)) {
+      throw http.ClientException('API uploads require HTTPS', uri);
+    }
+    final request = http.StreamedRequest(instruction.method, uri)
+      ..followRedirects = false;
     request.contentLength = sizeBytes;
     request.headers.addAll(instruction.headers);
     if (instruction.strategy == 'local_proxy') {
@@ -192,7 +196,9 @@ extension MobileApiChat on MobileApi {
       );
       return chunk;
     });
-    final activeClient = client ?? http.Client();
+    final activeClient = client == null
+        ? createMobileHttpClient()
+        : SecureMobileApiClient(client);
     try {
       final responseFuture = activeClient.send(request);
       await request.sink.addStream(tracked);
@@ -216,7 +222,11 @@ extension MobileApiChat on MobileApi {
     final uri = Uri.parse(
       MobileApi.baseUrl,
     ).resolve(instruction.urlForChunk(bounds.index));
-    final request = http.StreamedRequest(instruction.method, uri);
+    if (!allowsApiTransport(uri)) {
+      throw http.ClientException('API uploads require HTTPS', uri);
+    }
+    final request = http.StreamedRequest(instruction.method, uri)
+      ..followRedirects = false;
     request.contentLength = bounds.sizeBytes;
     request.headers
       ..addAll(instruction.headers)
@@ -232,7 +242,9 @@ extension MobileApiChat on MobileApi {
       );
       return chunk;
     });
-    final activeClient = client ?? http.Client();
+    final activeClient = client == null
+        ? createMobileHttpClient()
+        : SecureMobileApiClient(client);
     try {
       final responseFuture = activeClient.send(request);
       await request.sink.addStream(tracked);

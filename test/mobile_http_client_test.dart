@@ -110,6 +110,69 @@ void main() {
     expect(config, contains('target: $devApiProxyTarget/'));
     expect(config, contains('replace: /'));
   });
+
+  test('API client rejects cleartext before sending credentials', () async {
+    var sent = false;
+    final client = SecureMobileApiClient(MockClient((request) async {
+      sent = true;
+      return http.Response('', 200);
+    }));
+    addTearDown(client.close);
+    await expectLater(
+        client.post(
+          Uri.parse('http://erp.example.com/v1/mobile/auth/login'),
+          body: '{"phone":"synthetic","code":"synthetic"}',
+        ),
+        throwsA(isA<http.ClientException>()));
+    expect(sent, isFalse);
+  });
+
+  test('API client refuses an HTTPS to HTTP redirect without sending the token',
+      () async {
+    var requests = 0;
+    final client = SecureMobileApiClient(MockClient((request) async {
+      requests++;
+      expect(request.url.scheme, 'https');
+      expect(request.followRedirects, isFalse);
+      return http.Response('', 302, headers: {
+        'location': 'http://erp.example.com/v1/mobile/me',
+      });
+    }));
+    addTearDown(client.close);
+    await expectLater(
+        client.get(
+          Uri.parse('https://erp.example.com/v1/mobile/me'),
+          headers: {'Authorization': 'Bearer synthetic-token'},
+        ),
+        throwsA(isA<http.ClientException>()));
+    expect(requests, 1);
+  });
+
+  test('HTTPS media redirects retain access without forwarding API credentials',
+      () async {
+    var requests = 0;
+    final client = SecureMobileApiClient(MockClient((request) async {
+      expect(request.followRedirects, isFalse);
+      requests++;
+      if (requests == 1) {
+        expect(request.headers['Authorization'], 'Bearer synthetic-token');
+        return http.Response('', 302, headers: {
+          'location': 'https://media.example.com/signed-media',
+        });
+      }
+      expect(request.url.host, 'media.example.com');
+      expect(request.headers.keys.map((key) => key.toLowerCase()),
+          isNot(contains('authorization')));
+      return http.Response('synthetic-media', 200);
+    }));
+    addTearDown(client.close);
+    final response = await client.get(
+      Uri.parse('https://erp.example.com/v1/mobile/chat/media/id/content'),
+      headers: {'Authorization': 'Bearer synthetic-token'},
+    );
+    expect(response.body, 'synthetic-media');
+    expect(requests, 2);
+  });
 }
 
 class _InspectingClient extends http.BaseClient {

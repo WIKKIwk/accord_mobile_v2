@@ -77,6 +77,9 @@ final normalizedApparatusId = apparatus.trim();
     }
     final issueFreezeRequested = action == 'freeze' && freezeWithIssue;
     if (await TestModeController.instance.isEnabled()) {
+      if (action == 'start' || action == 'resume') {
+        await _requireTestModeOrderQolipsAvailable(orderId);
+      }
       if (outputPaddonCode.trim().isNotEmpty) {
         throw const MobileApiException(code: 'paddon_invalid_input',
             message: 'Paddonga avtomatik qo‘shish ERP ulanishini talab qiladi');

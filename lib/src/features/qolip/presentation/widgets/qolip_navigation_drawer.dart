@@ -86,6 +86,12 @@ class QolipNavigationDrawer extends StatelessWidget {
           label: l10n.qolipManagementText('title'),
           routeName: AppRoutes.qolipSets,
         ),
+        RoleNavigationDrawerDestination(
+          icon: Icons.build_outlined,
+          selectedIcon: Icons.build_rounded,
+          label: l10n.qolipReworkText('title'),
+          routeName: AppRoutes.qolipReworks,
+        ),
       ],
     );
   }

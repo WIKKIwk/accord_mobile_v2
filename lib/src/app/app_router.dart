@@ -70,6 +70,7 @@ import '../features/qolip/presentation/qolip_location_transfer_screen.dart';
 import '../features/qolip/presentation/qolip_product_transfer_screen.dart';
 import '../features/qolip/presentation/qolip_products_screen.dart';
 import '../features/qolip/presentation/qolip_sets_screen.dart';
+import '../features/qolip/presentation/qolip_reworks_screen.dart';
 import '../features/rezka/presentation/rezka_split_screen.dart';
 import '../features/shared/models/app_models.dart';
 import '../features/shared/presentation/pin_setup_confirm_screen.dart';

@@ -157,6 +157,7 @@ class _QolipProductContainerCard extends StatelessWidget {
     required this.qolipSelectionMode,
     required this.selectedContainer,
     required this.selectedQolipCodes,
+    required this.reworkCodes,
     required this.sharing,
     required this.onShare,
     required this.onToggle,
@@ -179,6 +180,7 @@ class _QolipProductContainerCard extends StatelessWidget {
   final bool qolipSelectionMode;
   final bool selectedContainer;
   final Set<String> selectedQolipCodes;
+  final Set<String> reworkCodes;
   final bool sharing;
   final ValueChanged<BuildContext>? onShare;
   final VoidCallback onToggle;
@@ -197,6 +199,8 @@ class _QolipProductContainerCard extends StatelessWidget {
     final selectionDisabled = container.hasInUseQolip;
     final sets = container.qolipSets;
     final hasDetails = container.children.isNotEmpty;
+    final reworkCount = container.children.where((row) =>
+        reworkCodes.contains(row.qolipCode.trim().toLowerCase())).length;
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -276,6 +280,11 @@ class _QolipProductContainerCard extends StatelessWidget {
                                           height: 1.05,
                                         ),
                                   ),
+                                  if (reworkCount > 0)
+                                    Text(l10n.qolipReworkText('in_rework_count',
+                                        values: {'count': reworkCount}),
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: scheme.error)),
                                 ],
                               ],
                             ),
@@ -430,6 +439,8 @@ class _QolipProductContainerCard extends StatelessWidget {
                                               14, 9, 14, 0),
                                           child: QolipCodeRow(
                                             product: child,
+                                            isInRework: reworkCodes.contains(
+                                                child.qolipCode.trim().toLowerCase()),
                                             selectionMode: qolipSelectionMode,
                                             selected:
                                                 selectedQolipCodes.contains(
@@ -441,7 +452,8 @@ class _QolipProductContainerCard extends StatelessWidget {
                                             onCodeTap: () => qolipSelectionMode
                                                 ? onToggleQolip(child)
                                                 : onCopyCode(child),
-                                            onLongPress: child.isInUse
+                                            onLongPress: child.isInUse || reworkCodes.contains(
+                                                child.qolipCode.trim().toLowerCase())
                                                 ? () {}
                                                 : () => onToggleQolip(child),
                                             onEdit: () => onEditQolip(child),
@@ -486,6 +498,7 @@ class QolipCodeRow extends StatelessWidget {
     required this.onLongPress,
     required this.onEdit,
     this.trailing,
+    this.isInRework = false,
   });
 
   final QolipProduct product;
@@ -496,6 +509,7 @@ class QolipCodeRow extends StatelessWidget {
   final VoidCallback? onLongPress;
   final VoidCallback onEdit;
   final Widget? trailing;
+  final bool isInRework;
 
   @override
   Widget build(BuildContext context) {
@@ -509,7 +523,7 @@ class QolipCodeRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? scheme.secondaryContainer
-              : product.isInUse
+              : product.isInUse || isInRework
                   ? scheme.surfaceContainerHighest.withValues(alpha: 0.55)
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -526,7 +540,7 @@ class QolipCodeRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Icon(
-                    product.isInUse
+                    isInRework ? Icons.build_outlined : product.isInUse
                         ? Icons.lock_outline_rounded
                         : Icons.qr_code_2_rounded,
                     size: 17,
@@ -586,7 +600,7 @@ class QolipCodeRow extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      product.isInUse
+                      isInRework ? l10n.qolipReworkText('open') : product.isInUse
                           ? l10n.qolipText('products.issued')
                           : product.qolipSize > 0
                               ? l10n.qolipText(
@@ -606,9 +620,9 @@ class QolipCodeRow extends StatelessWidget {
               else if (selectionMode)
                 Checkbox(
                   value: selected,
-                  onChanged: product.isInUse ? null : (_) => onTap(),
+                  onChanged: product.isInUse || isInRework ? null : (_) => onTap(),
                 )
-              else if (!product.isInUse)
+              else if (!product.isInUse && !isInRework)
                 IconButton(
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit_outlined, size: 18),

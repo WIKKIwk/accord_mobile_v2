@@ -3,6 +3,9 @@ part of 'app_localizations.dart';
 
 extension AppLocalizationsAstPart02 on AppLocalizations {
   String qolipErrorText(String code, {String fallback = ''}) {
+    if (code.trim().toLowerCase() == 'qolip_history_locked') {
+      return qolipReworkText('history_locked');
+    }
     final key = switch (code.trim().toLowerCase()) {
       'insufficient_stock' => 'qolip.error.insufficient_stock',
       'location_not_found' => 'qolip.error.location_not_found',
@@ -37,6 +40,9 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
     String code, {
     String fallback = '',
   }) {
+    if (code.trim().toLowerCase() == 'qolip_in_rework') {
+      return qolipReworkText('order_unavailable');
+    }
     final key = switch (code.trim().toLowerCase()) {
       'apparatus_busy' => 'worker.waiting.apparatus_busy',
       'print_preflight_active' => 'worker.waiting.print_preflight_active',

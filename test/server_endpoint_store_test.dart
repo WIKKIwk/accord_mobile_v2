@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
+import 'package:accord_mobile_v2/src/core/network/api_transport_policy.dart';
+import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -44,6 +48,65 @@ void main() {
     expect(
         prefs.getString('active_server_endpoint'), 'https://erp.example.com');
     expect(MobileApi.baseUrl, 'https://erp.example.com');
+  });
+
+  test('rejects cleartext public and LAN API origins', () async {
+    for (final endpoint in [
+      'http://erp.example.com',
+      'http://192.168.1.10:8081',
+      'http://10.0.0.1:8081',
+      'http://localhost.evil.example',
+    ]) {
+      expect(ServerEndpointStore.normalize(endpoint), isNull);
+      await expectLater(ServerEndpointStore.instance.setBaseUrl(endpoint),
+          throwsFormatException);
+    }
+  });
+
+  test('release transport rejects HTTP even on loopback', () {
+    for (final endpoint in [
+      'http://127.0.0.1:8081',
+      'http://localhost:8081',
+      'http://[::1]:8081',
+    ]) {
+      expect(allowsApiTransport(Uri.parse(endpoint), allowDebugLoopback: false),
+          isFalse);
+    }
+    expect(
+        allowsApiTransport(Uri.parse('https://erp.example.com'),
+            allowDebugLoopback: false),
+        isTrue);
+  });
+
+  test('saved accounts cannot restore a cleartext remote API origin', () {
+    expect(() => SavedAccount.normalizeBaseUrl('http://erp.example.com'),
+        throwsFormatException);
+    expect(SavedAccount.normalizeBaseUrl('https://erp.example.com/'),
+        'https://erp.example.com');
+  });
+
+  test('drops previously saved cleartext origins before restoring a session',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'active_server_endpoint': 'http://erp.example.com',
+      'saved_server_endpoints_v1': jsonEncode([
+        {
+          'base_url': 'http://erp.example.com',
+          'last_used_at': '2026-10-24T00:00:00Z'
+        },
+        {
+          'base_url': 'https://safe.example.com',
+          'last_used_at': '2026-10-24T00:00:00Z'
+        },
+      ]),
+    });
+    final store = ServerEndpointStore.instance;
+    await store.load();
+    expect(store.baseUrl, ServerEndpointStore.compiledBaseUrl);
+    expect(store.savedEndpoints.map((entry) => entry.baseUrl),
+        isNot(contains('http://erp.example.com')));
+    expect(store.savedEndpoints.map((entry) => entry.baseUrl),
+        contains('https://safe.example.com'));
   });
 
   test('persists multiple saved endpoints for quick switching', () async {

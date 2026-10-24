@@ -16,6 +16,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   }
 
   void _openFabAction() {
+    if (_reworking || _deleting || _printing) return;
     final l10n = context.l10n;
     final selected = _selectionMode == _QolipSelectionMode.containers &&
             _selectedContainerKeys.length == 1
@@ -24,6 +25,21 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     showAdminCreateHubSheet(
       context,
       actions: [
+        if (_selectedQolipCodes.isNotEmpty)
+          AdminFabMenuAction(
+            title: l10n.qolipReworkText(
+                _selectionMode == _QolipSelectionMode.containers
+                    ? 'send_sets' : 'send_molds'),
+            icon: Icons.build_outlined,
+            onTap: () => unawaited(_sendSelectionToRework()),
+          ),
+        if (_selectedProducts().map((row) => row.qolipCode.toLowerCase()).toSet().length == 1)
+          AdminFabMenuAction(
+            title: l10n.qolipReworkText('mileage'),
+            icon: Icons.speed_rounded,
+            onTap: () => unawaited(showQolipMileageSheet(
+                context, _selectedProducts().first.qolipCode)),
+          ),
         if (selected != null)
           AdminFabMenuAction(
             title: l10n.qolipText('products.add_alternative'),
@@ -75,9 +91,12 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   }
 
   Future<void> _toggleContainerSelection(QolipProductContainer container) async {
+    if (_reworking) return;
     final generation = _selectionGeneration;
     final resolved = await _ensureDetails(container);
-    if (!mounted || generation != _selectionGeneration || resolved == null || resolved.hasInUseQolip) return;
+    if (!mounted || generation != _selectionGeneration || resolved == null ||
+        resolved.hasInUseQolip || resolved.children.any((row) =>
+            _reworkCodes.contains(row.qolipCode.trim().toLowerCase()))) return;
     container = resolved;
     if (_selectionMode != null &&
         _selectionMode != _QolipSelectionMode.containers) {
@@ -102,7 +121,8 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   }
 
   void _toggleQolipSelection(QolipProduct product) {
-    if (product.isInUse ||
+    if (_reworking || product.isInUse ||
+        _reworkCodes.contains(product.qolipCode.trim().toLowerCase()) ||
         (_selectionMode != null &&
             _selectionMode != _QolipSelectionMode.qolips)) {
       return;
@@ -256,7 +276,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     return Row(
       children: [
         IconButton(
-          onPressed: _deleting || _printing ? null : _cancelSelection,
+          onPressed: _deleting || _printing || _reworking ? null : _cancelSelection,
           icon: const Icon(Icons.close_rounded),
           tooltip: l10n.qolipText('products.selection_cancel'),
         ),
@@ -274,7 +294,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
           ),
         ),
         IconButton.filled(
-          onPressed: _deleting || _printing ? null : _printSelection,
+          onPressed: _deleting || _printing || _reworking ? null : _printSelection,
           style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
           icon: _printing
               ? const SizedBox.square(
@@ -286,7 +306,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
         ),
         const SizedBox(width: 6),
         IconButton.filled(
-          onPressed: _deleting || _printing || _selectedProducts().any((p) => p.isInUse)
+          onPressed: _deleting || _printing || _reworking || _selectedProducts().any((p) => p.isInUse)
               ? null : _deleteSelection,
           style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
           icon: _deleting

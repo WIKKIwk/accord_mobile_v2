@@ -15,7 +15,7 @@ extension MobileApiWerkaAstPart01 on MobileApi {
       request.files.add(
         http.MultipartFile.fromBytes('image', bytes, filename: filename),
       );
-      return request.send();
+      return _httpClient.send(request);
     });
     final response = await http.Response.fromStream(streamed);
     Map<String, dynamic>? payload;

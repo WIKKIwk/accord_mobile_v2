@@ -92,7 +92,11 @@ extension MobileApiAuthProfile on MobileApi {
     required String code,
     bool directTransport = false,
   }) async {
-    final uri = Uri.parse('$targetBaseUrl/v1/mobile/auth/login');
+    final endpoint = ServerEndpointStore.normalize(targetBaseUrl);
+    if (endpoint == null) {
+      throw const FormatException('API connections require HTTPS');
+    }
+    final uri = Uri.parse('$endpoint/v1/mobile/auth/login');
     final request = directTransport ? _directPost : _post;
     final http.Response response = await request(
       uri,
@@ -304,7 +308,7 @@ extension MobileApiAuthProfile on MobileApi {
       request.files.add(
         http.MultipartFile.fromBytes('avatar', bytes, filename: filename),
       );
-      return request.send();
+      return _httpClient.send(request);
     });
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 200) {

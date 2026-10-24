@@ -283,7 +283,13 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
   // Task routes must not initialize the global production stream/state.
   // ignore: no_logic_in_create_state
   State<AdminProductionMapOrdersScreen> createState() =>
-      (qolipTasksMode || materialTasksMode) &&
+      supplyViewerMode &&
+              !qolipTasksMode &&
+              !materialTasksMode &&
+              AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
+              !AppSession.instance.isTestModeSession
+          ? _PreparationOrdersListState()
+          : (qolipTasksMode || materialTasksMode) &&
               !AppSession.instance.isTestModeSession &&
               (queueSnapshotLoader == null || supplyTaskWindowLoader != null)
           ? _SupplyTasksScreenState()

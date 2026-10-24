@@ -944,6 +944,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   }
 
   Future<void> _readInteractionContractAndSections() async {
+    // Preparation displays only the order summary and formulas. Hidden worker
+    // controls, WIP, materials and molds are not part of that sheet.
+    if (!widget.workerMode &&
+        AppSession.instance.profile?.role == UserRole.tayyorlovMasteri) {
+      return;
+    }
     _detailSectionsNeedReload = false;
     final generation = ++_scanBootstrapGeneration;
     _scanBootstrapRevision = null;

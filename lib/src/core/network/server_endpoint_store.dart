@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_transport_policy.dart';
+
 class SavedServerEndpoint {
   const SavedServerEndpoint({
     required this.baseUrl,
@@ -46,7 +48,11 @@ class ServerEndpointStore {
   static const String _activeEndpointKey = 'active_server_endpoint';
   static const String _savedEndpointsKey = 'saved_server_endpoints_v1';
 
-  String _activeBaseUrl = compiledBaseUrl;
+  static String get _initialBaseUrl =>
+      normalize(compiledBaseUrl) ??
+      (throw const FormatException('MOBILE_API_BASE_URL must use HTTPS'));
+
+  String _activeBaseUrl = _initialBaseUrl;
   bool _runtimeOverride = false;
   final Map<String, SavedServerEndpoint> _savedEndpoints =
       <String, SavedServerEndpoint>{};
@@ -93,7 +99,7 @@ class ServerEndpointStore {
     final stored = normalize(prefs.getString(_activeEndpointKey) ?? '');
     if (stored == null) {
       await prefs.remove(_activeEndpointKey);
-      _activeBaseUrl = compiledBaseUrl;
+      _activeBaseUrl = _initialBaseUrl;
       _runtimeOverride = false;
     } else {
       _activeBaseUrl = stored;
@@ -107,7 +113,7 @@ class ServerEndpointStore {
     final normalized = normalize(raw);
     if (normalized == null) {
       throw const FormatException(
-        'Domen http(s) protokoli bilan va path/query siz kiritilishi kerak',
+        'Serverning HTTPS manzilini path/query siz kiriting',
       );
     }
     final endpoint = _upsertInMemory(normalized, touch: false);
@@ -119,7 +125,7 @@ class ServerEndpointStore {
     final normalized = normalize(raw);
     if (normalized == null) {
       throw const FormatException(
-        'Domen http(s) protokoli bilan va path/query siz kiritilishi kerak',
+        'Serverning HTTPS manzilini path/query siz kiriting',
       );
     }
     _activeBaseUrl = normalized;
@@ -132,7 +138,7 @@ class ServerEndpointStore {
   }
 
   Future<void> clearOverride() async {
-    _activeBaseUrl = compiledBaseUrl;
+    _activeBaseUrl = _initialBaseUrl;
     _runtimeOverride = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_activeEndpointKey);
@@ -177,7 +183,7 @@ class ServerEndpointStore {
 
     final uri = Uri.tryParse(value);
     if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        !allowsApiTransport(uri) ||
         uri.host.trim().isEmpty ||
         uri.userInfo.isNotEmpty ||
         uri.query.isNotEmpty ||

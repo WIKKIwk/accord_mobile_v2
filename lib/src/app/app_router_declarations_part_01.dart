@@ -119,6 +119,7 @@ class AppRoutes {
   static const String qolipBlocks = '/qolip-blocks';
   static const String qolipProducts = '/qolip-products';
   static const String qolipSets = '/qolip-sets';
+  static const String qolipReworks = '/qolip-reworks';
   static const String qolipTasks = '/qolip-tasks';
   static const String qolipCheckouts = '/qolip-checkouts';
   static const String qolipLocationTransfer = '/qolip-location-transfer';

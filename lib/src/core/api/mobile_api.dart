@@ -29,12 +29,14 @@ import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
 import '../network/server_endpoint_store.dart';
 import '../network/mobile_http_client.dart';
+import '../network/api_transport_policy.dart';
 import '../session/accounts/saved_account_runtime.dart';
 import '../session/session.dart';
 import '../test_mode/test_mode_controller.dart';
 import '../test_mode/test_mode_demo_data.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import '../realtime/sequence_delta.dart' as sequence_delta;
 
 import 'package:flutter/foundation.dart';
@@ -111,6 +113,7 @@ part 'calculate/mobile_api_calculate.dart';
 part 'chat/mobile_api_chat.dart';
 part 'boyoqchi/mobile_api_boyoqchi.dart';
 part 'preparation/mobile_api_preparation.dart';
+part 'preparation/mobile_api_preparation_orders.dart';
 part 'preparation/mobile_api_preparation_warehouses.dart';
 part 'preparation/mobile_api_preparation_materials.dart';
 part 'raw_material_split/mobile_api_raw_material_split.dart';
@@ -120,6 +123,7 @@ part 'qolip/mobile_api_qolip.dart';
 part 'qolip/mobile_api_qolip_product_transfer.dart';
 part 'qolip/mobile_api_qolip_shared_sets.dart';
 part 'qolip/mobile_api_qolip_management.dart';
+part 'qolip/mobile_api_qolip_reworks.dart';
 part 'qolip/mobile_api_qolip_order_products.dart';
 part 'qolip/mobile_api_qolip_products_cache.dart';
 part 'qolip/mobile_api_qolip_catalog.dart';
@@ -279,6 +283,10 @@ class MobileApi {
   final _httpClients = Expando<http.Client>();
   http.Client get _httpClient =>
       _httpClients[Zone.current] ??= createMobileHttpClient();
+  final _directHttpClients = Expando<http.Client>();
+  http.Client get _directHttpClient =>
+      _directHttpClients[Zone.current] ??=
+          createMobileHttpClient(useDevProxy: false);
   final _queueSnapshotReads =
       Expando<Map<String, Future<AdminApparatusQueueSnapshot>>>();
   int _queueSnapshotReadEpoch = 0;
@@ -409,7 +417,7 @@ class MobileApi {
   });
 
   Future<http.Response> _directGet(Uri uri) {
-    return http.get(uri).timeout(_requestTimeout);
+    return _directHttpClient.get(uri).timeout(_requestTimeout);
   }
 
   Future<http.Response> _directPost(
@@ -417,7 +425,7 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
   }) {
-    return http
+    return _directHttpClient
         .post(uri, headers: headers, body: body)
         .timeout(_requestTimeout);
   }

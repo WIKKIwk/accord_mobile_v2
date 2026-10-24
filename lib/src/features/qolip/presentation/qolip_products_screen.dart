@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/print_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/app_dialog_action_row.dart';
@@ -30,6 +31,7 @@ import 'qolip_home_screen.dart'
 import 'qolip_color_picker.dart';
 import 'qolip_product_pdf.dart';
 import 'qolip_management_dialogs.dart';
+import 'qolip_mileage_sheet.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
@@ -38,6 +40,7 @@ part 'qolip_products_screen__QolipProductsScreenState_methods_02.dart';
 part 'qolip_products_screen_widgets_part_01.dart';
 part 'qolip_products_management.dart';
 part 'qolip_products_catalog.dart';
+part 'qolip_products_reworks.dart';
 
 String _productMoldKey(QolipProduct product) =>
     '${product.code.trim().toLowerCase()}\u0000${product.qolipCode.trim().toLowerCase()}';
@@ -67,6 +70,11 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   final Set<String> _selectedQolipCodes = <String>{};
   bool _deleting = false;
   bool _printing = false;
+  bool _reworking = false;
+  final Set<String> _reworkCodes = {};
+  String? _reworkRequestSignature;
+  String? _reworkRequestId;
+  String? _catalogScope;
   String? _sharingContainerKey;
 
   void _update(VoidCallback action) {
@@ -216,6 +224,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                       container.key,
                     ),
                     selectedQolipCodes: _selectedQolipCodes,
+                    reworkCodes: _reworkCodes,
                     sharing: _sharingContainerKey == container.key,
                     onShare: _sharingContainerKey == null
                         ? (originContext) =>

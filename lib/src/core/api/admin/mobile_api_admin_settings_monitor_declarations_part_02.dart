@@ -262,7 +262,7 @@ extension MobileApiAdminSettingsMonitor on MobileApi {
         ..contentLength = contentLength;
       // Start the request before closing the sink. StreamedRequest.close() may
       // wait for a listener, so awaiting close before send() deadlocks forever.
-      final responseFuture = request.send();
+      final responseFuture = _httpClient.send(request);
       var received = 0;
       try {
         await request.sink.addStream(
@@ -337,7 +337,7 @@ extension MobileApiAdminSettingsMonitor on MobileApi {
     final response = await _sendMultipartAuthorized(() {
       final request = http.Request('GET', uri)
         ..headers.addAll(_headers(requireToken()));
-      return request.send();
+      return _httpClient.send(request);
     });
     if (response.statusCode != 200) {
       final failed = await http.Response.fromStream(response);

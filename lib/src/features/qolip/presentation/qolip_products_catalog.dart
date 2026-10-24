@@ -61,11 +61,20 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
   }
 
   Future<void> _load() async {
+    final scope = currentSessionReadScope();
     final generation = ++_loadGeneration;
     _query = _search.text.trim();
-    await QolipCatalogStore.instance.first(query: _query);
+    final results = await Future.wait<Object>([
+      QolipCatalogStore.instance.first(query: _query),
+      MobileApi.instance.qolipReworks(),
+    ]);
     if (!mounted || generation != _loadGeneration) return;
     _update(() {
+      _catalogScope = scope;
+      _reworkCodes
+        ..clear()
+        ..addAll((results[1] as List<QolipReworkEntry>)
+            .map((row) => row.qolipCode.trim().toLowerCase()));
       _adoptCatalogWindow();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());

@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
+import 'support/qolip_rework_http.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'order_image_test_data.dart';
@@ -113,7 +113,7 @@ void main() {
           MobileApi.instance.qolipCatalogPage(query: 'Product', cursor: 'next'),
           throwsFormatException);
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               requests.add(request);
               expectSync(request.url.path, '/v1/mobile/qolip/products/page');
               return page(0, 200, next: 'next');
@@ -160,7 +160,7 @@ void main() {
       expect(find.text('MOLD-001'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               if (request.url.path.endsWith('/page')) {
                 pages++;
                 return page(0, 2);
@@ -209,7 +209,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               if (request.method == 'GET') {
                 reads++;
                 return request.url.path.endsWith('/page')
@@ -269,7 +269,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               if (request.url.path.endsWith('/page')) return page(0, 2);
               expect(request.url.path, '/v1/mobile/qolip/products/detail');
               expect(request.url.queryParameters, {'id': 'row-0'});
@@ -356,7 +356,7 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               if (request.url.path.endsWith('/page')) {
                 return page(0, 2, imageOrders: {0: 'catalog-cover-order'});
               }
@@ -407,7 +407,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               expectSync(request.url.path, '/v1/mobile/qolip/products/page');
               expect(request.url.queryParameters['limit'], '200');
               if (!request.url.queryParameters.containsKey('cursor')) {
@@ -444,7 +444,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               expectSync(request.url.path, '/v1/mobile/qolip/products/page');
               final query = request.url.queryParameters['q'];
               queries.add(query);
@@ -474,7 +474,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               if (request.url.path.endsWith('/page')) {
                 pages++;
                 return page(0, 2);

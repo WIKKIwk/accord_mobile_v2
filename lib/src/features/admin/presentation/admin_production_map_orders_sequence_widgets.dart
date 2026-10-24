@@ -427,6 +427,7 @@ class _SequenceOrderRow extends StatefulWidget {
     required this.slot,
     required this.order,
     this.showApparatusCount = true,
+    this.imagesEnabled = true,
     this.apparatusCount,
     required this.index,
     this.position,
@@ -448,6 +449,7 @@ class _SequenceOrderRow extends StatefulWidget {
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
   final bool showApparatusCount;
+  final bool imagesEnabled;
   final int? apparatusCount;
   final int index;
   final int? position;
@@ -473,6 +475,7 @@ class _SequenceOrderRow extends StatefulWidget {
         slot,
         order.map,
         showApparatusCount,
+        imagesEnabled,
         apparatusCount,
         index,
         position,
@@ -547,7 +550,12 @@ class _SequenceOrderRow extends StatefulWidget {
               top: 0,
               bottom: 0,
               width: kAdminOrderCoverWidth,
-              child: _ProductionMapOrderCoverImage(map: map),
+              child: imagesEnabled
+                  ? _ProductionMapOrderCoverImage(map: map)
+                  : AdminOrderCoverImage(
+                      displayName: map.title,
+                      heroTag: 'production-order-cover-${map.id.trim()}',
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(

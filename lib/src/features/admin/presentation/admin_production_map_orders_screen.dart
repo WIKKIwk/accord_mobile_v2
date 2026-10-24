@@ -142,6 +142,7 @@ part 'admin_production_map_orders_sequence_assignment_sheet.dart';
 part 'admin_production_map_orders_sequence_qolip_sheet.dart';
 part 'admin_production_map_orders_qolip_tasks.dart';
 part 'admin_production_map_orders_supply_tasks.dart';
+part 'admin_production_map_orders_preparation_list.dart';
 part 'admin_production_map_orders_move_module.dart';
 part 'admin_production_map_orders_progress_printer.dart';
 part 'admin_production_map_orders_progress_qty.dart';

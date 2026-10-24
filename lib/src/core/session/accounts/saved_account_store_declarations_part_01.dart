@@ -35,14 +35,14 @@ class SavedAccount {
     final trimmed = raw.trim();
     final uri = Uri.tryParse(trimmed);
     if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        ServerEndpointStore.normalize(trimmed) == null ||
         uri.host.trim().isEmpty ||
         uri.userInfo.isNotEmpty ||
         uri.query.isNotEmpty ||
         uri.fragment.isNotEmpty ||
         (uri.path.isNotEmpty && uri.path != '/')) {
       throw const FormatException(
-        'Saved account endpoint must be an http(s) origin',
+        'Saved account endpoint must be an HTTPS origin',
       );
     }
     return Uri(

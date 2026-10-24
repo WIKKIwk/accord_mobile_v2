@@ -215,6 +215,8 @@ MobileApiException _adminProductionMapException(
       'raw_material_order_not_active' =>
         'Yana homashyo faqat ish boshlangan yoki pauzadagi zakazga olinadi',
       'qolip_scan_required' => 'Ishni boshlash uchun qolip QR scan qiling',
+      'qolip_in_rework' =>
+        'Buyurtma qoliplari peredelkada. Barcha kerakli qoliplar qaytishi kerak',
       'qolip_scan_incomplete' =>
         'Mahsulotga biriktirilgan barcha qoliplarni scan qiling',
       'qolip_code_not_found' => 'Qolip QR topilmadi',

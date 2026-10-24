@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
+import 'support/qolip_rework_http.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final _api = MobileApi.instance;
@@ -84,7 +84,7 @@ void main() {
           calls, 2); // Every entry still revalidates current permissions/data.
       expect(identical(unchanged, results[0]), isTrue);
     },
-        () => MockClient((request) {
+        () => qolipCatalogClient((request) {
               calls++;
               if (calls == 1) {
                 expect(request.headers['if-none-match'], isNull);
@@ -105,7 +105,7 @@ void main() {
       expect(partial, isEmpty);
       expect(identical(_api.cachedQolipProducts, full), isTrue);
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               if (request.url.queryParameters.containsKey('q')) {
                 expect(request.headers['if-none-match'], isNull);
                 return http.Response('{"products":[]}', 200);
@@ -123,7 +123,7 @@ void main() {
       expect(_api.cachedQolipProducts, isNull);
       expect(await _load(), isEmpty);
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               if (request.method == 'DELETE') {
                 return http.Response('{"deleted_count":1}', 200);
               }
@@ -148,7 +148,7 @@ void main() {
       expect(_api.cachedQolipProducts, isEmpty);
       expect(reads, 2);
     },
-        () => MockClient((request) {
+        () => qolipCatalogClient((request) {
               if (request.method == 'DELETE') {
                 return Future.value(http.Response('{"deleted_count":1}', 200));
               }
@@ -170,7 +170,7 @@ void main() {
       AppSession.instance.revision.value++;
       expect(_api.cachedQolipProducts, isNull);
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               expect(request.headers['if-none-match'], isNull);
               return _catalog();
             }));
@@ -190,7 +190,7 @@ void main() {
       await assertion;
       expect(_api.cachedQolipProducts, isNull);
     },
-        () => MockClient((request) {
+        () => qolipCatalogClient((request) {
               started.complete();
               return gate.future;
             }));
@@ -215,7 +215,7 @@ void main() {
         await _load();
         expect(calls, 2);
       },
-          () => MockClient((request) {
+          () => qolipCatalogClient((request) {
                 expect(request.headers['if-none-match'], isNull);
                 if (++calls == 1) {
                   started.complete();
@@ -237,7 +237,7 @@ void main() {
         await expectLater(_load(), throwsA(isA<MobileApiException>()));
         expect(_api.cachedQolipProducts, isNull);
       },
-          () => MockClient((request) async =>
+          () => qolipCatalogClient((request) async =>
               ++calls == 1 ? _catalog() : http.Response('{}', status)));
     });
   }
@@ -250,7 +250,7 @@ void main() {
       expect(identical(first, second), isFalse);
       expect(second.single.name, 'New product');
     },
-        () => MockClient((request) async {
+        () => qolipCatalogClient((request) async {
               expect(request.headers['if-none-match'], isNull);
               final response =
                   _catalog(name: ++calls == 1 ? 'Product' : 'New product');
@@ -295,7 +295,7 @@ void main() {
       expect(find.text('Updated product'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     },
-        () => MockClient(
+        () => qolipCatalogClient(
             (request) async => ++calls == 1 ? _catalog() : gate.future));
   });
 }
