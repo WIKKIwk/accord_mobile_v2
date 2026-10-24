@@ -1,6 +1,95 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerScanBootstrapTests() {
+  for (final moldState in [
+    'missing',
+    'assigned',
+    'not required',
+    'loading',
+    'failed',
+  ]) {
+    testWidgets(
+        'printing start scanner waits for mold availability: $moldState',
+        (tester) async {
+      final fixture = await _prepareScanBootstrapFixture(tester);
+      final pendingMolds = Completer<http.Response>();
+      final requests = <http.Request>[];
+      await http.runWithClient(() async {
+        await _openScanBootstrapFixture(tester, fixture);
+        if (moldState == 'loading') {
+          await tester.pump(const Duration(milliseconds: 100));
+        } else {
+          await tester.pumpAndSettle();
+        }
+        final canPrepareStart =
+            moldState == 'assigned' || moldState == 'not required';
+        final dynamic content = tester.widget(find.byWidgetPredicate(
+            (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+        expect(content.materialsLoading, isFalse);
+        expect(content.uiState.materialRequiredCount, 1);
+        expect(content.uiState.materialScannedCount, 0);
+        expect(content.showQuickScanner, canPrepareStart,
+            reason: 'A staged material must not open the camera before the '
+                'required mold set is available.');
+        expect(find.byType(ProductionQuickScannerPanel),
+            canPrepareStart ? findsOneWidget : findsNothing);
+        expect(
+            find.byKey(
+                const ValueKey('production-quick-scanner-manual-toggle')),
+            canPrepareStart ? findsOneWidget : findsNothing);
+        expect(
+            tester
+                .widget<FilledButton>(
+                    find.widgetWithText(FilledButton, 'Boshlash'))
+                .onPressed,
+            isNull);
+        expect(
+            requests
+                .where((request) => request.url.path.endsWith('/queue-action')),
+            isEmpty);
+        if (moldState == 'loading') {
+          pendingMolds.complete(http.Response(jsonEncode(scanQolips()), 200));
+          await tester.pumpAndSettle();
+          expect(find.byType(ProductionQuickScannerPanel), findsOneWidget,
+              reason: 'The same sheet opens its scanner when molds arrive.');
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 11));
+        expect(tester.takeException(), isNull);
+      },
+          () => MockClient((request) async {
+                requests.add(request);
+                if (request.url.path.endsWith('/order-scan-bootstrap')) {
+                  final body = scanBootstrap();
+                  if (moldState == 'missing') {
+                    body['sections']['qolips']['data'] = {
+                      'ok': true,
+                      'qolip': {
+                        'qolip_code': '',
+                        'required_qolip_count': 0,
+                        'required_qolip_codes': <String>[],
+                        'required_qolips': <Object>[],
+                      },
+                    };
+                  } else if (moldState == 'not required') {
+                    body['control_state']['control']['interaction']
+                        ['qolip_mode'] = 'not_required';
+                    body['sections']['qolips'] = {'status': 'not_required'};
+                  } else if (moldState == 'loading' || moldState == 'failed') {
+                    (body['sections'] as Map).remove('qolips');
+                  }
+                  return http.Response(jsonEncode(body), 200);
+                }
+                if (request.url.path.endsWith('/qolip-validate')) {
+                  return moldState == 'loading'
+                      ? pendingMolds.future
+                      : http.Response('{"error":"qolips_unavailable"}', 500);
+                }
+                return http.Response('{}', 200);
+              }));
+    });
+  }
   for (final outcome in [
     'complete',
     'materials missing',

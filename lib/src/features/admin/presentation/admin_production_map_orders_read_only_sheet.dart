@@ -569,12 +569,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _materialsError.isEmpty &&
         _intakeCandidateAssignments.isNotEmpty;
     final merge = _mergeScanMode && uiState.showMerge;
+    // Start preparation cannot proceed without the required mold set. Keep
+    // independent material intake and merge scans available for active work.
+    final startScanRequirementsReady = !uiState.qolipScanRequired ||
+        (_qolipRequirementsLoaded &&
+            !_qolipRequirementsLoading &&
+            _qolipRequirementsError.isEmpty &&
+            _requiredQolips.isNotEmpty);
     return (
       visible: !_wipGuidanceOpen && !_mergeConfirmationPending &&
-          (startMaterialScanPending ||
-              _materialDeliveryScanPending ||
-              qolipScanPending ||
-              inputWipScanPending ||
+          ((startScanRequirementsReady &&
+                  (startMaterialScanPending ||
+                      _materialDeliveryScanPending ||
+                      qolipScanPending ||
+                      inputWipScanPending)) ||
               materialIntake ||
               merge),
       materialIntake: materialIntake,
@@ -1544,7 +1552,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _actionControlGeneration++;
         _actionInFlight = false;
       });
-      if (!_installDetailControl(controlState)) {
+      if (_installDetailControl(controlState)) {
+        _refreshDetailSections(refreshDisplayOnlyMaterials: false);
+      } else {
         setState(() => _queueActionControl = null);
         unawaited(_refreshQueueActionControlAfterWrite());
       }

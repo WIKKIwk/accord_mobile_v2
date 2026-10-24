@@ -85,6 +85,18 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       // move this sheet's revision back behind an acknowledged mutation.
       control = accepted;
     }
+    final previousMaterialsMode =
+        _queueActionControl?.interaction?.startMaterialsMode;
+    if (control.control.interaction?.startMaterialsMode ==
+            AdminQueueStartMaterialsMode.scanRequired &&
+        previousMaterialsMode != AdminQueueStartMaterialsMode.scanRequired) {
+      // A colour outcome can reveal start requirements after the trial hid
+      // them. Retire preceding display-only reads before publishing that mode.
+      _materialLoadGeneration++;
+      _materialStartRequirements = null;
+      _materialsLoading = true;
+      _materialsError = '';
+    }
     _workerPresentationDenied = false;
     _acceptedDetailControl = control;
     _queueActionControl = control.control;
@@ -179,8 +191,13 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     if (waitingForAction) dismissAdminTopNotice();
   }
 
-  void _refreshDetailSections() {
-    unawaited(_loadMaterialAssignments());
+  void _refreshDetailSections({bool refreshDisplayOnlyMaterials = true}) {
+    if (refreshDisplayOnlyMaterials ||
+        _queueActionControl?.interaction?.startMaterialsMode ==
+            AdminQueueStartMaterialsMode.scanRequired ||
+        _detailUiState.materialIntakeAllowed) {
+      unawaited(_loadMaterialAssignments());
+    }
     unawaited(_loadInputProgressBatches());
     if (_queueActionControl?.interaction?.qolipMode ==
         AdminQueueQolipMode.scanRequired) {

@@ -176,6 +176,7 @@ void _registerWorkerLatencyTests() {
 }
 
 void _registerWorkerColourLatencyTests() {
+  _registerWorkerColourSectionTransitionTests();
   for (final action in ['hold', 'passed']) {
     for (final outcome in ['controls', 'legacy', 'timeout', 'reopened', 'live during recovery']) {
       if (action != 'hold' && outcome == 'live during recovery') continue;
@@ -392,6 +393,263 @@ void _registerWorkerColourLatencyTests() {
                     ? bootstrap(serverStatus, serverRevision) : {}), 200));
           }
           return request.method == 'POST' ? post.future : refresh.future;
+        }));
+      });
+    }
+  }
+}
+
+void _registerWorkerColourSectionTransitionTests() {
+  for (final action in ['failed', 'passed']) {
+    for (final outcome in [
+      'ready',
+      'read failure',
+      'old assignment',
+      'live before ACK',
+      'live after ACK',
+    ]) {
+      testWidgets('worker colour $action refreshes required sections: $outcome',
+          (tester) async {
+        await TestModeController.instance.setEnabled(true);
+        const orderId = 'zakaz-colour-sections';
+        AppSession.instance.profile = const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Colour sections worker',
+          legalName: '',
+          ref: 'colour-sections-worker',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [_print7Id],
+        );
+        final saved = await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: orderId,
+            title: 'Colour',
+            productCode: 'CSEC',
+            apparatusId: _print7Id,
+            product: 'Colour',
+          ),
+        );
+        final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
+        Map<String, dynamic> hold(String status) => {
+              'hold_id': 'colour-sections-hold',
+              'idempotency_key': 'colour-sections-hold',
+              'order_id': orderId,
+              'apparatus': _print7Id,
+              'status': status,
+            };
+        Map<String, dynamic> control(String status) => {
+              'state': status == 'failed' ? 'pending' : 'print_preflight',
+              'allowed_actions': status == 'running' ? [] : ['start'],
+              'previous_stage_ready': true,
+              'complete_requires_full_report': false,
+              'print_preflight_allowed': status == 'failed',
+              if (status != 'failed') 'print_preflight': hold(status),
+              'interaction': {
+                'mode': status == 'running'
+                    ? 'fresh_start_blocked'
+                    : 'fresh_start',
+                'start_materials_mode':
+                    status == 'running' ? 'hidden' : 'scan_required',
+                'material_scan_required': status != 'running',
+                'assigned_materials_display_only': true,
+                'material_intake_allowed': false,
+                'previous_wip_mode': 'not_required',
+                'opening_wip_mode': 'not_required',
+                'qolip_mode':
+                    status == 'running' ? 'not_required' : 'scan_required',
+                'blocking_reason_code':
+                    status == 'running' ? 'print_preflight_active' : '',
+              },
+            };
+        final live = StreamController<Object>.broadcast();
+        addTearDown(live.close);
+        AdminProductionMapLiveSnapshot snapshot(String status, int revision) =>
+            AdminProductionMapLiveSnapshot.fromJson({
+              ...scanSequence(),
+              'epoch': 'colour-sections-server',
+              'rev': revision,
+              'scope': 'colour-sections-live',
+              'maps': [
+                {'map': saved.map.toJson(), 'program': <String, dynamic>{}},
+              ],
+              'sequences': {_print7Id: [orderId]},
+              'visible_order_ids': {_print7Id: [orderId]},
+              'queue_states': {
+                _print7Id: {
+                  orderId: status == 'failed' ? 'pending' : 'print_preflight',
+                },
+              },
+              'queue_action_controls': {
+                _print7Id: {orderId: control(status)},
+              },
+              'stage_states': {},
+              'order_controls': {},
+              'queue_policies': [],
+            });
+        setMobileApiTestModeQueueActionControlFixture(
+          apparatus: _print7Id,
+          orderId: orderId,
+          control: AdminApparatusQueueOrderActionControl.fromJson(
+            control('running'),
+          ),
+        );
+        await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: _print7Id,
+          orderIds: const [orderId],
+        );
+        final requests = <http.Request>[];
+        final post = Completer<http.Response>();
+        final materials = Completer<http.Response>();
+        final oldAssignments = Completer<http.Response>();
+        final requirements = {
+          ...scanMaterials(),
+          'assignments': [
+            {...scanAssignment(), 'order_id': orderId},
+          ],
+          'start_assignments': [
+            {...scanAssignment(), 'order_id': orderId},
+          ],
+        };
+        Finder detail() => find.byWidgetPredicate((widget) =>
+            widget.runtimeType.toString() == '_ReadOnlyOrderDetailContent');
+        await _usePhoneViewport(tester);
+        await http.runWithClient(() async {
+          await tester.pumpWidget(MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: AdminProductionMapOrdersScreen(
+              readOnly: true,
+              workerMode: true,
+              queueSnapshotLoader: () async => snapshot('running', 1),
+              apparatusLoader: () async => apparatus,
+              liveEventsLoader: () => live.stream,
+            ),
+          ));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('7 ta rangli bosma aparat'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          dynamic content = tester.widget(detail());
+          expect(content.uiState.contractSynchronized, isTrue,
+              reason: 'the running colour fixture must load before the action');
+          expect(content.uiState.showStartMaterials, isFalse);
+          await TestModeController.instance.setEnabled(false);
+          if (outcome == 'old assignment') {
+            content.onToggleMaterialsExpanded();
+            await tester.pump();
+            expect(requests.where((request) => request.url.path
+                .endsWith('/raw-material-assignments')), hasLength(1));
+          }
+          final VoidCallback onPressed = action == 'failed'
+              ? content.onPrintPreflightFailed
+              : content.onPrintPreflightPassed;
+          onPressed();
+          await tester.pump();
+          expect(requests.where((request) => request.method == 'POST' &&
+              request.url.path.endsWith('/print-preflight')), hasLength(1));
+          if (outcome == 'live before ACK') {
+            live.add(snapshot(action, 2));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          post.complete(http.Response(jsonEncode({
+            'ok': true,
+            'hold': hold(action),
+            'control_state': {
+              'apparatus': _print7Id,
+              'order_id': orderId,
+              'epoch': 'colour-sections-server',
+              'rev': 2,
+              'control': control(action),
+              'queue_state': action == 'failed' ? 'pending' : 'print_preflight',
+              'stage_states': {},
+              'order_control': 'active',
+            },
+          }), 200));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+          if (outcome == 'live after ACK') {
+            live.add(snapshot(action, 2));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          content = tester.widget(detail());
+          expect(content.actionInFlight, isFalse,
+              reason: 'accepted controls release the mutation immediately');
+          expect(content.uiState.contractSynchronized, isTrue);
+          expect(content.uiState.showStartMaterials, isTrue);
+          expect(content.materialStartReady, isFalse);
+          expect(content.materialStartBlockingText, isEmpty,
+              reason: 'a pending requirements read is not a failed rule');
+          expect(find.text('Homashyo qoidasi yuklanmadi'), findsNothing);
+          expect(requests.where((request) => request.url.path
+              .endsWith('/raw-material-start-requirements')), hasLength(1));
+          expect(requests.where((request) => request.url.path
+              .endsWith('/qolip-validate')), hasLength(1));
+          expect(requests.where((request) => request.url.path
+              .endsWith('/order-scan-bootstrap')), isEmpty,
+              reason: 'an authoritative ACK needs sections, not another control read');
+          materials.complete(outcome == 'read failure'
+              ? http.Response(jsonEncode({
+                  'error': 'raw_material_rule_load_failed',
+                  'message': 'Colour requirement read failed',
+                }), 503)
+              : http.Response(jsonEncode(requirements), 200));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+          content = tester.widget(detail());
+          if (outcome == 'read failure') {
+            expect(content.materialsError, 'Homashyo qoidasi yuklanmadi',
+                reason: 'a settled server failure keeps the existing error');
+            expect(content.materialStartReady, isFalse);
+          } else {
+            expect(content.materialsError, isEmpty);
+            expect(content.uiState.materialRequiredCount, 1);
+            expect(content.requiredQolips, hasLength(1));
+            expect(content.materialStartReady, isFalse,
+                reason: 'loading requirements does not bypass QR validation');
+            if (outcome == 'old assignment') {
+              oldAssignments.complete(http.Response('{"items":[]}', 200));
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 100));
+              content = tester.widget(detail());
+              expect(content.uiState.materialRequiredCount, 1,
+                  reason: 'a preceding hidden read cannot erase start requirements');
+              expect(content.materialStartBlockingText, isEmpty);
+              expect(content.materialsError, isEmpty);
+            }
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+          if (!oldAssignments.isCompleted) {
+            oldAssignments.complete(http.Response('{"items":[]}', 200));
+          }
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 11));
+          expect(tester.takeException(), isNull);
+        }, () => MockClient((request) async {
+          requests.add(request);
+          if (request.url.path.endsWith('/print-preflight')) return post.future;
+          if (request.url.path.endsWith('/raw-material-start-requirements')) {
+            return materials.future;
+          }
+          if (request.url.path.endsWith('/raw-material-assignments')) {
+            return oldAssignments.future;
+          }
+          if (request.url.path.endsWith('/qolip-validate')) {
+            return http.Response(jsonEncode(scanQolips()), 200);
+          }
+          return http.Response('{}', 200);
         }));
       });
     }
