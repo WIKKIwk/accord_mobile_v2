@@ -29,6 +29,11 @@ class _AppUpdateCheckDialogState extends State<_AppUpdateCheckDialog> {
         final result = coordinator.latest;
         final latest = result != null && !result.updateAvailable;
         final manifest = result?.manifest;
+        final progress = manifest == null
+            ? null
+            : (coordinator.receivedBytes / manifest.sizeBytes)
+                .clamp(0.0, 1.0)
+                .toDouble();
         return _AppUpdateDialogFrame(
           icon: Icon(coordinator.error != null
               ? Icons.cloud_off_rounded
@@ -50,10 +55,19 @@ class _AppUpdateCheckDialogState extends State<_AppUpdateCheckDialog> {
                 const SizedBox(height: 16),
               ],
               if (coordinator.preparing) ...[
-                LinearProgressIndicator(
-                    value: manifest == null
-                        ? null
-                        : coordinator.receivedBytes / manifest.sizeBytes),
+                if (progress == null)
+                  const LinearProgressIndicator()
+                else
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey(manifest!.artifactKey),
+                    tween: Tween<double>(begin: progress, end: progress),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 800),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) =>
+                        LinearProgressIndicator(value: value),
+                  ),
                 const SizedBox(height: 12),
                 Text(l10n.appUpdateBackgroundHint),
               ] else if (coordinator.checking) ...[
