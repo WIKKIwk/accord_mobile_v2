@@ -123,6 +123,7 @@ part 'qolip/mobile_api_qolip_management.dart';
 part 'qolip/mobile_api_qolip_order_products.dart';
 part 'qolip/mobile_api_qolip_products_cache.dart';
 part 'qolip/mobile_api_qolip_catalog.dart';
+part 'qolip/mobile_api_qolip_catalog_store.dart';
 part 'rezka/mobile_api_rezka.dart';
 part 'server/mobile_api_server.dart';
 part 'supplier/mobile_api_supplier_notifications.dart';

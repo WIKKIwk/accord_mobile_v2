@@ -132,6 +132,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
     String? previousQolipCode,
     String? qolipSetId,
   }) async {
+    final catalogScope = currentSessionReadScope();
     if (await TestModeController.instance.isEnabled()) {
       var saved = QolipProduct(
         qolipSetId: previousQolipCode?.trim().isNotEmpty == true
@@ -251,6 +252,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
         }
       }
       _testModeQolipSpecs[saved.qolipCode.trim().toLowerCase()] = saved;
+      await QolipCatalogStore.instance.applyTestMode();
       return saved;
     }
     final response = await _sendAuthorized(
@@ -280,6 +282,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
       );
     }
     final data = await decodeJsonMapPayload(response.body);
+    QolipCatalogStore.instance.applyResponse(data, catalogScope);
     return QolipProduct.fromJson(
       (data['product'] as Map).cast<String, dynamic>(),
     );
@@ -290,6 +293,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
     required QolipProduct product,
     required List<QolipProductSpecBatchItem> specs,
   }) async {
+    final catalogScope = currentSessionReadScope();
     if (specs.isEmpty) {
       throw const MobileApiException(
         code: 'qolip_code_required',
@@ -324,6 +328,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
         _testModeFirstQolipCodes
           ..clear()
           ..addAll(firstCodesSnapshot);
+        await QolipCatalogStore.instance.applyTestMode();
         rethrow;
       }
     }
@@ -356,6 +361,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
       );
     }
     final data = await decodeJsonMapPayload(response.body);
+    QolipCatalogStore.instance.applyResponse(data, catalogScope);
     final raw = data['products'];
     return [
       if (raw is List)
@@ -365,6 +371,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
   }
 
   Future<int> qolipDeleteProductSpecs(List<String> qolipCodes) async {
+    final catalogScope = currentSessionReadScope();
     final normalized = qolipCodes
         .map((code) => code.trim())
         .where((code) => code.isNotEmpty)
@@ -402,6 +409,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
       _testModeQolipLocations.removeWhere(
         (location) => keys.contains(location.qolipCode.trim().toLowerCase()),
       );
+      await QolipCatalogStore.instance.applyTestMode();
       return existingCodes.length;
     }
     final response = await _sendAuthorized(
@@ -420,6 +428,7 @@ extension MobileApiQolipAstPart02 on MobileApi {
       );
     }
     final data = await decodeJsonMapPayload(response.body);
+    QolipCatalogStore.instance.applyResponse(data, catalogScope);
     return (data['deleted_count'] as num?)?.toInt() ?? 0;
   }
 

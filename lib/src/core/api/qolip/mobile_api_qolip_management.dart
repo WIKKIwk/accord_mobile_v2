@@ -174,6 +174,7 @@ extension MobileApiQolipManagement on MobileApi {
     List<QolipMoldDraft> add = const [],
     List<String> remove = const [],
   }) async {
+    final catalogScope = currentSessionReadScope();
     if (await TestModeController.instance.isEnabled()) {
       final snapshot = await qolipResolveSet(current.set.id);
       if (snapshot == null || snapshot.fingerprint != current.set.fingerprint) {
@@ -253,6 +254,7 @@ extension MobileApiQolipManagement on MobileApi {
       );
       _testModeManagedSets[current.set.id] = updated;
       _qolipProductsSnapshot = null;
+      await QolipCatalogStore.instance.applyTestMode();
       return updated;
     }
     final response = await _sendAuthorized(() => _post(
@@ -273,6 +275,7 @@ extension MobileApiQolipManagement on MobileApi {
     }
     _qolipProductsSnapshot = null;
     final data = await decodeJsonMapPayload(response.body);
+    QolipCatalogStore.instance.applyResponse(data, catalogScope);
     return QolipManagedSet.fromJson(
         (data['set'] as Map).cast<String, dynamic>());
   }
@@ -300,6 +303,7 @@ extension MobileApiQolipManagement on MobileApi {
   }
 
   Future<void> _editProductMolds(List<Map<String, dynamic>> changes) async {
+    final catalogScope = currentSessionReadScope();
     if (await TestModeController.instance.isEnabled()) {
       final physical = _sharedPhysicalMolds();
       final additions = <QolipProduct>[];
@@ -374,6 +378,7 @@ extension MobileApiQolipManagement on MobileApi {
             update.$1, () => {})[update.$2] = update.$3;
       }
       _qolipProductsSnapshot = null;
+      await QolipCatalogStore.instance.applyTestMode();
       return;
     }
     final response = await _sendAuthorized(() => _post(
@@ -388,5 +393,7 @@ extension MobileApiQolipManagement on MobileApi {
           fallbackMessage: 'Mahsulot qoliplari saqlanmadi');
     }
     _qolipProductsSnapshot = null;
+    final data = await decodeJsonMapPayload(response.body);
+    QolipCatalogStore.instance.applyResponse(data, catalogScope);
   }
 }

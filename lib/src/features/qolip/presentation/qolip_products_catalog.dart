@@ -1,6 +1,47 @@
 part of 'qolip_products_screen.dart';
 
 extension _QolipProductsCatalog on _QolipProductsScreenState {
+  void _adoptCatalogWindow() {
+    final store = QolipCatalogStore.instance;
+    final window = store.window(_query);
+    _catalogItems
+      ..clear()
+      ..addAll(window.items);
+    _nextCursor = window.nextCursor;
+    _details.clear();
+    for (final item in window.items) {
+      final products = store.details(item.id);
+      if (products == null) continue;
+      final groups = groupQolipProductsByContainer(products);
+      if (groups.length != 1) continue;
+      final group = groups.single;
+      _details[item.id] = QolipProductContainer(
+          catalogId: item.id,
+          code: group.code,
+          name: item.name,
+          itemGroup: group.itemGroup,
+          imageOrderId: item.orderImageOrderId,
+          children: group.children);
+    }
+    _rebuildContainers();
+  }
+
+  void _catalogChanged() {
+    if (!mounted) return;
+    if (!QolipCatalogStore.instance.window(_query).loaded) {
+      unawaited(_reload(force: false));
+      return;
+    }
+    _selectionGeneration++;
+    _update(() {
+      _adoptCatalogWindow();
+      _selectedContainerKeys.clear();
+      _selectedQolipCodes.clear();
+      _selectionMode = null;
+      _detailErrors.clear();
+    });
+  }
+
   void _rebuildContainers() {
     _allContainers = [
       for (final item in _catalogItems)
@@ -22,19 +63,16 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     _query = _search.text.trim();
-    final page = await MobileApi.instance.qolipCatalogPage(query: _query);
+    await QolipCatalogStore.instance.first(query: _query);
     if (!mounted || generation != _loadGeneration) return;
     _update(() {
-      _catalogItems
-        ..clear()
-        ..addAll(page.items);
-      _nextCursor = page.nextCursor;
-      _rebuildContainers();
+      _adoptCatalogWindow();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
   }
 
-  Future<void> _reload({String? preserveExpandedContainerKey}) async {
+  Future<void> _reload(
+      {String? preserveExpandedContainerKey, bool force = true}) async {
     _searchDebounce?.cancel();
     ++_selectionGeneration;
     _details.clear();
@@ -46,15 +84,16 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
     _pageError = null;
     _loadingMore = false;
     _expandedContainerKey = preserveExpandedContainerKey;
-    // Editing a product keeps the loaded name pages and the scroll position.
-    if (_query.isEmpty &&
-        preserveExpandedContainerKey != null &&
-        _catalogItems.any((item) => item.id == preserveExpandedContainerKey)) {
+    final query = _search.text.trim();
+    if (force) {
+      QolipCatalogStore.instance.reset();
+    } else if (QolipCatalogStore.instance.window(query).loaded) {
       ++_loadGeneration;
-      _update(_rebuildContainers);
-      final container = _allContainers
-          .firstWhere((item) => item.key == preserveExpandedContainerKey);
-      await _ensureDetails(container);
+      _query = query;
+      _update(() {
+        _adoptCatalogWindow();
+        _future = Future.value();
+      });
       return;
     }
     _catalogItems.clear();
@@ -69,6 +108,12 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
     if (_scroll.hasClients) _scroll.jumpTo(0);
     try {
       await next;
+      if (mounted && preserveExpandedContainerKey != null) {
+        final container = _allContainers
+            .where((item) => item.key == preserveExpandedContainerKey)
+            .firstOrNull;
+        if (container != null) await _ensureDetails(container);
+      }
     } catch (_) {/* The first-page FutureBuilder owns retry. */}
   }
 
@@ -76,6 +121,7 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
     if (!mounted || !_scroll.hasClients || _query != _search.text.trim()) {
       return;
     }
+    QolipCatalogStore.instance.window(_query).scrollOffset = _scroll.offset;
     if (_scroll.position.extentAfter < 500 &&
         _nextCursor != null &&
         !_loadingMore &&
@@ -93,14 +139,10 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
       _pageError = null;
     });
     try {
-      final page = await MobileApi.instance
-          .qolipCatalogPage(query: _query, cursor: cursor);
+      await QolipCatalogStore.instance.more(_query);
       if (!mounted || generation != _loadGeneration) return;
-      final known = _catalogItems.map((item) => item.id).toSet();
       _update(() {
-        _catalogItems.addAll(page.items.where((item) => known.add(item.id)));
-        _nextCursor = page.nextCursor;
-        _rebuildContainers();
+        _adoptCatalogWindow();
       });
     } catch (error) {
       if (mounted && generation == _loadGeneration) {
@@ -132,7 +174,7 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
     late final Future<QolipProductContainer?> request;
     request = (() async {
       try {
-        final products = await MobileApi.instance.qolipCatalogDetails(id);
+        final products = await QolipCatalogStore.instance.loadDetails(id);
         if (!mounted || generation != _loadGeneration) return null;
         final groups = groupQolipProductsByContainer(products);
         if (groups.length != 1) {

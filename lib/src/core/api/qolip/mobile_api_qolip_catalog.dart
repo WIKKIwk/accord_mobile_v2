@@ -57,7 +57,7 @@ extension MobileApiQolipCatalog on MobileApi {
         items: [
           for (final item in page)
             QolipCatalogItem(
-                id: 'qp1.${base64Url.encode(utf8.encode(item.code)).replaceAll('=', '')}',
+                id: qolipCatalogId(item.code),
                 name: item.name,
                 orderImageOrderId: item.orderImageOrderId)
         ],

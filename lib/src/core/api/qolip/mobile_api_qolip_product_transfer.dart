@@ -9,6 +9,7 @@ extension MobileApiQolipProductTransfer on MobileApi {
     required String toItemCode,
     required List<String> qolipCodes,
   }) async {
+    final catalogScope = currentSessionReadScope();
     if (AppSession.instance.profile?.role != UserRole.qolipchi) {
       throw const MobileApiException(code: 'forbidden', message: 'forbidden');
     }
@@ -91,6 +92,7 @@ extension MobileApiQolipProductTransfer on MobileApi {
         }
       }
       _testModeQolipTransfers[key] = (signature, List.unmodifiable(saved));
+      await QolipCatalogStore.instance.applyTestMode();
       return saved;
     }
     final response = await _sendAuthorized(() => _post(
@@ -125,6 +127,7 @@ extension MobileApiQolipProductTransfer on MobileApi {
           message: 'Incomplete transfer response');
     }
     _qolipProductsSnapshot = null;
+    QolipCatalogStore.instance.applyResponse(data, catalogScope);
     return saved;
   }
 }

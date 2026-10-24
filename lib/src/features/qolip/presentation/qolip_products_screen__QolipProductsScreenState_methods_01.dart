@@ -12,7 +12,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
       return;
     }
     QolipDataRevision.notifyLocationsChanged();
-    await _reload(preserveExpandedContainerKey: _expandedContainerKey);
+    await _reload(force: false, preserveExpandedContainerKey: _expandedContainerKey);
   }
 
   void _openFabAction() {
@@ -57,11 +57,11 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     // Invalidate requests immediately, before the debounce fires.
     ++_loadGeneration;
     if (value.trim().isEmpty) {
-      unawaited(_reload());
+      unawaited(_reload(force: false));
       return;
     }
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) unawaited(_reload());
+      if (mounted) unawaited(_reload(force: false));
     });
   }
 
@@ -169,7 +169,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
           ),
         ),
       );
-      await _reload();
+      await _reload(force: false);
     } catch (error) {
       if (!mounted) {
         return;
@@ -185,7 +185,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
           ),
         ),
       );
-      await _reload();
+      await _reload(force: false);
     } finally {
       if (mounted) {
         setState(() => _deleting = false);

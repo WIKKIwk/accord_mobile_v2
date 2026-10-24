@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/production/production_queue_warm_runtime.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
@@ -79,6 +80,7 @@ Future<void> pumpScreen(WidgetTester tester) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() async {
+    QolipCatalogStore.instance.reset();
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'catalog-token';
@@ -115,6 +117,127 @@ void main() {
               requests.add(request);
               expectSync(request.url.path, '/v1/mobile/qolip/products/page');
               return page(0, 200, next: 'next');
+            }));
+  });
+
+  testWidgets(
+      'login prepares one page and route revisits retain pages and details',
+      (tester) async {
+    var pages = 0;
+    var details = 0;
+    await http.runWithClient(() async {
+      await tester
+          .pumpWidget(const ProductionQueueWarmRuntime(child: SizedBox()));
+      await tester.pumpAndSettle();
+      expect(pages, 1);
+      expect(details, 0);
+      // Preserve the runtime while replacing only its routed child.
+      Future<void> showPage(Widget page) async {
+        await tester.pumpWidget(ProductionQueueWarmRuntime(
+            child: MaterialApp(
+                locale: const Locale('uz'),
+                supportedLocales: AppLocalizations.supportedLocales,
+                localizationsDelegates: const [
+                  AppLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate
+                ],
+                home: page)));
+        await tester.pumpAndSettle();
+      }
+
+      await showPage(const QolipProductsScreen());
+      await tester.tap(find.text('Product 000'));
+      await tester.pumpAndSettle();
+      expect(details, 1);
+      await showPage(const SizedBox());
+      await showPage(const QolipProductsScreen());
+      await tester.tap(find.text('Product 000'));
+      await tester.pumpAndSettle();
+      expect(pages, 1);
+      expect(details, 1);
+      expect(find.text('MOLD-001'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/page')) {
+                pages++;
+                return page(0, 2);
+              }
+              if (request.url.path.endsWith('/detail')) {
+                details++;
+                return detail();
+              }
+              return http.Response('{"error":"forbidden"}', 403);
+            }));
+  });
+
+  testWidgets(
+      'a mutation response updates the visible list with no refresh read',
+      (tester) async {
+    var reads = 0;
+    var writes = 0;
+    final original =
+        (jsonDecode(detail().body)['products'] as List).single as Map;
+    await http.runWithClient(() async {
+      await pumpScreen(tester);
+      await tester.tap(find.text('Product 000'));
+      await tester.pumpAndSettle();
+      const product = QolipProduct(
+          code: 'ITEM-0',
+          name: 'Product 000',
+          itemGroup: 'Tayyor mahsulot',
+          warehouse: 'Molds');
+      await MobileApi.instance.qolipAddProductMold(
+          product, const QolipMoldDraft(code: 'MOLD-002', size: 40));
+      await tester.pumpAndSettle();
+      expect(find.text('MOLD-002'), findsOneWidget);
+      await MobileApi.instance.qolipRemoveProductMolds([
+        QolipProduct.fromJson({...original, 'qolip_code': 'MOLD-002'})
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.text('Product 000'), findsOneWidget);
+      expect(find.text('MOLD-002'), findsNothing);
+      await MobileApi.instance.qolipRemoveProductMolds(
+          [QolipProduct.fromJson(original.cast<String, dynamic>())]);
+      await tester.pumpAndSettle();
+      expect(find.text('Product 000'), findsNothing);
+      expect(find.text('Product 001'), findsOneWidget);
+      expect(reads, 2,
+          reason: 'only the initial names and clicked detail are read');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+        () => MockClient((request) async {
+              if (request.method == 'GET') {
+                reads++;
+                return request.url.path.endsWith('/page')
+                    ? page(0, 2)
+                    : detail();
+              }
+              writes++;
+              return http.Response(
+                  jsonEncode({
+                    'ok': true,
+                    'catalog_delta': {
+                      'upserts': [
+                        if (writes < 3)
+                          {
+                            'id': 'row-0',
+                            'name': 'Product 000',
+                            'order_image_order_id': '',
+                            'products': [
+                              original,
+                              if (writes == 1)
+                                {...original, 'qolip_code': 'MOLD-002'}
+                            ]
+                          }
+                      ],
+                      'removed_ids': [if (writes == 3) 'row-0'],
+                    }
+                  }),
+                  200);
             }));
   });
 

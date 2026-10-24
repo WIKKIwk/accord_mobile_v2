@@ -46,7 +46,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   late Future<void> _future;
-  final ScrollController _scroll = ScrollController();
+  late final ScrollController _scroll;
   final List<QolipCatalogItem> _catalogItems = [];
   final Map<String, QolipProductContainer> _details = {};
   final Map<String, Future<QolipProductContainer?>> _detailRequests = {};
@@ -80,12 +80,19 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   @override
   void initState() {
     super.initState();
+    _scroll = ScrollController(initialScrollOffset:
+        QolipCatalogStore.instance.window('').scrollOffset);
+    QolipCatalogStore.instance.addListener(_catalogChanged);
     _scroll.addListener(_handleScroll);
     _future = _load();
   }
 
   @override
   void dispose() {
+    QolipCatalogStore.instance.removeListener(_catalogChanged);
+    if (_scroll.hasClients) {
+      QolipCatalogStore.instance.window(_query).scrollOffset = _scroll.offset;
+    }
     _loadGeneration++;
     _searchDebounce?.cancel();
     _scroll.dispose();

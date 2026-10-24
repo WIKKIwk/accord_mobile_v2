@@ -4,14 +4,16 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 
 import '../../features/admin/state/admin_sequence_warm_store.dart';
+import '../../features/shared/models/app_models.dart' show UserRole;
 import '../api/mobile_api.dart';
 import '../session/session_read_scope.dart';
 import '../session/state/app_session.dart';
 import 'worker_queue_warm_store.dart';
 import 'supply_tasks_warm_store.dart';
 
-/// Prepares the active queue before its route is opened. Each store hands its
-/// socket to a visible queue page, so background warming never adds a poller.
+/// Prepares active queues and Qolip names before their routes are opened.
+/// Queue stores hand their socket to the visible page; the Qolip catalog
+/// prepares one name page without a socket or polling loop.
 class ProductionQueueWarmRuntime extends StatefulWidget {
   const ProductionQueueWarmRuntime({super.key, required this.child});
 
@@ -42,6 +44,11 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
     final session = AppSession.instance;
     final profile = session.profile;
     final enabled = session.isLoggedIn && !session.isTestModeSession;
+    if (enabled && profile?.role == UserRole.qolipchi) {
+      if (_foreground) unawaited(QolipCatalogStore.instance.prepare());
+    } else {
+      QolipCatalogStore.instance.reset();
+    }
     final supplyKind = supplyTasksRoleKind();
     final admin = enabled &&
         supplyKind == null &&
@@ -104,6 +111,7 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
     );
     WorkerQueueWarmStore.instance.reset();
     SupplyTasksWarmStore.instance.reset();
+    QolipCatalogStore.instance.reset();
     super.dispose();
   }
 

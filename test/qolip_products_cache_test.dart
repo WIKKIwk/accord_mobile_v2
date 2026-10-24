@@ -45,6 +45,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    QolipCatalogStore.instance.reset();
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'qolip-cache-test';

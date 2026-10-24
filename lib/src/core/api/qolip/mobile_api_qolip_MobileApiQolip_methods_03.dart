@@ -7,6 +7,7 @@ extension MobileApiQolipAstPart03 on MobileApi {
     required int quantity,
     required String workerId,
   }) async {
+    final catalogScope = currentSessionReadScope();
     if (await TestModeController.instance.isEnabled()) {
       final sourceIndex = _testModeQolipLocations.indexWhere(
         (item) => item.id == locationId.trim(),
@@ -59,6 +60,7 @@ extension MobileApiQolipAstPart03 on MobileApi {
         status: 'open',
       );
       _testModeQolipCheckouts.insert(0, entry);
+      QolipCatalogStore.instance.invalidateDetails();
       return entry;
     }
     final response = await _sendAuthorized(
@@ -81,6 +83,9 @@ extension MobileApiQolipAstPart03 on MobileApi {
       );
     }
     final data = await decodeJsonMapPayload(response.body);
+    if (catalogScope == currentSessionReadScope()) {
+      QolipCatalogStore.instance.invalidateDetails();
+    }
     return QolipCheckoutEntry.fromJson(
       (data['checkout'] as Map).cast<String, dynamic>(),
     );
@@ -139,6 +144,7 @@ extension MobileApiQolipAstPart03 on MobileApi {
     String rowLetter = '',
     int? columnNumber,
   }) async {
+    final catalogScope = currentSessionReadScope();
     if (await TestModeController.instance.isEnabled()) {
       final index = _testModeQolipCheckouts.indexWhere(
         (item) => item.id == checkoutId.trim(),
@@ -228,6 +234,7 @@ extension MobileApiQolipAstPart03 on MobileApi {
         issuedAt: current.issuedAt,
       );
       _testModeQolipCheckouts[index] = returned;
+      QolipCatalogStore.instance.invalidateDetails();
       return returned;
     }
     final response = await _sendAuthorized(
@@ -251,6 +258,9 @@ extension MobileApiQolipAstPart03 on MobileApi {
       );
     }
     final data = await decodeJsonMapPayload(response.body);
+    if (catalogScope == currentSessionReadScope()) {
+      QolipCatalogStore.instance.invalidateDetails();
+    }
     return QolipCheckoutEntry.fromJson(
       (data['checkout'] as Map).cast<String, dynamic>(),
     );

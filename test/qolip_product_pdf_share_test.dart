@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
@@ -19,6 +20,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    QolipCatalogStore.instance.reset();
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'qolip-pdf-test';

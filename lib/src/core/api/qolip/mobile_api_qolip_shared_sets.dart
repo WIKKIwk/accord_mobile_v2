@@ -280,6 +280,7 @@ extension MobileApiQolipSharedSets on MobileApi {
 
   Future<List<QolipProduct>> qolipReuseSet(
       {required QolipSharedSet set, required QolipProduct product}) async {
+    final catalogScope = currentSessionReadScope();
     if (set.members.isEmpty) {
       throw const MobileApiException(
           code: 'qolip_set_changed', message: 'qolip_set_changed');
@@ -299,6 +300,7 @@ extension MobileApiQolipSharedSets on MobileApi {
         _testModeQolipProductOverrides[product.code.trim().toLowerCase()]
             ?.remove(member.qolipCode.trim().toLowerCase());
       }
+      await QolipCatalogStore.instance.applyTestMode();
       return current.members
           .map((mold) => _sharedMoldForProduct(mold, product)).toList();
     }
@@ -322,6 +324,7 @@ extension MobileApiQolipSharedSets on MobileApi {
       throw const MobileApiException(
           code: 'qolip_set_changed', message: 'qolip_set_changed');
     _qolipProductsSnapshot = null;
+    QolipCatalogStore.instance.applyResponse(data, catalogScope);
     return saved.members
         .map((mold) => _sharedMoldForProduct(mold, product)).toList();
   }

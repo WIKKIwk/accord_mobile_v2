@@ -16,6 +16,7 @@ import '../../notifications/store/werka_runtime_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import '../../cache/order_image_cache.dart';
+import '../../api/mobile_api.dart';
 import '../../cache/production_snapshot_store.dart';
 import '../../production/worker_queue_warm_store.dart';
 import '../../../features/admin/state/admin_sequence_warm_store.dart';
@@ -31,6 +32,7 @@ class AppRuntimeReset {
   }) async {
     AdminSequenceWarmStore.instance.configure(scope: null, foreground: false);
     WorkerQueueWarmStore.instance.reset();
+    QolipCatalogStore.instance.reset();
     AdminOrderPageCache.instance.clear();
     await ProductionSnapshotStore.instance.clear();
     CustomerStore.instance.clear();
