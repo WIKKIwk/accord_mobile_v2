@@ -10,6 +10,7 @@ import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_app_update_settings_card.dart';
+import 'widgets/admin_lamination_settings_card.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
 
@@ -151,6 +152,7 @@ class _AdminAdditionalSettingsScreenState
                               : (enabled) => _saveSettings(
                                   workerVisibilityEnabled: enabled),
                         )),
+                        const AdminLaminationSettingsCard(),
                         if (_saving) const LinearProgressIndicator(),
                       ]);
                 },

@@ -2578,7 +2578,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   Future<_ProgressActionOutcome> _runAstatkaReport() async {
     if (widget.apparatus?.operation.trim() == 'laminate') {
-      return _runIntegratedLaminationAstatka();
+      final outcome = await _runIntegratedLaminationAstatka();
+      if (outcome != null) return outcome;
     }
     final station = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
@@ -2957,11 +2958,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         !_isTrainingOrder &&
         !await TestModeController.instance.isEnabled()) {
       if (!mounted) return _ProgressActionOutcome.cancelled;
-      return _runIntegratedLaminationAstatka(
+      final outcome = await _runIntegratedLaminationAstatka(
         completeStage: true,
         fullCompletionReportRequired:
             fullCompletionReportRequired ?? _completionNeedsFullReport(action),
       );
+      if (outcome != null) return outcome;
     }
     final freezeRequest =
         freezeRequestSafeStop ? await _loadAuthoritativeFreezeRequest() : null;

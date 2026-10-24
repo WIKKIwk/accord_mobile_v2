@@ -192,6 +192,7 @@ class AdminLaminationAstatkaSnapshot {
     required this.sessionStatus,
     this.sources = const [],
     this.allowEmptySources = false,
+    this.layerRemaindersRequired = true,
     this.requestResult,
   });
 
@@ -199,6 +200,7 @@ class AdminLaminationAstatkaSnapshot {
   final String sessionStatus;
   final List<AdminLayerRemainderSource> sources;
   final bool allowEmptySources;
+  final bool layerRemaindersRequired;
   final AdminLaminationAstatkaResult? requestResult;
   bool get outputRequired => sessionStatus == 'active';
 
@@ -209,6 +211,7 @@ class AdminLaminationAstatkaSnapshot {
       sessionId: session is Map ? session['session_id']?.toString() ?? '' : '',
       sessionStatus: session is Map ? session['status']?.toString() ?? '' : '',
       allowEmptySources: json['allow_empty_sources'] == true,
+      layerRemaindersRequired: json['layer_remainders_required'] != false,
       sources: [
         if (json['sources'] is List)
           for (final source in json['sources'] as List)
@@ -275,6 +278,48 @@ class AdminLaminationAstatkaResult {
 }
 
 extension MobileApiAdminLayerRemainders on MobileApi {
+  Future<bool> laminationLayerRemaindersRequired() async {
+    final response = await _sendAuthorized(() => _get(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/lamination-settings'),
+          headers: _headers(requireToken()),
+        ));
+    return _laminationSettingsResponse(response);
+  }
+
+  Future<bool> setLaminationLayerRemaindersRequired(bool required) async {
+    final response = await _sendAuthorized(() => _put(
+          Uri.parse(
+              '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/lamination-settings'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode({'layer_remainders_required': required}),
+        ));
+    final saved = _laminationSettingsResponse(response);
+    if (saved != required) {
+      throw const MobileApiException(
+          code: 'lamination_settings',
+          message: 'Laminatsiya sozlamasi tasdiqlanmadi');
+    }
+    return saved;
+  }
+
+  bool _laminationSettingsResponse(http.Response response) {
+    if (response.statusCode != 200) {
+      throw _adminProductionMapException(response, 'lamination_settings');
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is! Map ||
+        payload['ok'] != true ||
+        payload['settings'] is! Map ||
+        payload['settings']['layer_remainders_required'] is! bool) {
+      throw const MobileApiException(
+          code: 'lamination_settings',
+          message: 'Laminatsiya sozlamasi tasdiqlanmadi');
+    }
+    return payload['settings']['layer_remainders_required'] as bool;
+  }
+
   Future<AdminLaminationAstatkaSnapshot> adminLaminationAstatkaSnapshot({
     required String apparatus,
     required String orderId,

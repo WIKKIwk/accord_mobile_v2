@@ -1,6 +1,34 @@
 part of 'app_localizations.dart';
 
 const _paddonManagementTranslations = {
+  'lamination.settings.title': {
+    'uz': 'Laminatsiyachi ikki qatlamdan birini kiritish majburiyati',
+    'en': 'Require lamination layer remainder entry',
+    'ru': 'Обязательный ввод остатков слоёв ламинации',
+    'ur': 'لیمینیشن کی تہوں کے بقایا کا لازمی اندراج',
+  },
+  'lamination.settings.description': {
+    'uz':
+        'Yoqilganda qatlamlarning sof qoldig‘i so‘raladi va qoldiqqa alohida QR chiqariladi. O‘chirilganda eski astatka va boshqa hisobot maydonlari bilan ishlash davom etadi.',
+    'en':
+        'When enabled, enter each layer’s net remainder and print a separate QR for it. When disabled, the existing leftover counts and other report fields remain available.',
+    'ru':
+        'При включении вводится чистый вес остатков слоёв и печатается отдельный QR. При выключении сохраняются прежние поля остатков и остальные поля отчёта.',
+    'ur':
+        'فعال ہونے پر ہر تہہ کا خالص بقایا درج کریں اور الگ QR پرنٹ کریں۔ بند ہونے پر سابقہ بقایا اور رپورٹ کے دیگر خانے برقرار رہتے ہیں۔',
+  },
+  'lamination.settings.load_failed': {
+    'uz': 'Laminatsiya sozlamasi yuklanmadi.',
+    'en': 'Could not load the lamination setting.',
+    'ru': 'Не удалось загрузить настройку ламинации.',
+    'ur': 'لیمینیشن کی ترتیب لوڈ نہیں ہو سکی۔',
+  },
+  'lamination.settings.save_failed': {
+    'uz': 'Laminatsiya sozlamasi saqlanmadi. Qayta urinib ko‘ring.',
+    'en': 'Could not save the lamination setting. Please retry.',
+    'ru': 'Не удалось сохранить настройку ламинации. Повторите попытку.',
+    'ur': 'لیمینیشن کی ترتیب محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔',
+  },
   'paddon.management.settings.title': {
     'uz': 'Qo‘shimcha sozlamalar',
     'en': 'Additional settings',

@@ -1,7 +1,8 @@
 part of 'admin_production_map_orders_screen.dart';
 
 extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
-  Future<_ProgressActionOutcome> _runIntegratedLaminationAstatka({
+  // A null outcome selects the existing count/waste report without QR returns.
+  Future<_ProgressActionOutcome?> _runIntegratedLaminationAstatka({
     bool completeStage = false,
     bool fullCompletionReportRequired = false,
   }) async {
@@ -40,6 +41,11 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
       if (result != null) {
         committed = true;
         await preferences.remove(pendingKey);
+      } else if (!snapshot.layerRemaindersRequired) {
+        // The server confirmed there is no receipt for this pending request.
+        // Do not replay an uncommitted QR return after the admin disables it.
+        await preferences.remove(pendingKey);
+        return null;
       } else if (request != null) {
         final retry = await showDialog<bool>(
           context: context,

@@ -1,6 +1,15 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerLaminationAstatkaScopeTests() {
+  Future<void> pumpUi(WidgetTester tester) async {
+    // The disconnected-live indicator animates continuously in this fixture.
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+  }
+
   Future<void> waitForSnapshotUi(WidgetTester tester, Finder target) async {
     for (var attempt = 0;
         attempt < 100 && target.evaluate().isEmpty;
@@ -20,6 +29,8 @@ void _registerLaminationAstatkaScopeTests() {
     testWidgets('lamination empty layers follows material policy: $scenario',
         (tester) async {
       await TestModeController.instance.setEnabled(true);
+      // This fixture has no previous account whose runtime state needs flushing.
+      AppSession.instance.profile = null;
       await AppSession.instance.setSession(
         token: 'optional-lamination-worker',
         profile: const SessionProfile(
@@ -72,13 +83,13 @@ void _registerLaminationAstatkaScopeTests() {
               progressDriverUrlPicker: (_) async => 'http://printer.test',
               liveEventsLoader: () => const Stream.empty()),
         ));
-        await tester.pumpAndSettle();
+        await pumpUi(tester);
         if (find.text('Laminatsiya 1').evaluate().isNotEmpty) {
           await tester.tap(find.text('Laminatsiya 1'));
-          await tester.pumpAndSettle();
+          await pumpUi(tester);
         }
         await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
-        await tester.pumpAndSettle();
+        await pumpUi(tester);
         await TestModeController.instance.setEnabled(false);
         await tester.ensureVisible(find.text('Tugatish'));
         await tester.tap(find.text('Tugatish'));
@@ -88,9 +99,9 @@ void _registerLaminationAstatkaScopeTests() {
             tester,
             scenario.optional
                 ? countField
-                : find.text(AppLocalizations(const Locale('uz'))
-                    .productionText('worker.lamination_astatka.sources_missing')));
-        await tester.pumpAndSettle();
+                : find.text(AppLocalizations(const Locale('uz')).productionText(
+                    'worker.lamination_astatka.sources_missing')));
+        await pumpUi(tester);
         expect(find.text('Qavat astatkasi'), findsNothing);
         if (scenario.optional) {
           expect(countField, findsOneWidget);
@@ -110,7 +121,7 @@ void _registerLaminationAstatkaScopeTests() {
           }
           await tester.ensureVisible(find.text('Tasdiqlash'));
           await tester.tap(find.text('Tasdiqlash'));
-          await tester.pumpAndSettle();
+          await pumpUi(tester);
           expect(submissions, hasLength(1));
           expect(submissions.single['action'], 'complete');
           expect(submissions.single['layer_remainders'], isEmpty);
@@ -131,7 +142,7 @@ void _registerLaminationAstatkaScopeTests() {
               findsOneWidget);
         }
         await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpAndSettle();
+        await pumpUi(tester);
         expect(tester.takeException(), isNull);
       },
           () => MockClient((request) async {
@@ -171,24 +182,49 @@ void _registerLaminationAstatkaScopeTests() {
   for (final scenario in [
     (
       name: 'individual WIP completion',
+      required: true,
       astatka: false,
       full: false,
       paused: false
     ),
     (
       name: 'general order completion',
+      required: true,
       astatka: false,
       full: true,
       paused: false
     ),
     (
       name: 'active order long press Astatka',
+      required: true,
       astatka: true,
       full: false,
       paused: false
     ),
     (
       name: 'paused order long press Astatka',
+      required: true,
+      astatka: true,
+      full: false,
+      paused: true
+    ),
+    (
+      name: 'QR disabled general order completion',
+      required: false,
+      astatka: false,
+      full: true,
+      paused: false
+    ),
+    (
+      name: 'QR disabled active order Astatka',
+      required: false,
+      astatka: true,
+      full: false,
+      paused: false
+    ),
+    (
+      name: 'QR disabled paused order Astatka',
+      required: false,
       astatka: true,
       full: false,
       paused: true
@@ -197,6 +233,7 @@ void _registerLaminationAstatkaScopeTests() {
     testWidgets('lamination layer fields scope: ${scenario.name}',
         (tester) async {
       await TestModeController.instance.setEnabled(true);
+      AppSession.instance.profile = null;
       await AppSession.instance.setSession(
         token: 'lamination-scope-worker',
         profile: const SessionProfile(
@@ -297,30 +334,49 @@ void _registerLaminationAstatkaScopeTests() {
                   scenario.paused ? pausedSnapshot : snapshot,
               liveEventsLoader: () => const Stream.empty()),
         ));
-        await tester.pumpAndSettle();
+        await pumpUi(tester);
         if (find.text('Laminatsiya 1').evaluate().isNotEmpty) {
           await tester.tap(find.text('Laminatsiya 1'));
         }
-        await tester.pumpAndSettle();
+        await pumpUi(tester);
         final order = find.byKey(const ValueKey('worker-order-$id'));
         if (scenario.astatka) {
           await tester.longPress(order);
-          await tester.pumpAndSettle();
+          await pumpUi(tester);
           await tester.tap(find.widgetWithText(
               FilledButton, 'Astatka hisobotini topshirish'));
         } else {
           await tester.tap(order);
-          await tester.pumpAndSettle();
+          await pumpUi(tester);
           await TestModeController.instance.setEnabled(false);
           final finish = find.text('Tugatish');
           await tester.ensureVisible(finish);
           await tester.tap(finish);
           if (scenario.full) {
-            await waitForSnapshotUi(tester, find.text('Qavat astatkasi'));
+            await waitForSnapshotUi(
+                tester,
+                scenario.required
+                    ? find.text('Qavat astatkasi')
+                    : find.widgetWithText(
+                        TextFormField, 'Bosmadan ortgan rulon'));
           }
         }
-        await tester.pumpAndSettle();
-        final hasLayers = scenario.astatka || scenario.full;
+        await pumpUi(tester);
+        final needsSnapshot = scenario.astatka || scenario.full;
+        final hasLayers = needsSnapshot && scenario.required;
+        if (needsSnapshot && !scenario.required) {
+          await waitForSnapshotUi(tester,
+              find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'));
+          expect(find.widgetWithText(TextFormField, 'Plyonkadan ortgan rulon'),
+              findsOneWidget);
+          expect(find.text('Qoldiqning sof og‘irligi'), findsNothing);
+          expect(
+              find.widgetWithText(
+                  TextFormField,
+                  AppLocalizations(const Locale('uz'))
+                      .productionText('worker.daily.field.total_waste')),
+              findsOneWidget);
+        }
         if (hasLayers) {
           for (var index = 0;
               index < 30 && find.text('Qavat astatkasi').evaluate().isEmpty;
@@ -328,7 +384,7 @@ void _registerLaminationAstatkaScopeTests() {
             await tester.pump(const Duration(milliseconds: 100));
           }
         }
-        expect(snapshotReads, hasLayers ? 1 : 0);
+        expect(snapshotReads, needsSnapshot ? 1 : 0);
         expect(find.text('Qavat astatkasi'),
             hasLayers ? findsOneWidget : findsNothing);
         expect(find.text(printedRollName),
@@ -352,9 +408,9 @@ void _registerLaminationAstatkaScopeTests() {
         }
         expect(writes, isEmpty);
         await tester.tap(find.text('Bekor qilish'));
-        await tester.pumpAndSettle();
+        await pumpUi(tester);
         await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpAndSettle();
+        await pumpUi(tester);
         expect(tester.takeException(), isNull);
       },
           () => MockClient((request) async {
@@ -363,6 +419,7 @@ void _registerLaminationAstatkaScopeTests() {
                   snapshotReads++;
                   return http.Response(
                       jsonEncode({
+                        'layer_remainders_required': scenario.required,
                         'session': {
                           'session_id': 'lamination-current',
                           'status': scenario.paused ? 'paused' : 'active'

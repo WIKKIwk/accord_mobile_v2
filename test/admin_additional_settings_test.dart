@@ -41,6 +41,8 @@ void main() {
   late bool mandatoryUpdates;
   late bool failUpdateRead;
   late int updateWrites;
+  late bool laminationRequired;
+  late int laminationWrites;
   late MockClient client;
   setUp(() {
     AppSession.instance.token = 'token';
@@ -52,8 +54,24 @@ void main() {
     mandatoryUpdates = false;
     failUpdateRead = false;
     updateWrites = 0;
+    laminationRequired = true;
+    laminationWrites = 0;
     client = MockClient((request) async {
       expect(request.headers['Authorization'], 'Bearer token');
+      if (request.url.path.endsWith('/lamination-settings')) {
+        if (request.method == 'PUT') {
+          laminationWrites++;
+          if (failWrite) return http.Response('{}', 500);
+          laminationRequired = (jsonDecode(request.body)
+              as Map)['layer_remainders_required'] as bool;
+        }
+        return http.Response(
+            jsonEncode({
+              'ok': true,
+              'settings': {'layer_remainders_required': laminationRequired},
+            }),
+            200);
+      }
       if (request.url.path.endsWith('/app-update/settings')) {
         if (request.method == 'PUT') {
           updateWrites++;
@@ -148,6 +166,60 @@ void main() {
       expect(mandatoryUpdates, isTrue);
       expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
       expect(find.text('Yangilash sozlamasi saqlanmadi. Qayta urinib ko‘ring.'),
+          findsOneWidget);
+    }, () => client);
+  });
+
+  testWidgets(
+      'lamination QR requirement persists independently of other settings',
+      (tester) async {
+    const key = ValueKey('lamination-layer-remainders-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      await tester.pumpAndSettle();
+      expect(
+          find.text(
+              'Laminatsiyachi ikki qatlamdan birini kiritish majburiyati'),
+          findsOneWidget);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(laminationRequired, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(laminationRequired, isTrue);
+      expect(laminationWrites, 2);
+      expect(writes, 0);
+      expect(updateWrites, 0);
+    }, () => client);
+  });
+
+  testWidgets('failed lamination save keeps the server requirement enabled',
+      (tester) async {
+    failWrite = true;
+    const key = ValueKey('lamination-layer-remainders-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(laminationRequired, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      expect(
+          find.text('Laminatsiya sozlamasi saqlanmadi. Qayta urinib ko‘ring.'),
           findsOneWidget);
     }, () => client);
   });

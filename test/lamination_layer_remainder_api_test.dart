@@ -57,6 +57,23 @@ void main() {
     }
   });
 
+  test(
+      'QR layer requirement defaults on for older servers and supports disabling',
+      () {
+    expect(AdminLaminationAstatkaSnapshot.fromJson({}).layerRemaindersRequired,
+        isTrue);
+    expect(
+        AdminLaminationAstatkaSnapshot.fromJson({
+          'layer_remainders_required': true,
+        }).layerRemaindersRequired,
+        isTrue);
+    expect(
+        AdminLaminationAstatkaSnapshot.fromJson({
+          'layer_remainders_required': false,
+        }).layerRemaindersRequired,
+        isFalse);
+  });
+
   test('net weight ratio estimates 600 m without counting the core', () {
     expect(source.estimateMeter(20), 600);
     expect(source.estimateMeter(0), isNull);
