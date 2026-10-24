@@ -36,7 +36,7 @@ void _registerAdminWarmNavigationTests() {
             'pending_rows': <String, dynamic>{},
           });
         }
-        if (pending != null) {
+        if (pending != null && request.view == 'sequence') {
           harness.reads.add(request);
           return pending.future;
         }
@@ -60,8 +60,9 @@ void _registerAdminWarmNavigationTests() {
       (tester) async {
     final (harness, store, _) = await prepare(tester);
     await store.prepare(currentAdminSequenceWarmScope());
+    await tester.pumpAndSettle();
     final reads = harness.reads.length;
-    expect(reads, 2);
+    expect(reads, 4);
     expect(harness.reads.where((r) => r.view == 'sequence'), hasLength(1));
     expect(harness.reads.where((r) => r.view == 'orders'), hasLength(1));
     await harness.open(tester, sequenceWarmStore: store, settle: false);

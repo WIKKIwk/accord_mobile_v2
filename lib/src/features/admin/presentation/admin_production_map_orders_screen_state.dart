@@ -38,6 +38,8 @@ class _AdminProductionMapOrdersScreenState
   String? _adminWarmScope;
   String? _adminWarmReadScope;
   bool _adminWarmAdopted = false;
+  // An early selected tab may establish a newer server before Sequence arrives.
+  String? _adminEarlyTabEpoch;
   final Map<String, int> _adminMetricSignatures = {};
   final Map<String, AdminSequenceMoveResult> _adminSequenceAcks = {};
   final Map<String, _AdminOrderWindow> _adminSequenceAckWindows = {};
@@ -281,7 +283,7 @@ class _AdminProductionMapOrdersScreenState
   void dispose() {
     AppSession.instance.revision.removeListener(_syncAdminWarmSession);
     if (_adminWarmReadScope != null) {
-      _sequenceWarmStore.ordersChanges.removeListener(_adoptPreparedAdminOrders);
+      _sequenceWarmStore.pagesChanges.removeListener(_adoptPreparedAdminPages);
     }
     _releaseAdminWarmSequence();
     _releaseWorkerWarmQueue();
@@ -538,7 +540,7 @@ class _AdminProductionMapOrdersScreenState
                 ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: _loading ||
+      child: (_loading && !_adminPaging) ||
               (_loadError != null &&
                   _reconnectingOrderReads.contains(_OrdersReadSection.initial))
           ? const Align(

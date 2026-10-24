@@ -107,9 +107,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         _updateScreenState(() => _loading = false);
         if (!_adminWarmAdopted) unawaited(_refreshCachedAdminApparatus());
         unawaited(_refreshCompletionRequests());
-        // A disk baseline may retain only the active prefix. Opening it must
-        // not eagerly redownload every hidden tab; selecting a tab uses the
-        // existing scoped loader and validation path.
+        // The session store prepares missing hidden prefixes independently;
+        // the active module never waits for that background chain.
         return;
       }
       await AdminSequenceApparatusStore.instance.loadSavedApparatusId();
@@ -121,12 +120,12 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         _syncSelectedSequenceApparatus(apparatus);
         _syncMoveApparatusDefaults(apparatus);
       });
-      await _ensureAdminModule(_OpenedOrderModule.sequence);
+      await _ensureAdminModule(_module);
       if (!mounted) return;
       _updateScreenState(() => _loading = false);
       // Completion notifications are small and must not gate the first queue.
       unawaited(_refreshCompletionRequests());
-      // Hidden tabs load on selection; initial sequence has priority.
+      // Hidden prefixes continue through the session's background chain.
     } catch (error) {
       if (mounted) _applyInitialProductionMapLoadError(error);
     }
@@ -137,16 +136,24 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     if (!_adminPaging || !mounted) return;
     _adminWindows
         .removeWhere((_, window) => window.account != _adminPageAccount);
-    for (final window in _adminModuleWindows(module)) {
-      if (!mounted) return;
-      if (!window.loaded || refresh || window.dirty ||
-          (window.cacheNeedsValidation && (_adminWindowLiveFallback ||
-              window.pages.any((page) => page.wireValue == null)))) {
-        await _loadAdminWindow(window);
+    await Future.wait([
+      for (final window in _adminModuleWindows(module))
+        if (!window.loaded || refresh || window.dirty ||
+            (window.cacheNeedsValidation && (_adminWindowLiveFallback ||
+                window.pages.any((page) => page.wireValue == null))))
+          _loadAdminWindow(window),
+    ]);
+    _adoptPreparedAdminPages();
+    if (module == _module) {
+      _scheduleAdminWindowSubscription();
+      // Full Move pages may already be in RAM. Defer their optional derived
+      // metrics until that module is actually selected.
+      for (final window in _adminModuleWindows(module)) {
+        for (final page in window.pages) {
+          unawaited(_loadAdminPageMetrics(page, window.account));
+        }
       }
     }
-    _adoptPreparedAdminOrders();
-    if (module == _module) _scheduleAdminWindowSubscription();
     for (final apparatus in _adminSequenceAcks.keys.toList()) {
       _settleAdminSequenceWrite(apparatus);
     }
@@ -199,10 +206,9 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
     for (var attempt = 0; attempt < 3; attempt++) {
       final invalidation = window.invalidation;
       try {
-        // The scoped store owns the one background Orders read. Joining it
-        // here also puts early tab taps under this window's in-flight guard.
-        // Keep hidden prefetched rows in the store so they build no images.
-        final warmScope = _adminOrdersWarmScope(window);
+        // Selection promotes only this request, without waiting for the
+        // background chain or duplicating its identical in-flight read.
+        final warmScope = _adminPageWarmScope(window);
         if (attempt == 0 &&
             !append &&
             !force &&
@@ -212,8 +218,8 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
             warmScope != null) {
           AdminProductionOrderPage? warm;
           try {
-            warm = _sequenceWarmStore.peekOrders(warmScope) ??
-                await _sequenceWarmStore.prepareOrders(warmScope);
+            warm = _sequenceWarmStore.peekPage(warmScope, window.request) ??
+                await _sequenceWarmStore.preparePage(warmScope, window.request);
           } catch (error) {
             final transient = error is TimeoutException ||
                 error is http.ClientException ||
@@ -232,16 +238,17 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
               readScope != currentSessionReadScope()) {
             return;
           }
-          if (warmScope != _adminOrdersWarmScope(window)) {
+          if (warmScope != _adminPageWarmScope(window)) {
             // A same-account session refresh replaced the shared preparation
             // while this window joined it. Join the current generation.
-            if (_adminOrdersWarmScope(window) == null) return;
+            if (_adminPageWarmScope(window) == null) return;
             attempt = -1;
             continue;
           }
           if (window.invalidation == invalidation &&
               warm != null &&
-              _adoptAdminWarmOrders(window, warm)) {
+              _adoptAdminWarmPage(window, warm,
+                  prioritized: _adminModuleWindows(_module).contains(window))) {
             return;
           }
         }
@@ -321,6 +328,13 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
             staged.fold<int>(0, (n, p) => n + p.length) < wanted);
         _updateScreenState(() {
           final epoch = staged.first.epoch;
+          if (!_adminWarmAdopted && window.request.view != 'sequence' &&
+              _adminModuleWindows(_module).contains(window)) {
+            _adminEarlyTabEpoch = epoch;
+          }
+          if (_lastAppliedSnapshotEpoch.isEmpty) {
+            _lastAppliedSnapshotEpoch = epoch;
+          }
           if (epoch.isNotEmpty &&
               _lastAppliedSnapshotEpoch.isNotEmpty &&
               epoch != _lastAppliedSnapshotEpoch) {
@@ -371,6 +385,11 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
           _loading = false;
           _queueSnapshotContractError = false;
         });
+        final rememberScope = _adminPageWarmScope(window);
+        if (rememberScope != null && !window.dirty) {
+          _sequenceWarmStore.rememberPage(
+              rememberScope, window.request, staged.first);
+        }
         for (final page in staged) {
           unawaited(_loadAdminPageMetrics(page, window.account));
         }

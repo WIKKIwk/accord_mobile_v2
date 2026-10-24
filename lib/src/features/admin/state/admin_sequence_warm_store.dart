@@ -85,9 +85,10 @@ class AdminSequenceWarmLease {
 
 /// One account's selected sequence prefix, prepared before route navigation.
 ///
-/// After the selected sequence is ready, one compact Orders prefix is prepared
-/// without delaying sequence readiness. Neither preload resolves image URLs or
-/// reads details/following pages. Only the sequence has a background live window;
+/// After the selected sequence attempt, first pages are prepared in tab order.
+/// Foreground tab requests bypass that queue and share any existing read. No
+/// preload resolves image URLs or reads details/following pages. Only the
+/// sequence has a background live window;
 /// Transient reads have a bounded retry budget; there is no recurring HTTP
 /// refresh or polling after that preparation finishes.
 class AdminSequenceWarmStore {
@@ -141,12 +142,20 @@ class AdminSequenceWarmStore {
   final Set<int> _leases = {};
   AdminSequenceWarmSnapshot? _snapshot;
   Future<AdminSequenceWarmSnapshot?>? _preparing;
-  AdminProductionOrderPage? _ordersPage;
-  final ValueNotifier<int> _ordersChanges = ValueNotifier(0);
-  Future<AdminProductionOrderPage?>? _preparingOrders;
-  int _ordersSerial = 0;
+  final ValueNotifier<int> _pagesChanges = ValueNotifier(0);
+  final Map<String, _AdminWarmPageEntry> _pages = {};
+  final Set<Future<AdminProductionOrderPage?>> _priorityReads = {};
+  final Set<Completer<void>> _activePageCancellations = {};
+  final Set<String> _backgroundAttempts = {};
+  final Set<Future<AdminProductionOrderPage?>> _backgroundReads = {};
+  Completer<void> _backgroundWake = Completer<void>();
+  bool _allowBackgroundOverlap = false;
+  List<AdminProductionOrderPageRequest>? _moveRequests;
+  Future<void>? _backgroundPreparation;
+  bool _sequenceAttempted = false;
+  int _pagesGeneration = 0;
+  static const _maximumPageKeys = 12;
   final Map<Completer<void>, Timer> _readRetryWaits = {};
-  final Set<String> _retiredOrdersEpochs = {};
   StreamSubscription<AdminProductionMapLiveMessage>? _subscription;
   Timer? _reconnectTimer;
   Timer? _firstMessageTimer;
@@ -160,7 +169,10 @@ class AdminSequenceWarmStore {
 
   /// Lets mounted pages stage already downloaded rows before a tab is shown.
   /// Listening never starts a request or grants action authority.
-  Listenable get ordersChanges => _ordersChanges;
+  Listenable get pagesChanges => _pagesChanges;
+
+  /// Compatibility for existing Orders observers.
+  Listenable get ordersChanges => pagesChanges;
 
   bool _owns(int generation) =>
       !_disposed &&
@@ -190,9 +202,9 @@ class AdminSequenceWarmStore {
       _scope = nextScope;
       _snapshot = null;
       _preparing = null;
-      _clearOrders();
-      _preferredApparatusId = null;
       _knownApparatus = null;
+      _clearPages();
+      _preferredApparatusId = null;
       _authorizationBlocked = false;
       _leases.clear();
       _lastError = null;
@@ -201,15 +213,20 @@ class AdminSequenceWarmStore {
     _profileRef = profileRef;
     _foreground = foreground;
     if (!_foreground || nextScope == null) {
+      // An already started same-account read may populate RAM while paused.
+      // Ownership is retired only on logout/account/auth changes; resume joins
+      // that HTTP future instead of creating a duplicate transport request.
+      _wakeBackground();
       _markStale();
       _stopLive();
       return;
     }
     if (!changed && !resumed) return;
     _repairBudget = true;
+    if (resumed) _backgroundAttempts.clear();
     if (_snapshot != null) {
       _startLive();
-      _warmOrdersAfterSequence();
+      _warmPagesAfterSequence();
     } else {
       unawaited(prepare(nextScope));
     }
@@ -218,106 +235,339 @@ class AdminSequenceWarmStore {
   AdminSequenceWarmSnapshot? peek(String scope) =>
       scope == _scope && _owns(_generation) ? _snapshot : null;
 
-  AdminProductionOrderPage? peekOrders(String scope) =>
-      scope == _scope && _owns(_generation) ? _ordersPage : null;
+  static const _ordersRequest = AdminProductionOrderPageRequest(view: 'orders');
 
-  /// Foreground navigation can promote this read before sequence finishes.
-  /// Automatic warming and navigation share the exact same in-flight future.
-  /// Unlike the best-effort background observer, explicit callers receive read
-  /// errors and can use their existing foreground error/retry presentation.
-  Future<AdminProductionOrderPage?> prepareOrders(String scope) {
+  List<AdminApparatus>? peekApparatus(String scope) =>
+      scope == _scope && _owns(_generation) ? _knownApparatus : null;
+
+  AdminProductionOrderPage? peekOrders(String scope) =>
+      peekPage(scope, _ordersRequest);
+
+  Future<AdminProductionOrderPage?> prepareOrders(String scope) =>
+      preparePage(scope, _ordersRequest);
+
+  void rememberOrders(String scope, AdminProductionOrderPage page) =>
+      rememberPage(scope, _ordersRequest, page);
+
+  /// Only canonical, unsearched first-page requests participate in RAM warming.
+  /// Request identity includes both apparatus IDs, so Move directions cannot
+  /// share an unrelated response.
+  static String? _pageKey(AdminProductionOrderPageRequest request) {
+    if (request.search.isNotEmpty ||
+        request.cursor != null ||
+        request.ifVersion != null ||
+        !const {'orders', 'move', 'closed', 'audit'}.contains(request.view)) {
+      return null;
+    }
+    if (request.view == 'move') {
+      if (request.apparatus.isEmpty ||
+          request.target.isEmpty ||
+          request.apparatus == request.target) {
+        return null;
+      }
+    } else if (request.apparatus.isNotEmpty || request.target.isNotEmpty) {
+      return null;
+    }
+    return jsonEncode([request.view, request.apparatus, request.target]);
+  }
+
+  AdminProductionOrderPage? peekPage(
+      String scope, AdminProductionOrderPageRequest request) {
+    if (scope != _scope || !_owns(_generation)) return null;
+    final key = _pageKey(request);
+    return key == null ? null : _pages[key]?.page;
+  }
+
+  /// Foreground demand starts immediately, even while sequence/catalog or a
+  /// different background request is pending. Joining callers receive the very
+  /// same future. Errors remain visible to explicit callers.
+  Future<AdminProductionOrderPage?> preparePage(
+      String scope, AdminProductionOrderPageRequest request,
+      {bool prioritize = true}) {
     if (scope != _scope || !_owns(_generation)) return Future.value();
-    if (_ordersPage != null) return Future.value(_ordersPage);
-    final pending = _preparingOrders;
-    if (pending != null) return pending;
+    final key = _pageKey(request);
+    if (key == null) return Future.value();
+    final entry = _pageEntry(key, request);
+    if (entry.page != null) return Future.value(entry.page);
+    final pending = entry.pending;
+    if (pending != null) {
+      if (prioritize) _observePriority(pending);
+      return pending;
+    }
     if (!_foreground) return Future.value();
+    final generation = _generation;
+    final pagesGeneration = _pagesGeneration;
+    final serial = entry.serial;
     late final Future<AdminProductionOrderPage?> future;
-    future = _readOrders(_generation, _ordersSerial).whenComplete(() {
-      if (identical(_preparingOrders, future)) _preparingOrders = null;
+    future = _readPage(generation, pagesGeneration, key, entry, serial)
+        .whenComplete(() {
+      if (identical(entry.pending, future)) entry.pending = null;
     });
-    _preparingOrders = future;
+    entry.pending = future;
+    if (prioritize) _observePriority(future);
     return future;
   }
 
-  /// A screen returns only its canonical, unsearched first compact page. This
-  /// supersedes any earlier background read without letting it overwrite data.
-  void rememberOrders(String scope, AdminProductionOrderPage page) {
-    if (scope != _scope ||
-        !_owns(_generation) ||
-        !_validOrdersPage(page) ||
-        _retiredOrdersEpochs.contains(page.epoch)) {
-      return;
+  void _observePriority(Future<AdminProductionOrderPage?> future) {
+    if (!_priorityReads.add(future)) return;
+    _wakeBackground();
+    // Observe speculative errors immediately without changing the shared future
+    // returned to an explicit caller.
+    unawaited(future.then<void>((_) {
+      if (_priorityReads.remove(future)) {
+        _sequenceAttempted = true;
+        if (_backgroundReads.isNotEmpty) _allowBackgroundOverlap = true;
+      }
+      _wakeBackground();
+      _warmPagesAfterSequence();
+    }, onError: (Object _, StackTrace __) {
+      if (_priorityReads.remove(future)) {
+        _sequenceAttempted = true;
+        if (_backgroundReads.isNotEmpty) _allowBackgroundOverlap = true;
+      }
+      _wakeBackground();
+      _warmPagesAfterSequence();
+    }));
+  }
+
+  _AdminWarmPageEntry _pageEntry(
+      String key, AdminProductionOrderPageRequest request) {
+    final existing = _pages[key];
+    if (existing != null) return existing;
+    if (_pages.length >= _maximumPageKeys) {
+      final retired = _pages.remove(_pages.keys.first)!;
+      retired.serial++;
     }
-    final current = _ordersPage;
+    final entry = _AdminWarmPageEntry(request);
+    _pages[key] = entry;
+    return entry;
+  }
+
+  /// A screen's canonical page supersedes any earlier read without permitting
+  /// stale responses, revisions, or retired server epochs to overwrite it.
+  void rememberPage(String scope, AdminProductionOrderPageRequest request,
+      AdminProductionOrderPage page) {
+    if (scope != _scope || !_owns(_generation)) return;
+    final key = _pageKey(request);
+    if (key == null || !_validPage(request, page)) return;
+    final entry = _pageEntry(key, request);
+    if (entry.retiredEpochs.contains(page.epoch)) return;
+    final current = entry.page;
     if (current != null &&
         current.epoch == page.epoch &&
         current.revision! > page.revision!) {
       return;
     }
     if (current != null && current.epoch != page.epoch) {
-      _retiredOrdersEpochs.add(current.epoch);
+      entry.retiredEpochs.add(current.epoch);
     }
-    _ordersSerial++;
-    _ordersPage = page;
-    _ordersChanges.value++;
+    entry.serial++;
+    entry.page = page;
+    _pagesChanges.value++;
   }
 
-  static bool _validOrdersPage(AdminProductionOrderPage page) =>
-      page.isOrdersList &&
-      page.scope.isNotEmpty &&
-      page.wireValue?['projection'] == adminOrdersListProjection &&
-      _validFirstPage(page);
+  static bool _validPage(AdminProductionOrderPageRequest request,
+          AdminProductionOrderPage page) =>
+      _validFirstPage(page) &&
+      (request.view != 'orders' ||
+          (page.isOrdersList &&
+              page.scope.isNotEmpty &&
+              page.wireValue?['projection'] == adminOrdersListProjection));
 
-  Future<AdminProductionOrderPage?> _readOrders(
-      int generation, int serial) async {
+  Future<AdminProductionOrderPage?> _readPage(
+      int generation,
+      int pagesGeneration,
+      String key,
+      _AdminWarmPageEntry entry,
+      int serial) async {
+    bool ownsEntry() =>
+        pagesGeneration == _pagesGeneration && identical(_pages[key], entry);
+    final canceled = Completer<void>();
+    _activePageCancellations.add(canceled);
     try {
       final page = await _readWithRetry(generation, () async {
-        final page = await _pageLoader(
-            const AdminProductionOrderPageRequest(view: 'orders'));
-        if (page == null || !_validOrdersPage(page)) {
+        final page = await _pageLoader(entry.request);
+        if (page == null || !_validPage(entry.request, page)) {
           throw const MobileApiException(
               code: 'order_page_invalid',
               message: 'Buyurtmalar sahifasi noto‘g‘ri. Qayta yuklang.');
         }
         return page;
-      }, isCurrent: () => serial == _ordersSerial);
-      if (!_owns(generation)) return null;
-      if (serial != _ordersSerial) return _ordersPage;
+      },
+          isCurrent: () => ownsEntry() && serial == entry.serial,
+          cancellation: canceled.future);
+      if (!_owns(generation) || !ownsEntry()) return null;
+      if (serial != entry.serial) return entry.page;
       if (page == null) return null;
-      if (_retiredOrdersEpochs.contains(page.epoch)) return _ordersPage;
-      _ordersPage = page;
-      _lastError = null;
-      _ordersChanges.value++;
+      if (entry.retiredEpochs.contains(page.epoch)) return entry.page;
+      entry.page = page;
+      // A successful unrelated tab must not erase a failed Sequence diagnostic.
+      if (_snapshot != null) _lastError = null;
+      _pagesChanges.value++;
       return page;
     } catch (error) {
-      if (!_owns(generation)) return null;
-      if (serial != _ordersSerial) return _ordersPage;
+      if (!_owns(generation) || !ownsEntry()) return null;
+      if (serial != entry.serial) return entry.page;
       _recordReadError(generation, error);
       rethrow;
+    } finally {
+      _activePageCancellations.remove(canceled);
     }
   }
 
-  void _warmOrdersAfterSequence() {
+  /// The route may supply a different currently selected Move pair. The two
+  /// direction pages are independent entries and share foreground requests.
+  void configureMoveRequests(
+      String scope, List<AdminProductionOrderPageRequest> requests) {
+    if (scope != _scope || !_owns(_generation)) return;
+    final unique = <String, AdminProductionOrderPageRequest>{};
+    for (final request in requests.take(2)) {
+      final key = _pageKey(request);
+      if (request.view == 'move' && key != null) unique[key] = request;
+    }
+    _moveRequests = List.unmodifiable(unique.values);
+    _warmPagesAfterSequence();
+  }
+
+  List<AdminProductionOrderPageRequest> _backgroundRequests() {
+    final configured = _moveRequests;
+    final catalog = _knownApparatus ?? const <AdminApparatus>[];
+    final printers = catalog.where((item) => item.isPechat).toList();
+    final candidates = printers.isEmpty ? catalog : printers;
+    final top = candidates.firstOrNull;
+    final bottom = candidates.length > 1
+        ? candidates[1]
+        : catalog.where((item) => item.id != top?.id).firstOrNull;
+    return [
+      _ordersRequest,
+      ...?configured,
+      if (configured == null && top != null && bottom != null) ...[
+        AdminProductionOrderPageRequest(
+            view: 'move', apparatus: top.id, target: bottom.id),
+        AdminProductionOrderPageRequest(
+            view: 'move', apparatus: bottom.id, target: top.id),
+      ],
+      const AdminProductionOrderPageRequest(view: 'closed'),
+      const AdminProductionOrderPageRequest(view: 'audit'),
+    ];
+  }
+
+  void _warmPagesAfterSequence() {
     if (!_owns(_generation) ||
         !_foreground ||
-        _snapshot == null ||
-        _ordersPage != null ||
-        _preparingOrders != null) {
+        !_sequenceAttempted ||
+        _backgroundPreparation != null) {
       return;
     }
-    // Attaching the observer immediately keeps a failed speculative request
-    // out of the unhandled-error zone. The shared future still rejects for an
-    // explicit caller that joins it while the background request is pending.
-    unawaited(prepareOrders(_scope!)
-        .then<void>((_) {}, onError: (Object _, StackTrace __) {}));
+    final generation = _generation;
+    final pagesGeneration = _pagesGeneration;
+    late final Future<void> future;
+    future =
+        _prepareBackgroundPages(generation, pagesGeneration).whenComplete(() {
+      if (identical(_backgroundPreparation, future)) {
+        _backgroundPreparation = null;
+        // Catalog or Move selection may add keys between the runner's final
+        // empty-queue check and this completion callback. Recheck once; an
+        // empty queue must never create a recurring preparation loop.
+        if (_owns(generation) &&
+            _foreground &&
+            pagesGeneration == _pagesGeneration &&
+            _hasPendingBackgroundPages) {
+          _warmPagesAfterSequence();
+        }
+      }
+    });
+    _backgroundPreparation = future;
+    unawaited(future);
   }
 
-  void _clearOrders() {
-    _ordersSerial++;
-    _ordersPage = null;
-    _preparingOrders = null;
-    _retiredOrdersEpochs.clear();
-    _ordersChanges.value++;
+  bool get _hasPendingBackgroundPages => _backgroundRequests().any((request) {
+        final key = _pageKey(request)!;
+        return !_backgroundAttempts.contains(key) && _pages[key]?.page == null;
+      });
+
+  void _wakeBackground() {
+    final previous = _backgroundWake;
+    _backgroundWake = Completer<void>();
+    if (!previous.isCompleted) previous.complete();
+  }
+
+  Future<void> _waitBackgroundProgress() => Future.any<void>([
+        _backgroundWake.future,
+        ..._backgroundReads.map((future) =>
+            future.then<void>((_) {}, onError: (Object _, StackTrace __) {})),
+      ]);
+
+  Future<void> _prepareBackgroundPages(
+      int generation, int pagesGeneration) async {
+    bool active() =>
+        _owns(generation) && _foreground && pagesGeneration == _pagesGeneration;
+    while (active()) {
+      while (_priorityReads.isNotEmpty && active()) {
+        await Future.wait(_priorityReads.toList().map((future) =>
+            future.then<void>((_) {}, onError: (Object _, StackTrace __) {})));
+      }
+      if (!active()) return;
+      // Normal warming is serial. A completed foreground demand can release a
+      // replacement lane beside an already started slow background request;
+      // at most two background reads are active, so remaining tabs still run.
+      final capacity = _allowBackgroundOverlap ? 2 : 1;
+      if (_backgroundReads.length >= capacity) {
+        await _waitBackgroundProgress();
+        continue;
+      }
+      AdminProductionOrderPageRequest? next;
+      for (final request in _backgroundRequests()) {
+        final key = _pageKey(request)!;
+        if (!_backgroundAttempts.contains(key) && _pages[key]?.page == null) {
+          next = request;
+          break;
+        }
+      }
+      if (next == null) return;
+      _backgroundAttempts.add(_pageKey(next)!);
+      final future = preparePage(_scope!, next, prioritize: false);
+      _backgroundReads.add(future);
+      unawaited(future.then<void>((_) {
+        _backgroundReads.remove(future);
+        if (_backgroundReads.isEmpty) _allowBackgroundOverlap = false;
+        _wakeBackground();
+      }, onError: (Object _, StackTrace __) {
+        _backgroundReads.remove(future);
+        if (_backgroundReads.isEmpty) _allowBackgroundOverlap = false;
+        _wakeBackground();
+      }));
+      await _waitBackgroundProgress();
+    }
+  }
+
+  void _suspendPageReads() {
+    _pagesGeneration++;
+    final reads = _activePageCancellations.toList();
+    _activePageCancellations.clear();
+    for (final read in reads) {
+      if (!read.isCompleted) read.complete();
+    }
+    for (final entry in _pages.values) {
+      entry.pending = null;
+    }
+    _backgroundPreparation = null;
+    _priorityReads.clear();
+    _backgroundReads.clear();
+    _allowBackgroundOverlap = false;
+    _wakeBackground();
+  }
+
+  void _clearPages() {
+    _suspendPageReads();
+    for (final entry in _pages.values) {
+      entry.serial++;
+    }
+    _pages.clear();
+    _backgroundAttempts.clear();
+    _moveRequests = null;
+    _sequenceAttempted = false;
+    _pagesChanges.value++;
   }
 
   /// Returns the very same future to every caller during a cold preparation.
@@ -329,8 +579,13 @@ class AdminSequenceWarmStore {
     final pending = _preparing;
     if (pending != null) return pending;
     late final Future<AdminSequenceWarmSnapshot?> future;
-    future = _prepare(_generation, _snapshotSerial).whenComplete(() {
+    final generation = _generation;
+    future = _prepare(generation, _snapshotSerial).whenComplete(() {
       if (identical(_preparing, future)) _preparing = null;
+      if (_owns(generation)) {
+        _sequenceAttempted = true;
+        _warmPagesAfterSequence();
+      }
     });
     _preparing = future;
     return future;
@@ -381,8 +636,9 @@ class AdminSequenceWarmStore {
       fresh: false,
     );
     _lastError = null;
+    _sequenceAttempted = true;
     _startLive();
-    _warmOrdersAfterSequence();
+    _warmPagesAfterSequence();
     return _snapshot;
   }
 
@@ -398,7 +654,7 @@ class AdminSequenceWarmStore {
 
   Future<List<AdminApparatus>?> _readCatalog(int generation) async {
     try {
-      return await _readWithRetry(generation, () async {
+      final apparatus = await _readWithRetry(generation, () async {
         final apparatus = await _apparatusLoader();
         if (apparatus.length > 200 ||
             apparatus.any((item) => item.id.trim().isEmpty) ||
@@ -408,6 +664,12 @@ class AdminSequenceWarmStore {
         }
         return List<AdminApparatus>.unmodifiable(apparatus);
       });
+      if (_owns(generation) && apparatus != null) {
+        _knownApparatus = apparatus;
+        _pagesChanges.value++;
+        _warmPagesAfterSequence();
+      }
+      return apparatus;
     } catch (error) {
       _recordReadError(generation, error);
       return null;
@@ -436,7 +698,7 @@ class AdminSequenceWarmStore {
   /// Only transient failures qualify. A new foreground transition or explicit
   /// navigation can start another preparation after the budget is exhausted.
   Future<T?> _readWithRetry<T>(int generation, Future<T> Function() read,
-      {bool Function()? isCurrent}) async {
+      {bool Function()? isCurrent, Future<void>? cancellation}) async {
     for (var attempt = 0; attempt < 3; attempt++) {
       if (!_owns(generation) ||
           !_foreground ||
@@ -454,6 +716,7 @@ class AdminSequenceWarmStore {
           value = await Future.any<T?>([
             read(),
             canceled.future.then<T?>((_) => null),
+            if (cancellation != null) cancellation.then<T?>((_) => null),
           ]);
         } finally {
           _activeReadCancellations.remove(canceled);
@@ -473,7 +736,11 @@ class AdminSequenceWarmStore {
         final timer = Timer(readRetryDelay * (attempt + 1), ready.complete);
         _readRetryWaits[ready] = timer;
         try {
-          await ready.future;
+          if (cancellation == null) {
+            await ready.future;
+          } else {
+            await Future.any<void>([ready.future, cancellation]);
+          }
         } finally {
           _readRetryWaits.remove(ready)?.cancel();
         }
@@ -565,7 +832,7 @@ class AdminSequenceWarmStore {
       _repairBudget = true;
       if (_snapshot != null) {
         _startLive();
-        _warmOrdersAfterSequence();
+        _warmPagesAfterSequence();
       } else if (_preferredApparatusId != null) {
         unawaited(prepare(_scope!));
       }
@@ -751,7 +1018,7 @@ class AdminSequenceWarmStore {
       _snapshotSerial++;
       _snapshot = null;
       _knownApparatus = null;
-      _clearOrders();
+      _clearPages();
       _stopLive();
     }
   }
@@ -773,8 +1040,18 @@ class AdminSequenceWarmStore {
     _snapshot = null;
     _knownApparatus = null;
     _preparing = null;
-    _clearOrders();
+    _clearPages();
     _leases.clear();
-    _ordersChanges.dispose();
+    _pagesChanges.dispose();
   }
+}
+
+class _AdminWarmPageEntry {
+  _AdminWarmPageEntry(this.request);
+
+  final AdminProductionOrderPageRequest request;
+  AdminProductionOrderPage? page;
+  Future<AdminProductionOrderPage?>? pending;
+  final Set<String> retiredEpochs = {};
+  int serial = 0;
 }

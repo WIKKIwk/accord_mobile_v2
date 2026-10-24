@@ -60,6 +60,31 @@ Future<AdminProductionOrderPage> _runtimeOrdersPage() =>
       },
     });
 
+Future<AdminProductionOrderPage> _runtimeOtherPage(
+        AdminProductionOrderPageRequest request) =>
+    AdminProductionOrderPage.fromJson({
+      'version': '${request.view}-v1',
+      'epoch': 'server',
+      'rev': 1,
+      'offset': 0,
+      'total': 0,
+      'next_cursor': null,
+      if (request.view == 'move') ...{
+        'order_ids': [],
+        'maps': [],
+      },
+      if (request.view == 'closed') 'closed_orders': [],
+      if (request.view == 'audit')
+        'workflow_audit': {
+          'ok': true,
+          'checked_order_count': 0,
+          'checked_batch_count': 0,
+          'checked_session_count': 0,
+          'total_violations': 0,
+          'violations': [],
+        },
+    });
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late AdminSequenceWarmStore admin;
@@ -165,7 +190,7 @@ void main() {
     await tester
         .pumpWidget(const ProductionQueueWarmRuntime(child: SizedBox()));
     await tester.pumpAndSettle();
-    expect(adminReads, 2);
+    expect(adminReads, 4);
     expect(workerReads, 0);
     expect(admin.peek(currentAdminSequenceWarmScope()), isNotNull);
     expect(admin.peekOrders(currentAdminSequenceWarmScope()), isNotNull);
@@ -186,7 +211,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
     expect(streams.length, 2);
-    expect(adminReads, 2);
+    expect(adminReads, 4);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -245,7 +270,7 @@ void main() {
   });
 
   testWidgets(
-      'foreground home warms selected Sequence then exactly one compact Orders page',
+      'foreground home warms selected Sequence then each tab prefix once',
       (tester) async {
     final sequence = Completer<AdminProductionOrderPage?>();
     final orders = Completer<AdminProductionOrderPage?>();
@@ -267,7 +292,11 @@ void main() {
       },
       pageLoader: (request) {
         requests.add(request);
-        return request.view == 'sequence' ? sequence.future : orders.future;
+        return switch (request.view) {
+          'sequence' => sequence.future,
+          'orders' => orders.future,
+          _ => _runtimeOtherPage(request),
+        };
       },
       liveLoader: (_) => live(),
       scopeReader: currentAdminSequenceWarmScope,
@@ -311,7 +340,15 @@ void main() {
     expect(preferenceReads, 1);
     expect(workerReads, 0);
     await tester.pump(const Duration(seconds: 3));
-    expect(requests, hasLength(2),
+    expect(requests.map((request) => request.view),
+        ['sequence', 'orders', 'move', 'move', 'closed', 'audit']);
+    expect(requests.where((request) => request.view == 'move').map((request) =>
+        [request.apparatus, request.target]), [
+      ['apparatus:default:other', _selectedApparatus],
+      [_selectedApparatus, 'apparatus:default:other'],
+    ]);
+    expect(requests.every((request) => request.cursor == null), isTrue);
+    expect(requests, hasLength(6),
         reason: 'Ready state does not poll list/details');
     await tester.pumpWidget(const SizedBox());
   });
@@ -327,9 +364,11 @@ void main() {
       selectedApparatusLoader: (_) async => _selectedApparatus,
       pageLoader: (request) {
         requests.add(request.view);
-        return request.view == 'sequence'
-            ? sequence.future
-            : _runtimeOrdersPage();
+        return switch (request.view) {
+          'sequence' => sequence.future,
+          'orders' => _runtimeOrdersPage(),
+          _ => _runtimeOtherPage(request),
+        };
       },
       liveLoader: (_) => live(),
       scopeReader: currentAdminSequenceWarmScope,
@@ -347,7 +386,7 @@ void main() {
     expect(requests, ['sequence']);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(requests, ['sequence', 'orders']);
+    expect(requests, ['sequence', 'orders', 'closed', 'audit']);
     expect(admin.peekOrders(currentAdminSequenceWarmScope()), isNotNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -367,8 +406,11 @@ void main() {
         if (request.view == 'sequence') {
           return ++sequenceReads == 1 ? oldSequence.future : newSequence.future;
         }
-        ordersAccounts.add(AppSession.instance.profile!.ref);
-        return _runtimeOrdersPage();
+        if (request.view == 'orders') {
+          ordersAccounts.add(AppSession.instance.profile!.ref);
+          return _runtimeOrdersPage();
+        }
+        return _runtimeOtherPage(request);
       },
       liveLoader: (_) => live(),
       scopeReader: currentAdminSequenceWarmScope,

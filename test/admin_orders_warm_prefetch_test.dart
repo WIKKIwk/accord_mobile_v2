@@ -34,16 +34,23 @@ const _catalog = AdminApparatus(
   technology: 'gravure',
 );
 const _epoch = 'orders-warm-ui-server';
+const _secondApparatus = AdminApparatus(
+  id: 'apparatus:default:bosma_8',
+  name: 'Second warm machine',
+  operation: 'print',
+  technology: 'gravure',
+);
 
 Future<AdminProductionOrderPage> _sequencePage({
   int revision = 7,
   String title = 'Visible sequence item',
+  String epoch = _epoch,
 }) =>
     AdminProductionOrderPage.fromJson({
       'projection': 'sequence_list_v1',
       'version': 'sequence-v$revision',
       'scope': 'warm-sequence-scope',
-      'epoch': _epoch,
+      'epoch': epoch,
       'rev': revision,
       'offset': 0,
       'total': 1,
@@ -105,10 +112,67 @@ Future<AdminProductionOrderPage> _ordersPage({
       'pending_rows': <String, dynamic>{},
     });
 
+Future<AdminProductionOrderPage> _otherPage(
+  String view, {
+  int revision = 7,
+  String title = 'Background closed item',
+  String epoch = _epoch,
+}) =>
+    AdminProductionOrderPage.fromJson({
+      'version': '$view-v$revision',
+      'epoch': epoch,
+      'rev': revision,
+      'offset': 0,
+      'total': view == 'move' ? 0 : 1,
+      'next_cursor': null,
+      if (view == 'move') ...{
+        'order_ids': <String>[],
+        'sequences': <String, dynamic>{},
+        'visible_order_ids': <String, dynamic>{},
+        'queue_states': <String, dynamic>{},
+        'queue_action_controls': <String, dynamic>{},
+        'queue_policies': <Map<String, dynamic>>[],
+        'stage_states': <String, dynamic>{},
+        'order_controls': <String, dynamic>{},
+        'order_statuses': <String, dynamic>{},
+        'frozen_orders_by_apparatus': <String, dynamic>{},
+        'order_customers': <String, dynamic>{},
+        'maps': <Map<String, dynamic>>[],
+      },
+      if (view == 'closed')
+        'closed_orders': [
+          {
+            'order_id': 'closed-only',
+            'order_number': '0901',
+            'title': title,
+            'product_code': 'closed-image',
+            'history_version': 'closed-history-$revision',
+            'logs': <Map<String, dynamic>>[],
+            'progress_batches': <Map<String, dynamic>>[],
+          },
+        ],
+      if (view == 'audit')
+        'workflow_audit': {
+          'ok': false,
+          'checked_order_count': 43,
+          'checked_batch_count': 51,
+          'checked_session_count': 62,
+          'total_violations': 1,
+          'violations': [
+            {
+              'code': 'unknown_order_queue_state',
+              'order_id': 'audit-priority-order',
+              'subject': 'Prepared audit finding',
+              'detail': 'Audit loaded independently of other tabs',
+            },
+          ],
+        },
+    });
+
 class _WarmUiHarness {
-  _WarmUiHarness() {
+  _WarmUiHarness({this.twoApparatus = false}) {
     store = AdminSequenceWarmStore(
-      apparatusLoader: () async => [_catalog],
+      apparatusLoader: () async => catalog,
       selectedApparatusLoader: (_) async => _apparatus,
       pageLoader: (request) async {
         warmReads.add(request);
@@ -119,7 +183,13 @@ class _WarmUiHarness {
           return ordersReply?.future ??
               _ordersPage(revision: revision, title: ordersTitle);
         }
-        throw StateError('Unexpected warm view ${request.view}');
+        if (request.view == 'audit' && auditReply != null) {
+          return auditReply!.future;
+        }
+        if (request.view == 'closed' && closedReply != null) {
+          return closedReply!.future;
+        }
+        return _otherPage(request.view, revision: revision);
       },
       liveLoader: (_) {
         final stream =
@@ -132,6 +202,9 @@ class _WarmUiHarness {
   }
 
   late final AdminSequenceWarmStore store;
+  final bool twoApparatus;
+  List<AdminApparatus> get catalog =>
+      [_catalog, if (twoApparatus) _secondApparatus];
   final warmReads = <AdminProductionOrderPageRequest>[];
   final foregroundReads = <AdminProductionOrderPageRequest>[];
   final detailReads = <String>[];
@@ -140,6 +213,8 @@ class _WarmUiHarness {
   final events = StreamController<Object>.broadcast();
   Completer<AdminProductionOrderPage?>? sequenceReply;
   Completer<AdminProductionOrderPage?>? ordersReply;
+  Completer<AdminProductionOrderPage?>? auditReply;
+  Completer<AdminProductionOrderPage?>? closedReply;
   int revision = 7;
   String ordersTitle = 'Background order item';
 
@@ -167,15 +242,8 @@ class _WarmUiHarness {
       return _ordersPage(revision: revision, title: 'Foreground order item');
     }
     if (request.view == 'sequence') return _sequencePage(revision: revision);
-    return AdminProductionOrderPage.fromJson({
-      'version': 'empty-${request.view}',
-      'epoch': _epoch,
-      'rev': revision,
-      'offset': 0,
-      'total': 0,
-      'next_cursor': null,
-      'closed_orders': [],
-    });
+    return _otherPage(request.view,
+        revision: revision, title: 'Foreground closed item');
   }
 
   Future<void> mount(WidgetTester tester) async {
@@ -189,7 +257,7 @@ class _WarmUiHarness {
         GlobalWidgetsLocalizations.delegate,
       ],
       home: AdminProductionMapOrdersScreen(
-        apparatusLoader: () async => [_catalog],
+        apparatusLoader: () async => catalog,
         completionRequestsLoader: () async => [],
         queueSnapshotLoader: () => throw StateError('Full queue may not warm'),
         orderPageLoader: foreground,
@@ -250,9 +318,11 @@ class _WarmUiHarness {
   }
 
   Future<void> readyOrders(WidgetTester tester) async {
-    final viewport = tester.widgetList(find.byWidgetPredicate((widget) =>
-        widget.runtimeType.toString() == '_AdminOrderPageViewport')).firstWhere(
-        (widget) => (widget as dynamic).window.request.view == 'orders');
+    final viewport = tester
+        .widgetList(find.byWidgetPredicate((widget) =>
+            widget.runtimeType.toString() == '_AdminOrderPageViewport'))
+        .firstWhere(
+            (widget) => (widget as dynamic).window.request.view == 'orders');
     final dynamic window = (viewport as dynamic).window;
     final AdminProductionOrderPage page = window.pages.first;
     events.add(AdminProductionMapPageWindowMessage.fromJson({
@@ -282,6 +352,9 @@ class _WarmUiHarness {
   Future<http.Response> httpRead(http.Request request) async {
     if (request.url.path.endsWith('/order-image/view')) {
       imageReads.add(request.url.queryParameters['order_id']!);
+    }
+    if (request.url.path.endsWith('/closed-order')) {
+      detailReads.add(request.url.queryParameters['id']!);
     }
     return http.Response('{}', 404);
   }
@@ -330,7 +403,8 @@ void main() {
     final harness = _WarmUiHarness();
     await http.runWithClient(() async {
       await harness.prepare(tester);
-      expect(harness.warmReads.map((r) => r.view), ['sequence', 'orders']);
+      expect(harness.warmReads.map((r) => r.view),
+          ['sequence', 'orders', 'closed', 'audit']);
       expect(harness.store.peekOrders(harness.scope)!.isOrdersList, isTrue);
       expect(harness.store.peekOrders(harness.scope)!.snapshot, isNull);
       expect(harness.imageReads, isEmpty);
@@ -351,6 +425,252 @@ void main() {
       await tester.pumpAndSettle();
       expect(harness.warmReads.length + harness.foregroundReads.length, reads,
           reason: 'Background preparation may not become polling');
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('all default tabs prepare once without hidden details or images',
+      (tester) async {
+    final harness = _WarmUiHarness(twoApparatus: true);
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      expect(harness.warmReads.map((request) => request.view),
+          ['sequence', 'orders', 'move', 'move', 'closed', 'audit']);
+      final moves =
+          harness.warmReads.where((request) => request.view == 'move');
+      expect(moves.map((request) => [request.apparatus, request.target]), [
+        [_apparatus, _secondApparatus.id],
+        [_secondApparatus.id, _apparatus],
+      ]);
+      expect(harness.imageReads, isEmpty);
+      expect(harness.detailReads, isEmpty);
+      expect(
+          harness.warmReads.every(
+              (request) => request.cursor == null && request.search.isEmpty),
+          isTrue);
+      await harness.mount(tester);
+      expect(harness.foregroundReads, isEmpty);
+      expect(harness.imageReads.where((id) => id != 'sequence-only'), isEmpty);
+      expect(harness.detailReads, isEmpty);
+
+      for (final tab in [
+        'Ko‘chirish',
+        'Yopilgan',
+        'Tekshiruv',
+        'Buyurtmalar'
+      ]) {
+        await tester.tap(find.text(tab).first);
+        await tester.pumpAndSettle();
+      }
+      expect(harness.foregroundReads, isEmpty,
+          reason: 'Prepared tab baselines must not be downloaded again');
+      expect(harness.warmReads, hasLength(6),
+          reason: harness.warmReads
+              .map((request) =>
+                  '${request.view}:${request.apparatus}->${request.target}')
+              .join(', '));
+      expect(harness.detailReads, isEmpty);
+      await harness.readyOrders(tester);
+      final reads = harness.warmReads.length + harness.foregroundReads.length;
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pumpAndSettle();
+      expect(harness.warmReads.length + harness.foregroundReads.length, reads);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('early Audit demand bypasses blocked Orders and rest resumes',
+      (tester) async {
+    final harness = _WarmUiHarness(twoApparatus: true)
+      ..ordersReply = Completer<AdminProductionOrderPage?>()
+      ..auditReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      expect(harness.warmReads.map((request) => request.view),
+          ['sequence', 'orders']);
+      await tester.tap(find.text('Tekshiruv'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(harness.warmReads.where((request) => request.view == 'audit'),
+          hasLength(1));
+      expect(harness.foregroundReads, isEmpty);
+      expect(harness.ordersReply!.isCompleted, isFalse,
+          reason: 'Selecting Audit must not wait for the older Orders HTTP');
+      harness.auditReply!.complete(await _otherPage('audit'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('audit-priority-order'), findsOneWidget);
+      expect(harness.ordersReply!.isCompleted, isFalse,
+          reason: 'Audit must render independently of the blocked Orders read');
+      expect(harness.warmReads.where((request) => request.view == 'orders'),
+          hasLength(1));
+      expect(harness.warmReads.where((request) => request.view == 'audit'),
+          hasLength(1));
+      expect(harness.warmReads.where((request) => request.view == 'move'),
+          hasLength(2));
+      expect(harness.warmReads.where((request) => request.view == 'closed'),
+          hasLength(1));
+      expect(harness.ordersReply!.isCompleted, isFalse,
+          reason:
+              'Remaining tabs resume after Audit despite the older Orders HTTP');
+      harness.ordersReply!.complete(await _ordersPage());
+      await tester.pumpAndSettle();
+      expect(harness.warmReads, hasLength(6));
+      expect(harness.foregroundReads, isEmpty);
+      expect(harness.detailReads, isEmpty);
+      expect(harness.imageReads.where((id) => id != 'sequence-only'), isEmpty);
+      await tester.tap(find.text('Yopilgan'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('closed-order-closed-only')),
+          findsOneWidget);
+      expect(harness.foregroundReads, isEmpty);
+      expect(harness.detailReads, isEmpty);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('Audit opens immediately even while initial Sequence is pending',
+      (tester) async {
+    final harness = _WarmUiHarness(twoApparatus: true)
+      ..sequenceReply = Completer<AdminProductionOrderPage?>()
+      ..auditReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      harness.configure();
+      await harness.mount(tester);
+      expect(harness.warmReads.map((request) => request.view), ['sequence']);
+      await tester.tap(find.text('Tekshiruv'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(harness.warmReads.where((request) => request.view == 'audit'),
+          hasLength(1));
+      expect(harness.sequenceReply!.isCompleted, isFalse);
+      harness.auditReply!.complete(await _otherPage('audit'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('audit-priority-order'), findsOneWidget);
+      expect(harness.sequenceReply!.isCompleted, isFalse);
+      expect(harness.foregroundReads, isEmpty);
+      expect(harness.warmReads.where((request) => request.view == 'orders'),
+          hasLength(1));
+      expect(harness.warmReads.where((request) => request.view == 'move'),
+          hasLength(2));
+      expect(harness.warmReads.where((request) => request.view == 'closed'),
+          hasLength(1));
+      expect(harness.sequenceReply!.isCompleted, isFalse,
+          reason: 'The remaining tabs must not wait for initial Sequence HTTP');
+      harness.sequenceReply!.complete(await _sequencePage());
+      await tester.pumpAndSettle();
+      expect(harness.warmReads.where((request) => request.view == 'orders'),
+          hasLength(1));
+      expect(harness.warmReads.where((request) => request.view == 'move'),
+          hasLength(2));
+      expect(harness.warmReads.where((request) => request.view == 'closed'),
+          hasLength(1));
+      expect(harness.warmReads.where((request) => request.view == 'audit'),
+          hasLength(1));
+      expect(harness.detailReads, isEmpty);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('late old Sequence cannot replace an early Audit server epoch',
+      (tester) async {
+    final harness = _WarmUiHarness(twoApparatus: true)
+      ..sequenceReply = Completer<AdminProductionOrderPage?>()
+      ..auditReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      harness.configure();
+      await harness.mount(tester);
+      await tester.tap(find.text('Tekshiruv'));
+      await tester.pump(const Duration(milliseconds: 400));
+      harness.auditReply!.complete(
+          await _otherPage('audit', epoch: 'new-audit-server', revision: 1));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('audit-priority-order'), findsOneWidget);
+      harness.sequenceReply!.complete(await _sequencePage());
+      await tester.pumpAndSettle();
+      expect(find.textContaining('audit-priority-order'), findsOneWidget,
+          reason: 'An older initial Sequence must not erase the priority tab');
+      final viewport = tester
+          .widgetList(find.byWidgetPredicate((widget) =>
+              widget.runtimeType.toString() == '_AdminOrderPageViewport'))
+          .firstWhere(
+              (widget) => (widget as dynamic).window.request.view == 'audit');
+      final dynamic window = (viewport as dynamic).window;
+      expect((window.pages.first as AdminProductionOrderPage).epoch,
+          'new-audit-server');
+      expect(harness.warmReads.where((request) => request.view == 'audit'),
+          hasLength(1));
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('early Move demand uses the catalog without waiting for Sequence',
+      (tester) async {
+    final harness = _WarmUiHarness(twoApparatus: true)
+      ..sequenceReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      harness.configure();
+      await harness.mount(tester);
+      await tester.tap(find.text('Ko‘chirish'));
+      await tester.pumpAndSettle();
+      final moves =
+          harness.warmReads.where((request) => request.view == 'move');
+      expect(moves.map((request) => [request.apparatus, request.target]), [
+        [_apparatus, _secondApparatus.id],
+        [_secondApparatus.id, _apparatus],
+      ]);
+      expect(harness.sequenceReply!.isCompleted, isFalse);
+      expect(harness.foregroundReads, isEmpty);
+      final moveViewports = tester
+          .widgetList(find.byWidgetPredicate((widget) =>
+              widget.runtimeType.toString() == '_AdminOrderPageViewport'))
+          .where((widget) => (widget as dynamic).window.request.view == 'move');
+      expect(moveViewports, hasLength(2));
+      expect(
+          moveViewports
+              .every((widget) => (widget as dynamic).window.loaded as bool),
+          isTrue);
+      harness.sequenceReply!.complete(await _sequencePage());
+      await tester.pumpAndSettle();
+      expect(harness.warmReads.where((request) => request.view == 'move'),
+          hasLength(2));
+      expect(harness.detailReads, isEmpty);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('prepared Closed rows paint before its first swipe settles',
+      (tester) async {
+    final harness = _WarmUiHarness(twoApparatus: true);
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      await tester.tap(find.text('Ko‘chirish'));
+      await tester.pumpAndSettle();
+      final viewport = tester.getRect(find.byType(TabBarView));
+      final gesture = await tester
+          .startGesture(Offset(viewport.right - 32, viewport.top + 160));
+      await gesture.moveBy(const Offset(-24, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.moveBy(Offset(-viewport.width * .35, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+      final controller = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+      expect(controller.index, 2);
+      expect(controller.animation!.value, greaterThan(2));
+      expect(controller.animation!.value, lessThan(2.5));
+      final row = find.byKey(const ValueKey('closed-order-closed-only'));
+      expect(row, findsOneWidget);
+      final bounds = tester.getRect(row);
+      expect(bounds.overlaps(viewport), isTrue);
+      expect(bounds.left, greaterThan(viewport.center.dx));
+      RenderObject child = tester.renderObject(row);
+      while (child.parent != null) {
+        final parent = child.parent!;
+        expect(parent.paintsChild(child), isTrue);
+        child = parent;
+      }
+      expect(harness.foregroundReads, isEmpty);
+      expect(harness.detailReads, isEmpty);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
       await harness.close(tester);
     }, () => MockClient(harness.httpRead));
   });

@@ -142,6 +142,7 @@ extension _AdminProductionMapOrdersMoveState
     );
     _moveTopApparatus = defaults.top;
     _moveBottomApparatus = defaults.bottom;
+    if (_adminPaging) _configureAdminWarmMovePages();
   }
 
   List<ProductionMapSaved> _moveOrdersForApparatus({
@@ -858,7 +859,10 @@ extension _AdminProductionMapOrdersMoveState
       }
       if (_adminPaging) _selectedMoveOrderIds.clear();
     });
-    if (_adminPaging) unawaited(_ensureAdminModule(_OpenedOrderModule.move, refresh: true));
+    if (_adminPaging) {
+      _configureAdminWarmMovePages();
+      unawaited(_ensureAdminModule(_OpenedOrderModule.move, refresh: true));
+    }
   }
 
   List<AdminApparatus> _movePickerApparatusOptions(

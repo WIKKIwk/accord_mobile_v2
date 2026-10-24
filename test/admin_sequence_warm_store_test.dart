@@ -113,6 +113,10 @@ class _Harness {
           ordersRequests.add(request);
           return loadOrders == null ? _ordersPage() : loadOrders(request);
         }
+        if (request.view != 'sequence') {
+          otherRequests.add(request);
+          return _page();
+        }
         requests.add(request);
         return loadPage == null
             ? _page(revision: requests.length)
@@ -133,6 +137,7 @@ class _Harness {
   late final AdminSequenceWarmStore store;
   final requests = <AdminProductionOrderPageRequest>[];
   final ordersRequests = <AdminProductionOrderPageRequest>[];
+  final otherRequests = <AdminProductionOrderPageRequest>[];
   final descriptors = <List<Map<String, Object?>>>[];
   final controllers = <StreamController<AdminProductionMapLiveMessage>>[];
 
@@ -884,8 +889,7 @@ void main() {
     expect(harness.store.peekOrders('scope'), isNotNull);
   });
 
-  test('exhausted sequence retries never start Orders before recovery',
-      () async {
+  test('exhausted sequence retries still prepare independent tabs', () async {
     var fail = true;
     final harness = _Harness(loadPage: (_) async {
       if (fail) throw TimeoutException('offline');
@@ -895,7 +899,10 @@ void main() {
     harness.store.configure(scope: 'scope', foreground: true);
     expect(await harness.store.prepare('scope'), isNull);
     expect(harness.requests, hasLength(3));
-    expect(harness.ordersRequests, isEmpty);
+    await _settle();
+    expect(harness.ordersRequests, hasLength(1));
+    expect(harness.otherRequests.map((request) => request.view),
+        ['move', 'move', 'closed', 'audit']);
     await Future<void>.delayed(const Duration(milliseconds: 30));
     expect(harness.requests, hasLength(3));
     fail = false;

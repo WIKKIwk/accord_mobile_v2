@@ -23,18 +23,46 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
     final ready = _sequenceWarmStore.peek(scope);
     _adminWarmLease = _sequenceWarmStore.acquire(scope);
     if (ready != null) _adoptAdminWarmSequence(ready);
-    _sequenceWarmStore.ordersChanges.addListener(_adoptPreparedAdminOrders);
-    _adoptPreparedAdminOrders();
+    _sequenceWarmStore.pagesChanges.addListener(_adoptPreparedAdminPages);
+    _adoptPreparedAdminPages();
   }
 
-  void _adoptPreparedAdminOrders() {
+  void _adoptPreparedAdminPages() {
     if (!mounted || !_adminPaging || !_adminForeground) return;
-    final window = _adminWindow('orders');
-    final scope = _adminOrdersWarmScope(window);
-    if (scope == null || window.loaded || window.dirty ||
-        window.inFlight != null) return;
-    final page = _sequenceWarmStore.peekOrders(scope);
-    if (page != null) _adoptAdminWarmOrders(window, page);
+    final scope = _adminWarmScope;
+    if (scope == null || scope != currentAdminSequenceWarmScope()) return;
+    final catalog = _sequenceWarmStore.peekApparatus(scope);
+    if (_apparatus.isEmpty && catalog != null && catalog.isNotEmpty) {
+      _updateScreenState(() {
+        _apparatus = catalog;
+        _workerCatalogReady = true;
+        _syncSelectedSequenceApparatus(catalog);
+        _syncMoveApparatusDefaults(catalog);
+      });
+    }
+    for (final module in const [
+      _OpenedOrderModule.orders,
+      _OpenedOrderModule.move,
+      _OpenedOrderModule.closed,
+      _OpenedOrderModule.audit,
+    ]) {
+      for (final window in _adminModuleWindows(module)) {
+        final scope = _adminPageWarmScope(window);
+        if (scope == null || window.loaded || window.dirty ||
+            window.inFlight != null) continue;
+        final page = _sequenceWarmStore.peekPage(scope, window.request);
+        if (page != null) _adoptAdminWarmPage(window, page);
+      }
+    }
+  }
+
+  void _configureAdminWarmMovePages() {
+    final scope = _adminWarmScope;
+    if (scope == null || scope != currentAdminSequenceWarmScope()) return;
+    _sequenceWarmStore.configureMoveRequests(scope, [
+      for (final window in _adminModuleWindows(_OpenedOrderModule.move))
+        window.request,
+    ]);
   }
 
   void _syncAdminWarmSession() {
@@ -44,6 +72,7 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
       _adminWarmLease?.release();
       _adminWarmLease = null;
       _adminWarmScope = null;
+      _adminEarlyTabEpoch = null;
       _updateScreenState(() {
         _adminWindows.clear();
         _rebuildAdminPageState();
@@ -55,6 +84,7 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
     if (scope == _adminWarmScope) return;
     final previous = _adminWarmLease;
     _adminWarmScope = scope;
+    _adminEarlyTabEpoch = null;
     _sequenceWarmStore.configure(
       scope: scope,
       profileRef: AppSession.instance.profile?.ref,
@@ -81,6 +111,9 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
             _selectedApparatus?.id != ready.selectedApparatusId) ||
         ready.scope != _adminWarmScope ||
         ready.apparatus.isEmpty ||
+        (!_adminWarmAdopted &&
+            _adminEarlyTabEpoch != null &&
+            _adminEarlyTabEpoch != ready.page.epoch) ||
         _retiredSnapshotEpochs.contains(ready.page.epoch)) return false;
     final selected = ready.apparatus
         .where((item) => item.id == ready.selectedApparatusId)
@@ -120,7 +153,7 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
     _rebuildAdminPageState();
     _adminCacheRestored = true;
     _adminWarmAdopted = true;
-    _loading = false;
+    if (_module == _OpenedOrderModule.sequence) _loading = false;
     final account = _adminPageAccount;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && account == _adminPageAccount) {
@@ -138,29 +171,32 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
         ready == null ||
         _adminWarmScope != currentAdminSequenceWarmScope()) return;
     _updateScreenState(() => _adoptAdminWarmSequence(ready));
-    _adoptPreparedAdminOrders();
+    _adoptPreparedAdminPages();
   }
 
-  String? _adminOrdersWarmScope(_AdminOrderWindow window) {
+  String? _adminPageWarmScope(_AdminOrderWindow window) {
     final scope = _adminWarmScope;
     if (scope == null ||
         scope != currentAdminSequenceWarmScope() ||
         window.account != _adminPageAccount ||
-        window.request.view != 'orders' ||
+        !const {'orders', 'move', 'closed', 'audit'}
+            .contains(window.request.view) ||
         window.request.search.isNotEmpty ||
-        window.request.apparatus.isNotEmpty ||
-        window.request.target.isNotEmpty) {
+        (window.request.view != 'move' &&
+            (window.request.apparatus.isNotEmpty ||
+                window.request.target.isNotEmpty))) {
       return null;
     }
     return scope;
   }
 
-  bool _adoptAdminWarmOrders(
-      _AdminOrderWindow window, AdminProductionOrderPage page) {
-    if (_adminOrdersWarmScope(window) == null ||
+  bool _adoptAdminWarmPage(
+      _AdminOrderWindow window, AdminProductionOrderPage page,
+      {bool prioritized = false}) {
+    if (_adminPageWarmScope(window) == null ||
         window.loaded ||
         window.dirty ||
-        !page.isOrdersList ||
+        (window.request.view == 'orders' && !page.isOrdersList) ||
         page.offset != 0 ||
         page.length > 20 ||
         page.version.isEmpty ||
@@ -174,14 +210,20 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
       return false;
     }
     _updateScreenState(() {
+      if (prioritized && !_adminWarmAdopted) {
+        _adminEarlyTabEpoch = page.epoch;
+      }
       window.pages = [page];
+      if (_lastAppliedSnapshotEpoch.isEmpty) {
+        _lastAppliedSnapshotEpoch = page.epoch;
+      }
       // A prefetched list can render immediately; the visible window's socket
       // still proves continuity before the existing action guards are released.
       window.cacheNeedsValidation = true;
       window.awaitingLive = true;
       window.error = null;
       _rebuildAdminPageState();
-      if (_module == _OpenedOrderModule.orders) _loading = false;
+      if (_adminModuleWindows(_module).contains(window)) _loading = false;
     });
     return true;
   }
@@ -193,16 +235,16 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
     final scope = _adminWarmScope;
     AdminProductionOrderPage? ordersPage;
     if (scope != null && !_queueSnapshotContractError) {
-      final orders = _adminWindows.values.where((window) =>
-          _adminOrdersWarmScope(window) == scope &&
+      for (final window in _adminWindows.values.where((window) =>
+          _adminPageWarmScope(window) == scope &&
           window.loaded &&
           !window.dirty &&
           !window.cacheNeedsValidation &&
           !window.awaitingLive &&
           window.inFlight == null &&
-          window.error == null).firstOrNull;
-      if (orders != null) {
-        ordersPage = orders.pages.first;
+          window.error == null)) {
+        _sequenceWarmStore.rememberPage(scope, window.request, window.pages.first);
+        if (window.request.view == 'orders') ordersPage = window.pages.first;
       }
     }
     final selected = _selectedApparatus;
