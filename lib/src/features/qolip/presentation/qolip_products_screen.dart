@@ -15,6 +15,7 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../../core/widgets/transfer/transfer_list.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_order_image_thumb.dart';
@@ -161,7 +162,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(
                   4,
-                  4,
+                  8,
                   4,
                   MediaQuery.viewPaddingOf(context).bottom + 112,
                 ),

@@ -1,9 +1,14 @@
 part of '../mobile_api.dart';
 
 class QolipCatalogItem {
-  const QolipCatalogItem({required this.id, required this.name});
+  const QolipCatalogItem({
+    required this.id,
+    required this.name,
+    this.orderImageOrderId = '',
+  });
   final String id;
   final String name;
+  final String orderImageOrderId;
 }
 
 class QolipCatalogPage {
@@ -53,7 +58,8 @@ extension MobileApiQolipCatalog on MobileApi {
           for (final item in page)
             QolipCatalogItem(
                 id: 'qp1.${base64Url.encode(utf8.encode(item.code)).replaceAll('=', '')}',
-                name: item.name)
+                name: item.name,
+                orderImageOrderId: item.orderImageOrderId)
         ],
         nextCursor: items.length > count
             ? base64Url
@@ -110,7 +116,10 @@ extension MobileApiQolipCatalog on MobileApi {
         throw const FormatException('Invalid Qolip catalog item');
       }
       items.add(QolipCatalogItem(
-          id: item['id'] as String, name: item['name'] as String));
+          id: item['id'] as String,
+          name: item['name'] as String,
+          orderImageOrderId:
+              (item['order_image_order_id'] as String? ?? '').trim()));
     }
     return QolipCatalogPage(
         items: List.unmodifiable(items),

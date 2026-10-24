@@ -10,6 +10,7 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
                 code: '',
                 name: item.name,
                 itemGroup: '',
+                imageOrderId: item.orderImageOrderId,
                 children: const [])
     ];
     _cachedContainers = _allContainers;
@@ -143,6 +144,7 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
             code: group.code,
             name: container.name,
             itemGroup: group.itemGroup,
+            imageOrderId: container.orderImageOrderId,
             children: group.children);
         _update(() {
           _details[id] = resolved;

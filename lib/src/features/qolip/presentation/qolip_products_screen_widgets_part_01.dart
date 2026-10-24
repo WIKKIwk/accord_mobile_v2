@@ -29,6 +29,7 @@ class QolipProductContainer {
     required this.name,
     required this.itemGroup,
     required this.children,
+    this.imageOrderId = '',
   });
 
   final String code;
@@ -36,6 +37,7 @@ class QolipProductContainer {
   final String name;
   final String itemGroup;
   final List<QolipProduct> children;
+  final String imageOrderId;
 
   bool get hasInUseQolip => children.any((child) => child.isInUse);
 
@@ -56,7 +58,7 @@ class QolipProductContainer {
         return orderId;
       }
     }
-    return '';
+    return imageOrderId;
   }
 
   QolipProduct get catalogProduct {
@@ -200,8 +202,10 @@ class _QolipProductContainerCard extends StatelessWidget {
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
     );
     return Material(
-      color: selectedContainer ? scheme.secondaryContainer : scheme.surface,
-      elevation: expanded ? 0 : 2,
+      color: selectedContainer
+          ? scheme.secondaryContainer
+          : scheme.surfaceContainerLowest,
+      elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: radius),
@@ -210,8 +214,8 @@ class _QolipProductContainerCard extends StatelessWidget {
         fit: StackFit.passthrough,
         children: [
           Padding(
-            padding: EdgeInsetsDirectional.only(
-                start: hasDetails ? kAdminOrderCoverWidth : 0),
+            padding: const EdgeInsetsDirectional.only(
+                start: kAdminOrderCoverWidth),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -219,12 +223,10 @@ class _QolipProductContainerCard extends StatelessWidget {
                   onTap: onToggle,
                   onLongPress: onLongPress,
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: hasDetails ? kAdminOrderCoverWidth : 60,
-                    ),
+                    constraints: const BoxConstraints(minHeight: 61),
                     child: Padding(
                       padding:
-                          const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
+                          const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
                       child: Row(
                         children: [
                           if (containerSelectionMode) ...[
@@ -237,22 +239,19 @@ class _QolipProductContainerCard extends StatelessWidget {
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  container.name.isEmpty
+                                TransferItemTitle(
+                                  code: '',
+                                  title: container.name.isEmpty
                                       ? container.code
                                       : container.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                  identity: container.key,
+                                  theme: Theme.of(context),
+                                  scheme: scheme,
                                 ),
                                 if (hasDetails) ...[
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 4),
                                   Text(
                                     selectionDisabled
                                         ? l10n.qolipText(
@@ -459,19 +458,18 @@ class _QolipProductContainerCard extends StatelessWidget {
           ),
           // Keep the cover on top so its long-press preview wins over the
           // container-selection InkWell underneath it.
-          if (hasDetails)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: kAdminOrderCoverWidth,
-              child: AdminOrderCoverThumb(
-                imageUrl: imageUrl,
-                displayName:
-                    container.name.isEmpty ? container.code : container.name,
-                heroTag: 'qolip-order-image-${container.key}',
-              ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: kAdminOrderCoverWidth,
+            child: AdminOrderCoverThumb(
+              imageUrl: imageUrl,
+              displayName:
+                  container.name.isEmpty ? container.code : container.name,
+              heroTag: 'qolip-order-image-${container.key}',
             ),
+          ),
         ],
       ),
     );

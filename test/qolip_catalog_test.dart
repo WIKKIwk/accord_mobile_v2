@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
+import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_retry_state.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +18,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-http.Response page(int start, int count, {String? next, String? name}) =>
+import 'order_image_test_data.dart';
+
+http.Response page(int start, int count,
+        {String? next,
+        String? name,
+        Map<int, String> imageOrders = const {}}) =>
     http.Response(
         jsonEncode({
           'ok': true,
@@ -23,7 +31,9 @@ http.Response page(int start, int count, {String? next, String? name}) =>
             for (var n = start; n < start + count; n++)
               {
                 'id': 'row-$n',
-                'name': name ?? 'Product ${n.toString().padLeft(3, '0')}'
+                'name': name ?? 'Product ${n.toString().padLeft(3, '0')}',
+                if (imageOrders.containsKey(n))
+                  'order_image_order_id': imageOrders[n],
               }
           ],
           'has_more': next != null,
@@ -142,6 +152,101 @@ void main() {
               expect(request.url.queryParameters, {'id': 'row-0'});
               detailReads++;
               return pending.future;
+            }));
+  });
+
+  testWidgets('catalog covers load like sequence rows before mold details',
+      (tester) async {
+    OrderImageCache.debugOverride =
+        OrderImageCache(disk: createOrderImageDiskStore());
+    addTearDown(() async {
+      await OrderImageCache.instance.clear();
+      OrderImageCache.debugOverride = null;
+    });
+    final thumb = await tester.runAsync(() => orderImageTestPng(48, 48));
+    final full = await tester.runAsync(() => orderImageTestPng(96, 96));
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+    final pending = Completer<http.Response>();
+    final imageRequests = <http.Request>[];
+    var detailReads = 0;
+    await http.runWithClient(() async {
+      await pumpScreen(tester);
+      final covers = find.byType(AdminOrderCoverThumb);
+      expect(covers, findsNWidgets(2));
+      final cover = covers.first;
+      final coverSize = tester.getSize(cover);
+      expect(coverSize, const Size(kAdminOrderCoverWidth, 61));
+      expect(tester.getSize(covers.last), coverSize);
+      expect(imageRequests, hasLength(1));
+      expect(imageRequests.single.url.queryParameters,
+          {'order_id': 'catalog-cover-order', 'variant': 'thumb-v1'});
+      expect(imageRequests.single.headers['Authorization'],
+          'Bearer catalog-token');
+      expect(detailReads, 0);
+      expect(find.text('MOLD-001'), findsNothing);
+
+      pending.complete(http.Response.bytes(thumb!, 200,
+          headers: {'content-type': 'image/png'}));
+      for (var frame = 0; frame < 12; frame++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump(const Duration(milliseconds: 20));
+        if (tester
+            .widgetList<RawImage>(
+                find.descendant(of: cover, matching: find.byType(RawImage)))
+            .any((image) => image.image?.width == 48)) {
+          break;
+        }
+      }
+      await tester.pumpAndSettle();
+      expect(
+          tester
+              .widgetList<RawImage>(
+                  find.descendant(of: cover, matching: find.byType(RawImage)))
+              .any((image) => image.image?.width == 48),
+          isTrue);
+      expect(tester.getSize(cover), coverSize);
+      expect(detailReads, 0);
+
+      await tester.longPress(cover);
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 40)));
+      await tester.pumpAndSettle();
+      expect(imageRequests, hasLength(2));
+      expect(imageRequests.last.url.queryParameters,
+          {'order_id': 'catalog-cover-order'});
+      expect(detailReads, 0);
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Product 000'));
+      await tester.pumpAndSettle();
+      expect(detailReads, 1);
+      expect(find.text('MOLD-001'), findsOneWidget);
+      expect(tester.widget<AdminOrderCoverThumb>(cover).imageUrl,
+          contains('order_id=catalog-cover-order'));
+      expect(imageRequests, hasLength(2),
+          reason: 'mold details must reuse the already loaded cover');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/page')) {
+                return page(0, 2, imageOrders: {0: 'catalog-cover-order'});
+              }
+              if (request.url.path.endsWith('/order-image/view')) {
+                imageRequests.add(request);
+                return request.url.queryParameters['variant'] == 'thumb-v1'
+                    ? pending.future
+                    : http.Response.bytes(full!, 200,
+                        headers: {'content-type': 'image/png'});
+              }
+              expectSync(request.url.path, '/v1/mobile/qolip/products/detail');
+              detailReads++;
+              return detail();
             }));
   });
 
