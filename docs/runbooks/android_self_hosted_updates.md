@@ -16,19 +16,35 @@ Developer or CI computer
             └─ mini_rs_erp release directory
                  ├─ android.json
                  └─ content-addressed APK files
-                      └─ Accord Mobile downloads and verifies the APK
-                           └─ Android system installer asks for approval
+                      └─ live release notification reaches Accord Mobile
+                           └─ automatic background download and verification
+                                └─ ready-to-install prompt
+                                     └─ Android system installer asks for approval
 ```
 
 The mobile app:
 
-- checks for updates shortly after startup;
+- checks at startup, on resume, and when the server publishes a live release event;
 - also exposes **Profile → Settings → App update**;
-- downloads only the URL returned by the backend;
+- automatically downloads the URL returned by the backend without blocking work;
+- lets Android retain interrupted downloads and resume them when the network returns;
+- stores the manifest and APK across app exits, including an offline relaunch;
 - verifies size and SHA-256;
 - asks native Android code to verify package name, newer version code, and
   signing certificate;
-- opens Android's system package installer.
+- shows the existing update card only after download and validation complete;
+- opens Android's system package installer only after the user taps **Update**.
+
+The `/v1/mobile/app-update/android/live` WebSocket reports publication and admin
+policy changes within the server's one-second sampling interval. Clients reconnect
+automatically and fall back to a metadata check every 30 seconds. The server must
+forward WebSocket upgrades for this route. APK responses carry ETag and support
+Range/If-Match so Android can safely resume the same file.
+
+Mandatory updates block the app only when a verified APK is ready. Exiting and
+reopening the app restores the ready card without another download. Optional
+updates retain **Later**. Neither restoring a download nor completing it launches
+the installer automatically.
 
 ## One-time project setup
 
@@ -168,7 +184,8 @@ No backend restart is required after publishing a new APK.
 
 ### Optional update
 
-The normal command creates an optional update. Users may choose **Later**.
+The normal command creates an optional update. Users may choose **Later** after
+the background download is ready.
 
 ### Require only very old clients
 
@@ -181,7 +198,8 @@ make publish-mobile-apk \
   MOBILE_RELEASE_DIR=/var/lib/mini-rs-erp/mobile-releases
 ```
 
-Only installed versions below code 5 are blocked until they update.
+Installed versions below code 5 must install once the APK has downloaded and
+passed validation.
 
 ### Require every older client
 
@@ -195,7 +213,9 @@ make publish-mobile-apk \
 ```
 
 Use mandatory updates carefully. A server or download outage would prevent
-affected users from continuing past the update dialog.
+affected users from preparing the update. The ready update card stays mandatory,
+including when the app is reopened offline. The admin mandatory-update switch
+overrides the policy in the release manifest.
 
 ## Verify before announcing
 
@@ -217,9 +237,9 @@ Confirm that:
 Perform an upgrade test on a device with the previous version installed:
 
 1. Open Accord Mobile.
-2. Wait for the automatic prompt, or open
-   **Profile → Settings → App update**.
-3. Tap **Update**.
+2. Continue normal work while the APK downloads automatically. Open
+   **Profile → Settings → App update** to inspect its status if needed.
+3. Once the ready card appears, tap **Update**.
 4. On Android 8 or newer, allow Accord Mobile to install unknown apps when
    prompted, then tap **Update** again.
 5. Approve the Android system installer.

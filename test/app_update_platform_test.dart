@@ -1,12 +1,33 @@
 import 'package:accord_mobile_v2/src/core/update/app_update_installer.dart';
 import 'package:accord_mobile_v2/src/core/update/app_update_models.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+  test('preflight validates APK without opening settings or the installer',
+      () async {
+    const channel = MethodChannel('accord/app_update');
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return null;
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding
+        .instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
+    await const NativeAppUpdatePlatform().validateApk(
+        path: '/downloads/app_updates/accord.apk',
+        expectedPackageName: 'com.example.accord_mobile_v2',
+        expectedVersionCode: 92);
+    expect(calls.map((call) => call.method), ['validateApk']);
+    expect(calls.single.arguments['expectedVersionCode'], 92);
+  });
 
   for (final platform in [
     TargetPlatform.iOS,

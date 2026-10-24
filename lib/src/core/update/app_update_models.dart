@@ -44,6 +44,20 @@ class AppUpdateManifest {
   final String releaseNotes;
   final String publishedAt;
 
+  String get artifactKey => '$versionCode:$sha256:$sizeBytes:$apkUri';
+
+  Map<String, dynamic> toJson() => {
+        'version_code': versionCode,
+        'version_name': versionName,
+        'minimum_supported_version_code': minimumSupportedVersionCode,
+        'mandatory': mandatory,
+        'apk_url': apkUri.toString(),
+        'sha256': sha256,
+        'size_bytes': sizeBytes,
+        'release_notes': releaseNotes,
+        'published_at': publishedAt,
+      };
+
   factory AppUpdateManifest.fromJson(
     Map<String, dynamic> json, {
     required Uri baseUri,
@@ -103,6 +117,13 @@ class AppUpdateCheckResult {
   bool get updateAvailable =>
       manifest != null && manifest!.isNewerThan(current);
   bool get mandatory => updateAvailable && manifest!.isMandatoryFor(current);
+}
+
+class PreparedAppUpdate {
+  const PreparedAppUpdate({required this.update, required this.path});
+
+  final AppUpdateCheckResult update;
+  final String path;
 }
 
 class AppUpdateException implements Exception {

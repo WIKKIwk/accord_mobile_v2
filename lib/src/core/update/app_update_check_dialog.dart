@@ -1,129 +1,85 @@
 part of 'app_update_runtime.dart';
 
 class _AppUpdateCheckDialog extends StatefulWidget {
-  const _AppUpdateCheckDialog({
-    required this.service,
-    required this.onChecked,
-  });
+  const _AppUpdateCheckDialog({required this.coordinator});
 
-  final AppUpdateService service;
-  final ValueChanged<AppUpdateCheckResult> onChecked;
+  final AppUpdateCoordinator coordinator;
 
   @override
   State<_AppUpdateCheckDialog> createState() => _AppUpdateCheckDialogState();
 }
 
 class _AppUpdateCheckDialogState extends State<_AppUpdateCheckDialog> {
-  AppInstallationInfo? _current;
-  AppUpdateCheckResult? _result;
-  bool _checking = true;
-  String? _error;
-
   @override
   void initState() {
     super.initState();
-    unawaited(_check());
-  }
-
-  Future<void> _check() async {
-    setState(() {
-      _checking = true;
-      _error = null;
-    });
-    try {
-      final current = await widget.service.currentAppInfo();
-      if (!mounted) return;
-      setState(() => _current = current);
-      final result = await widget.service.check();
-      if (!mounted) return;
-      setState(() {
-        _result = result;
-        _checking = false;
-      });
-      widget.onChecked(result);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _checking = false;
-        _error = error is AppUpdateException
-            ? error.message
-            : context.l10n.appUpdateCheckFailed;
-      });
-    }
+    unawaited(widget.coordinator.refresh());
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final result = _result;
-    if (result != null &&
-        result.updateAvailable &&
-        widget.service.isSupported) {
-      return _AppUpdateDialog(result: result, service: widget.service);
-    }
-    final latest = result != null && !result.updateAvailable;
-    final available = result?.updateAvailable == true;
-    return PopScope(
-      canPop: !_checking,
-      child: _AppUpdateDialogFrame(
-        icon: Icon(
-          _error != null
+    return AnimatedBuilder(
+      animation: widget.coordinator,
+      builder: (context, _) {
+        final coordinator = widget.coordinator;
+        if (coordinator.ready != null) {
+          return _AppUpdateDialog(coordinator: coordinator);
+        }
+        final l10n = context.l10n;
+        final result = coordinator.latest;
+        final latest = result != null && !result.updateAvailable;
+        final manifest = result?.manifest;
+        return _AppUpdateDialogFrame(
+          icon: Icon(coordinator.error != null
               ? Icons.cloud_off_rounded
               : latest
                   ? Icons.verified_outlined
-                  : Icons.system_update_rounded,
-        ),
-        title: Text(
-          latest
+                  : Icons.system_update_rounded),
+          title: Text(latest
               ? l10n.appUpdateCurrentTitle
-              : available
+              : result?.updateAvailable == true && !coordinator.preparing
                   ? l10n.appUpdateAvailableTitle
-                  : l10n.appUpdateSettingsTitle,
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_current != null) ...[
-              _AppUpdateVersionDetails(
-                  current: _current!, manifest: result?.manifest),
-              const SizedBox(height: 16),
+                  : l10n.appUpdateSettingsTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (coordinator.current != null) ...[
+                _AppUpdateVersionDetails(
+                    current: coordinator.current!, manifest: manifest),
+                const SizedBox(height: 16),
+              ],
+              if (coordinator.preparing) ...[
+                LinearProgressIndicator(
+                    value: manifest == null
+                        ? null
+                        : coordinator.receivedBytes / manifest.sizeBytes),
+                const SizedBox(height: 12),
+                Text(l10n.appUpdateBackgroundHint),
+              ] else if (coordinator.checking) ...[
+                const LinearProgressIndicator(),
+                const SizedBox(height: 12),
+                Text(l10n.checking),
+              ] else if (coordinator.error != null) ...[
+                Text(coordinator.error!),
+                const SizedBox(height: 8),
+                Text(l10n.appUpdateCheckRetryHint),
+              ] else
+                Text(
+                    latest ? l10n.appUpdateCurrent : l10n.appUpdateUnsupported),
             ],
-            if (_checking) ...[
-              const LinearProgressIndicator(),
-              const SizedBox(height: 12),
-              Text(l10n.checking),
-            ] else if (_error != null) ...[
-              Text(_error!),
-              const SizedBox(height: 8),
-              Text(l10n.appUpdateCheckRetryHint),
-            ] else
-              Text(latest ? l10n.appUpdateCurrent : l10n.appUpdateUnsupported),
-            if (available && result!.manifest!.releaseNotes.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(l10n.appUpdateReleaseNotes,
-                  style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(height: 6),
-              Text(result.manifest!.releaseNotes),
-            ],
-          ],
-        ),
-        actions: [
-          if (_error != null)
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.closeAction),
-            ),
-          FilledButton(
-            onPressed: _checking
-                ? null
-                : _error != null
-                    ? _check
-                    : () => Navigator.of(context).pop(),
-            child: Text(_error != null ? l10n.retry : l10n.closeAction),
           ),
-        ],
-      ),
+          actions: [
+            if (coordinator.error != null)
+              TextButton(
+                  onPressed: () => coordinator.refresh(),
+                  child: Text(l10n.retry)),
+            FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.closeAction)),
+          ],
+        );
+      },
     );
   }
 }

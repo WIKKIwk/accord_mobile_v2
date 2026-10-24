@@ -65,29 +65,170 @@ void main() {
     await _expectCannotDismiss(tester);
   });
 
-  testWidgets('canceling a mandatory download leaves the update gate locked',
+  testWidgets(
+      'mandatory card stays locked while the prepared APK opens the installer',
       (tester) async {
+    final pending = Completer<AppInstallLaunchResult>();
     final service = _FakeUpdateService(
       result: _result(
           currentVersionCode: 5, releaseVersionCode: 6, mandatory: true),
-      pendingInstall: Completer<AppInstallLaunchResult>(),
+      pendingInstall: pending,
     );
     await _pumpHarness(tester, AppUpdateCoordinator(service: service));
-    await tester.tap(find.text('Check directly'));
+    await tester.tap(find.text('Check automatically'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Yangilash'));
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('Keyinroq'), findsNothing);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    pending.complete(AppInstallLaunchResult.installerLaunched);
     await tester.pumpAndSettle();
-    expect(find.text('Bekor qilish'), findsOneWidget);
     await _expectCannotDismiss(tester);
-    await tester.tap(find.text('Bekor qilish'));
+  });
+
+  testWidgets('mandatory updates download automatically without blocking work',
+      (tester) async {
+    final pending = Completer<void>();
+    final service = _FakeUpdateService(
+      result: _result(
+          currentVersionCode: 5, releaseVersionCode: 6, mandatory: true),
+      pendingPrepare: pending,
+    );
+    await _pumpHarness(tester, AppUpdateCoordinator(service: service));
+    await tester.tap(find.text('Check automatically'));
     await tester.pumpAndSettle();
-    expect(find.text('Yangilash'), findsOneWidget);
+    expect(service.prepareCalls, 1);
+    expect(service.installCalls, 0);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('Open settings').hitTestable(), findsOneWidget);
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Yangilanish talab qilinadi'), findsOneWidget);
+    expect(service.installCalls, 0);
     await _expectCannotDismiss(tester);
+    await tester.tap(find.text('Yangilash'));
+    await tester.pumpAndSettle();
+    expect(service.installCalls, 1);
+  });
+
+  testWidgets(
+      'live publication starts preparation without waiting for resume or polling',
+      (tester) async {
+    final live = StreamController<void>.broadcast();
+    final pending = Completer<void>();
+    addTearDown(live.close);
+    final service = _FakeUpdateService(
+      result: _result(currentVersionCode: 5, releaseVersionCode: 5),
+      pendingPrepare: pending,
+      liveChanges: live.stream,
+    );
+    await _pumpHarness(tester, AppUpdateCoordinator(service: service),
+        withRuntime: true);
+    expect(service.prepareCalls, 0);
+    service.result =
+        _result(currentVersionCode: 5, releaseVersionCode: 6, mandatory: true);
+    live.add(null);
+    await tester.pumpAndSettle();
+    expect(service.prepareCalls, 1);
+    expect(find.byType(AlertDialog), findsNothing);
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Yangilanish talab qilinadi'), findsOneWidget);
+    expect(service.installCalls, 0);
+    service.result = _result(currentVersionCode: 5, releaseVersionCode: 6);
+    live.add(null);
+    await tester.pumpAndSettle();
+    expect(find.text('Keyinroq'), findsOneWidget);
+    await tester.tap(find.text('Keyinroq'));
+    await tester.pumpAndSettle();
+    service.result =
+        _result(currentVersionCode: 5, releaseVersionCode: 6, mandatory: true);
+    live.add(null);
+    await tester.pumpAndSettle();
+    await _expectCannotDismiss(tester);
+    expect(service.prepareCalls, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'closing manual settings does not cancel preparation or lose the ready prompt',
+      (tester) async {
+    final pending = Completer<void>();
+    final service = _FakeUpdateService(
+      result: _result(
+          currentVersionCode: 5, releaseVersionCode: 6, mandatory: true),
+      pendingPrepare: pending,
+    );
+    await _pumpHarness(tester, AppUpdateCoordinator(service: service));
+    await tester.tap(find.text('Open settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Check update'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Yopish'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Yangilanish talab qilinadi'), findsOneWidget);
+    expect(service.installCalls, 0);
+  });
+
+  testWidgets('a newer publication supersedes an unfinished older download',
+      (tester) async {
+    final oldDownload = Completer<void>();
+    final newDownload = Completer<void>();
+    final service = _FakeUpdateService(
+      result: _result(
+          currentVersionCode: 5, releaseVersionCode: 6, mandatory: true),
+      pendingByVersion: {6: oldDownload, 7: newDownload},
+    );
+    await _pumpHarness(tester, AppUpdateCoordinator(service: service));
+    await tester.tap(find.text('Check automatically'));
+    await tester.pumpAndSettle();
+    service.result =
+        _result(currentVersionCode: 5, releaseVersionCode: 7, mandatory: true);
+    await tester.tap(find.text('Check automatically'));
+    await tester.pumpAndSettle();
+    expect(service.prepareCalls, 2);
+    oldDownload.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    newDownload.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('0.2.1 (7)'), findsOneWidget);
+    expect(find.text('0.2.1 (6)'), findsNothing);
+    expect(service.installCalls, 0);
+  });
+
+  testWidgets(
+      'cached mandatory APK is offered again after reopening while offline',
+      (tester) async {
+    final cached =
+        _result(currentVersionCode: 5, releaseVersionCode: 6, mandatory: true);
+    for (var launch = 0; launch < 2; launch++) {
+      final service = _FakeUpdateService(
+          result: cached, restoredUpdate: cached, failuresRemaining: 1);
+      await _pumpHarness(tester, AppUpdateCoordinator(service: service));
+      await tester.tap(find.text('Check automatically'));
+      await tester.pumpAndSettle();
+      expect(find.text('Yangilanish talab qilinadi'), findsOneWidget);
+      expect(service.prepareCalls, 1);
+      expect(service.installCalls, 0);
+      await _expectCannotDismiss(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }
   });
 
   for (final failure in [false, true]) {
     testWidgets(
-        'mandatory gate stays locked after ${failure ? 'download failure' : 'permission request'}',
+        'mandatory gate stays locked after ${failure ? 'install failure' : 'permission request'}',
         (tester) async {
       final service = _FakeUpdateService(
         result: _result(
@@ -241,27 +382,17 @@ void main() {
     expect(find.text('O‘rnatuvchini qayta ochish'), findsOneWidget);
   });
 
-  testWidgets('active background download resumes when dialog is recreated', (
-    tester,
-  ) async {
-    final service = _FakeUpdateService(
-      result: _result(currentVersionCode: 5, releaseVersionCode: 6),
-      hasActiveDownload: true,
-    );
-    final coordinator = AppUpdateCoordinator(service: service);
-    await _pumpHarness(tester, coordinator);
-
+  testWidgets('restored background download waits for install confirmation',
+      (tester) async {
+    final result = _result(currentVersionCode: 5, releaseVersionCode: 6);
+    final service = _FakeUpdateService(result: result, restoredUpdate: result);
+    await _pumpHarness(tester, AppUpdateCoordinator(service: service));
     await tester.tap(find.text('Check directly'));
     await tester.pumpAndSettle();
-
-    expect(service.installCalls, 1);
-    expect(
-      find.text(
-        'APK tayyor. Android o‘rnatuvchisi ochildi — '
-        'o‘rnatishni tizim oynasida tasdiqlang.',
-      ),
-      findsOneWidget,
-    );
+    expect(service.prepareCalls, 1);
+    expect(service.installCalls, 0);
+    expect(find.text('Yangi versiya mavjud'), findsOneWidget);
+    expect(find.text('Keyinroq'), findsOneWidget);
   });
 
   testWidgets('latest version is shown on devices that cannot install APKs',
@@ -390,6 +521,7 @@ Future<void> _pumpHarness(
   AppUpdateCoordinator coordinator, {
   bool withRuntime = false,
 }) async {
+  addTearDown(coordinator.dispose);
   await tester.pumpWidget(
     MaterialApp(
       navigatorKey:
@@ -482,7 +614,10 @@ AppUpdateCheckResult _result({
 class _FakeUpdateService extends AppUpdateService {
   _FakeUpdateService({
     required this.result,
-    this.hasActiveDownload = false,
+    this.pendingPrepare,
+    this.pendingByVersion,
+    this.restoredUpdate,
+    this.liveChanges,
     this.supported = true,
     this.pendingCheck,
     this.failuresRemaining = 0,
@@ -495,7 +630,11 @@ class _FakeUpdateService extends AppUpdateService {
   final Completer<AppInstallLaunchResult>? pendingInstall;
   int installFailuresRemaining;
   final AppInstallLaunchResult installResult;
-  final bool hasActiveDownload;
+  final Completer<void>? pendingPrepare;
+  final Map<int, Completer<void>>? pendingByVersion;
+  final AppUpdateCheckResult? restoredUpdate;
+  final Stream<void>? liveChanges;
+  int prepareCalls = 0;
   final bool supported;
   final Completer<AppUpdateCheckResult>? pendingCheck;
   int failuresRemaining;
@@ -523,44 +662,36 @@ class _FakeUpdateService extends AppUpdateService {
   }
 
   @override
-  Future<AppUpdateDownloadSnapshot?> activeDownload(
-    AppUpdateCheckResult update,
-  ) async {
-    activeDownloadCalls++;
-    if (!hasActiveDownload) {
-      return null;
-    }
-    return AppUpdateDownloadSnapshot(
-      status: AppUpdateDownloadStatus.running,
-      receivedBytes: update.manifest!.sizeBytes ~/ 2,
-      totalBytes: update.manifest!.sizeBytes,
-      path: '',
-      reason: 0,
-      retryable: false,
-    );
-  }
+  Stream<void> releaseChanges() => liveChanges ?? const Stream<void>.empty();
 
   @override
-  Future<AppInstallLaunchResult> downloadAndInstall(
+  Future<void> rememberUpdate(AppUpdateCheckResult update) async {}
+
+  @override
+  Future<AppUpdateCheckResult?> restorePendingUpdate() async => restoredUpdate;
+
+  @override
+  Future<PreparedAppUpdate> prepareUpdate(
     AppUpdateCheckResult update, {
     AppUpdateProgress? onProgress,
     AppUpdateCancellation? cancellation,
   }) async {
+    prepareCalls++;
+    await (pendingByVersion?[update.manifest!.versionCode]?.future ??
+        pendingPrepare?.future);
+    return PreparedAppUpdate(update: update, path: '/prepared/accord.apk');
+  }
+
+  @override
+  Future<AppInstallLaunchResult> installPreparedUpdate(
+      PreparedAppUpdate update) async {
     installCalls += 1;
     if (installFailuresRemaining > 0) {
       installFailuresRemaining--;
       throw const AppUpdateException(
-          code: 'download_failed', message: 'Yuklanmadi');
+          code: 'install_failed', message: 'O‘rnatilmadi');
     }
-    onProgress?.call(update.manifest!.sizeBytes, update.manifest!.sizeBytes);
-    if (pendingInstall != null) {
-      return Future.any([
-        pendingInstall!.future,
-        cancellation!.whenCancelled.then<AppInstallLaunchResult>((_) =>
-            throw const AppUpdateException(
-                code: 'cancelled', message: 'Bekor qilindi')),
-      ]);
-    }
+    if (pendingInstall != null) return pendingInstall!.future;
     return installResult;
   }
 }

@@ -8,8 +8,11 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final releaseVersion in [4, 5]) {
     test(
         'non-Android device checks version $releaseVersion without downloading APK',
@@ -178,6 +181,26 @@ void main() {
     expect(await File(platform.downloadPath).exists(), isFalse);
   });
 
+  test(
+      'an APK rejected by native signature validation is never marked ready or installed',
+      () async {
+    final bytes = utf8.encode('wrong-signing-key');
+    final directory =
+        await Directory.systemTemp.createTemp('accord-rejected-apk-');
+    addTearDown(() => directory.delete(recursive: true));
+    final platform = _FakeUpdatePlatform(
+        apkBytes: bytes, downloadDirectory: directory, rejectValidation: true);
+    final service = AppUpdateService(platform: platform);
+    await expectLater(
+        service.prepareUpdate(_updateResult(
+            checksum: sha256.convert(bytes).toString(),
+            sizeBytes: bytes.length)),
+        throwsA(isA<AppUpdateException>()
+            .having((e) => e.code, 'code', 'signer_mismatch')));
+    expect(platform.validationCalls, 1);
+    expect(platform.installCalls, 0);
+  });
+
   test('attaches to an active system download and keeps its progress',
       () async {
     final apkBytes = utf8.encode('background-download');
@@ -263,36 +286,101 @@ void main() {
     expect(platform.installCalls, 0);
   });
 
-  test('automatically recovers a stalled paused system download', () async {
-    final apkBytes = utf8.encode('recovered-download');
-    final checksum = sha256.convert(apkBytes).toString();
-    final downloadDirectory =
-        await Directory.systemTemp.createTemp('accord-update-test-');
+  test('offline pauses retain the partial download and resume without restart',
+      () async {
+    final apkBytes = utf8.encode('resumed-download');
+    final directory = await Directory.systemTemp.createTemp('accord-resume-');
+    addTearDown(() => directory.delete(recursive: true));
     final platform = _FakeUpdatePlatform(
       apkBytes: apkBytes,
-      downloadDirectory: downloadDirectory,
+      downloadDirectory: directory,
       initialStatus: AppUpdateDownloadStatus.paused,
+      initialReceivedBytes: 7,
     );
-    addTearDown(() async {
-      if (await downloadDirectory.exists()) {
-        await downloadDirectory.delete(recursive: true);
-      }
-    });
     final service = AppUpdateService(
       platform: platform,
-      downloadPollInterval: Duration.zero,
-      automaticRetryDelay: Duration.zero,
-      downloadStallTimeout: Duration.zero,
+      downloadPollInterval: const Duration(milliseconds: 5),
     );
-
-    final result = await service.downloadAndInstall(
-      _updateResult(checksum: checksum, sizeBytes: apkBytes.length),
+    final progress = <int>[];
+    final pending = service.prepareUpdate(
+      _updateResult(
+          checksum: sha256.convert(apkBytes).toString(),
+          sizeBytes: apkBytes.length),
+      onProgress: (received, _) => progress.add(received),
     );
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    expect(platform.downloadStarts, 1);
+    expect(platform.cancelCalls, 0);
+    expect(platform.installCalls, 0);
+    platform._status = AppUpdateDownloadStatus.running;
+    final prepared = await pending;
+    expect(progress, contains(7));
+    expect(platform.downloadStarts, 1);
+    expect(platform.cancelCalls, 0);
+    expect(platform.validationCalls, 1);
+    expect(await File(prepared.path).readAsBytes(), apkBytes);
+  });
 
-    expect(result, AppInstallLaunchResult.installerLaunched);
-    expect(platform.cancelCalls, 1);
-    expect(platform.downloadStarts, 2);
+  test(
+      'prepared APK and mandatory policy survive restart without network or reinstall',
+      () async {
+    final bytes = utf8.encode('persisted-signed-apk');
+    final directory =
+        await Directory.systemTemp.createTemp('accord-persisted-');
+    addTearDown(() => directory.delete(recursive: true));
+    final platform =
+        _FakeUpdatePlatform(apkBytes: bytes, downloadDirectory: directory);
+    final update = _updateResult(
+        checksum: sha256.convert(bytes).toString(), sizeBytes: bytes.length);
+    final manifest = AppUpdateManifest.fromJson(
+        {...update.manifest!.toJson(), 'mandatory': true},
+        baseUri: Uri.parse('https://erp.example/'));
+    final first = AppUpdateService(
+        platform: platform, baseUri: Uri.parse('https://erp.example/'));
+    final prepared = await first.prepareUpdate(
+        AppUpdateCheckResult(current: update.current, manifest: manifest));
+    expect(platform.installCalls, 0);
+    final second = AppUpdateService(
+        platform: platform,
+        baseUri: Uri.parse('https://erp.example/'),
+        client:
+            MockClient((_) async => throw const SocketException('offline')));
+    final restored = await second.restorePendingUpdate();
+    expect(restored!.mandatory, isTrue);
+    final cached = await second.prepareUpdate(restored);
+    expect(cached.path, prepared.path);
+    expect(platform.downloadStarts, 1);
+    expect(platform.installCalls, 0);
+    await second.installPreparedUpdate(cached);
     expect(platform.installCalls, 1);
+  });
+
+  test('detaching the foreground monitor does not cancel a system download',
+      () async {
+    final bytes = utf8.encode('background-continues');
+    final directory = await Directory.systemTemp.createTemp('accord-detach-');
+    addTearDown(() => directory.delete(recursive: true));
+    final platform = _FakeUpdatePlatform(
+        apkBytes: bytes,
+        downloadDirectory: directory,
+        initialStatus: AppUpdateDownloadStatus.paused,
+        initialReceivedBytes: 8);
+    final service = AppUpdateService(
+        platform: platform, downloadPollInterval: const Duration(days: 1));
+    final cancellation = AppUpdateCancellation(preserveDownload: true);
+    final preparing = service.prepareUpdate(
+        _updateResult(
+            checksum: sha256.convert(bytes).toString(),
+            sizeBytes: bytes.length),
+        cancellation: cancellation);
+    await Future<void>.delayed(Duration.zero);
+    cancellation.cancel();
+    await expectLater(
+        preparing,
+        throwsA(isA<AppUpdateException>()
+            .having((e) => e.code, 'code', 'cancelled')));
+    expect(platform.cancelCalls, 0);
+    expect(platform._status, AppUpdateDownloadStatus.paused);
   });
 
   test('automatically restarts a retryable system download failure', () async {
@@ -336,6 +424,7 @@ class _FakeUpdatePlatform implements AppUpdatePlatform {
     this.initialReceivedBytes = 0,
     this.failFirstQuery = false,
     this.supported = true,
+    this.rejectValidation = false,
   })  : _status = initialStatus,
         _runningQueriesRemaining =
             initialStatus == AppUpdateDownloadStatus.running ? 1 : 0;
@@ -346,10 +435,12 @@ class _FakeUpdatePlatform implements AppUpdatePlatform {
   final int initialReceivedBytes;
   final bool failFirstQuery;
   final bool supported;
+  final bool rejectValidation;
   late AppUpdateDownloadStatus _status;
   int _runningQueriesRemaining;
   bool _queryFailureReturned = false;
   int installCalls = 0;
+  int validationCalls = 0;
   int downloadStarts = 0;
   int cancelCalls = 0;
   String? lastInstalledPath;
@@ -413,6 +504,21 @@ class _FakeUpdatePlatform implements AppUpdatePlatform {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  @override
+  Future<void> validateApk(
+      {required String path,
+      required String expectedPackageName,
+      required int expectedVersionCode}) async {
+    validationCalls++;
+    if (rejectValidation) {
+      throw const AppUpdateException(
+          code: 'signer_mismatch', message: 'Wrong signing key');
+    }
+    expect(expectedPackageName, 'com.example.accord_mobile_v2');
+    expect(expectedVersionCode, 5);
+    expect(await File(path).exists(), isTrue);
   }
 
   @override

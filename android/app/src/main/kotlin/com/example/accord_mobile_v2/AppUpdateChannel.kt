@@ -52,6 +52,7 @@ class AppUpdateChannel(
             "startOrAttachUpdateDownload" -> startOrAttachUpdateDownload(call, result)
             "queryUpdateDownload" -> queryUpdateDownload(call, result)
             "cancelUpdateDownload" -> cancelUpdateDownload(call, result)
+            "validateApk" -> validateApk(call, result)
             "installApk" -> installApk(call, result)
             else -> result.notImplemented()
         }
@@ -182,51 +183,62 @@ class AppUpdateChannel(
         }
     }
 
-    private fun installApk(call: MethodCall, result: MethodChannel.Result) {
+    private class InvalidUpdate(val code: String, message: String) :
+        IllegalArgumentException(message)
+
+    private fun validatedApk(call: MethodCall): File {
         val path = call.argument<String>("path")?.trim().orEmpty()
         val expectedPackageName =
             call.argument<String>("expectedPackageName")?.trim().orEmpty()
         val expectedVersionCode =
             (call.argument<Number>("expectedVersionCode")?.toLong() ?: 0L)
         if (path.isEmpty() || expectedPackageName.isEmpty() || expectedVersionCode <= 0L) {
-            result.error("invalid_install_request", "Missing APK install arguments", null)
-            return
+            throw InvalidUpdate("invalid_install_request", "Missing APK install arguments")
+        }
+        val apk = File(path).canonicalFile
+        if (!apk.isFile || !isAllowedUpdateFile(apk)) {
+            throw InvalidUpdate("invalid_apk_path", "APK is outside app update storage")
         }
 
+        val archive = archivePackageInfo(apk)
+        if (archive.packageName != expectedPackageName ||
+            archive.packageName != activity.packageName
+        ) {
+            throw InvalidUpdate("package_mismatch", "APK package does not match this app")
+        }
+        val archiveVersionCode = versionCode(archive)
+        if (archiveVersionCode != expectedVersionCode) {
+            throw InvalidUpdate("version_mismatch", "APK version does not match metadata")
+        }
+        val installed = installedPackageInfo()
+        if (archiveVersionCode <= versionCode(installed)) {
+            throw InvalidUpdate("version_not_newer", "APK version is not newer")
+        }
+        val currentSigners = signerDigests(installed).toSet()
+        val archiveSigners = signerDigests(archive).toSet()
+        if (currentSigners.isEmpty() ||
+            archiveSigners.isEmpty() ||
+            currentSigners.intersect(archiveSigners).isEmpty()
+        ) {
+            throw InvalidUpdate("signer_mismatch", "APK signing certificate does not match")
+        }
+        return apk
+    }
+
+    private fun validateApk(call: MethodCall, result: MethodChannel.Result) {
         try {
-            val apk = File(path).canonicalFile
-            if (!apk.isFile || !isAllowedUpdateFile(apk)) {
-                result.error("invalid_apk_path", "APK is outside app update storage", null)
-                return
-            }
+            validatedApk(call)
+            result.success(null)
+        } catch (error: InvalidUpdate) {
+            result.error(error.code, error.message, null)
+        } catch (error: Exception) {
+            result.error("apk_validation_failed", error.message, null)
+        }
+    }
 
-            val archive = archivePackageInfo(apk)
-            if (archive.packageName != expectedPackageName ||
-                archive.packageName != activity.packageName
-            ) {
-                result.error("package_mismatch", "APK package does not match this app", null)
-                return
-            }
-            val archiveVersionCode = versionCode(archive)
-            if (archiveVersionCode != expectedVersionCode) {
-                result.error("version_mismatch", "APK version does not match metadata", null)
-                return
-            }
-            val installed = installedPackageInfo()
-            if (archiveVersionCode <= versionCode(installed)) {
-                result.error("version_not_newer", "APK version is not newer", null)
-                return
-            }
-            val currentSigners = signerDigests(installed).toSet()
-            val archiveSigners = signerDigests(archive).toSet()
-            if (currentSigners.isEmpty() ||
-                archiveSigners.isEmpty() ||
-                currentSigners.intersect(archiveSigners).isEmpty()
-            ) {
-                result.error("signer_mismatch", "APK signing certificate does not match", null)
-                return
-            }
-
+    private fun installApk(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            val apk = validatedApk(call)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 !activity.packageManager.canRequestPackageInstalls()
             ) {
@@ -255,6 +267,8 @@ class AppUpdateChannel(
             }
             activity.startActivity(installIntent)
             result.success(mapOf("status" to "installer_launched"))
+        } catch (error: InvalidUpdate) {
+            result.error(error.code, error.message, null)
         } catch (error: Exception) {
             result.error("install_failed", error.message, null)
         }

@@ -79,6 +79,12 @@ abstract class AppUpdatePlatform {
 
   Future<void> cancelDownload({required AppUpdateManifest manifest});
 
+  Future<void> validateApk({
+    required String path,
+    required String expectedPackageName,
+    required int expectedVersionCode,
+  });
+
   Future<AppInstallLaunchResult> installApk({
     required String path,
     required String expectedPackageName,
@@ -167,6 +173,26 @@ class NativeAppUpdatePlatform implements AppUpdatePlatform {
       throw AppUpdateException(
         code: error.code,
         message: error.message ?? 'Yangilanish yuklashi bekor qilinmadi',
+      );
+    }
+  }
+
+  @override
+  Future<void> validateApk({
+    required String path,
+    required String expectedPackageName,
+    required int expectedVersionCode,
+  }) async {
+    try {
+      await _channel.invokeMethod<void>('validateApk', {
+        'path': path,
+        'expectedPackageName': expectedPackageName,
+        'expectedVersionCode': expectedVersionCode,
+      });
+    } on PlatformException catch (error) {
+      throw AppUpdateException(
+        code: error.code,
+        message: error.message ?? 'APK xavfsizlik tekshiruvidan o‘tmadi',
       );
     }
   }

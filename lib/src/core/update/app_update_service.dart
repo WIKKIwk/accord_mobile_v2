@@ -5,14 +5,20 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/mobile_api.dart';
+import '../network/mobile_http_client.dart';
+import '../realtime/warehouse_live_client.dart';
 import 'app_update_installer.dart';
 import 'app_update_models.dart';
 
 typedef AppUpdateProgress = void Function(int receivedBytes, int totalBytes);
 
 class AppUpdateCancellation {
+  AppUpdateCancellation({this.preserveDownload = false});
+
+  final bool preserveDownload;
   final Completer<void> _cancelled = Completer<void>();
 
   bool get isCancelled => _cancelled.isCompleted;
@@ -32,13 +38,11 @@ class AppUpdateService {
     Uri? baseUri,
     Duration downloadPollInterval = const Duration(milliseconds: 750),
     Duration automaticRetryDelay = const Duration(seconds: 2),
-    Duration downloadStallTimeout = const Duration(seconds: 12),
-  })  : _client = client ?? http.Client(),
+  })  : _client = client ?? createMobileHttpClient(),
         _platform = platform ?? const NativeAppUpdatePlatform(),
         _baseUriOverride = baseUri,
         _downloadPollInterval = downloadPollInterval,
-        _automaticRetryDelay = automaticRetryDelay,
-        _downloadStallTimeout = downloadStallTimeout;
+        _automaticRetryDelay = automaticRetryDelay;
 
   static final AppUpdateService instance = AppUpdateService();
   static const int _maximumManifestBytes = 128 * 1024;
@@ -52,11 +56,66 @@ class AppUpdateService {
   final Uri? _baseUriOverride;
   final Duration _downloadPollInterval;
   final Duration _automaticRetryDelay;
-  final Duration _downloadStallTimeout;
 
   Uri get _baseUri => _baseUriOverride ?? Uri.parse(MobileApi.baseUrl);
 
   bool get isSupported => _platform.isSupported;
+
+  String get endpointKey => _baseUri.origin;
+
+  Stream<void> releaseChanges() {
+    final base = _baseUri;
+    return connectWarehouseLive(base.replace(
+      scheme: base.scheme == 'https' ? 'wss' : 'ws',
+      path: '/v1/mobile/app-update/android/live',
+      query: null,
+    )).where((event) => event['type'] == 'android_release_changed').map((_) {});
+  }
+
+  String get _cacheKey => 'app_update_manifest_v1:$endpointKey';
+
+  Future<void> rememberUpdate(AppUpdateCheckResult update) async {
+    final key = _cacheKey;
+    final prefs = await SharedPreferences.getInstance();
+    final saved = update.updateAvailable
+        ? await prefs.setString(key, jsonEncode(update.manifest!.toJson()))
+        : await prefs.remove(key);
+    if (!saved) {
+      throw const AppUpdateException(
+        code: 'update_storage_failed',
+        message: 'Yangilanish ma’lumotini saqlab bo‘lmadi',
+      );
+    }
+  }
+
+  /// The manifest and native DownloadManager state survive process termination.
+  /// Restoring does not need a successful request to the update server.
+  Future<AppUpdateCheckResult?> restorePendingUpdate() async {
+    final key = _cacheKey;
+    final baseUri = _baseUri;
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = prefs.getString(key);
+    if (encoded == null) return null;
+    final AppUpdateManifest manifest;
+    try {
+      manifest = AppUpdateManifest.fromJson(
+        (jsonDecode(encoded) as Map).cast<String, dynamic>(),
+        baseUri: baseUri,
+      );
+    } on Object {
+      await prefs.remove(key);
+      return null;
+    }
+    final update = AppUpdateCheckResult(
+      current: await currentAppInfo(),
+      manifest: manifest,
+    );
+    if (!update.updateAvailable) {
+      await prefs.remove(key);
+      return null;
+    }
+    return update;
+  }
 
   AppInstallationInfo? _currentAppInfo;
 
@@ -64,8 +123,9 @@ class AppUpdateService {
       await _platform.currentAppInfo().timeout(_manifestReadTimeout);
 
   Future<AppUpdateCheckResult> check() async {
+    final baseUri = _baseUri;
     final current = await currentAppInfo();
-    final endpoint = _baseUri.resolve('/v1/mobile/app-update/android');
+    final endpoint = baseUri.resolve('/v1/mobile/app-update/android');
     final http.StreamedResponse response;
     try {
       response = await _client
@@ -136,12 +196,25 @@ class AppUpdateService {
     }
     final manifest = AppUpdateManifest.fromJson(
       decoded.cast<String, dynamic>(),
-      baseUri: _baseUri,
+      baseUri: baseUri,
     );
     return AppUpdateCheckResult(current: current, manifest: manifest);
   }
 
   Future<AppInstallLaunchResult> downloadAndInstall(
+    AppUpdateCheckResult update, {
+    AppUpdateProgress? onProgress,
+    AppUpdateCancellation? cancellation,
+  }) async {
+    final prepared = await prepareUpdate(
+      update,
+      onProgress: onProgress,
+      cancellation: cancellation,
+    );
+    return installPreparedUpdate(prepared);
+  }
+
+  Future<PreparedAppUpdate> prepareUpdate(
     AppUpdateCheckResult update, {
     AppUpdateProgress? onProgress,
     AppUpdateCancellation? cancellation,
@@ -166,6 +239,7 @@ class AppUpdateService {
       );
     }
 
+    await rememberUpdate(update);
     final path = await _download(
       manifest,
       onProgress: onProgress,
@@ -190,10 +264,28 @@ class AppUpdateService {
       );
     }
     onProgress?.call(manifest.sizeBytes, manifest.sizeBytes);
-    return _platform.installApk(
+    await _platform.validateApk(
       path: finalFile.path,
       expectedPackageName: update.current.packageName,
       expectedVersionCode: manifest.versionCode,
+    );
+    return PreparedAppUpdate(update: update, path: finalFile.path);
+  }
+
+  Future<AppInstallLaunchResult> installPreparedUpdate(
+    PreparedAppUpdate prepared,
+  ) async {
+    final update = prepared.update;
+    if (!await _matchesManifest(File(prepared.path), update.manifest!)) {
+      throw const AppUpdateException(
+        code: 'prepared_apk_missing',
+        message: 'Tayyor yangilanish qayta yuklanmoqda',
+      );
+    }
+    return _platform.installApk(
+      path: prepared.path,
+      expectedPackageName: update.current.packageName,
+      expectedVersionCode: update.manifest!.versionCode,
     );
   }
 
@@ -220,12 +312,14 @@ class AppUpdateService {
     AppUpdateProgress? onProgress,
     AppUpdateCancellation? cancellation,
   }) async {
+    if (cancellation?.isCancelled == true) {
+      await _cancelDownload(manifest, cancellation);
+    }
     var snapshot = await _platform.startOrAttachDownload(manifest: manifest);
     var retries = 0;
-    var lastProgressAt = DateTime.now();
     while (true) {
       if (cancellation?.isCancelled == true) {
-        await _cancelDownload(manifest);
+        await _cancelDownload(manifest, cancellation);
       }
       final received = snapshot.receivedBytes.clamp(0, manifest.sizeBytes);
       onProgress?.call(received, manifest.sizeBytes);
@@ -252,7 +346,6 @@ class AppUpdateService {
             );
             snapshot =
                 await _platform.startOrAttachDownload(manifest: manifest);
-            lastProgressAt = DateTime.now();
             continue;
           }
           throw _downloadFailure(snapshot);
@@ -260,42 +353,9 @@ class AppUpdateService {
         case AppUpdateDownloadStatus.running:
         case AppUpdateDownloadStatus.paused:
           await _waitForPoll(cancellation, manifest);
-          final nextSnapshot =
-              await _platform.queryDownload(manifest: manifest);
-          final nextReceived =
-              nextSnapshot.receivedBytes.clamp(0, manifest.sizeBytes);
-          final madeProgress =
-              nextSnapshot.status != snapshot.status || nextReceived > received;
-          if (madeProgress) {
-            lastProgressAt = DateTime.now();
-            snapshot = nextSnapshot;
-            continue;
-          }
-          final stalled = _downloadStallTimeout <= Duration.zero ||
-              DateTime.now().difference(lastProgressAt) >=
-                  _downloadStallTimeout;
-          if (stalled && retries < _maximumAutomaticRetries) {
-            retries += 1;
-            await _platform.cancelDownload(manifest: manifest);
-            await _waitForRetry(
-              cancellation,
-              manifest,
-              attempt: retries,
-            );
-            snapshot =
-                await _platform.startOrAttachDownload(manifest: manifest);
-            lastProgressAt = DateTime.now();
-            continue;
-          }
-          if (stalled) {
-            await _platform.cancelDownload(manifest: manifest);
-            throw const AppUpdateException(
-              code: 'apk_download_stalled',
-              message:
-                  'Internet aloqasi sekin yoki uzilganligi sabab APK yuklanmadi',
-            );
-          }
-          snapshot = nextSnapshot;
+          // Android owns network retries and HTTP Range resumption. A quiet or
+          // paused transfer must retain its ID and partial file, even offline.
+          snapshot = await _platform.queryDownload(manifest: manifest);
       }
     }
   }
@@ -327,7 +387,7 @@ class AppUpdateService {
   ) async {
     await _waitOrCancel(_downloadPollInterval, cancellation);
     if (cancellation?.isCancelled == true) {
-      await _cancelDownload(manifest);
+      await _cancelDownload(manifest, cancellation);
     }
   }
 
@@ -338,7 +398,7 @@ class AppUpdateService {
   }) async {
     await _waitOrCancel(_retryDelay(attempt), cancellation);
     if (cancellation?.isCancelled == true) {
-      await _cancelDownload(manifest);
+      await _cancelDownload(manifest, cancellation);
     }
   }
 
@@ -373,8 +433,13 @@ class AppUpdateService {
     ]);
   }
 
-  Future<Never> _cancelDownload(AppUpdateManifest manifest) async {
-    await _platform.cancelDownload(manifest: manifest);
+  Future<Never> _cancelDownload(
+    AppUpdateManifest manifest,
+    AppUpdateCancellation? cancellation,
+  ) async {
+    if (cancellation?.preserveDownload != true) {
+      await _platform.cancelDownload(manifest: manifest);
+    }
     throw const AppUpdateException(
       code: 'cancelled',
       message: 'Yangilanish bekor qilindi',
