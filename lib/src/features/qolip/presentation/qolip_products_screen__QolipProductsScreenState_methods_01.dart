@@ -2,52 +2,6 @@
 part of 'qolip_products_screen.dart';
 
 extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
-  void _setProducts(List<QolipProduct> products) {
-    _cachedProducts = products;
-    _allContainers = _preparedQolipContainers[products] ??=
-        groupQolipProductsByContainer(products);
-    _cachedContainers = _allContainers;
-  }
-
-  Future<List<QolipProduct>> _load() async {
-    final generation = ++_loadGeneration;
-    final products = await MobileApi.instance.qolipProducts(
-      limit: 20000,
-      withQolipOnly: true,
-    );
-    if (!mounted || generation != _loadGeneration) return products;
-    _setProducts(products);
-    await _applySearch(_search.text.trim(), ++_searchGeneration);
-    return products;
-  }
-
-  Future<void> _reload({String? preserveExpandedContainerKey}) async {
-    final next = _load();
-    setState(() {
-      _cachedProducts = null;
-      _searchGeneration++;
-      _allContainers = const [];
-      _cachedContainers = const [];
-      _expandedContainerKey = preserveExpandedContainerKey;
-      _selectionMode = null;
-      _selectedContainerKeys.clear();
-      _selectedQolipCodes.clear();
-      _future = next;
-    });
-    await next;
-  }
-
-  void _toggleContainerExpanded(QolipProductContainer container) {
-    final key = container.key;
-    setState(() {
-      if (_expandedContainerKey == key) {
-        _expandedContainerKey = null;
-      } else {
-        _expandedContainerKey = key;
-      }
-    });
-  }
-
   Future<void> _openQolipSpecSheet({QolipProduct? initialProduct, bool lockProduct = false}) async {
     await showQolipProductSpecSheet(
       context,
@@ -100,47 +54,19 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
 
   void _searchChanged(String value) {
     _searchDebounce?.cancel();
-    final generation = ++_searchGeneration;
-    final query = value.trim();
-    if (query.isEmpty) {
-      setState(() => _cachedContainers = _allContainers);
+    // Invalidate requests immediately, before the debounce fires.
+    ++_loadGeneration;
+    if (value.trim().isEmpty) {
+      unawaited(_reload());
       return;
     }
-    _searchDebounce = Timer(const Duration(milliseconds: 160), () {
-      unawaited(_applySearch(query, generation));
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) unawaited(_reload());
     });
   }
 
-  Future<void> _applySearch(String query, int generation) async {
-    final products = _cachedProducts;
-    if (products == null) return;
-    bool current() => mounted && generation == _searchGeneration;
-    final matches = await filterQolipSearch(
-      products,
-      query,
-      qolipProductSearchDocument,
-      isCurrent: current,
-    );
-    if (matches == null || !current()) return;
-    final matched = matches.toSet();
-    final containers = query.isEmpty
-        ? _allContainers
-        : [
-            for (final container in _allContainers)
-              if (container.children.any(matched.contains))
-                QolipProductContainer(
-                  code: container.code,
-                  name: container.name,
-                  itemGroup: container.itemGroup,
-                  children: container.children
-                      .where(matched.contains)
-                      .toList(growable: false),
-                ),
-          ];
-    setState(() => _cachedContainers = containers);
-  }
-
   void _cancelSelection() {
+    _selectionGeneration++;
     setState(() {
       _selectionMode = null;
       _selectedContainerKeys.clear();
@@ -148,7 +74,11 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     });
   }
 
-  void _toggleContainerSelection(QolipProductContainer container) {
+  Future<void> _toggleContainerSelection(QolipProductContainer container) async {
+    final generation = _selectionGeneration;
+    final resolved = await _ensureDetails(container);
+    if (!mounted || generation != _selectionGeneration || resolved == null || resolved.hasInUseQolip) return;
+    container = resolved;
     if (_selectionMode != null &&
         _selectionMode != _QolipSelectionMode.containers) {
       return;
@@ -322,7 +252,6 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   Widget _selectionTitle(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
-    final totalQolipCount = _cachedProducts?.length ?? 0;
     final selectedQolipCount = _selectedQolipCodes.length;
     return Row(
       children: [
@@ -334,9 +263,8 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
         Expanded(
           child: Text(
             l10n.qolipText(
-              'products.selection_summary',
+              'products.selected_only',
               values: {
-                'total': totalQolipCount,
                 'selected': selectedQolipCount,
               },
             ),

@@ -24,6 +24,7 @@ class _QolipEditDraft {
 
 class QolipProductContainer {
   const QolipProductContainer({
+    this.catalogId,
     required this.code,
     required this.name,
     required this.itemGroup,
@@ -31,6 +32,7 @@ class QolipProductContainer {
   });
 
   final String code;
+  final String? catalogId;
   final String name;
   final String itemGroup;
   final List<QolipProduct> children;
@@ -73,6 +75,7 @@ class QolipProductContainer {
   }
 
   String get key {
+    if (catalogId != null) return catalogId!;
     final codeKey = code.trim().toLowerCase();
     if (codeKey.isNotEmpty) {
       return codeKey;
@@ -140,6 +143,10 @@ class _QolipProductContainerBuilder {
 
 class _QolipProductContainerCard extends StatelessWidget {
   const _QolipProductContainerCard({
+    super.key,
+    required this.loading,
+    required this.errorMessage,
+    required this.onRetry,
     required this.slot,
     required this.container,
     required this.imageUrl,
@@ -160,6 +167,9 @@ class _QolipProductContainerCard extends StatelessWidget {
   });
 
   final M3SegmentVerticalSlot slot;
+  final bool loading;
+  final String? errorMessage;
+  final Future<void> Function() onRetry;
   final QolipProductContainer container;
   final String imageUrl;
   final bool expanded;
@@ -184,6 +194,7 @@ class _QolipProductContainerCard extends StatelessWidget {
     final container = this.container;
     final selectionDisabled = container.hasInUseQolip;
     final sets = container.qolipSets;
+    final hasDetails = container.children.isNotEmpty;
     final radius = M3SegmentedListGeometry.borderRadius(
       slot,
       M3SegmentedListGeometry.cornerRadiusForSlot(slot),
@@ -199,8 +210,8 @@ class _QolipProductContainerCard extends StatelessWidget {
         fit: StackFit.passthrough,
         children: [
           Padding(
-            padding:
-                const EdgeInsetsDirectional.only(start: kAdminOrderCoverWidth),
+            padding: EdgeInsetsDirectional.only(
+                start: hasDetails ? kAdminOrderCoverWidth : 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -208,8 +219,8 @@ class _QolipProductContainerCard extends StatelessWidget {
                   onTap: onToggle,
                   onLongPress: onLongPress,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: kAdminOrderCoverWidth,
+                    constraints: BoxConstraints(
+                      minHeight: hasDetails ? kAdminOrderCoverWidth : 60,
                     ),
                     child: Padding(
                       padding:
@@ -240,33 +251,38 @@ class _QolipProductContainerCard extends StatelessWidget {
                                         fontWeight: FontWeight.w700,
                                       ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  selectionDisabled
-                                      ? l10n.qolipText(
-                                          'products.count_in_use',
-                                          values: {
-                                            'count': container.children.length,
-                                          },
-                                        )
-                                      : l10n.qolipText(
-                                          'products.mold_count',
-                                          values: {
-                                            'count': container.children.length,
-                                          },
+                                if (hasDetails) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    selectionDisabled
+                                        ? l10n.qolipText(
+                                            'products.count_in_use',
+                                            values: {
+                                              'count':
+                                                  container.children.length,
+                                            },
+                                          )
+                                        : l10n.qolipText(
+                                            'products.mold_count',
+                                            values: {
+                                              'count':
+                                                  container.children.length,
+                                            },
+                                          ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                          height: 1.05,
                                         ),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                        height: 1.05,
-                                      ),
-                                ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
                           if (expanded &&
+                              hasDetails &&
                               !containerSelectionMode &&
                               !qolipSelectionMode) ...[
                             IconButton.filledTonal(
@@ -286,7 +302,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                                 behavior: HitTestBehavior.opaque,
                                 child: IconButton(
                                   key: ValueKey(
-                                    'qolip-product-share-${container.key}',
+                                    'qolip-product-share-${container.code.toLowerCase()}',
                                   ),
                                   tooltip: l10n.qolipProductPdfText('share'),
                                   onPressed: onShare == null
@@ -303,6 +319,14 @@ class _QolipProductContainerCard extends StatelessWidget {
                                           size: 20),
                                 ),
                               ),
+                            ),
+                          if (loading)
+                            const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
                             ),
                           AnimatedRotation(
                             turns: expanded ? 0.5 : 0,
@@ -323,76 +347,111 @@ class _QolipProductContainerCard extends StatelessWidget {
                   curve: Curves.easeOutCubic,
                   alignment: Alignment.topCenter,
                   child: expanded
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Divider(
-                              height: 1,
-                              color:
-                                  scheme.outlineVariant.withValues(alpha: 0.65),
-                            ),
-                            for (final entry in sets.entries) ...[
-                              if (entry.key == 'extensions')
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                                  child: Text(l10n.qolipSharedSetText('extensions'),
-                                      style: Theme.of(context).textTheme.labelLarge),
-                                )
-                              else
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(14, 8, 8, 0),
-                                child: Row(children: [
-                                  Expanded(child: SelectableText(
-                                    '${l10n.qolipSharedSetText('id')}: ${entry.key}',
-                                    style: Theme.of(context).textTheme.labelLarge,
-                                  )),
-                                  IconButton(
-                                    tooltip: l10n.qolipSharedSetText('id'),
-                                    icon: const Icon(Icons.copy_rounded, size: 18),
-                                    onPressed: () async {
-                                      await Clipboard.setData(ClipboardData(text: entry.key));
-                                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.qolipSharedSetText('copied'))));
-                                    },
-                                  ),
-                                ]),
-                              ),
-                              if (entry.key != 'extensions' &&
-                                  sets.keys.where((key) => key != 'extensions').length > 1)
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                                  child: Text(
-                                    '${l10n.qolipText('products.alternative_set')} ${sets.keys.toList().indexOf(entry.key) + 1}',
-                                    style:
-                                        Theme.of(context).textTheme.labelLarge,
-                                  ),
-                                ),
-                              for (final child in entry.value)
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(14, 9, 14, 0),
-                                  child: QolipCodeRow(
-                                    product: child,
-                                    selectionMode: qolipSelectionMode,
-                                    selected: selectedQolipCodes.contains(
-                                      _productMoldKey(child),
+                      ? errorMessage != null
+                          ? AppRetryState(
+                              onRetry: onRetry,
+                              message: errorMessage,
+                              padding: const EdgeInsets.all(16))
+                          : loading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(18),
+                                  child: Center(child: AppLoadingIndicator()))
+                              : Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Divider(
+                                      height: 1,
+                                      color: scheme.outlineVariant
+                                          .withValues(alpha: 0.65),
                                     ),
-                                    onTap: () => qolipSelectionMode
-                                        ? onToggleQolip(child)
-                                        : onPrintCodeQr(child),
-                                    onCodeTap: () => qolipSelectionMode
-                                        ? onToggleQolip(child)
-                                        : onCopyCode(child),
-                                    onLongPress: child.isInUse
-                                        ? () {}
-                                        : () => onToggleQolip(child),
-                                    onEdit: () => onEditQolip(child),
-                                  ),
-                                ),
-                            ],
-                            const SizedBox(height: 10),
-                          ],
-                        )
+                                    for (final entry in sets.entries) ...[
+                                      if (entry.key == 'extensions')
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              14, 12, 14, 0),
+                                          child: Text(
+                                              l10n.qolipSharedSetText(
+                                                  'extensions'),
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .labelLarge),
+                                        )
+                                      else
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              14, 8, 8, 0),
+                                          child: Row(children: [
+                                            Expanded(
+                                                child: SelectableText(
+                                              '${l10n.qolipSharedSetText('id')}: ${entry.key}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .labelLarge,
+                                            )),
+                                            IconButton(
+                                              tooltip:
+                                                  l10n.qolipSharedSetText('id'),
+                                              icon: const Icon(
+                                                  Icons.copy_rounded,
+                                                  size: 18),
+                                              onPressed: () async {
+                                                await Clipboard.setData(
+                                                    ClipboardData(
+                                                        text: entry.key));
+                                                if (context.mounted)
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(SnackBar(
+                                                          content: Text(l10n
+                                                              .qolipSharedSetText(
+                                                                  'copied'))));
+                                              },
+                                            ),
+                                          ]),
+                                        ),
+                                      if (entry.key != 'extensions' &&
+                                          sets.keys
+                                                  .where((key) =>
+                                                      key != 'extensions')
+                                                  .length >
+                                              1)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              14, 12, 14, 0),
+                                          child: Text(
+                                            '${l10n.qolipText('products.alternative_set')} ${sets.keys.toList().indexOf(entry.key) + 1}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelLarge,
+                                          ),
+                                        ),
+                                      for (final child in entry.value)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              14, 9, 14, 0),
+                                          child: QolipCodeRow(
+                                            product: child,
+                                            selectionMode: qolipSelectionMode,
+                                            selected:
+                                                selectedQolipCodes.contains(
+                                              _productMoldKey(child),
+                                            ),
+                                            onTap: () => qolipSelectionMode
+                                                ? onToggleQolip(child)
+                                                : onPrintCodeQr(child),
+                                            onCodeTap: () => qolipSelectionMode
+                                                ? onToggleQolip(child)
+                                                : onCopyCode(child),
+                                            onLongPress: child.isInUse
+                                                ? () {}
+                                                : () => onToggleQolip(child),
+                                            onEdit: () => onEditQolip(child),
+                                          ),
+                                        ),
+                                    ],
+                                    const SizedBox(height: 10),
+                                  ],
+                                )
                       : const SizedBox.shrink(),
                 ),
               ],
@@ -400,18 +459,19 @@ class _QolipProductContainerCard extends StatelessWidget {
           ),
           // Keep the cover on top so its long-press preview wins over the
           // container-selection InkWell underneath it.
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: kAdminOrderCoverWidth,
-            child: AdminOrderCoverThumb(
-              imageUrl: imageUrl,
-              displayName:
-                  container.name.isEmpty ? container.code : container.name,
-              heroTag: 'qolip-order-image-${container.key}',
+          if (hasDetails)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: kAdminOrderCoverWidth,
+              child: AdminOrderCoverThumb(
+                imageUrl: imageUrl,
+                displayName:
+                    container.name.isEmpty ? container.code : container.name,
+                heroTag: 'qolip-order-image-${container.key}',
+              ),
             ),
-          ),
         ],
       ),
     );

@@ -159,7 +159,7 @@ extension __QolipProductsScreenStateAstPart02 on _QolipProductsScreenState {
         return;
       }
       QolipDataRevision.notifyLocationsChanged();
-      await _reload();
+      await _reload(preserveExpandedContainerKey: _catalogKeyForCode(product.code));
     } catch (error) {
       if (!mounted) {
         return;

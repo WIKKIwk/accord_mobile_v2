@@ -273,6 +273,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart11 = {
     'en': 'Print selected QR codes',
     'ru': 'Печатать выбранные QR-коды',
   },
+  'qolip.products.selected_only': {
+    'uz': '{selected} ta tanlandi',
+    'en': '{selected} selected',
+    'ru': 'Выбрано: {selected}',
+  },
   'qolip.products.selection_summary': {
     'uz': '{total}/{selected} ta tanlandi',
     'en': '{selected} of {total} selected',

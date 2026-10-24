@@ -44,7 +44,7 @@ extension _QolipProductsManagement on _QolipProductsScreenState {
     );
     if (saved != true || !mounted) return;
     QolipDataRevision.notifyLocationsChanged();
-    await _reload(preserveExpandedContainerKey: product.code.toLowerCase());
+    await _reload(preserveExpandedContainerKey: _catalogKeyForCode(product.code));
   }
 
   Future<void> _chooseProductSet(QolipProduct product) async {
@@ -54,7 +54,7 @@ extension _QolipProductsManagement on _QolipProductsScreenState {
       final saved = await reuseSelectedQolipSet(context, selected.set, product);
       if (!mounted || saved == null) return;
       QolipDataRevision.notifyLocationsChanged();
-      await _reload(preserveExpandedContainerKey: product.code.toLowerCase());
+      await _reload(preserveExpandedContainerKey: _catalogKeyForCode(product.code));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

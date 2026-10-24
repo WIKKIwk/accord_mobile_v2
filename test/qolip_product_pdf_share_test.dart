@@ -120,7 +120,9 @@ void main() {
                 exactReads++;
                 return exactResponse.future;
               }
-              expect(request.url.path, '/v1/mobile/qolip/products');
+              if (request.url.path.endsWith('/products/page'))
+                return _namesResponse();
+              expect(request.url.path, '/v1/mobile/qolip/products/detail');
               return _productsResponse([_mold('MOLD-001'), _mold('MOLD-002')]);
             }));
   });
@@ -152,6 +154,8 @@ void main() {
                 exactReads++;
                 return http.Response('{"error":"qolip_store_failed"}', 500);
               }
+              if (request.url.path.endsWith('/products/page'))
+                return _namesResponse();
               return _productsResponse([_mold('MOLD-001')]);
             }));
   });
@@ -191,3 +195,14 @@ http.Response _productsResponse(List<Map<String, Object>> molds) =>
       200,
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
+
+http.Response _namesResponse() => http.Response(
+    jsonEncode({
+      'ok': true,
+      'items': [
+        {'id': 'qp1.UFJPRFVDVC0wMDE', 'name': '20 26 Skoch paket'}
+      ],
+      'has_more': false,
+      'next_cursor': null,
+    }),
+    200);

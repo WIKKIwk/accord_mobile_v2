@@ -257,7 +257,8 @@ void main() {
             }));
   });
 
-  testWidgets('warm entry shows the list while fresh data is still pending',
+  testWidgets(
+      'entry loads a name page without showing the old full catalog cache',
       (tester) async {
     var calls = 0;
     final gate = Completer<http.Response>();
@@ -276,9 +277,18 @@ void main() {
       ));
       await tester.pump();
       expect(calls, 2);
-      expect(find.text('Product'), findsOneWidget);
-      expect(find.byType(AppLoadingIndicator), findsNothing);
-      gate.complete(_catalog(name: 'Updated product', etag: '"v2"'));
+      expect(find.text('Product'), findsNothing);
+      expect(find.byType(AppLoadingIndicator), findsOneWidget);
+      gate.complete(http.Response(
+          jsonEncode({
+            'ok': true,
+            'items': [
+              {'id': 'product-id', 'name': 'Updated product'}
+            ],
+            'has_more': false,
+            'next_cursor': null
+          }),
+          200));
       await tester.pumpAndSettle();
       expect(find.text('Product'), findsNothing);
       expect(find.text('Updated product'), findsOneWidget);

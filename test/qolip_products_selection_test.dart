@@ -144,6 +144,8 @@ void main() {
     expect(find.byTooltip('Qolip qo‘shish'), findsOneWidget);
     await tester.tap(find.byTooltip('Qolip qo‘shish'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Yangi muqobil komplekt'));
+    await tester.pumpAndSettle();
     expect(find.text('Qolipni omborga biriktirish'), findsOneWidget);
     expect(find.text('Hotlunch'), findsWidgets);
     Navigator.of(
@@ -151,7 +153,7 @@ void main() {
     ).pop();
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.text('Q-LOCKED'));
+    await tester.longPressAt(tester.getTopLeft(find.widgetWithText(QolipCodeRow, 'Q-LOCKED')) + const Offset(16, 16));
     await tester.pumpAndSettle();
     expect(find.text('1 ta tanlandi'), findsNothing);
 
@@ -176,9 +178,9 @@ void main() {
     ).pop();
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.text('Q-FREE'));
+    await tester.longPressAt(tester.getTopLeft(find.widgetWithText(QolipCodeRow, 'Q-FREE')) + const Offset(16, 16));
     await tester.pumpAndSettle();
-    expect(find.text('3/1 ta tanlandi'), findsOneWidget);
+    expect(find.text('1 ta tanlandi'), findsOneWidget);
     expect(
       find.byTooltip('Tanlangan QR’larni chop etish'),
       findsOneWidget,
@@ -193,11 +195,11 @@ void main() {
 
     await tester.longPress(find.text('Salat set'));
     await tester.pumpAndSettle();
-    expect(find.text('2/1 ta tanlandi'), findsOneWidget);
+    expect(find.text('1 ta tanlandi'), findsOneWidget);
     await tester.tap(find.byTooltip('Tanlanganlarni o‘chirish'));
     await tester.pumpAndSettle();
     expect(
-        find.textContaining('1 ta mahsulotga biriktirilgan'), findsOneWidget);
+        find.text(AppLocalizations(const Locale('uz')).qolipManagementText('local_delete', values: {'count': 1})), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
     await tester.pumpAndSettle();
     expect(find.text('Salat set'), findsNothing);
@@ -346,6 +348,8 @@ void main() {
     await tester.tap(find.text('Prefix mahsulot'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Qolip qo‘shish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yangi muqobil komplekt'));
     await tester.pumpAndSettle();
 
     final codeField = tester.widget<TextField>(
@@ -501,7 +505,7 @@ void main() {
     expect(original.qolipColor, isEmpty);
   });
   testWidgets(
-      'debounced product search keeps typo and code results and clears immediately',
+      'debounced catalog search replaces results and clears the query',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       theme: ThemeData(useMaterial3: true),
@@ -519,14 +523,14 @@ void main() {
     final input = find.byType(EditableText).first;
     await tester.enterText(input, 'unrelatedxyz');
     await tester.pump(const Duration(milliseconds: 80));
-    await tester.enterText(input, 'hotlunchh');
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.enterText(input, 'hotlunch');
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
     expect(find.text('Hotlunch'), findsOneWidget);
     expect(find.text('Salat set'), findsNothing);
 
     await tester.enterText(input, 'Q-PRODUCT');
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
     expect(find.text('Salat set'), findsOneWidget);
     expect(find.text('Hotlunch'), findsNothing);
