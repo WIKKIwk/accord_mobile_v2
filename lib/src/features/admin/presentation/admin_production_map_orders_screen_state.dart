@@ -280,6 +280,9 @@ class _AdminProductionMapOrdersScreenState
   @override
   void dispose() {
     AppSession.instance.revision.removeListener(_syncAdminWarmSession);
+    if (_adminWarmReadScope != null) {
+      _sequenceWarmStore.ordersChanges.removeListener(_adoptPreparedAdminOrders);
+    }
     _releaseAdminWarmSequence();
     _releaseWorkerWarmQueue();
     _flushCanonicalCache();
@@ -673,8 +676,8 @@ class _AdminProductionMapOrdersScreenState
                                   queueActionControlsByApparatus:
                                       _queueActionControlsByApparatus,
                                   pendingOrders: _pendingOrders,
-                                  orderRows: _adminOrdersRows,
-                                  pendingRows: _adminPendingRows.values.toList(growable: false),
+                                  orderRows: _adminOrdersDisplayRows,
+                                  pendingRows: _adminPendingDisplayRows.values.toList(growable: false),
                                   onPendingRow: _showPendingOrderRow,
                                   pendingOrdersError: _reconnectingOrderReads
                                           .contains(_OrdersReadSection.pending)

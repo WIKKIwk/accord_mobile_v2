@@ -256,8 +256,7 @@ class _AdminModulesBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeOrders = currentModule == _OpenedOrderModule.orders &&
-            orderRows.isNotEmpty
+    final activeOrders = orderRows.isNotEmpty
         ? pagedOrders ?? orders
         : _activeProductionMapOrders(
             orders: pagedOrders ?? orders,

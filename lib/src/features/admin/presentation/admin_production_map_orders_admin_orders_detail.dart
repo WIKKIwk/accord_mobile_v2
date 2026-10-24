@@ -23,13 +23,21 @@ List<_OrderWatermarkData> _summaryOrderWatermarks(AdminOrderListRow row,
 
 extension _AdminOrdersListDetails on _AdminProductionMapOrdersScreenState {
   Map<String, AdminOrderListRow> get _adminOrdersRows =>
-      !_adminPaging || _module != _OpenedOrderModule.orders
+      _module != _OpenedOrderModule.orders
+          ? const {}
+          : _adminOrdersDisplayRows;
+  Map<String, AdminOrderListRow> get _adminOrdersDisplayRows =>
+      !_adminPaging
           ? const {}
           : {
               for (final page in _adminWindow('orders').pages) ...page.orderRows
             };
   Map<String, AdminPendingOrderListRow> get _adminPendingRows =>
-      !_adminPaging || _module != _OpenedOrderModule.orders
+      _module != _OpenedOrderModule.orders
+          ? const {}
+          : _adminPendingDisplayRows;
+  Map<String, AdminPendingOrderListRow> get _adminPendingDisplayRows =>
+      !_adminPaging
           ? const {}
           : {
               for (final page in _adminWindow('orders').pages)

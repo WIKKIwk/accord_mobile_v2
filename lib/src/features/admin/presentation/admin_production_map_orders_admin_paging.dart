@@ -145,6 +145,7 @@ extension _AdminOrdersPaging on _AdminProductionMapOrdersScreenState {
         await _loadAdminWindow(window);
       }
     }
+    _adoptPreparedAdminOrders();
     if (module == _module) _scheduleAdminWindowSubscription();
     for (final apparatus in _adminSequenceAcks.keys.toList()) {
       _settleAdminSequenceWrite(apparatus);

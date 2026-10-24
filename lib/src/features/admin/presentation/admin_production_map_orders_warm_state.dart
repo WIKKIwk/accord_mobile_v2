@@ -23,6 +23,18 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
     final ready = _sequenceWarmStore.peek(scope);
     _adminWarmLease = _sequenceWarmStore.acquire(scope);
     if (ready != null) _adoptAdminWarmSequence(ready);
+    _sequenceWarmStore.ordersChanges.addListener(_adoptPreparedAdminOrders);
+    _adoptPreparedAdminOrders();
+  }
+
+  void _adoptPreparedAdminOrders() {
+    if (!mounted || !_adminPaging || !_adminForeground) return;
+    final window = _adminWindow('orders');
+    final scope = _adminOrdersWarmScope(window);
+    if (scope == null || window.loaded || window.dirty ||
+        window.inFlight != null) return;
+    final page = _sequenceWarmStore.peekOrders(scope);
+    if (page != null) _adoptAdminWarmOrders(window, page);
   }
 
   void _syncAdminWarmSession() {
@@ -32,6 +44,10 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
       _adminWarmLease?.release();
       _adminWarmLease = null;
       _adminWarmScope = null;
+      _updateScreenState(() {
+        _adminWindows.clear();
+        _rebuildAdminPageState();
+      });
       return;
     }
     if (!_adminForeground) return;
@@ -122,6 +138,7 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
         ready == null ||
         _adminWarmScope != currentAdminSequenceWarmScope()) return;
     _updateScreenState(() => _adoptAdminWarmSequence(ready));
+    _adoptPreparedAdminOrders();
   }
 
   String? _adminOrdersWarmScope(_AdminOrderWindow window) {
@@ -164,7 +181,7 @@ extension _AdminOrdersWarmState on _AdminProductionMapOrdersScreenState {
       window.awaitingLive = true;
       window.error = null;
       _rebuildAdminPageState();
-      _loading = false;
+      if (_module == _OpenedOrderModule.orders) _loading = false;
     });
     return true;
   }

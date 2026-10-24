@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/api/mobile_api.dart';
@@ -141,6 +142,7 @@ class AdminSequenceWarmStore {
   AdminSequenceWarmSnapshot? _snapshot;
   Future<AdminSequenceWarmSnapshot?>? _preparing;
   AdminProductionOrderPage? _ordersPage;
+  final ValueNotifier<int> _ordersChanges = ValueNotifier(0);
   Future<AdminProductionOrderPage?>? _preparingOrders;
   int _ordersSerial = 0;
   final Map<Completer<void>, Timer> _readRetryWaits = {};
@@ -155,6 +157,10 @@ class AdminSequenceWarmStore {
   Object? _lastError;
 
   Object? get lastError => _lastError;
+
+  /// Lets mounted pages stage already downloaded rows before a tab is shown.
+  /// Listening never starts a request or grants action authority.
+  Listenable get ordersChanges => _ordersChanges;
 
   bool _owns(int generation) =>
       !_disposed &&
@@ -253,6 +259,7 @@ class AdminSequenceWarmStore {
     }
     _ordersSerial++;
     _ordersPage = page;
+    _ordersChanges.value++;
   }
 
   static bool _validOrdersPage(AdminProductionOrderPage page) =>
@@ -280,6 +287,7 @@ class AdminSequenceWarmStore {
       if (_retiredOrdersEpochs.contains(page.epoch)) return _ordersPage;
       _ordersPage = page;
       _lastError = null;
+      _ordersChanges.value++;
       return page;
     } catch (error) {
       if (!_owns(generation)) return null;
@@ -309,6 +317,7 @@ class AdminSequenceWarmStore {
     _ordersPage = null;
     _preparingOrders = null;
     _retiredOrdersEpochs.clear();
+    _ordersChanges.value++;
   }
 
   /// Returns the very same future to every caller during a cold preparation.
@@ -753,6 +762,7 @@ class AdminSequenceWarmStore {
   }
 
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     _generation++;
     _endReadGeneration();
@@ -765,5 +775,6 @@ class AdminSequenceWarmStore {
     _preparing = null;
     _clearOrders();
     _leases.clear();
+    _ordersChanges.dispose();
   }
 }

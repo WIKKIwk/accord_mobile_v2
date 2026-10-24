@@ -209,6 +209,46 @@ class _WarmUiHarness {
     await tester.pumpAndSettle();
   }
 
+  Future<TestGesture> revealOrders(WidgetTester tester) async {
+    final viewport = tester.getRect(find.byType(TabBarView));
+    final gesture = await tester
+        .startGesture(Offset(viewport.right - 32, viewport.top + 160));
+    await gesture.moveBy(const Offset(-24, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.moveBy(Offset(-viewport.width * .35, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    final controller = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+    expect(controller.index, 0,
+        reason: 'Keep the first drag before Orders becomes the selected tab');
+    expect(controller.animation!.value, greaterThan(0));
+    expect(controller.animation!.value, lessThan(.5));
+    return gesture;
+  }
+
+  void expectRevealedOrder(WidgetTester tester) {
+    final row = _order('orders-only-0');
+    expect(row, findsOneWidget);
+    expect(
+        find.descendant(
+            of: row, matching: find.textContaining('Background order item 0')),
+        findsOneWidget);
+    final viewport = tester.getRect(find.byType(TabBarView));
+    final bounds = tester.getRect(row);
+    expect(bounds.overlaps(viewport), isTrue);
+    expect(bounds.left, greaterThan(viewport.center.dx),
+        reason:
+            'The incoming Orders page is only partly revealed on the right');
+    // A touch drag intentionally ignores child hit tests. Verify the paint
+    // chain instead, including offstage, opacity and sliver visibility gates.
+    RenderObject child = tester.renderObject(row);
+    while (child.parent != null) {
+      final parent = child.parent!;
+      expect(parent.paintsChild(child), isTrue,
+          reason: '${parent.runtimeType} must paint the revealed Orders row');
+      child = parent;
+    }
+  }
+
   Future<void> readyOrders(WidgetTester tester) async {
     final viewport = tester.widgetList(find.byWidgetPredicate((widget) =>
         widget.runtimeType.toString() == '_AdminOrderPageViewport')).firstWhere(
@@ -311,6 +351,124 @@ void main() {
       await tester.pumpAndSettle();
       expect(harness.warmReads.length + harness.foregroundReads.length, reads,
           reason: 'Background preparation may not become polling');
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('ready Orders rows paint during the very first partial swipe',
+      (tester) async {
+    final harness = _WarmUiHarness();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      expect(harness.imageReads.where((id) => id.startsWith('orders-only-')),
+          isEmpty);
+      final gesture = await harness.revealOrders(tester);
+      harness.expectRevealedOrder(tester);
+      expect(harness.warmOrdersReads, 1);
+      expect(harness.foregroundOrdersReads, 0);
+      expect(harness.detailReads, isEmpty);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('Orders completing while Sequence is active paint on first swipe',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      expect(_order('orders-only-0'), findsNothing);
+      harness.ordersReply!.complete(await _ordersPage());
+      await tester.pumpAndSettle();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+      expect(harness.imageReads.where((id) => id.startsWith('orders-only-')),
+          isEmpty,
+          reason: 'Staging the hidden summary must not download its covers');
+      final gesture = await harness.revealOrders(tester);
+      harness.expectRevealedOrder(tester);
+      expect(harness.warmOrdersReads, 1);
+      expect(harness.foregroundOrdersReads, 0);
+      expect(harness.detailReads, isEmpty);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('first swipe never reveals unfiltered warm rows under search',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      await tester.enterText(
+          find.byType(EditableText).first, 'different query');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      harness.ordersReply!.complete(await _ordersPage());
+      await tester.pumpAndSettle();
+      final gesture = await harness.revealOrders(tester);
+      expect(_order('orders-only-0'), findsNothing);
+      expect(harness.foregroundOrdersReads, 0);
+      expect(harness.imageReads.where((id) => id.startsWith('orders-only-')),
+          isEmpty);
+      expect(harness.detailReads, isEmpty);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('first swipe never stages obsolete warm rows into a dirty window',
+      (tester) async {
+    final harness = _WarmUiHarness()
+      ..ordersReply = Completer<AdminProductionOrderPage?>();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      harness.revision = 8;
+      harness.events
+          .add(const AdminProductionMapPageChange(epoch: _epoch, revision: 8));
+      await tester.pumpAndSettle();
+      harness.ordersReply!.complete(await _ordersPage(revision: 7));
+      await tester.pumpAndSettle();
+      final gesture = await harness.revealOrders(tester);
+      expect(_order('orders-only-0'), findsNothing);
+      expect(harness.foregroundOrdersReads, 0);
+      expect(harness.imageReads.where((id) => id.startsWith('orders-only-')),
+          isEmpty);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      await harness.showOrders(tester);
+      expect(find.textContaining('Foreground order item 0'), findsWidgets);
+      expect(harness.foregroundOrdersReads, 1);
+      expect(harness.detailReads, isEmpty);
+      await harness.close(tester);
+    }, () => MockClient(harness.httpRead));
+  });
+
+  testWidgets('first swipe cannot reveal ready Orders from a previous account',
+      (tester) async {
+    final harness = _WarmUiHarness();
+    await http.runWithClient(() async {
+      await harness.prepare(tester);
+      await harness.mount(tester);
+      _session('different-swipe-account');
+      AppSession.instance.revision.value++;
+      await tester.pumpAndSettle();
+      final gesture = await harness.revealOrders(tester);
+      expect(_order('orders-only-0'), findsNothing);
+      expect(harness.foregroundOrdersReads, 0);
+      expect(harness.imageReads.where((id) => id.startsWith('orders-only-')),
+          isEmpty);
+      expect(harness.detailReads, isEmpty);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
       await harness.close(tester);
     }, () => MockClient(harness.httpRead));
   });
