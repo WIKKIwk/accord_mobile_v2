@@ -31,7 +31,8 @@ extension _QolipTasksScreen on _AdminProductionMapOrdersScreenState {
 
 class _QolipTasksPage extends StatefulWidget {
   const _QolipTasksPage(
-      {this.materialMode = false,
+      {super.key,
+      this.materialMode = false,
       required this.apparatus,
       required this.selected,
       required this.orders,
@@ -39,6 +40,10 @@ class _QolipTasksPage extends StatefulWidget {
       required this.searchQuery,
       required this.bottomPadding,
       required this.onShowOrder,
+      this.taskWindow,
+      this.onLimitChanged,
+      this.onRefresh,
+      this.hydrateOrder,
       required this.onSelect});
 
   final bool materialMode;
@@ -50,6 +55,10 @@ class _QolipTasksPage extends StatefulWidget {
   final double bottomPadding;
   final Future<void> Function(ProductionMapSaved) onShowOrder;
   final ValueChanged<AdminApparatus> onSelect;
+  final SupplyTaskWindow? taskWindow;
+  final ValueChanged<int>? onLimitChanged;
+  final Future<void> Function()? onRefresh;
+  final Future<ProductionMapSaved> Function(ProductionMapSaved)? hydrateOrder;
 
   @override
   State<_QolipTasksPage> createState() => _QolipTasksPageState();
@@ -82,9 +91,15 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   @override
   void initState() {
     super.initState();
+    if (widget.taskWindow != null) {
+      _limit = widget.taskWindow!.limit;
+      _loading = false;
+      return;
+    }
     WidgetsBinding.instance.addObserver(this);
-    if (!widget.materialMode)
+    if (!widget.materialMode) {
       QolipDataRevision.locations.addListener(_dataChanged);
+    }
     ProductionDataRevision.revision.addListener(_productionChanged);
     unawaited(_load());
   }
@@ -92,6 +107,10 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   @override
   void didUpdateWidget(covariant _QolipTasksPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.taskWindow != null) {
+      _limit = widget.taskWindow!.limit;
+      return;
+    }
     final windowChanged = _identity(oldWidget) != _identity(widget);
     if (windowChanged) {
       _loading = true;
@@ -118,14 +137,21 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   @override
   void dispose() {
     _generation++;
-    ProductionDataRevision.revision.removeListener(_productionChanged);
-    if (!widget.materialMode)
-      QolipDataRevision.locations.removeListener(_dataChanged);
-    WidgetsBinding.instance.removeObserver(this);
+    if (widget.taskWindow == null) {
+      ProductionDataRevision.revision.removeListener(_productionChanged);
+      if (!widget.materialMode) {
+        QolipDataRevision.locations.removeListener(_dataChanged);
+      }
+      WidgetsBinding.instance.removeObserver(this);
+    }
     super.dispose();
   }
 
   Future<void> _load() async {
+    if (widget.taskWindow != null) {
+      await widget.onRefresh?.call();
+      return;
+    }
     if (_refreshing) {
       _reloadPending = true;
       return;
@@ -179,7 +205,7 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
     setState(() => _adding = true);
     try {
       await widget.onShowOrder(order);
-      if (mounted) await _load();
+      if (mounted && widget.taskWindow == null) await _load();
     } finally {
       if (mounted) setState(() => _adding = false);
     }
@@ -187,6 +213,7 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
 
   Future<void> _showMaterialActions(ProductionMapSaved order) async {
     if (_adding) return;
+    final scope = currentSessionReadScope();
     setState(() => _adding = true);
     bool? receive;
     try {
@@ -210,23 +237,28 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
     } finally {
       if (mounted) setState(() => _adding = false);
     }
-    if (mounted && receive == true) await _add(order);
+    if (mounted && scope == currentSessionReadScope() && receive == true) {
+      await _add(order);
+    }
   }
 
   Future<void> _add(ProductionMapSaved order) async {
     if (_adding) return;
+    final scope = currentSessionReadScope();
     setState(() => _adding = true);
     try {
       if (widget.materialMode) {
-        await _openMaterialOrderReceipt(context, order);
-        if (mounted) await _load();
+        final full = await widget.hydrateOrder?.call(order) ?? order;
+        if (!mounted || scope != currentSessionReadScope()) return;
+        await _openMaterialOrderReceipt(context, full);
+        if (mounted && widget.taskWindow == null) await _load();
         return;
       }
       // Re-read the exact order identity before opening a writable form.
       final products =
           await MobileApi.instance.qolipOrderProducts([order.map.id]);
       final product = products[order.map.id];
-      if (!mounted) return;
+      if (!mounted || scope != currentSessionReadScope()) return;
       if (product == null || product.itemGroup.trim().isEmpty) {
         throw StateError('missing_product');
       }
@@ -256,14 +288,20 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final window = _window;
-    final missing = window
-        .where((order) => widget.materialMode
-            ? (_materials[order.map.id] ?? const [])
-                .any((item) => !item.assigned)
-            : _products[order.map.id]?.hasQolipSpec != true)
-        .toList();
+    final taskWindow = widget.taskWindow;
+    final compactRows = {
+      for (final row in taskWindow?.rows ?? <SupplyTaskRow>[]) row.id: row,
+    };
+    final missing = taskWindow != null
+        ? window
+        : window.where((order) => widget.materialMode
+              ? (_materials[order.map.id] ?? const []).any((item) => !item.assigned)
+              : _products[order.map.id]?.hasQolipSpec != true).toList();
     // The queue window is chosen before QR and text filters are applied.
-    final visible = _filterOrdersBySearch(missing, query: widget.searchQuery);
+    final visible = taskWindow != null
+        ? missing : _filterOrdersBySearch(missing, query: widget.searchQuery);
+    final checkedCount = taskWindow?.checkedCount ?? window.length;
+    final missingCount = taskWindow?.missingCount ?? missing.length;
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
@@ -308,6 +346,11 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
             expanded: _limitExpanded,
             onToggle: () => setState(() => _limitExpanded = !_limitExpanded),
             onSelect: (count) {
+              if (widget.onLimitChanged != null) {
+                setState(() => _limitExpanded = false);
+                widget.onLimitChanged!(count);
+                return;
+              }
               setState(() {
                 _limit = count;
                 _limitExpanded = false;
@@ -322,10 +365,10 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
                   widget.materialMode
-                      ? 'Tekshirilgan: ${window.length} • Homashyo kutilmoqda: ${missing.length}'
+                      ? 'Tekshirilgan: $checkedCount • Homashyo kutilmoqda: $missingCount'
                       : l10n.qolipText('tasks.summary', values: {
-                          'count': window.length,
-                          'missing': missing.length,
+                          'count': checkedCount,
+                          'missing': missingCount,
                         }),
                   style: Theme.of(context).textTheme.bodySmall),
             ),
@@ -351,12 +394,12 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
                             padding: const EdgeInsets.all(24),
                             child: Text(
                               widget.materialMode &&
-                                      window.isNotEmpty &&
-                                      missing.isEmpty
+                                      checkedCount > 0 &&
+                                      missingCount == 0
                                   ? 'Tanlangan orderlarda sizning materiallaringiz bo‘yicha kutilayotgan homashyo yo‘q.'
-                                  : l10n.qolipText(window.isEmpty
+                                  : l10n.qolipText(checkedCount == 0
                                       ? 'tasks.no_orders'
-                                      : missing.isEmpty
+                                      : missingCount == 0
                                           ? 'tasks.ready'
                                           : 'products.search_empty'),
                               textAlign: TextAlign.center,
@@ -371,13 +414,17 @@ class _QolipTasksPageState extends State<_QolipTasksPage>
                             slot: M3SegmentedListGeometry
                                 .standaloneListSlotForIndex(i, visible.length),
                             order: visible[i],
-                            index: window.indexOf(visible[i]),
+                            index: compactRows[visible[i].map.id]?.position ??
+                                window.indexOf(visible[i]),
+                            apparatusCount: compactRows[visible[i].map.id]?.apparatusCount,
                             readOnly: true,
                             customerName:
                                 widget.customers[visible[i].map.id] ?? '',
                             statusLabel: widget.materialMode
-                                ? ((_materials[visible[i].map.id] ?? const [])
-                                        .any((item) => item.assigned)
+                                ? ((taskWindow != null
+                                        ? compactRows[visible[i].map.id]?.taskState == 'partial'
+                                        : (_materials[visible[i].map.id] ?? const [])
+                                            .any((item) => item.assigned))
                                     ? 'Qisman'
                                     : null)
                                 : l10n.qolipText('tasks.attach'),

@@ -8,6 +8,7 @@ import '../api/mobile_api.dart';
 import '../session/session_read_scope.dart';
 import '../session/state/app_session.dart';
 import 'worker_queue_warm_store.dart';
+import 'supply_tasks_warm_store.dart';
 
 /// Prepares the active queue before its route is opened. Each store hands its
 /// socket to a visible queue page, so background warming never adds a poller.
@@ -41,14 +42,26 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
     final session = AppSession.instance;
     final profile = session.profile;
     final enabled = session.isLoggedIn && !session.isTestModeSession;
+    final supplyKind = supplyTasksRoleKind();
     final admin = enabled &&
+        supplyKind == null &&
         (session.can('admin.access') || session.can('production.map.manage'));
+    if (supplyKind != null) {
+      if (_foreground) {
+        unawaited(SupplyTasksWarmStore.instance.prepare(kind: supplyKind));
+      }
+    } else {
+      SupplyTasksWarmStore.instance.reset();
+    }
     AdminSequenceWarmStore.instance.configure(
       scope: admin ? currentAdminSequenceWarmScope() : null,
       profileRef: profile?.ref,
       foreground: _foreground,
     );
-    if (enabled && !admin && session.can('apparatus.queue.read')) {
+    if (enabled &&
+        !admin &&
+        supplyKind == null &&
+        session.can('apparatus.queue.read')) {
       if (_foreground) {
         unawaited(WorkerQueueWarmStore.instance.start(
           scope: currentSessionReadScope(),
@@ -90,6 +103,7 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
       foreground: false,
     );
     WorkerQueueWarmStore.instance.reset();
+    SupplyTasksWarmStore.instance.reset();
     super.dispose();
   }
 

@@ -251,6 +251,9 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     this.orderPageLoader,
     this.orderDetailLoader,
     this.sequenceWarmStore,
+    this.supplyTaskWindowLoader,
+    this.supplyTaskEventsLoader,
+    this.supplyOrderDetailLoader,
   }) : assert(!(workerMode && supplyViewerMode));
   final bool readOnly;
   final bool workerMode;
@@ -272,10 +275,19 @@ class AdminProductionMapOrdersScreen extends StatefulWidget {
     required String orderId,
   })? orderDetailLoader;
   final AdminSequenceWarmStore? sequenceWarmStore;
+  final SupplyTaskWindowLoader? supplyTaskWindowLoader;
+  final SupplyTaskEventsLoader? supplyTaskEventsLoader;
+  final Future<ProductionMapSaved> Function(String)? supplyOrderDetailLoader;
 
   @override
+  // Task routes must not initialize the global production stream/state.
+  // ignore: no_logic_in_create_state
   State<AdminProductionMapOrdersScreen> createState() =>
-      _AdminProductionMapOrdersScreenState();
+      (qolipTasksMode || materialTasksMode) &&
+              !AppSession.instance.isTestModeSession &&
+              (queueSnapshotLoader == null || supplyTaskWindowLoader != null)
+          ? _SupplyTasksScreenState()
+          : _AdminProductionMapOrdersScreenState();
 }
 
 enum _OrdersReadSection { initial, queue, completed, closed, completionRequests, pending }

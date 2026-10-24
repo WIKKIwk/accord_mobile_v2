@@ -49,6 +49,7 @@ String _openedOrderSubtitle(
   ProductionMapDefinition map, {
   String customerName = '',
   bool includeApparatusCount = false,
+  int? apparatusCountOverride,
   AppLocalizations? l10n,
 }) {
   final productTitle = _openedOrderProductTitle(map);
@@ -57,7 +58,7 @@ String _openedOrderSubtitle(
   final lookupCustomer = customerName.trim();
   final customer =
       lookupCustomer.isNotEmpty ? lookupCustomer : map.customerName.trim();
-  final apparatusCount =
+  final apparatusCount = apparatusCountOverride ??
       map.nodes.where((node) => node.kind == 'apparatus').length;
   final secondaryLabel = customer.isNotEmpty
       ? customer

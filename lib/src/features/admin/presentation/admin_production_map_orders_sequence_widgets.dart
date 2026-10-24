@@ -427,6 +427,7 @@ class _SequenceOrderRow extends StatefulWidget {
     required this.slot,
     required this.order,
     this.showApparatusCount = true,
+    this.apparatusCount,
     required this.index,
     this.position,
     required this.readOnly,
@@ -447,6 +448,7 @@ class _SequenceOrderRow extends StatefulWidget {
   final M3SegmentVerticalSlot slot;
   final ProductionMapSaved order;
   final bool showApparatusCount;
+  final int? apparatusCount;
   final int index;
   final int? position;
   final bool readOnly;
@@ -471,6 +473,7 @@ class _SequenceOrderRow extends StatefulWidget {
         slot,
         order.map,
         showApparatusCount,
+        apparatusCount,
         index,
         position,
         readOnly,
@@ -499,6 +502,7 @@ class _SequenceOrderRow extends StatefulWidget {
       map,
       customerName: customerName,
       includeApparatusCount: showApparatusCount,
+      apparatusCountOverride: apparatusCount,
       l10n: context.l10n,
     );
     final subtitle = [

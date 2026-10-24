@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/production/production_queue_warm_runtime.dart';
 import 'package:accord_mobile_v2/src/core/production/worker_queue_warm_store.dart';
+import 'package:accord_mobile_v2/src/core/production/supply_tasks_warm_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session_read_scope.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_warm_store.dart';
@@ -177,5 +178,19 @@ void main() {
     expect(workerReads, 0);
     expect(streams, isEmpty);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  test('custom admin capabilities preserve supply role warm classification',
+      () {
+    for (final role in [UserRole.qolipchi, UserRole.materialTaminotchi]) {
+      session(role, [
+        'admin.access',
+        'production.map.manage',
+        'apparatus.queue.read',
+        role == UserRole.qolipchi ? 'qolip.manage' : 'raw_material.assign'
+      ]);
+      expect(supplyTasksRoleKind(),
+          role == UserRole.qolipchi ? 'qolip' : 'material');
+    }
   });
 }
