@@ -100,6 +100,57 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     final batchDraft = _batchDraft;
     final colorCount =
         productSpecSaved ? _savedProductSpecs.length : batchDraft?.count ?? 0;
+    final fixedHeader = widget.mode == _QolipAttachMode.productSpec;
+    final header = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Container(
+            width: 42,
+            height: 5,
+            decoration: BoxDecoration(
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _title(l10n),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ),
+            if (widget.mode == _QolipAttachMode.cellPlacement)
+              IconButton.filledTonal(
+                onPressed: _scanQolipQr,
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                tooltip: l10n.qolipText('home.qr_scan_tooltip'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+      ],
+    );
+    // The modal must receive header drags instead of the form's scroll view.
+    Widget frame(Widget form) => !fixedHeader
+        ? form
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: header,
+              ),
+              Flexible(child: form),
+            ],
+          );
     final sheet = Padding(
       padding: EdgeInsets.fromLTRB(8, 0, 8, bottomInset + 8),
       child: DecoratedBox(
@@ -107,42 +158,13 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
           color: scheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: frame(SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(16, fixedHeader ? 0 : 16, 16, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _title(l10n),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                  ),
-                  if (widget.mode == _QolipAttachMode.cellPlacement)
-                    IconButton.filledTonal(
-                      onPressed: _scanQolipQr,
-                      icon: const Icon(Icons.qr_code_scanner_rounded),
-                      tooltip: l10n.qolipText('home.qr_scan_tooltip'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 14),
+              if (!fixedHeader) header,
               if (widget.mode == _QolipAttachMode.cellPlacement &&
                   _block != null &&
                   _rowLetter != null &&
@@ -237,7 +259,8 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     }
                   }),
                 ),
-                if (!_createsStandaloneSet)
+                if (!_createsStandaloneSet) ...[
+                  const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: _saving || productSpecSaved || _product == null
                         ? null
@@ -245,6 +268,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                     icon: const Icon(Icons.layers_outlined),
                     label: Text(l10n.qolipManagementText('choose')),
                   ),
+                ],
                 if (batchDraft != null) ...[
                   const SizedBox(height: 10),
                   Material(
@@ -399,7 +423,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
               ),
             ],
           ),
-        ),
+        )),
       ),
     );
     return PopScope(
