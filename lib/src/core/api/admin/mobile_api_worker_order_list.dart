@@ -3,11 +3,16 @@ part of '../mobile_api.dart';
 const workerOrderListProjection = 'worker_list_v1';
 const workerOrderDetailProjection = 'worker_detail_v1';
 final _workerPresentationRows = Expando<ProductionMapSaved>();
-final _workerPresentationOrders = Expando<bool>();
+final _workerPresentationOrders = Expando<WorkerOrderListRow>();
 
 /// True only for an explicitly tagged display row, never for a canonical map.
 bool isWorkerListPresentationOrder(ProductionMapSaved saved) =>
-    _workerPresentationOrders[saved] == true;
+    _workerPresentationOrders[saved] != null;
+
+bool isWorkerListOrderTemporarilyPaused(
+        ProductionMapSaved saved, String apparatus) =>
+    _workerPresentationOrders[saved]
+        ?.temporarilyPausedApparatus.contains(apparatus) == true;
 
 /// A worker card has no route graph, program, action contract or editor data.
 class WorkerOrderListRow {
@@ -17,17 +22,29 @@ class WorkerOrderListRow {
     required this.title,
     required this.customerName,
     required this.imageId,
+    this.temporarilyPausedApparatus = const {},
   });
   final String id, code, title, customerName, imageId;
+  final Set<String> temporarilyPausedApparatus;
 
   factory WorkerOrderListRow.fromJson(Map<String, dynamic> json) {
     _validateOrderListLabels(json);
+    final paused = json['temporarily_paused_apparatus'];
+    if (paused != null &&
+        (paused is! List ||
+            paused.any((id) => id is! String || !isCanonicalApparatusId(id)) ||
+            paused.toSet().length != paused.length)) {
+      throw _productionMapQueueContractException(
+          'invalid temporary pause display scope');
+    }
     return WorkerOrderListRow(
         id: json['id'] as String,
         code: json['code'] as String,
         title: json['title'] as String,
         customerName: json['customer_name'] as String,
-        imageId: json['image_id'] as String);
+        imageId: json['image_id'] as String,
+        temporarilyPausedApparatus: Set.unmodifiable(
+            (paused as List? ?? const []).cast<String>()));
   }
 
   Map<String, dynamic> toJson() => {
@@ -36,6 +53,8 @@ class WorkerOrderListRow {
         'title': title,
         'customer_name': customerName,
         'image_id': imageId,
+        if (temporarilyPausedApparatus.isNotEmpty)
+          'temporarily_paused_apparatus': temporarilyPausedApparatus.toList(),
       };
 
   /// Compatibility for display widgets only. Never use this shell for QR,
@@ -55,7 +74,7 @@ class WorkerOrderListRow {
             edges: const []),
         program: ProductionMapProgram(
             mapId: id, productCode: '', operations: const []));
-    _workerPresentationOrders[saved] = true;
+    _workerPresentationOrders[saved] = this;
     return _workerPresentationRows[this] = saved;
   }
 }
@@ -273,6 +292,13 @@ void _validateWorkerListSnapshot(AdminApparatusQueueSnapshot snapshot) {
         snapshot.queueStates[scope.key]?[id] == null)) {
       throw _productionMapQueueContractException(
           'missing worker display state');
+    }
+  }
+  for (final row in snapshot.workerListRows.values) {
+    if (row.temporarilyPausedApparatus.any(
+        (apparatus) => snapshot.queueStates[apparatus]?[row.id] != 'paused')) {
+      throw _productionMapQueueContractException(
+          'temporary pause display state mismatch');
     }
   }
   for (final scope in snapshot.workerDisplayStates.entries) {

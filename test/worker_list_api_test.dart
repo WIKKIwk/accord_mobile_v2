@@ -23,7 +23,7 @@ Map<String, dynamic> _workerList() => {
       'worker_show_all_apparatus_tabs': false,
       'worker_list_rows': {
         for (final id in ['work-1', 'work-2', 'work-history'])
-          id: {
+          id: <String, dynamic>{
             'id': id,
             'code': id,
             'title': 'Mahsulot 😀',
@@ -234,6 +234,34 @@ void main() {
         'work-history');
   });
 
+  test('temporary pause display survives cache and live resume without authority', () {
+    final wire = _workerList();
+    wire['worker_list_rows']['work-2']['temporarily_paused_apparatus'] = [_station];
+    wire['queue_states'][_station]['work-2'] = 'paused';
+    wire['worker_display_states'][_station]['work-2'] = 'paused';
+    final before = AdminProductionMapLiveSnapshot.fromJson(wire);
+    final cached = decodeCachedProductionMapQueueSnapshot(
+        encodeProductionMapQueueSnapshot(before));
+    final row = cached.workerListRows['work-2']!;
+    expect(isWorkerListOrderTemporarilyPaused(row.toPresentationOrder(), _station), isTrue);
+    expect(isWorkerListOrderTemporarilyPaused(row.toPresentationOrder(), 'apparatus:other'), isFalse);
+    expect(cached.queueActionControls, isEmpty);
+    expect(() => row.temporarilyPausedApparatus.clear(), throwsUnsupportedError);
+
+    final resumedRow = Map<String, dynamic>.from(wire['worker_list_rows']['work-2'])
+      ..remove('temporarily_paused_apparatus');
+    final after = _delta({
+      'worker_list_rows': _field({'work-2': resumedRow}),
+      'worker_display_states': _nested({'work-2': 'in_progress'}),
+      'queue_states': _nested({'work-2': 'in_progress'}),
+    }).applyTo(before);
+    expect(isWorkerListOrderTemporarilyPaused(
+        after.workerListRows['work-2']!.toPresentationOrder(), _station), isFalse);
+    expect(after.queueActionControls, isEmpty);
+    expect(isWorkerListOrderTemporarilyPaused(
+        before.workerListRows['work-2']!.toPresentationOrder(), _station), isTrue);
+  });
+
   test('compact list rejects malformed rows, authority and incomplete states',
       () async {
     final mutations = <void Function(Map<String, dynamic>)>[
@@ -242,6 +270,10 @@ void main() {
       (w) => w['worker_list_rows'].remove('work-1'),
       (w) => w['worker_list_rows'].remove('work-history'),
       (w) => w['worker_list_rows'] = [],
+      (w) => w['worker_list_rows']['work-2']['temporarily_paused_apparatus'] = _station,
+      (w) => w['worker_list_rows']['work-2']['temporarily_paused_apparatus'] = ['bad'],
+      (w) => w['worker_list_rows']['work-2']['temporarily_paused_apparatus'] = [_station, _station],
+      (w) => w['worker_list_rows']['work-2']['temporarily_paused_apparatus'] = [_station],
       (w) => w['worker_pending_report_ids'] = {'bad': <String>[]},
       (w) => w['worker_pending_report_ids'][_station] = ['work-1', 'work-1'],
       (w) => w['worker_pending_report_ids'][_station] = ['unknown'],

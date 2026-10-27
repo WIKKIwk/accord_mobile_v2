@@ -82,6 +82,7 @@ class _CompactHarness {
   bool detailReportRequired = true;
   String detailReportSessionId = 'report-session-one';
   bool includeHistory = true;
+  final temporarilyPausedOrders = <String>{};
   final states = <String, String>{
     'zakaz-a': 'pending',
     'zakaz-b': 'in_progress'
@@ -126,7 +127,11 @@ class _CompactHarness {
         },
         'worker_list_rows': {
           for (final id in {...visible, if (includeHistory) 'zakaz-history'})
-            id: _row(id),
+            id: {
+              ..._row(id),
+              if (temporarilyPausedOrders.contains(id))
+                'temporarily_paused_apparatus': [stationId],
+            },
         },
         'worker_display_states': {
           stationId: {for (final id in visible) id: states[id] ?? 'pending'}
@@ -1199,7 +1204,7 @@ void main() {
   });
 
   testWidgets(
-      'temporary removal starts next compact order while global refresh is blocked',
+      'temporary removal starts reordered first compact order while global refresh is blocked',
       (tester) async {
     final harness = _CompactHarness()
       ..detailState = 'in_progress'
@@ -1233,9 +1238,10 @@ void main() {
       expect(harness.queueReads, greaterThan(globalReads));
       expect(harness.queueRefresh!.isCompleted, isFalse);
 
-      // The list remains at its old global cursor. This fresh single-order
-      // read authorizes the urgent next job after the acknowledged suspension.
+      // An admin moves the suspended order below B. The fresh scoped read
+      // authorizes the new first order while the global cursor is still old.
       harness
+        ..visible = ['zakaz-b', 'zakaz-a']
         ..revision = 8
         ..detailRevision = 8
         ..detailState = 'pending'
@@ -1332,6 +1338,33 @@ void main() {
       }
       return Future.value(http.Response('{"error":"not_found"}', 404));
     }));
+  });
+
+  testWidgets('temporary pause label survives compact refresh and clears on resume',
+      (tester) async {
+    final harness = _CompactHarness()..visible = ['zakaz-a', 'zakaz-b'];
+    harness.states.addAll({'zakaz-a': 'paused', 'zakaz-b': 'pending'});
+    harness.queueStates.addAll({'zakaz-a': 'paused', 'zakaz-b': 'pending'});
+    harness.temporarilyPausedOrders.add('zakaz-a');
+    await harness.mount(tester);
+    expect(harness.snapshot().queueActionControls, isEmpty);
+    expect(_sequenceRow(tester, 'zakaz-a').apparatusLabel, 'Vaqtincha yechilgan');
+    expect(find.textContaining('Vaqtincha yechilgan'), findsWidgets);
+    harness.revision++;
+    harness.events.add(harness.snapshot());
+    await tester.pumpAndSettle();
+    expect(_sequenceRow(tester, 'zakaz-a').apparatusLabel, 'Vaqtincha yechilgan');
+    expect(harness.details, isEmpty,
+        reason: 'The display label must not require action authority hydration');
+    harness.temporarilyPausedOrders.clear();
+    harness.states['zakaz-a'] = 'in_progress';
+    harness.queueStates['zakaz-a'] = 'in_progress';
+    harness.revision++;
+    harness.events.add(harness.snapshot());
+    await tester.pumpAndSettle();
+    expect(_sequenceRow(tester, 'zakaz-a').apparatusLabel, isEmpty);
+    expect(find.textContaining('Vaqtincha yechilgan'), findsNothing);
+    await harness.close(tester);
   });
 
   for (final outcome in ['success', 'rejected', 'lost response', 'newer live']) {

@@ -11,6 +11,7 @@ class _ResumeWipFixture extends _InlineWipFixture {
   bool resumeInputRequired = false;
   bool omitResumeInputRequired = false;
   bool allowResume = true;
+  String blockingReason = '';
   bool materialScanRequired = false;
   bool materialSatisfied = false;
   bool qolipScanRequired = false;
@@ -52,6 +53,9 @@ class _ResumeWipFixture extends _InlineWipFixture {
           materialScanRequired && phase != 'active';
       if (phase == 'paused' && !allowResume) {
         result['allowed_actions'] = <String>[];
+      }
+      if (blockingReason.isNotEmpty) {
+        interaction['blocking_reason_code'] = blockingReason;
       }
       if (phase == 'active' || phase == 'paused') {
         result['work_activity'] = {
@@ -203,6 +207,10 @@ class _ResumeWipFixture extends _InlineWipFixture {
         liveEventsLoader: () => events.stream,
       ),
     ));
+    // Cache restoration can begin after the first frame without scheduling one.
+    for (var frame = 0; frame < 12 && !events.hasListener; frame++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     await tester.pumpAndSettle();
     if (invalidControl.isNotEmpty) return;
     expect(events.hasListener, isTrue);
@@ -498,6 +506,25 @@ void _registerResumeWipTests() {
       expect(fixture.mutations, isEmpty);
     }, () => MockClient(fixture.respond));
   });
+
+  for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
+    testWidgets('resume WIP: strict sequence blocks a lower paused order on $station',
+        (tester) async {
+      final fixture = _ResumeWipFixture(station: station)
+        ..allowResume = false
+        ..blockingReason = 'waiting_sequence';
+      await http.runWithClient(() async {
+        await fixture.open(tester);
+        final dynamic card = _resumeWipCard(tester);
+        expect(card.uiState.contractSynchronized, isTrue);
+        expect(card.uiState.showWaitingForSequence, isTrue);
+        expect(_resumeWipButton(), findsNothing);
+        card.onResume();
+        await tester.pumpAndSettle();
+        expect(fixture.mutations, isEmpty);
+      }, () => MockClient(fixture.respond));
+    });
+  }
 
   for (final invalid in [
     'missing field',

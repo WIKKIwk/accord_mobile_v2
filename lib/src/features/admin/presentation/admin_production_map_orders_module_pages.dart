@@ -1050,7 +1050,10 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                           readOnly: true,
                           apparatusLabel: queueActionControls[
                                       orders[index].map.id.trim()]
-                                  ?.temporarilyPaused == true
+                                  ?.temporarilyPaused == true ||
+                                  (queueStates[orders[index].map.id.trim()] == 'paused' &&
+                                      isWorkerListOrderTemporarilyPaused(
+                                          orders[index], apparatus.id))
                               ? context.l10n.productionText(
                                   'worker.temporary_pause.status')
                               : '',
