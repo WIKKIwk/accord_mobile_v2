@@ -88,6 +88,8 @@ MobileApiException _adminProductionMapException(
     scannedKadrCount: scannedKadrCount,
     orderTitle: assignedOrderTitle,
     message: earlyCloseMessage ?? switch (code.trim().toLowerCase()) {
+      'rulon_order_package_not_allowed' =>
+          'Rulon buyurtmasiga paket apparatini qo‘shib bo‘lmaydi',
       'rezka_frame_groups_invalid' => serverMessage.isNotEmpty
           ? serverMessage
           : 'Kesish rejasidagi kadrlar taqsimoti mos emas. Production mapdagi Rezka tugunlari va kadr sonini tekshiring.',

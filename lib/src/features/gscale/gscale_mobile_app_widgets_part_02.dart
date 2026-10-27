@@ -385,6 +385,9 @@ class OperatorDashboardPage extends StatefulWidget {
     this.linkedOrderWidthMm,
     this.orderSectionBuilder,
     this.initialWarehouse,
+    this.initialMaterialId,
+    this.initialMaterialName,
+    this.freshForm = false,
     super.key,
   });
 
@@ -409,6 +412,9 @@ class OperatorDashboardPage extends StatefulWidget {
       onPrintSucceeded;
   final Widget Function(bool disabled)? orderSectionBuilder;
   final String? initialWarehouse;
+  final String? initialMaterialId;
+  final String? initialMaterialName;
+  final bool freshForm;
 
   /// Bog'langan order eni (mm). Berilgan bo'lsa, eni field'i diapazondan
   /// chiqsa qizil bo'ladi: [order - 10, order + 40].

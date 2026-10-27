@@ -52,8 +52,12 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
         defaultMode ? defaultWarehouse : (selectedWarehouse?.warehouse ?? '');
     final simpleReceiptMode =
         activeBatch == null && _isTayyorlovSimpleWarehouse(targetWarehouse);
+    final preparationConflict = _preparationPresetProblem;
+    final controlError =
+        preparationConflict.isEmpty ? _errorText : preparationConflict;
     final contextFieldsLocked = (activeBatch != null && !editingBatchContext) ||
-        (_isMaterialReceipt && !_rpsBatchStateResolved) ||
+        (_usesReceiptOrderContext && !_rpsBatchStateResolved) ||
+        _preparationPresetLoading ||
         _batchActionLoading ||
         _manualPrintLoading ||
         _simpleReceiptLoading;
@@ -349,9 +353,9 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
           ),
           const SizedBox(height: 8),
         ],
-        if (_errorText.isNotEmpty) ...[
+        if (controlError.isNotEmpty) ...[
           Text(
-            _errorText,
+            controlError,
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.error,
             ),

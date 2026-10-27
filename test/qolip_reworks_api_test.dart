@@ -342,6 +342,20 @@ void main() {
           ]);
     });
 
+    test('attached mold statuses track rework and return', () async {
+      Future<Map<String, bool>> statuses() async => {
+            for (final mold in await MobileApi.instance.qolipProductMolds(product.code))
+              mold.qolipCode: mold.isInRework,
+          };
+      expect(await statuses(), {'RW-A1': false, 'RW-A2': false});
+      final sent = await MobileApi.instance.qolipSendToRework(
+          requestId: 'attached-away', qolipCodes: ['RW-A1']);
+      expect(await statuses(), {'RW-A1': true, 'RW-A2': false});
+      await MobileApi.instance.qolipReturnFromRework(
+          requestId: 'attached-return', reworkIds: [sent.single.id]);
+      expect(await statuses(), {'RW-A1': false, 'RW-A2': false});
+    });
+
     test(
         'send does not activate mileage; subset return resets only returned codes',
         () async {

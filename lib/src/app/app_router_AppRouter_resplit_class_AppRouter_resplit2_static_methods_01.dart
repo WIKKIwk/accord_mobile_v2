@@ -590,6 +590,12 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, GScaleModeScreen(
         initialOrder: settings.arguments is GScaleModeArgs
             ? (settings.arguments as GScaleModeArgs).order : null,
+        initialMaterialId: settings.arguments is GScaleModeArgs
+            ? (settings.arguments as GScaleModeArgs).materialId : null,
+        initialMaterialName: settings.arguments is GScaleModeArgs
+            ? (settings.arguments as GScaleModeArgs).materialName : null,
+        freshForm: settings.arguments is GScaleModeArgs &&
+            (settings.arguments as GScaleModeArgs).freshForm,
         initialWarehouse: settings.arguments is GScaleModeArgs
             ? (settings.arguments as GScaleModeArgs).warehouse
             : settings.arguments is String

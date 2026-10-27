@@ -402,7 +402,7 @@ class _AdminApparatusCanonicalGroupCardState
         ),
         child: ExpansionTile(
           key: ValueKey(
-            'canonical-apparatus-group-${widget.group.operation}',
+            'canonical-apparatus-group-${widget.group.key}',
           ),
           dense: true,
           visualDensity: VisualDensity.compact,

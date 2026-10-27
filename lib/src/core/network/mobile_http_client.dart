@@ -6,7 +6,7 @@ import 'api_transport_policy.dart';
 // Only this canonical API origin may use the local preview proxy configured
 // in web_dev_config.yaml. Retain it in sessions/saved accounts, and never send
 // another server's credentials to the local core.
-const devApiProxyTarget = 'https://accord-test.wspace.sbs';
+const devApiProxyTarget = 'https://mini-rs-erp-test.wspace.sbs';
 
 http.Client createMobileHttpClient({bool useDevProxy = true}) {
   final client = http.Client();

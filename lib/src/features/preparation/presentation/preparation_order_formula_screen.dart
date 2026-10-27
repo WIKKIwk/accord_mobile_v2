@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
@@ -7,6 +8,7 @@ import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
+import '../../gscale/presentation/gscale_mode_screen.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
@@ -169,6 +171,7 @@ class _PreparationOrderFormulaScreenState
   bool _editing = false;
   String? _editingName;
   bool _initialEditorOpened = false;
+  bool _openingReceipt = false;
   final List<_FormulaRow> _rows = [];
 
   @override
@@ -273,6 +276,35 @@ class _PreparationOrderFormulaScreenState
       variantId: widget.variantId,
     );
     if (mounted && formulas != null) setState(() => _formulas = formulas);
+  }
+
+  Future<void> _startProduction() async {
+    if (_loading || _saving || _deleting || _openingReceipt ||
+        widget.manageSavedFormula ||
+        !AppRouter.canOpenRoute(AppRoutes.gscaleMode) ||
+        widget.orderId.trim().isEmpty || widget.materialId.trim().isEmpty) {
+      return;
+    }
+    setState(() => _openingReceipt = true);
+    try {
+      await Navigator.of(context).pushNamed(
+        AppRoutes.gscaleMode,
+        arguments: GScaleModeArgs(
+          order: PreparationOrder.fromJson({
+            'id': widget.orderId,
+            'code': widget.orderCode,
+            'title': widget.productTitle,
+            'order_kg': '0',
+            'saved': false,
+          }),
+          materialId: widget.materialId,
+          materialName: widget.materialName,
+          freshForm: true,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _openingReceipt = false);
+    }
   }
 
   /// Keyingi bo'sh harfli nom: A, B, ... Z, AA, AB, ...
@@ -581,6 +613,13 @@ class _PreparationOrderFormulaScreenState
       bottom: PreparationDock(
         showPrimaryFab: !widget.manageSavedFormula,
         primaryFabActions: [
+          if (AppRouter.canOpenRoute(AppRoutes.gscaleMode))
+            AdminFabMenuAction(
+              title: 'Ishlab chiqarishni boshlash',
+              icon: Icons.play_arrow_rounded,
+              enabled: !_loading && !_saving && !_deleting && !_openingReceipt,
+              onTap: _startProduction,
+            ),
           AdminFabMenuAction(
             title: 'Shnek formula qo‘shish',
             icon: Icons.functions_rounded,

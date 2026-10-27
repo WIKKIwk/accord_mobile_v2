@@ -25,6 +25,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         return M3AsyncPickerSheet<CalculateProductPickerOption>(
           title: context.l10n.adminText('calculate.product_select'),
           hintText: context.l10n.adminText('calculate.product_search'),
+          autofocus: true,
           showAddAction: canCreateProduct,
           addActionTooltip: context.l10n.adminText('item.add_title'),
           onEmptyAction: canCreateProduct

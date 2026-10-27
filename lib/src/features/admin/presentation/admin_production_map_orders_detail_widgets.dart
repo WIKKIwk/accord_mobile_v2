@@ -196,6 +196,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final createdAt = formatUnixSecondsLocalDateTime(order.createdAtUnix ?? 0);
     final cardUiState = presentationUiState ?? uiState;
     final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
       map: map,
@@ -368,6 +369,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       ),
                       customerName: customerName,
                       workerMode: workerMode,
+                      qolipInRework: !detailPending &&
+                          !workerMode &&
+                          AppSession.instance.profile?.role == UserRole.admin &&
+                          order.qolipInRework,
                       showContractSyncProgress: showContractSyncProgress,
                       materialsLoading: materialsLoading,
                       materialsError: materialsError,
@@ -470,6 +475,23 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                           : null,
                     ),
                   if (!summaryOnlyMode) const SizedBox(height: 4),
+                  if (!workerMode &&
+                      AppSession.instance.profile?.role == UserRole.admin) ...[
+                    _orderDetailSurfaceCard(
+                      context: context,
+                      child: AppInfoRow(
+                        key: const ValueKey('production-order-created-at'),
+                        label: context.l10n.adminText('detail.created_at'),
+                        value: detailPending
+                            ? context.l10n.loading
+                            : createdAt.isEmpty
+                                ? context.l10n.adminText('detail.date_missing')
+                                : createdAt,
+                        icon: Icons.event_outlined,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   _OrderSummaryCard(
                     detailPending: detailPending,
                     map: map,

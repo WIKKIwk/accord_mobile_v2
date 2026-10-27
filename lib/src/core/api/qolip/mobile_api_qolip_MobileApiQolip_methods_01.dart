@@ -267,6 +267,10 @@ extension MobileApiQolipAstPart01 on MobileApi {
               qolipColor: spec.qolipColor,
               hasQolipSpec: spec.hasQolipSpec,
               isInUse: inUse,
+              isInRework: _testModeQolipReworks.values.any((entry) =>
+                  entry.isOpen &&
+                  entry.qolipCode.trim().toLowerCase() ==
+                      spec.qolipCode.trim().toLowerCase()),
             ),
           );
           if (products.length >= limit) {
@@ -307,6 +311,10 @@ extension MobileApiQolipAstPart01 on MobileApi {
             qolipSize: spec.qolipSize,
             qolipColor: spec.qolipColor,
             hasQolipSpec: spec.hasQolipSpec,
+            isInRework: _testModeQolipReworks.values.any((entry) =>
+                entry.isOpen &&
+                entry.qolipCode.trim().toLowerCase() ==
+                    spec.qolipCode.trim().toLowerCase()),
             isInUse: _testModeQolipCheckouts.any(
               (checkout) =>
                   checkout.isOpen &&

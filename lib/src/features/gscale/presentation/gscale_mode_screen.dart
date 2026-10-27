@@ -20,16 +20,35 @@ import '../../shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 
 class GScaleModeArgs {
-  const GScaleModeArgs({this.order, this.warehouse});
+  const GScaleModeArgs({
+    this.order,
+    this.warehouse,
+    this.materialId,
+    this.materialName,
+    this.freshForm = false,
+  });
   final PreparationOrder? order;
   final String? warehouse;
+  final String? materialId;
+  final String? materialName;
+  final bool freshForm;
 }
 
 class GScaleModeScreen extends StatelessWidget {
-  const GScaleModeScreen({super.key, this.initialWarehouse, this.initialOrder});
+  const GScaleModeScreen({
+    super.key,
+    this.initialWarehouse,
+    this.initialOrder,
+    this.initialMaterialId,
+    this.initialMaterialName,
+    this.freshForm = false,
+  });
 
   final String? initialWarehouse;
   final PreparationOrder? initialOrder;
+  final String? initialMaterialId;
+  final String? initialMaterialName;
+  final bool freshForm;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +76,11 @@ class GScaleModeScreen extends StatelessWidget {
         ),
         bottom: const PreparationDock(),
         linkPrintsToOrder: true,
+        initialOrder: initialOrder,
         initialWarehouse: initialWarehouse,
+        initialMaterialId: initialMaterialId,
+        initialMaterialName: initialMaterialName,
+        freshForm: freshForm,
       );
     }
     return GScaleMobileApp(
@@ -91,6 +114,9 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
     this.orderLoader,
     this.initialWarehouse,
     this.initialOrder,
+    this.initialMaterialId,
+    this.initialMaterialName,
+    this.freshForm = false,
   });
 
   final Widget drawer;
@@ -102,6 +128,9 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
   final Future<List<PreparationOrder>> Function()? orderLoader;
   final String? initialWarehouse;
   final PreparationOrder? initialOrder;
+  final String? initialMaterialId;
+  final String? initialMaterialName;
+  final bool freshForm;
 
   @override
   State<_MaterialGScaleControlScreen> createState() =>
@@ -266,6 +295,9 @@ class _MaterialGScaleControlScreenState
           Expanded(
             child: OperatorDashboardPage(
               initialWarehouse: widget.initialWarehouse,
+              initialMaterialId: widget.initialMaterialId,
+              initialMaterialName: widget.initialMaterialName,
+              freshForm: widget.freshForm,
               orderSectionBuilder:
                   widget.linkPrintsToOrder ? orderSection : null,
               server: _selectedServer,

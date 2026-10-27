@@ -210,8 +210,23 @@ extension _AdminProductionMapTestDefinitionState
   void _validateCanonicalApparatusReferences(
     ProductionMapDefinition definition,
   ) {
+    final packageApparatusIds =
+        _templateDraft?.status.trim().toLowerCase() == 'rulon'
+            ? _apparatusCatalog
+                .where((apparatus) => apparatus.operation == 'package')
+                .map((apparatus) => apparatus.id.trim())
+                .toSet()
+            : const <String>{};
     for (final node in definition.nodes) {
       if (node.kind != 'apparatus') continue;
+      if (packageApparatusIds.contains(node.apparatusId.trim()) ||
+          packageApparatusIds
+              .contains(node.alternativeAssignedApparatusId.trim())) {
+        throw const MobileApiException(
+          code: 'rulon_order_package_not_allowed',
+          message: 'Rulon buyurtmasiga paket apparatini qo‘shib bo‘lmaydi',
+        );
+      }
       if (!isCanonicalApparatusId(node.apparatusId)) {
         throw const MobileApiException(
           code: 'canonical_apparatus_id_required',

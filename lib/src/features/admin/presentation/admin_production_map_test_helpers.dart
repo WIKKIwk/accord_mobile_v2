@@ -177,6 +177,10 @@ bool productionMapApparatusMatchesOrder(
   AdminApparatus apparatus,
   ProductionMapOrderContext? orderContext,
 ) {
+  if (apparatus.operation == 'package' &&
+      orderContext?.templateDraft?.status.trim().toLowerCase() == 'rulon') {
+    return false;
+  }
   if (apparatus.operation == 'laminate' &&
       !_productionMapLaminatsiyaMatchesOrder(apparatus, orderContext)) {
     return false;

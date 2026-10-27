@@ -54,9 +54,10 @@ The separate GScale/RPS endpoint is configured through `API_BASE_URL` or LAN
 discovery and server selection.
 
 For the default test server, `make run` starts a loopback WebSocket bridge as
-well as the HTTP preview proxy. Browser sockets still stream from the public
-server; TLS verification stays enabled. The bridge is limited to the fixed test
-backend and `/v1/mobile/` paths. Native and release builds use direct WSS.
+well as the HTTP preview proxy. Both reach the running local Mini RS ERP at
+`127.0.0.1:18081`; accounts retain their canonical HTTPS endpoint. The bridge is
+limited to the fixed test backend and `/v1/mobile/` paths. Native and release
+builds use direct WSS.
 
 For a manually launched Flutter web server, start `dart tools/runtime/dev_ws_proxy.dart`
 and pass both `--dart-define=ACCORD_DEV_API_PROXY=true` and

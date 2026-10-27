@@ -43,6 +43,7 @@ part 'gscale_mobile_app__OperatorDashboardPageState_methods_03.dart';
 part 'gscale_mobile_app__OperatorDashboardPageState_methods_04.dart';
 part 'gscale_mobile_app__OperatorDashboardPageState_methods_05.dart';
 part 'gscale_mobile_app__OperatorDashboardPageState_methods_06.dart';
+part 'gscale_mobile_app_preparation_receipt.dart';
 part 'gscale_mobile_app_declarations_part_01.dart';
 part 'gscale_mobile_app_widgets_part_02.dart';
 part 'gscale_mobile_app_declarations_part_03.dart';

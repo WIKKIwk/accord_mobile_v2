@@ -61,8 +61,8 @@ void main() {
       'https://other.example/v1/mobile/auth/login',
       'http://127.0.0.1:18081/v1/mobile/auth/login',
       'http://127.0.0.1:39118/print',
-      'http://accord-test.wspace.sbs/v1/mobile/auth/login',
-      'https://accord-test.wspace.sbs:8443/v1/mobile/auth/login',
+      '${devApiProxyTarget.replaceFirst('https:', 'http:')}/v1/mobile/auth/login',
+      '$devApiProxyTarget:8443/v1/mobile/auth/login',
     ]) {
       final client = DevApiProxyClient(MockClient((request) async {
         expect(request.url.toString(), url);
@@ -106,9 +106,9 @@ void main() {
 
   test('Flutter preview reaches the local core while accounts keep HTTPS', () {
     final config = File('web_dev_config.yaml').readAsStringSync();
-    expect(devApiProxyTarget, 'https://accord-test.wspace.sbs');
+    expect(devApiProxyTarget, 'https://mini-rs-erp-test.wspace.sbs');
     expect(config, contains('prefix: /__accord_api/'));
-    expect(config, contains('target: http://127.0.0.1:8081/'));
+    expect(config, contains('target: http://127.0.0.1:18081/'));
     expect(config, contains('replace: /'));
   });
 

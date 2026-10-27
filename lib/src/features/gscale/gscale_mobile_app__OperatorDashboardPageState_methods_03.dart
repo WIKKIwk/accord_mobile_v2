@@ -33,6 +33,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
 
   bool _isTayyorlovSimpleWarehouse(String warehouse) {
     return widget.controlOnly &&
+        !_isPreparationFormulaReceipt &&
         AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
         _tayyorlovMaterialWarehouses.contains(warehouse.trim().toLowerCase());
   }
@@ -249,13 +250,14 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     setState(() {
       final changedItem = _selectedItem?.itemCode != item.itemCode;
       _selectedItem = item;
+      if (_isPreparationFormulaReceipt) _preparationPresetApplied = true;
       if (_authoritativeRsBatch?.active != true) {
         _draftContextSaved = false;
       }
       if (changedItem) {
         if (!_prefillMaterialOrder) _widthController.clear();
         _micronController.clear();
-        if (_isMaterialReceipt) _lengthController.clear();
+        if (_usesReceiptOrderContext) _lengthController.clear();
       }
       if (!_warehouseIndependentOfItem) {
         _selectedWarehouse = null;
@@ -266,7 +268,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<void> _openItemPicker() async {
-    if (_isMaterialReceipt && _orderSelectionLocked) return;
+    if (_usesReceiptOrderContext && _orderSelectionLocked) return;
     if (_prefillMaterialOrder) {
       _materialItemPickerOpened = true;
     }
@@ -283,7 +285,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       return;
     }
     await _refreshTayyorlovMaterialWarehouses();
-    if (!mounted || (_isMaterialReceipt && _orderSelectionLocked)) {
+    if (!mounted || (_usesReceiptOrderContext && _orderSelectionLocked)) {
       return;
     }
     // Material taminotchi uchun server tanlangan orderning saqlangan
@@ -352,7 +354,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     );
     if (option == null ||
         !mounted ||
-        (_isMaterialReceipt && _orderSelectionLocked) ||
+        (_usesReceiptOrderContext && _orderSelectionLocked) ||
         widget.linkedOrderId.trim() != linkedOrderId) {
       return;
     }
@@ -391,6 +393,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
           orderId: orderId ?? widget.linkedOrderId,
           offset: offset,
           limit: limit,
+          useBackend: _isPreparationFormulaReceipt,
         );
     }
   }
@@ -453,9 +456,9 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   Future<void> _openWarehousePicker() async {
-    if (_isMaterialReceipt && _orderSelectionLocked) return;
+    if (_usesReceiptOrderContext && _orderSelectionLocked) return;
     await _refreshTayyorlovMaterialWarehouses();
-    if (!mounted || (_isMaterialReceipt && _orderSelectionLocked)) {
+    if (!mounted || (_usesReceiptOrderContext && _orderSelectionLocked)) {
       return;
     }
     final warehouseUserKey = _materialWarehouseUserKey;
@@ -497,7 +500,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     );
     if (warehouse == null ||
         !mounted ||
-        (_isMaterialReceipt && _orderSelectionLocked)) {
+        (_usesReceiptOrderContext && _orderSelectionLocked)) {
       return;
     }
     setState(() {
@@ -528,7 +531,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       throw StateError('Avval faol batchni to‘xtating va holatni yangilang');
     }
     if (widget.linkedOrderId.trim() != orderId ||
-        (_isMaterialReceipt && _draftOrderId != orderId)) {
+        (_usesReceiptOrderContext && _draftOrderId != orderId)) {
       throw StateError('Order o‘zgardi. Homashyoni qayta tanlang');
     }
     final server = widget.server;
@@ -586,7 +589,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     final apparatus = await _chooseReceiptApparatus(item, orderId);
     if (!mounted ||
         widget.linkedOrderId.trim() != orderId ||
-        (_isMaterialReceipt && _draftOrderId != orderId)) {
+        (_usesReceiptOrderContext && _draftOrderId != orderId)) {
       throw StateError('Order o‘zgardi. Qayta boshlang');
     }
     if (!_rpsBatchStateResolved || _authoritativeRsBatch?.active == true) {
@@ -633,6 +636,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       orderId: orderId,
       offset: 0,
       limit: 200,
+      useBackend: _isPreparationFormulaReceipt,
     );
     final matches = items.where((entry) => entry.code == item.itemCode);
     final options = matches.isEmpty

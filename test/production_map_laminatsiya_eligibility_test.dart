@@ -96,49 +96,87 @@ void main() {
     ('grouped cuts above 1300 block group', 2602, 4, [2, 2], []),
     ('one oversized cut group blocks group', 2600, 4, [1, 3], []),
   ]) {
-    testWidgets('lamination picker and Skip: $label', (tester) async {
-      await _openMap(tester, width, kadrCount: kadrCount, groups: groups);
-      final menu = tester.widget<AdminFabOverlayActionMenu>(
-        find.byType(AdminFabOverlayActionMenu),
-      );
-      expect(
-          menu.actions
-              .singleWhere((item) => item.title == 'Laminatsiya')
-              .enabled,
-          enabledIds.isNotEmpty);
-      await _openLamination(tester);
-      if (enabledIds.isEmpty) {
-        expect(find.text('Skip'), findsNothing);
-        expect(
-          find.text(
-              'Laminatsiya apparatga buyurtma kattalik qiladi, iltimos uni bo‘laklab oling'),
-          findsOneWidget,
+    for (final (family, familyIds) in [
+      ('Laminatsiya', _regularIds),
+      ('Extruder laminatsiya', [_extruderId]),
+    ]) {
+      testWidgets('$family picker and Skip: $label', (tester) async {
+        final enabledFamilyIds =
+            enabledIds.where(familyIds.contains).toList(growable: false);
+        await _openMap(tester, width, kadrCount: kadrCount, groups: groups);
+        final menu = tester.widget<AdminFabOverlayActionMenu>(
+          find.byType(AdminFabOverlayActionMenu),
         );
-      } else {
-        _expectTile(
-            tester, 'Laminatsiya 1', enabledIds.contains(_regularIds[0]));
-        _expectTile(
-            tester, 'Laminatsiya 2', enabledIds.contains(_regularIds[1]));
-        _expectTile(
-            tester, 'Extruder laminatsiya', enabledIds.contains(_extruderId));
-        await tester.tap(find.text('Skip'));
-        await tester.pumpAndSettle();
-        await _expectSavedLamination(tester, enabledIds);
-      }
-      await _disposeMap(tester);
-    });
+        expect(
+            menu.actions
+                .singleWhere((item) => item.title == family)
+                .enabled,
+            enabledFamilyIds.isNotEmpty);
+        await _openLamination(tester, family: family);
+        if (enabledFamilyIds.isEmpty) {
+          expect(find.text('Skip'), findsNothing);
+          expect(
+            find.text(
+                'Laminatsiya apparatga buyurtma kattalik qiladi, iltimos uni bo‘laklab oling'),
+            findsOneWidget,
+          );
+        } else {
+          if (family == 'Laminatsiya') {
+            _expectTile(tester, 'Laminatsiya 1',
+                enabledFamilyIds.contains(_regularIds[0]));
+            _expectTile(tester, 'Laminatsiya 2',
+                enabledFamilyIds.contains(_regularIds[1]));
+            expect(find.widgetWithText(ListTile, 'Extruder laminatsiya'),
+                findsNothing);
+          } else {
+            _expectTile(tester, 'Extruder laminatsiya', true);
+            expect(find.widgetWithText(ListTile, 'Laminatsiya 1'), findsNothing);
+            expect(find.widgetWithText(ListTile, 'Laminatsiya 2'), findsNothing);
+          }
+          await tester.tap(find.text('Skip'));
+          await tester.pumpAndSettle();
+          await _expectSavedLamination(tester, enabledFamilyIds);
+          final saved = (await MobileApi.instance.adminProductionMap(_mapId)).map;
+          expect(
+            saved.nodes
+                .where((node) => enabledFamilyIds.contains(node.apparatusId))
+                .map((node) => node.alternativeGroupLabel)
+                .toSet(),
+            {family},
+          );
+        }
+        await _disposeMap(tester);
+      });
+    }
   }
 
-  testWidgets('disabled regular cannot be selected; extruder can be selected',
+  testWidgets('new order exposes extruder as a separate default family',
+      (tester) async {
+    await _openMap(tester, 1050, newOrder: true);
+    await _openLamination(tester);
+    _expectTile(tester, 'Laminatsiya 1', true);
+    _expectTile(tester, 'Laminatsiya 2', true);
+    expect(find.widgetWithText(ListTile, 'Extruder laminatsiya'), findsNothing);
+    Navigator.of(tester.element(find.widgetWithText(ListTile, 'Laminatsiya 1')))
+        .pop();
+    await tester.pumpAndSettle();
+
+    await _openLamination(tester, family: 'Extruder laminatsiya');
+    _expectTile(tester, 'Extruder laminatsiya', true);
+    expect(find.widgetWithText(ListTile, 'Laminatsiya 1'), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Laminatsiya 2'), findsNothing);
+    await _disposeMap(tester);
+  });
+
+  testWidgets('extruder can be selected while regular lamination is blocked',
       (tester) async {
     await _openMap(tester, 1300);
-    await _openLamination(tester);
-    _expectTile(tester, 'Laminatsiya 1', false);
-    _expectTile(tester, 'Laminatsiya 2', false);
-    await tester.tap(find.text('Laminatsiya 1'));
-    await tester.pumpAndSettle();
+    await _openLamination(tester, family: 'Extruder laminatsiya');
+    expect(find.widgetWithText(ListTile, 'Laminatsiya 1'), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Laminatsiya 2'), findsNothing);
+    _expectTile(tester, 'Extruder laminatsiya', true);
     expect(find.text('Skip'), findsOneWidget);
-    await tester.tap(find.text('Extruder laminatsiya'));
+    await tester.tap(find.widgetWithText(ListTile, 'Extruder laminatsiya'));
     await tester.pumpAndSettle();
     expect(find.text('Skip'), findsNothing);
     await _expectSavedLamination(tester, [_extruderId]);
@@ -270,7 +308,7 @@ void main() {
                 .onTap,
             isNull);
       }
-      await _expectSavedLamination(tester, _allIds);
+      await _expectSavedLamination(tester, _regularIds);
       final saved = (await MobileApi.instance.adminProductionMap(_mapId)).map;
       for (final original
           in map.nodes.where((node) => printIds.contains(node.id))) {
@@ -455,6 +493,7 @@ ProductionMapOrderContext _context(double width) => ProductionMapOrderContext(
 Future<void> _openMap(WidgetTester tester, double width,
     {int? kadrCount,
     List<int> groups = const [],
+    bool newOrder = false,
     ProductionMapDefinition? savedMap,
     Set<String> lockedNodeIds = const {}}) async {
   tester.view.physicalSize = const Size(430, 932);
@@ -473,7 +512,7 @@ Future<void> _openMap(WidgetTester tester, double width,
     home: AdminProductionMapTestScreen(
       orderContext: _context(width),
       lockedNodeIds: lockedNodeIds,
-      savedMap: savedMap ??
+      savedMap: newOrder ? null : savedMap ??
           ProductionMapDefinition(
             id: _mapId,
             title: 'Lamination fit',
@@ -511,10 +550,11 @@ Future<void> _openMap(WidgetTester tester, double width,
   await tester.pumpAndSettle();
 }
 
-Future<void> _openLamination(WidgetTester tester) async {
+Future<void> _openLamination(WidgetTester tester,
+    {String family = 'Laminatsiya'}) async {
   await tester.tap(find.bySemanticsLabel('Element qo‘shish'));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('admin-fab-menu-Laminatsiya')));
+  await tester.tap(find.byKey(ValueKey('admin-fab-menu-$family')));
   await tester.pumpAndSettle();
 }
 

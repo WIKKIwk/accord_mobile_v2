@@ -171,7 +171,7 @@ extension __AdminProductionMapTestGraphStateAstPart01
     if (previousNodes.isEmpty) {
       return;
     }
-    final groupId = 'alt_${group.operation}_$_nextNodeIndex';
+    final groupId = 'alt_${group.key}_$_nextNodeIndex';
     final groupLabel = canonicalApparatusGroupLabel(group, context.l10n);
     final previousBottomY = previousNodes.map((node) => node.y).fold<double>(
           _AdminProductionMapTestScreenState._minNodeY,

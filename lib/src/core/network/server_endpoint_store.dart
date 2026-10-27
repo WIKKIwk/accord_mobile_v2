@@ -43,7 +43,7 @@ class ServerEndpointStore {
   static final ServerEndpointStore instance = ServerEndpointStore._();
   static const String compiledBaseUrl = String.fromEnvironment(
     'MOBILE_API_BASE_URL',
-    defaultValue: 'https://accord-test.wspace.sbs',
+    defaultValue: 'https://mini-rs-erp-test.wspace.sbs',
   );
   static const String _activeEndpointKey = 'active_server_endpoint';
   static const String _savedEndpointsKey = 'saved_server_endpoints_v1';

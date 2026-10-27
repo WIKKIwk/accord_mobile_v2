@@ -26,7 +26,7 @@ void _registeradmin_production_map_test_screen_testCases01() {
     );
     expect(
       groups
-          .singleWhere((group) => group.operation == 'laminate')
+          .singleWhere((group) => group.key == 'laminate')
           .apparatus
           .singleWhere((item) => item.name == 'Laminatsiya 1')
           .id,

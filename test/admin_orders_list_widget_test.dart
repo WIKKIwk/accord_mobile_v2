@@ -56,6 +56,8 @@ class _OrdersHarness {
   String detailState = 'pending';
   String detailTitle = 'Full detail package';
   String detailProductCode = 'FILM-ALPHA';
+  int? detailCreatedAtUnix;
+  bool? detailQolipInRework;
   Duration detailDelay = Duration.zero;
   final detailReplies = <Future<AdminApparatusQueueSnapshot>>[];
   final rowOverrides = <String, Map<String, dynamic>>{};
@@ -174,6 +176,9 @@ class _OrdersHarness {
         revision: detailRevision,
         maps: [
           ProductionMapSaved.fromJson({
+            'created_at_unix': detailCreatedAtUnix,
+            if (detailQolipInRework != null)
+              'qolip_in_rework': detailQolipInRework,
             'map': {
               'id': orderId,
               'code': '0101',
@@ -422,6 +427,40 @@ void main() {
     await harness.dispose(tester);
   });
 
+  for (final inRework in [true, false, null]) {
+    testWidgets(
+        'orders sheet shows mold rework warning only when confirmed: $inRework',
+        (tester) async {
+      final harness = _OrdersHarness()
+        ..detailQolipInRework = inRework
+        ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+      final warning = AppLocalizations(const Locale('uz'))
+          .productionErrorMessage('qolip_in_rework');
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pump();
+      expect(find.text(warning), findsNothing);
+      harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+      await tester.pumpAndSettle();
+      expect(find.text(warning), inRework == true ? findsOneWidget : findsNothing);
+      final dynamic sheet = tester.widget(_detailSheet());
+      expect(sheet.canManageQueue, isFalse);
+      expect(sheet.onQueueAction, isNull);
+      expect(harness.detailReads, [(apparatus: '', orderId: 'order-a')]);
+      if (inRework == true) {
+        harness
+          ..pendingDetail = null
+          ..detailQolipInRework = false
+          ..detailRevision = 8;
+        harness.patch([]);
+        await tester.pumpAndSettle();
+        expect(harness.detailReads, hasLength(2));
+        expect(find.text(warning), findsNothing);
+      }
+      await harness.dispose(tester);
+    });
+  }
+
   testWidgets('orders tab opens existing sheet before delayed full detail',
       (tester) async {
     final harness = _OrdersHarness()
@@ -449,6 +488,47 @@ void main() {
     expect(loaded.canManageQueue, isFalse);
     expect(harness.detailReads, hasLength(1));
     expect(harness.routeObserver.popupRoutes, hasLength(1));
+    await harness.dispose(tester);
+  });
+
+  testWidgets('orders sheet loads the original creation date with full detail',
+      (tester) async {
+    final harness = _OrdersHarness()
+      ..detailCreatedAtUnix =
+          DateTime(2026, 10, 25, 13, 37).millisecondsSinceEpoch ~/ 1000
+      ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+    await harness.mount(tester);
+    expect(harness.detailReads, isEmpty);
+    expect(find.text('25.10.2026 13:37'), findsNothing);
+    await tester.tap(_row('order-a'));
+    await tester.pumpAndSettle();
+    final createdAt =
+        find.byKey(const ValueKey('production-order-created-at'));
+    expect(find.descendant(of: createdAt, matching: find.text('Yuklanmoqda...')),
+        findsOneWidget);
+    harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+    await tester.pumpAndSettle();
+    expect(
+        find.descendant(
+            of: createdAt, matching: find.text('Tizimga kiritilgan')),
+        findsOneWidget);
+    expect(find.descendant(of: createdAt, matching: find.text('25.10.2026 13:37')),
+        findsOneWidget);
+    expect(harness.detailReads, [(apparatus: '', orderId: 'order-a')]);
+    await harness.dispose(tester);
+  });
+
+  testWidgets('orders sheet does not invent a missing creation date',
+      (tester) async {
+    final harness = _OrdersHarness();
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pumpAndSettle();
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('production-order-created-at')),
+            matching: find.text('Sana mavjud emas')),
+        findsOneWidget);
     await harness.dispose(tester);
   });
 
@@ -881,6 +961,89 @@ void main() {
     expect(find.text('Butun buyurtma'), findsNothing);
     await harness.dispose(tester);
   });
+
+  for (final view in ['orders', 'sequence']) {
+    testWidgets('attached mold list marks only molds in rework: $view',
+        (tester) async {
+      final harness = _OrdersHarness()..includeSequence = view == 'sequence';
+      var returned = false;
+      var moldReads = 0;
+      await TestModeController.instance.setEnabled(false);
+      await http.runWithClient(() async {
+        await harness.mount(tester);
+        if (view == 'sequence') {
+          await tester.tap(find.text('Ketma-ketlik'));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(view == 'orders'
+            ? _row('order-a')
+            : find.byKey(const ValueKey('sequence-row-$_apparatus-order-a')));
+        await tester.pumpAndSettle();
+        final expansion =
+            find.byKey(const ValueKey('production-attached-qolips-expansion'));
+        expect((tester.widget(expansion) as dynamic).countNumber, '3');
+        expect(find.byKey(const ValueKey('attached-qolip-Q-AWAY')), findsNothing);
+        await tester.ensureVisible(expansion);
+        await tester.tap(expansion);
+        await tester.pumpAndSettle();
+        final away = find.byKey(const ValueKey('attached-qolip-Q-AWAY'));
+        expect(away, findsOneWidget);
+        expect(find.descendant(of: away, matching: find.text('Peredelkada')),
+            findsOneWidget);
+        expect(find.descendant(of: away, matching: find.byIcon(Icons.build_outlined)),
+            findsOneWidget);
+        for (final code in ['Q-HOME', 'Q-LEGACY']) {
+          final tile = find.byKey(ValueKey('attached-qolip-$code'));
+          expect(tile, findsOneWidget);
+          expect(find.descendant(of: tile, matching: find.text('Peredelkada')),
+              findsNothing);
+        }
+        expect(moldReads, 1);
+
+        final dynamic viewport = tester.widget(find.byWidgetPredicate((widget) =>
+            widget.runtimeType.toString() == '_AdminOrderPageViewport' &&
+            (widget as dynamic).window.request.view == view));
+        harness
+          ..windowId = viewport.window.liveId as String
+          ..detailRevision = 8;
+        returned = true;
+        harness.patch([]);
+        await tester.pumpAndSettle();
+        expect(_detailContent(tester).attachedQolipsExpanded, isTrue);
+        expect(moldReads, 2);
+        expect(find.byKey(const ValueKey('attached-qolip-Q-AWAY')), findsOneWidget);
+        expect(find.text('Peredelkada'), findsNothing);
+        await harness.dispose(tester);
+      }, () => MockClient((request) async {
+            if (request.url.path.endsWith('/raw-material-assignments')) {
+              return http.Response('[]', 200);
+            }
+            if (request.url.path.endsWith('/raw-material-start-requirements')) {
+              return http.Response(jsonEncode(scanMaterials()), 200);
+            }
+            if (request.url.path.endsWith('/qolip/shared-sets')) {
+              moldReads++;
+              return http.Response(jsonEncode({
+                'products': [
+                  for (final code in ['Q-AWAY', 'Q-HOME', 'Q-LEGACY'])
+                    {
+                      'code': 'FILM-ALPHA',
+                      'name': 'Package mold',
+                      'qolip_code': code,
+                      'warehouse': 'Molds A',
+                      'size': 40,
+                      'color': 'BLACK',
+                      'has_qolip_spec': true,
+                      if (code != 'Q-LEGACY')
+                        'is_in_rework': code == 'Q-AWAY' && !returned,
+                    },
+                ],
+              }), 200);
+            }
+            return http.Response('{}', 404);
+          }));
+    });
+  }
 
   testWidgets(
       'orders hydrated revision refreshes material and mold counts once',

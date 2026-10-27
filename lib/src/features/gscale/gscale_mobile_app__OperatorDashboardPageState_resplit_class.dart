@@ -55,6 +55,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   Future<List<MaterialReceiptChoice>>? _materialOrderChoicesFuture;
   String _materialOrderChoicesOrderId = '';
   bool _materialItemPickerOpened = false;
+  bool _preparationPresetLoading = false;
+  bool _preparationPresetApplied = false;
+  int _preparationPresetGeneration = 0;
+  String _preparationPresetError = '';
+  String _preparationPresetOrderId = '';
+  MobileItem? _preparationPresetItem;
   Timer? _pingTimer;
   Timer? _printerStatusTimer;
   Timer? _controlPrefsDebounce;
@@ -75,6 +81,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
 
   bool get _orderSelectionLocked =>
       !_rpsBatchStateResolved ||
+      _preparationPresetLoading ||
       _authoritativeRsBatch?.active == true ||
       _batchActionLoading ||
       _manualPrintLoading ||
@@ -83,6 +90,12 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
 
   void _showBatchError(String message) {
     setState(() => _errorText = message);
+  }
+
+  void _updatePreparationReceipt(VoidCallback update) {
+    if (mounted) {
+      setState(update);
+    }
   }
 
   Future<void> _retryRsBatchState() async {
@@ -108,6 +121,8 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
   void initState() {
     super.initState();
     _draftOrderId = widget.linkedOrderId.trim();
+    _preparationPresetOrderId = widget.linkedOrderId.trim();
+    _preparationPresetLoading = _isPreparationFormulaReceipt;
     _controlTabController = TabController(length: 2, vsync: this)
       ..addListener(_handleControlTabChanged);
     _manualQtyController.addListener(_scheduleSaveControlPrefs);
@@ -139,14 +154,30 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     super.didUpdateWidget(oldWidget);
     final previousLinkedOrderId = oldWidget.linkedOrderId.trim();
     final nextLinkedOrderId = widget.linkedOrderId.trim();
+    final preparationInputsChanged = _isPreparationFormulaReceipt &&
+        (!oldWidget.controlOnly ||
+            !oldWidget.freshForm ||
+            oldWidget.initialMaterialId != widget.initialMaterialId ||
+            oldWidget.initialMaterialName != widget.initialMaterialName ||
+            (previousLinkedOrderId.isEmpty &&
+                nextLinkedOrderId.isNotEmpty &&
+                !_preparationPresetApplied));
+    if (preparationInputsChanged) {
+      _restartPreparationReceiptPreset();
+    } else if (!widget.freshForm && oldWidget.freshForm) {
+      _preparationPresetGeneration++;
+      _preparationPresetLoading = false;
+      _preparationPresetError = '';
+    }
     if (previousLinkedOrderId != nextLinkedOrderId &&
+        !preparationInputsChanged &&
         _authoritativeRsBatch?.active != true) {
       _materialOrderChoicesFuture = null;
       _materialOrderChoicesOrderId = '';
       _materialItemPickerOpened = false;
       setState(() {
         _selectedItem = null;
-        if (_isMaterialReceipt) {
+        if (_usesReceiptOrderContext) {
           _resetMaterialOrderFields();
         } else {
           _selectedWarehouse = null;
@@ -156,6 +187,14 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
         _errorText = '';
         _batchStartConflict = false;
         _warehousesError = '';
+        if (_isPreparationFormulaReceipt) {
+          _preparationPresetGeneration++;
+          _preparationPresetLoading = false;
+          if (nextLinkedOrderId.isNotEmpty) {
+            _preparationPresetApplied = true;
+          }
+          _preparationPresetError = '';
+        }
       });
       _scheduleSaveControlPrefs();
       if (_prefillMaterialOrder) {

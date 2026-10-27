@@ -1,8 +1,8 @@
-# Local Flutter preview only. The local core listens on 127.0.0.1:8081.
+# Local Flutter preview only. The local core listens on 127.0.0.1:18081.
 # Accounts keep their canonical HTTPS API URL; preview requests reach the same
 # core directly without a round trip through the public tunnel.
 server:
   proxy:
     - prefix: /__accord_api/
-      target: http://127.0.0.1:8081/
+      target: http://127.0.0.1:18081/
       replace: /

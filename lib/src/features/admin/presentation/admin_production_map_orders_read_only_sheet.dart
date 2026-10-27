@@ -114,7 +114,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   bool _attachedQolipsLoading = true;
   String _attachedQolipsError = '';
   int _attachedQolipsLoadGeneration = 0;
-  ({String epoch, int? revision})? _globalDetailSectionsCursor;
+  ({String epoch, int? revision})? _adminDetailSectionsCursor;
   bool _mapExpanded = false;
   bool _summaryExpanded = false;
 
@@ -186,8 +186,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     );
     if (!widget.detailPending) {
       final initial = widget.currentQueueSnapshot?.call();
-      if (!widget.workerMode && widget.apparatus == null && initial != null) {
-        _globalDetailSectionsCursor =
+      if (!widget.workerMode && initial != null) {
+        _adminDetailSectionsCursor =
             (epoch: initial.epoch, revision: initial.revision);
       }
       unawaited(_loadInitialInteractionAndScan());
@@ -359,21 +359,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             _needsDetailRecovery ||
             _actionControlLoads > 0);
     if (!widget.workerMode && !widget.detailPending &&
-        widget.initialControlConfirmed &&
-        station.isEmpty) {
-      // All-order details have global controls but no apparatus contract.
-      // Keep those controls current when the same sheet receives a live read.
-      _orderControls = Map<String, AdminOrderControlState>.from(
-          widget.initialOrderControls);
-      _orderControlState = adminProductionMapOrderControlFor(
-          _orderControls, widget.order.map.id.trim());
+        widget.initialControlConfirmed) {
+      if (station.isEmpty) {
+        // All-order details have global controls but no apparatus contract.
+        // Keep those controls current when the same sheet receives a live read.
+        _orderControls = Map<String, AdminOrderControlState>.from(
+            widget.initialOrderControls);
+        _orderControlState = adminProductionMapOrderControlFor(
+            _orderControls, widget.order.map.id.trim());
+      }
       final snapshot = widget.currentQueueSnapshot?.call();
       if (snapshot != null) {
         final cursor = (epoch: snapshot.epoch, revision: snapshot.revision);
-        if (_globalDetailSectionsCursor != cursor) {
-          _globalDetailSectionsCursor = cursor;
+        if (_adminDetailSectionsCursor != cursor) {
+          _adminDetailSectionsCursor = cursor;
           if (!oldWidget.detailPending && !contextChanged) {
-            unawaited(_loadMaterialAssignments(showLoading: false));
+            if (station.isEmpty) {
+              unawaited(_loadMaterialAssignments(showLoading: false));
+            }
             unawaited(_loadAttachedQolips());
           }
         }

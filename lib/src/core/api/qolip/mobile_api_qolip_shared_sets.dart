@@ -142,6 +142,10 @@ QolipProduct _sharedMoldForProduct(QolipProduct mold, QolipProduct product,
       qolipSize: mold.qolipSize,
       qolipColor: mold.qolipColor,
       hasQolipSpec: true,
+      isInRework: _testModeQolipReworks.values.any((entry) =>
+          entry.isOpen &&
+          entry.qolipCode.trim().toLowerCase() ==
+              mold.qolipCode.trim().toLowerCase()),
       isInUse: mold.isInUse ||
           _testModeQolipCheckouts.any((checkout) =>
               checkout.isOpen &&

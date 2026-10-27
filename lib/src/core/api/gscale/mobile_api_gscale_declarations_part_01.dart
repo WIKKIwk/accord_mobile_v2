@@ -31,8 +31,9 @@ extension MobileApiGScale on MobileApi {
     String orderId = '',
     int limit = 80,
     int offset = 0,
+    bool useBackend = false,
   }) async {
-    if (await TestModeController.instance.isEnabled()) {
+    if (!useBackend && await TestModeController.instance.isEnabled()) {
       return TestModeDemoData.itemPage(
         query: query,
         group: group,

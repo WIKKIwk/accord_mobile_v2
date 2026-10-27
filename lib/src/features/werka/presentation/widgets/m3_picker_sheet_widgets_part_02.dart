@@ -10,6 +10,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
     required this.itemTitle,
     required this.itemSubtitle,
     required this.onSelected,
+    this.autofocus = false,
     this.supportingText,
     this.pageSize = 50,
     this.showScanIcon = false,
@@ -41,6 +42,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final String Function(T item) itemTitle;
   final String Function(T item) itemSubtitle;
   final ValueChanged<T> onSelected;
+  final bool autofocus;
   final String? supportingText;
   final int pageSize;
   final bool showScanIcon;

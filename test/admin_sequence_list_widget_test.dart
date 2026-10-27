@@ -57,6 +57,7 @@ class _SummaryHarness {
   String detailEpoch = _epoch;
   String detailState = 'pending';
   String detailTitle = 'Full detail package';
+  bool? detailQolipInRework;
   Duration detailDelay = Duration.zero;
   final detailReplies = <Future<AdminApparatusQueueSnapshot>>[];
   final rowOverrides = <String, Map<String, dynamic>>{};
@@ -141,6 +142,8 @@ class _SummaryHarness {
         revision: detailRevision,
         maps: [
           ProductionMapSaved.fromJson({
+            if (detailQolipInRework != null)
+              'qolip_in_rework': detailQolipInRework,
             'map': {
               'id': orderId,
               'code': '0101',
@@ -254,10 +257,11 @@ class _SummaryHarness {
   void patch(List<Map<String, dynamic>> ops,
           {String baseVersion = 'v7-',
           String version = 'v8',
+          String window = 'w1',
           int revision = 8}) =>
       events.add(AdminProductionMapPageWindowMessage.fromJson({
         'type': 'page_window_delta',
-        'window': 'w1',
+        'window': window,
         'epoch': _epoch,
         'rev': revision,
         'base_version': baseVersion,
@@ -382,6 +386,44 @@ void main() {
     expect(harness.reads.length, reads, reason: 'No queue polling');
     await harness.dispose(tester);
   });
+
+  for (final inRework in [true, false, null]) {
+    testWidgets(
+        'sequence sheet shows mold rework warning only when confirmed: $inRework',
+        (tester) async {
+      final harness = _SummaryHarness()
+        ..detailQolipInRework = inRework
+        ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
+      final warning = AppLocalizations(const Locale('uz'))
+          .productionErrorMessage('qolip_in_rework');
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pump();
+      expect(find.text(warning), findsNothing);
+      harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+      await tester.pumpAndSettle();
+      expect(find.text(warning), inRework == true ? findsOneWidget : findsNothing);
+      final dynamic sheet = tester.widget(_detailSheet());
+      expect(sheet.canManageQueue, isFalse);
+      expect(find.byKey(const ValueKey('production-order-start-action')),
+          findsNothing);
+      expect(harness.detailReads, [(apparatus: _apparatus, orderId: 'order-a')]);
+      if (inRework == true) {
+        final dynamic viewport = tester.widget(find.byWidgetPredicate((widget) =>
+            widget.runtimeType.toString() == '_AdminOrderPageViewport' &&
+            (widget as dynamic).window.request.view == 'sequence'));
+        harness
+          ..pendingDetail = null
+          ..detailQolipInRework = false
+          ..detailRevision = 8;
+        harness.patch([], window: viewport.window.liveId as String);
+        await tester.pumpAndSettle();
+        expect(harness.detailReads, hasLength(2));
+        expect(find.text(warning), findsNothing);
+      }
+      await harness.dispose(tester);
+    });
+  }
 
   testWidgets(
       'sequence summary opens the existing sheet before one scoped detail read',

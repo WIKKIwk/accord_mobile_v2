@@ -128,6 +128,11 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       return;
     }
 
+    if (_isPreparationFormulaReceipt) {
+      await _loadPreparationReceiptPreset(draft);
+      return;
+    }
+
     final restoreOrderDraft =
         !_isMaterialReceipt || draft.orderId == widget.linkedOrderId.trim();
     _runWithoutSavingControlPrefs(() {
@@ -229,7 +234,8 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     _draftContextSaved = false;
     _batchContextEditing = false;
     final width = widget.linkedOrderWidthMm;
-    _widthController.text = width != null && width.isFinite && width > 0
+    _widthController.text = !_isPreparationFormulaReceipt &&
+            width != null && width.isFinite && width > 0
         ? formatCompactKg(width)
         : '';
     _micronController.clear();
@@ -554,6 +560,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
         _applyRsBatchSession(response.batch);
         if (reportError &&
             !_batchStartConflict &&
+            _preparationPresetConflictMessage.isEmpty &&
             response.batch.lastError.trim().isEmpty) {
           _errorText = '';
         }

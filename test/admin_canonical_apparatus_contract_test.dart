@@ -114,6 +114,40 @@ void main() {
     },
   );
 
+  test('extruder has a separate group while retaining lamination operation', () {
+    final extruder = AdminApparatus.fromJson({
+      ...projection,
+      'apparatus_id': 'apparatus:default:asset-004',
+      'display': {'display_name': 'Renamed E-01'},
+      'capabilities': {'laminate': 1},
+      'execution_profile': {
+        'operation': 'laminate',
+        'technology': 'extrusion_lamination',
+      },
+    });
+    final lamination = AdminApparatus.fromJson({
+      ...projection,
+      'apparatus_id': 'apparatus:default:asset-007',
+      'display': {'display_name': 'Extruder in display name only'},
+      'capabilities': {'laminate': 1},
+      'execution_profile': {
+        'operation': 'laminate',
+        'technology': 'adhesive_lamination',
+      },
+    });
+
+    final groups = canonicalApparatusGroups([extruder, lamination]);
+
+    expect(groups.map((group) => group.key), ['laminate', 'extrusion_lamination']);
+    expect(groups.every((group) => group.isClassified), isTrue);
+    expect(groups.map((group) => group.operation), ['laminate', 'laminate']);
+    expect(groups.first.apparatus.single.id, lamination.id);
+    expect(groups.last.apparatus.single.id, extruder.id);
+    expect(extruder.usesLaminationWorkflow, isTrue);
+    expect(extruder.toJson()['execution_profile'],
+        containsPair('operation', 'laminate'));
+  });
+
   test('committed canonical response reads its runtime projection', () {
     final apparatus = AdminApparatus.fromJson({
       'revision': {

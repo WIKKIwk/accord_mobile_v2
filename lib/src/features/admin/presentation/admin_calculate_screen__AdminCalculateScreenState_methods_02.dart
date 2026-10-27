@@ -387,6 +387,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         return M3AsyncPickerSheet<CustomerDirectoryEntry>(
           title: context.l10n.adminText('calculate.customer_select'),
           hintText: context.l10n.adminText('calculate.customer_search'),
+          autofocus: true,
           pageSize: 50,
           cacheKey: 'calculate:customers',
           loadPage: (query, offset, limit) {

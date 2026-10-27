@@ -354,10 +354,17 @@ class ProductionMapEdge {
 }
 
 class ProductionMapSaved {
-  const ProductionMapSaved({required this.map, required this.program});
+  const ProductionMapSaved({
+    required this.map,
+    required this.program,
+    this.createdAtUnix,
+    this.qolipInRework = false,
+  });
 
   final ProductionMapDefinition map;
   final ProductionMapProgram program;
+  final int? createdAtUnix;
+  final bool qolipInRework;
 
   factory ProductionMapSaved.fromJson(Map<String, dynamic> json) {
     return ProductionMapSaved(
@@ -367,6 +374,8 @@ class ProductionMapSaved {
       program: ProductionMapProgram.fromJson(
         json['program'] as Map<String, dynamic>,
       ),
+      createdAtUnix: (json['created_at_unix'] as num?)?.toInt(),
+      qolipInRework: json['qolip_in_rework'] == true,
     );
   }
 }

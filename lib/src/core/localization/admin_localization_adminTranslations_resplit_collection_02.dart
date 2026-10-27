@@ -189,11 +189,11 @@ const _admin_localization_adminTranslations_resplitPart02 = {
   },
   'admin.apparatus.groups_canonical_description': {
     'uz':
-        'Guruhlar canonical operation maydonidan avtomatik hosil qilinadi. Guruhni o‘zgartirish uchun aparat master-data turini tahrirlang.',
+        'Guruhlar aparatning turi va texnologiyasi bo‘yicha avtomatik hosil qilinadi. Guruhni o‘zgartirish uchun aparat turini tahrirlang.',
     'en':
-        'Groups are derived automatically from the canonical operation field. Edit the equipment master-data type to change its group.',
+        'Groups are derived automatically from the equipment operation and technology. Edit the equipment type to change its group.',
     'ru':
-        'Группы автоматически формируются из canonical-поля operation. Чтобы изменить группу, отредактируйте тип мастер-данных оборудования.',
+        'Группы автоматически формируются по типу и технологии оборудования. Чтобы изменить группу, отредактируйте тип оборудования.',
   },
   'admin.apparatus.custom_groups_description': {
     'uz':

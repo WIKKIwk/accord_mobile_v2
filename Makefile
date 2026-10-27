@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := deps
 
 HOST_OS := $(shell uname -s)
-API_URL ?= https://accord-test.wspace.sbs
+API_URL ?= https://mini-rs-erp-test.wspace.sbs
 LOCAL_API_URL ?= http://127.0.0.1:18081
 WORKSPACE_ROOT := $(abspath ..)
 LOCAL_TOOLS_ROOT ?= $(WORKSPACE_ROOT)/.tools
@@ -72,7 +72,7 @@ endif
 
 # The fixed test upstream uses the same loopback bridge as local web HTTP.
 # Other backends and native applications keep their direct WebSocket transport.
-ifeq ($(API_URL),https://accord-test.wspace.sbs)
+ifeq ($(API_URL),https://mini-rs-erp-test.wspace.sbs)
 ifneq ($(filter chrome web-server,$(RUN_DEVICE))$(filter web web-local,$(MAKECMDGOALS)),)
 DEV_WS_BROWSER_FLAG := --dart-define=ACCORD_DEV_WS_PROXY_URL=$(DEV_WS_PROXY_URL)
 RUN_BROWSER_FLAGS += $(DEV_WS_BROWSER_FLAG)
@@ -83,7 +83,7 @@ endif
 .PHONY: dev-ws-proxy-up
 dev-ws-proxy-up:
 	@mkdir -p garbage
-	@if [ "$(API_URL)" != 'https://accord-test.wspace.sbs' ]; then exit 0; fi; \
+	@if [ "$(API_URL)" != 'https://mini-rs-erp-test.wspace.sbs' ]; then exit 0; fi; \
 	if ! curl -fsS http://127.0.0.1:39119/healthz 2>/dev/null | grep -q 'accord-dev-ws-proxy-v1'; then \
 		nohup "$(DART_BIN)" tools/runtime/dev_ws_proxy.dart >garbage/dev_ws_proxy.log 2>&1 < /dev/null & \
 		echo $$! >garbage/.dev_ws_proxy.pid; \

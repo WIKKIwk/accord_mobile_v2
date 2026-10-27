@@ -12,6 +12,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.productTitle,
     required this.customerName,
     required this.workerMode,
+    this.qolipInRework = false,
     required this.showContractSyncProgress,
     required this.materialsLoading,
     required this.materialsError,
@@ -78,6 +79,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String productTitle;
   final String? customerName;
   final bool workerMode;
+  final bool qolipInRework;
   final bool showContractSyncProgress;
   final bool materialsLoading;
   final String materialsError;
@@ -337,13 +339,16 @@ class _OrderStartUnifiedCard extends StatelessWidget {
             materialsError.trim().isNotEmpty ||
             uiState.assignedMaterialAssignments.isEmpty ||
             materialStartBlockingText.trim().isNotEmpty);
-    final showBackendBlockingNotice = uiState.showBackendBlockingState &&
-        !orderControlBlocked &&
-        !showPreviousStageWaitingNotice &&
-        !uiState.showWaitingForSequence &&
-        !materialNoticeInSection;
-    final backendBlockingText =
-        uiState.blockingReasonCode.trim().toLowerCase() == 'apparatus_busy' &&
+    final showQolipReworkNotice = !workerMode && qolipInRework;
+    final showBackendBlockingNotice = showQolipReworkNotice ||
+        (uiState.showBackendBlockingState &&
+            !orderControlBlocked &&
+            !showPreviousStageWaitingNotice &&
+            !uiState.showWaitingForSequence &&
+            !materialNoticeInSection);
+    final backendBlockingText = showQolipReworkNotice
+        ? context.l10n.productionErrorMessage('qolip_in_rework')
+        : uiState.blockingReasonCode.trim().toLowerCase() == 'apparatus_busy' &&
                 (blockingBusyDetailText?.trim().isNotEmpty == true)
             ? blockingBusyDetailText!
             : context.l10n.productionErrorMessage(

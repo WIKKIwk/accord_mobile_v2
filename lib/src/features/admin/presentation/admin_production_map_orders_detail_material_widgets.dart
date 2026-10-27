@@ -1327,6 +1327,7 @@ class _AttachedQolipTile extends StatelessWidget {
       details.add(context.l10n.adminText('production.qolip_in_use'));
     }
     return GestureDetector(
+      key: ValueKey('attached-qolip-$code'),
       behavior: HitTestBehavior.opaque,
       onLongPress: () {
         HapticFeedback.mediumImpact();
@@ -1401,6 +1402,25 @@ class _AttachedQolipTile extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (product.isInRework) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      key: ValueKey('attached-qolip-rework-$code'),
+                      children: [
+                        Icon(Icons.build_outlined, size: 16, color: scheme.error),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            context.l10n.qolipReworkText('open'),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.error,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

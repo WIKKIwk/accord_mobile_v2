@@ -309,7 +309,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     _authoritativeRsBatch = batch;
     if (batch.active && !keepContextDraft) {
       _runWithoutSavingControlPrefs(() {
-        if (_isMaterialReceipt) {
+        if (_usesReceiptOrderContext) {
           // A restored active batch owns its context, even when the order
           // field was initialized with another order. Reconcile on stop.
           _draftOrderId = batch.orderId;
@@ -348,6 +348,11 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
           unawaited(_prefillSingleMaterialOrderChoice());
         }
       }
+      if (_isPreparationFormulaReceipt) {
+        _tryApplyPreparationReceiptPreset();
+      }
+    } else if (_isPreparationFormulaReceipt && !_preparationPresetApplied) {
+      _errorText = _preparationPresetConflictMessage;
     }
     _snapshot = _snapshot.copyWithBatch(MobileBatchState.fromRpsBatch(batch));
     _batchPrints = batch.prints;

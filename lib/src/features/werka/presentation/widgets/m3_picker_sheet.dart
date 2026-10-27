@@ -25,6 +25,7 @@ const _pickerSheetBorderRadius = BorderRadius.vertical(
 
 class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   Timer? _debounce;
   String _query = '';
@@ -45,6 +46,11 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
   @override
   void initState() {
     super.initState();
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocusNode.requestFocus();
+      });
+    }
     _scrollController.addListener(_handleScroll);
     if (!_restoreMemoryCache()) {
       _reload(reset: true);
@@ -55,6 +61,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -322,6 +329,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
                     const SizedBox(height: 14),
                     SearchBar(
                       controller: _searchController,
+                      focusNode: _searchFocusNode,
                       hintText: widget.hintText,
                       constraints: const BoxConstraints(minHeight: 58),
                       padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(

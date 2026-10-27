@@ -6,6 +6,10 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     required double grossQtyKg,
     int printCount = 1,
   }) async {
+    final preparationConflict = _preparationPresetConflictMessage;
+    if (preparationConflict.isNotEmpty) {
+      throw StateError(preparationConflict);
+    }
     final server = widget.server;
     if (widget.printTransport == PrintTransport.wifi && server == null) {
       throw Exception('Avval printer yoki tarozini tanlang');
