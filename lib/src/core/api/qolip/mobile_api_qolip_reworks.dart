@@ -111,12 +111,6 @@ final _testModeQolipReworks = <String, QolipReworkEntry>{};
 final _testModeQolipReworkRequests =
     <String, (String, List<QolipReworkEntry>)>{};
 final _testModeQolipMileage = <String, List<QolipMileageCycle>>{};
-final _qolipReworkRandom = math.Random.secure();
-
-String newQolipReworkRequestId() =>
-    'qolip-rework-${DateTime.now().toUtc().microsecondsSinceEpoch}-'
-    '${_qolipReworkRandom.nextInt(1 << 32).toRadixString(16).padLeft(8, '0')}'
-    '${_qolipReworkRandom.nextInt(1 << 32).toRadixString(16).padLeft(8, '0')}';
 
 List<QolipReworkEntry> _decodeQolipReworks(Map<String, dynamic> data) =>
     (data['reworks'] as List)
@@ -289,7 +283,6 @@ extension MobileApiQolipReworks on MobileApi {
     }
     _requireQolipRequestScope(scope);
     _qolipProductsSnapshot = null;
-    QolipCatalogStore.instance.applyResponse(const {}, scope);
     return result;
   }
 
@@ -380,7 +373,6 @@ extension MobileApiQolipReworks on MobileApi {
     }
     _requireQolipRequestScope(scope);
     _qolipProductsSnapshot = null;
-    QolipCatalogStore.instance.applyResponse(const {}, scope);
     return result;
   }
 

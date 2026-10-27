@@ -44,22 +44,31 @@ extension _QolipProductsReworks on _QolipProductsScreenState {
       return;
     }
     final signature = codes.map((code) => code.toLowerCase()).join('\u0000');
-    if (_reworkRequestSignature != signature) {
-      _reworkRequestSignature = signature;
-      _reworkRequestId = newQolipReworkRequestId();
-    }
     _update(() => _reworking = true);
     try {
-      await MobileApi.instance
+      if (_reworkRequestSignature != signature || _reworkRequestId == null) {
+        final requestId = newQolipReworkRequestId();
+        _reworkRequestId = requestId;
+        _reworkRequestSignature = signature;
+      }
+      final sent = await MobileApi.instance
           .qolipSendToRework(requestId: _reworkRequestId!, qolipCodes: codes);
       if (!mounted) return;
-      _reworkRequestSignature = null;
-      _reworkRequestId = null;
+      _update(() {
+        _reworkRevision++;
+        _reworkCodes
+            .addAll(sent.map((entry) => entry.qolipCode.trim().toLowerCase()));
+        _reworkRequestSignature = null;
+        _reworkRequestId = null;
+        _selectionGeneration++;
+        _selectionMode = null;
+        _selectedContainerKeys.clear();
+        _selectedQolipCodes.clear();
+      });
       QolipDataRevision.notifyLocationsChanged();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
               l10n.qolipReworkText('sent', values: {'count': codes.length}))));
-      await _reload(force: false);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

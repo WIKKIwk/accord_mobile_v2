@@ -55,6 +55,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onToggleSummaryExpanded,
     required this.requiresQolipScan,
     required this.qolipScanned,
+    this.automaticQolipContent,
     required this.qolipCodes,
     this.onResetQolips,
     required this.requiredQolips,
@@ -149,6 +150,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onToggleSummaryExpanded;
   final bool requiresQolipScan;
   final bool qolipScanned;
+  final Widget? automaticQolipContent;
   final List<String> qolipCodes;
   final VoidCallback? onResetQolips;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
@@ -339,6 +341,18 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                               ),
                             ),
                     ),
+                  if (uiState.contractSynchronized &&
+                      queueActionControlsByApparatus[uiState.station]?[uiState.orderId]
+                              ?.temporarilyPaused == true)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: Chip(
+                        key: const ValueKey('worker-temporarily-paused-status'),
+                        avatar: const Icon(Icons.pause_circle_outline),
+                        label: Text(context.l10n.productionText(
+                            'worker.temporary_pause.status')),
+                      ),
+                    ),
                   if (!summaryOnlyMode)
                     _OrderStartUnifiedCard(
                       uiState: cardUiState,
@@ -376,6 +390,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       inputProgressError: inputProgressError,
                       requiresQolipScan: requiresQolipScan,
                       qolipScanned: qolipScanned,
+                      automaticQolipContent: automaticQolipContent,
                       qolipCodes: qolipCodes,
                       onResetQolips: onResetQolips,
                       requiredQolips: requiredQolips,

@@ -1,6 +1,147 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerScanBootstrapTests() {
+  for (final recoverySucceeds in [false, true]) {
+  testWidgets(
+    recoverySucceeds
+        ? 'retired reopened bootstrap leaves replacement material read active'
+        : 'retired reopened bootstrap automatically recovers after shared-write recovery fails',
+    (tester) async {
+      final fixture = await _prepareScanBootstrapFixture(tester);
+      final post = Completer<http.Response>();
+      final reopenedRead = Completer<http.Response>();
+      final replacementMaterials = Completer<http.Response>();
+      final globalRead = Completer<AdminApparatusQueueSnapshot>();
+      var snapshotReads = 0;
+      var bootstrapReads = 0;
+      final requestPaths = <String>[];
+      addTearDown(() {
+        if (!post.isCompleted) post.complete(http.Response('{}', 503));
+        if (!reopenedRead.isCompleted) {
+          reopenedRead.complete(http.Response('{}', 503));
+        }
+        if (!replacementMaterials.isCompleted) {
+          replacementMaterials.complete(http.Response('{}', 503));
+        }
+        if (!globalRead.isCompleted) {
+          globalRead.complete(_scanLiveSnapshot(fixture.order, revision: 8));
+        }
+      });
+      await http.runWithClient(() async {
+        await _openScanBootstrapFixture(
+          tester,
+          fixture,
+          queueSnapshotLoader: () {
+            snapshotReads++;
+            return snapshotReads == 1
+                ? Future.value(_scanLiveSnapshot(fixture.order))
+                : globalRead.future;
+          },
+        );
+        await tester.pumpAndSettle();
+        final start = find.widgetWithText(FilledButton, 'Boshlash');
+        expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+        tester.widget<FilledButton>(start).onPressed!();
+        await tester.pump();
+        final dynamic original = tester.widget(find.byWidgetPredicate(
+            (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+        original.onClose();
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('scan-bootstrap').first);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(bootstrapReads, 2);
+        final dynamic reopened = tester.widget(find.byWidgetPredicate(
+            (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+        expect(reopened.actionInFlight, isTrue);
+
+        post.complete(http.Response(jsonEncode({
+          'ok': true,
+          'epoch': 'scan-server',
+          'rev': 8,
+          'states': {scanOrder: 'in_progress'},
+          'order_control': {'state': 'active'},
+        }), 200));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(bootstrapReads, 3,
+            reason: 'The reopened sheet rechecks the completed shared write.');
+        reopenedRead.complete(
+            http.Response(jsonEncode(_syncBootstrap(7, 'pending')), 200));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        final dynamic settled = tester.widget(find.byWidgetPredicate(
+            (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+        expect(settled.actionInFlight, isFalse);
+        if (recoverySucceeds) {
+          expect(settled.uiState.contractSynchronized, isTrue);
+          expect(settled.materialsLoading, isTrue,
+              reason: 'The replacement material reader still owns its flag.');
+          expect(settled.materialsError, isEmpty);
+          replacementMaterials.complete(
+              http.Response('[]', 200));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+          final dynamic fresh = tester.widget(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+          expect(fresh.materialsLoading, isFalse);
+          expect(fresh.materialsError, isEmpty,
+              reason: requestPaths.join(', '));
+        } else {
+          expect(settled.uiState.contractSynchronized, isFalse,
+              reason: 'A failed recovery cannot restore the pre-write control.');
+          expect(settled.materialsLoading, isFalse,
+              reason: 'The retired bootstrap owns no request after it settles.');
+          expect(settled.materialsError, isEmpty);
+          expect(find.byKey(const ValueKey('admin-sequence-detail-retry')),
+              findsNothing);
+          expect(settled.actionsEnabled, isFalse);
+          // No new push and no user retry: the invalidated read must finish
+          // its own recovery after the shared write has settled.
+          await tester.pump(const Duration(milliseconds: 250));
+          await tester.pump(const Duration(milliseconds: 100));
+          final dynamic fresh = tester.widget(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+          expect(bootstrapReads, 4);
+          expect(fresh.uiState.contractSynchronized, isTrue);
+          expect(fresh.materialsLoading, isFalse);
+          expect(find.byKey(const ValueKey('admin-sequence-detail-retry')),
+              findsNothing);
+          await tester.pump(const Duration(seconds: 3));
+          expect(find.byKey(const ValueKey('worker-contract-sync-progress')),
+              findsNothing);
+          expect(bootstrapReads, 4,
+              reason: 'Successful recovery must stop all automatic reads.');
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        globalRead.complete(_scanLiveSnapshot(fixture.order, revision: 8));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 11));
+        expect(tester.takeException(), isNull);
+      }, () => MockClient((request) {
+        requestPaths.add(request.url.path);
+        if (request.url.path.endsWith('/queue-action')) return post.future;
+        if (request.url.path.endsWith('/order-scan-bootstrap')) {
+          bootstrapReads++;
+          if (bootstrapReads == 2) return reopenedRead.future;
+          return Future.value(bootstrapReads == 3 && !recoverySucceeds
+              ? http.Response('{"error":"store_failed"}', 503)
+              : http.Response(jsonEncode(_syncBootstrap(
+                  bootstrapReads >= 3 ? 8 : 7,
+                  bootstrapReads >= 3 ? 'in_progress' : 'pending')), 200));
+        }
+        if (recoverySucceeds && bootstrapReads >= 3 &&
+            request.url.path.endsWith('/raw-material-assignments')) {
+          return replacementMaterials.future;
+        }
+        if (request.url.path.endsWith('/raw-material-assignments')) {
+          return Future.value(http.Response('[]', 200));
+        }
+        return Future.value(http.Response('{}', 200));
+      }));
+    },
+  );
+  }
   for (final moldState in [
     'missing',
     'assigned',
@@ -290,10 +431,12 @@ void _registerScanBootstrapTests() {
                             ],
                       assignedApparatus: const [scanApparatus],
                     );
-              await AppSession.instance.setSession(
+              // Account replacement clears persistent media/cache files. Let
+              // those real I/O futures finish outside the widget fake clock.
+              await tester.runAsync(() => AppSession.instance.setSession(
                 token: 'new-token',
                 profile: profile,
-              );
+              ));
             }
             await tester.pump();
             if (change == 'account' || change == 'permissions') {
@@ -303,7 +446,14 @@ void _registerScanBootstrapTests() {
               expect(requests.where((r) => r.method == 'POST'), isEmpty);
             }
             pending.complete(http.Response(jsonEncode(scanBootstrap()), 200));
-            await tester.pumpAndSettle();
+            if (change == 'account' || change == 'permissions') {
+              // The retired scope deliberately keeps actions unresolved. Its
+              // synchronization indicator does not settle until the sheet closes.
+              await tester.pump(const Duration(seconds: 3));
+              await tester.pump();
+            } else {
+              await tester.pumpAndSettle();
+            }
             expect(requests.where(_scanDetailRequest), hasLength(1));
             expect(requests.where((r) => r.method == 'POST'), isEmpty);
             if (change != 'token' && change != 'live') {
@@ -453,7 +603,9 @@ AdminProductionMapLiveSnapshot _scanLiveSnapshot(
     });
 Future<void> _openScanBootstrapFixture(
   WidgetTester tester,
-  _ScanBootstrapFixture fixture,
+  _ScanBootstrapFixture fixture, {
+  Future<AdminApparatusQueueSnapshot> Function()? queueSnapshotLoader,
+}
 ) async {
   final snapshot = _scanLiveSnapshot(fixture.order);
   await tester.pumpWidget(
@@ -470,7 +622,7 @@ Future<void> _openScanBootstrapFixture(
       home: AdminProductionMapOrdersScreen(
         readOnly: true,
         workerMode: true,
-        queueSnapshotLoader: () async => snapshot,
+        queueSnapshotLoader: queueSnapshotLoader ?? () async => snapshot,
         apparatusLoader: () async => fixture.apparatus,
         liveEventsLoader: () => fixture.live.stream,
       ),

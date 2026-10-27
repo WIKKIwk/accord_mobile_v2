@@ -5,8 +5,25 @@ extension AppLocalizationsQolipManagement on AppLocalizations {
       {Map<String, Object> values = const {}}) {
     var text = switch (key) {
       'title' => _t('Komplektlar', 'Sets', 'Комплекты'),
-      'search' => _t('Komplekt yoki qolip kodi', 'Set or mold code',
-          'Код комплекта или формы'),
+      'search' => _t('Komplekt nomi yoki kod', 'Set name or code',
+          'Название комплекта или код'),
+      'rename' => _t('Komplekt nomini o‘zgartirish', 'Rename set',
+          'Изменить название комплекта'),
+      'name' => _t('Komplekt nomi', 'Set name', 'Название комплекта'),
+      'name_invalid' => _t(
+          '1–160 ta belgidan iborat nom kiriting',
+          'Enter a name with 1–160 characters',
+          'Введите название из 1–160 символов'),
+      'name_conflict' => _t(
+          'Bu nom boshqa komplektga berilgan. Boshqa nom kiriting.',
+          'Another set already uses this name. Enter a different name.',
+          'Это название уже используется другим комплектом. Введите другое.'),
+      'rename_failed' => _t(
+          'Komplekt nomi saqlanmadi',
+          'Could not save the set name',
+          'Не удалось сохранить название комплекта'),
+      'renamed' => _t('Komplekt nomi saqlandi', 'Set name saved',
+          'Название комплекта сохранено'),
       'empty' =>
         _t('Komplektlar topilmadi', 'No sets found', 'Комплекты не найдены'),
       'members_empty' => _t('Komplektga qolip kodi qo‘shing',
@@ -19,9 +36,19 @@ extension AppLocalizationsQolipManagement on AppLocalizations {
           'Код комплекта присвоится автоматически. Товар можно привязать позже.'),
       'created' => _t('Komplekt saqlandi: {code}', 'Set saved: {code}',
           'Комплект сохранён: {code}'),
-      'warehouse_required' => _t('Omborni tanlang', 'Select a warehouse',
-          'Выберите склад'),
+      'warehouse_required' =>
+        _t('Omborni tanlang', 'Select a warehouse', 'Выберите склад'),
       'choose' => _t('Komplekt tanlash', 'Choose set', 'Выбрать комплект'),
+      'set_name_hint' => _t(
+          'Komplekt nomi yoki qolip kodini yozing',
+          'Enter a set name or mold code',
+          'Введите название комплекта или код формы'),
+      'matches' => _t('Mos komplektlar ({count})', 'Matching sets ({count})',
+          'Подходящие комплекты ({count})'),
+      'all_matches' => _t('Barchasini ko‘rish ({count})', 'Show all ({count})',
+          'Показать все ({count})'),
+      'lookup_retry' => _t('Komplektlarni qayta qidirish', 'Retry set search',
+          'Повторить поиск комплектов'),
       'copy_code' => _t('Komplekt kodini nusxalash', 'Copy set code',
           'Скопировать код комплекта'),
       'new_set' => _t('Yangi muqobil komplekt', 'New alternative set',

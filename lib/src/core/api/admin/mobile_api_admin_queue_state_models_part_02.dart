@@ -274,20 +274,11 @@ extension MobileApiAdminQueueState on MobileApi {
           message: 'Aparat topilmadi',
         );
       }
-      final locked = apparatus.isPechat;
-      if (locked && policy != ApparatusQueuePolicy.strictSequence) {
-        throw const MobileApiException(
-          code: 'queue_policy_locked',
-          message: 'Bosma aparati doim ketma-ketlik bo‘yicha ishlaydi',
-        );
-      }
       final record = AdminApparatusQueuePolicy(
         apparatusId: normalized,
         apparatus: apparatus.name,
         sourceRevision: expectedRevision + 1,
-        policy: locked ? ApparatusQueuePolicy.strictSequence : policy,
-        locked: locked,
-        reason: locked ? 'pechat_always_strict' : '',
+        policy: policy,
       );
       _testModeApparatusQueuePolicies[normalized] = record;
       return record;

@@ -57,6 +57,9 @@ Future<void> _withClient(Future<void> Function() body) => http.runWithClient(
     body,
     () => MockClient((request) async {
           expect(request.method, 'GET');
+          if (request.url.path == '/v1/mobile/qolip/sets') {
+            return http.Response('{"sets":[]}', 200);
+          }
           expect(request.url.path, '/v1/mobile/qolip/blocks');
           return http.Response(
               jsonEncode({

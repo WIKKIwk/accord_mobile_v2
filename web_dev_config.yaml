@@ -1,7 +1,8 @@
-# Local Flutter preview only. TLS is still verified by the dev server; the
-# browser no longer needs a QUIC connection to this API origin.
+# Local Flutter preview only. The local core listens on 127.0.0.1:8081.
+# Accounts keep their canonical HTTPS API URL; preview requests reach the same
+# core directly without a round trip through the public tunnel.
 server:
   proxy:
     - prefix: /__accord_api/
-      target: https://mini-rs-erp-test.wspace.sbs/
+      target: http://127.0.0.1:8081/
       replace: /

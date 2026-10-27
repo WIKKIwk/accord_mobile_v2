@@ -725,9 +725,11 @@ class _ScannedQolipTile extends StatelessWidget {
   const _ScannedQolipTile({
     required this.qolip,
     required this.scanned,
+    this.blockingReasonCode = '',
   });
   final AdminProductionMapRequiredQolip qolip;
   final bool scanned;
+  final String blockingReasonCode;
 
   @override
   Widget build(BuildContext context) {
@@ -760,8 +762,16 @@ class _ScannedQolipTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              scanned ? Icons.check_rounded : Icons.qr_code_rounded,
-              color: scanned ? scheme.primary : scheme.onSurfaceVariant,
+              scanned
+                  ? Icons.check_rounded
+                  : blockingReasonCode.isNotEmpty
+                      ? Icons.warning_amber_rounded
+                      : Icons.qr_code_rounded,
+              color: scanned
+                  ? scheme.primary
+                  : blockingReasonCode.isNotEmpty
+                      ? scheme.error
+                      : scheme.onSurfaceVariant,
               size: 20,
             ),
           ),
@@ -814,6 +824,16 @@ class _ScannedQolipTile extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (blockingReasonCode.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    context.l10n.productionErrorMessage(blockingReasonCode,
+                        fallback: context.l10n
+                            .productionText('qolip.start.auto.blocked')),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: scheme.error),
+                  ),
+                ],
               ],
             ),
           ),

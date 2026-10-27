@@ -24,8 +24,10 @@ class QolipReworksScreen extends StatefulWidget {
 class _QolipReworksScreenState extends State<QolipReworksScreen> {
   final _search = TextEditingController();
   final _focus = FocusNode();
+  final _scroll = ScrollController();
   final _selected = <String>{};
-  late Future<List<QolipReworkEntry>> _future;
+  late Future<void> _future;
+  List<QolipReworkEntry> _entries = const [];
   bool _returned = false;
   bool _saving = false;
   int _generation = 0;
@@ -37,7 +39,7 @@ class _QolipReworksScreenState extends State<QolipReworksScreen> {
   void initState() {
     super.initState();
     _readScope = currentSessionReadScope();
-    _future = MobileApi.instance.qolipReworks(status: 'all');
+    _future = _load();
   }
 
   @override
@@ -45,19 +47,31 @@ class _QolipReworksScreenState extends State<QolipReworksScreen> {
     _generation++;
     _search.dispose();
     _focus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  Future<void> _reload() async {
+  Future<void> _load() async {
     final scope = currentSessionReadScope();
     final generation = ++_generation;
-    final future = MobileApi.instance.qolipReworks(status: 'all');
-    setState(() => _future = future);
-    final entries = await future;
-    if (!mounted || generation != _generation) return;
+    final entries = await MobileApi.instance.qolipReworks(status: 'all');
+    if (!mounted ||
+        generation != _generation ||
+        scope != currentSessionReadScope()) {
+      return;
+    }
     _readScope = scope;
-    setState(() => _selected.retainAll(
-        entries.where((row) => row.isOpen).map((row) => row.id).toSet()));
+    _entries = entries;
+    _selected.retainAll(
+        entries.where((row) => row.isOpen).map((row) => row.id).toSet());
+  }
+
+  Future<void> _reload() {
+    final future = _load();
+    setState(() {
+      _future = future;
+    });
+    return future;
   }
 
   void _toggle(String id) {
@@ -99,23 +113,31 @@ class _QolipReworksScreenState extends State<QolipReworksScreen> {
       return;
     }
     final signature = ids.join('\u0000');
-    if (_requestSignature != signature) {
-      _requestSignature = signature;
-      _requestId = newQolipReworkRequestId();
-    }
     setState(() => _saving = true);
     try {
-      await MobileApi.instance
+      if (_requestSignature != signature || _requestId == null) {
+        final requestId = newQolipReworkRequestId();
+        _requestId = requestId;
+        _requestSignature = signature;
+      }
+      final returned = await MobileApi.instance
           .qolipReturnFromRework(requestId: _requestId!, reworkIds: ids);
       if (!mounted) return;
-      _requestSignature = null;
-      _requestId = null;
-      _selected.clear();
+      final updates = {for (final entry in returned) entry.id: entry};
+      setState(() {
+        // A refresh started before the return must not overwrite this result.
+        _generation++;
+        _entries = [
+          for (final entry in _entries) updates[entry.id] ?? entry,
+        ];
+        _requestSignature = null;
+        _requestId = null;
+        _selected.clear();
+      });
       QolipDataRevision.notifyLocationsChanged();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(l10n
               .qolipReworkText('returned', values: {'count': ids.length}))));
-      await _reload();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -203,7 +225,7 @@ class _QolipReworksScreenState extends State<QolipReworksScreen> {
                               })),
                 ])),
         Expanded(
-            child: FutureBuilder<List<QolipReworkEntry>>(
+            child: FutureBuilder<void>(
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
@@ -211,7 +233,7 @@ class _QolipReworksScreenState extends State<QolipReworksScreen> {
             }
             if (snapshot.hasError) return AppRetryState(onRetry: _reload);
             final needle = _search.text.trim().toLowerCase();
-            final entries = snapshot.data!
+            final entries = _entries
                 .where((entry) =>
                     entry.isOpen != _returned &&
                     [
@@ -229,6 +251,8 @@ class _QolipReworksScreenState extends State<QolipReworksScreen> {
             return RefreshIndicator(
                 onRefresh: _reload,
                 child: ListView(
+                  key: const PageStorageKey('qolip-reworks-list'),
+                  controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
                       8, 0, 8, MediaQuery.viewPaddingOf(context).bottom + 24),
@@ -258,6 +282,7 @@ class _QolipReworksScreenState extends State<QolipReworksScreen> {
         .where((name) => name.isNotEmpty)
         .toSet();
     return Card(
+        key: ValueKey('qolip-rework-group-$setId'),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

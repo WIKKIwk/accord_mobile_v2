@@ -1,5 +1,18 @@
 part of 'admin_production_map_orders_screen.dart';
 
+const _detailRecoveryRetryDelays = <Duration>[
+  Duration(milliseconds: 200),
+  Duration(milliseconds: 500),
+  Duration(seconds: 1),
+  Duration(seconds: 2),
+];
+
+bool _retryableMaterialSectionReadError(Object error) {
+  if (error is! MobileApiException) return true;
+  final status = error.statusCode;
+  return status == null || status == 408 || status == 429 || status >= 500;
+}
+
 extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
   bool _sameDetailControl(AdminPrintPreflightControlState incoming) {
     final control = _queueActionControl;
@@ -97,6 +110,21 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       _materialsLoading = true;
       _materialsError = '';
     }
+    final previousInteraction = _queueActionControl?.interaction;
+    final nextInteraction = control.control.interaction;
+    if ((previousInteraction?.qolipAutomaticConfirmation == true ||
+            nextInteraction?.qolipAutomaticConfirmation == true) &&
+        (previousInteraction?.qolipAutomaticConfirmation !=
+                nextInteraction?.qolipAutomaticConfirmation ||
+            previousInteraction?.qolipPolicyRevision !=
+                nextInteraction?.qolipPolicyRevision)) {
+      _qolipRequirementsGeneration++;
+      _clearAutomaticQolips();
+      _requiredQolips.clear();
+      _scannedQolipCodes.clear();
+      _qolipRequirementsLoaded = false;
+      _qolipRequirementsError = '';
+    }
     _workerPresentationDenied = false;
     _acceptedDetailControl = control;
     _queueActionControl = control.control;
@@ -120,6 +148,8 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     setState(() => _applyDetailControl(control));
     _pendingDetailRevision = null;
     if (!_detailSectionsNeedReload) _detailRecoveryNeeded = false;
+    // A current button contract does not acknowledge a failed material read.
+    if (!_needsDetailRecovery) _cancelScheduledDetailRecovery(resetBackoff: true);
     return true;
   }
 
@@ -165,10 +195,14 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       return;
     }
     final changed = !_sameDetailControl(control);
-    final recoveryNeeded = _detailRecoveryNeeded || _detailSectionsNeedReload;
+    final recoveryNeeded = _needsDetailRecovery || _detailSectionsNeedReload;
     final waitingForAction = _pendingDetailRevision != null;
     if (!_installCanonicalDetailSnapshot() || _queueActionBusy) return;
     if (!changed) {
+      if (_automaticQolipMode &&
+          _automaticQolipRequestedRevision != _acceptedDetailControl?.revision) {
+        unawaited(_loadQolipRequirements());
+      }
       if (recoveryNeeded && !hydratedAdmin) _queueDetailRecoveryFromStream();
       return;
     }
@@ -219,14 +253,50 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
               'order_not_available',
               'training_order_scan_bootstrap_unsupported',
             }.contains(error.code))) {
+      _cancelScheduledDetailRecovery();
       _setScanBootstrapState(() {
         _lastWorkerPresentation = null;
         _workerPresentationDenied = true;
       });
       return;
     }
-    // A failed HTTP read waits for a pushed revision or an explicit retry.
+    // A retired/failed read still owns recovery even when no further push is
+    // produced. Read again automatically; never replay the preceding write.
     _detailRecoveryNeeded = true;
+    _scheduleDetailRecovery();
+  }
+
+  void _cancelScheduledDetailRecovery({bool resetBackoff = false}) {
+    _detailRecoveryTimer?.cancel();
+    _detailRecoveryTimer = null;
+    if (resetBackoff) _detailRecoveryAttempts = 0;
+  }
+
+  void _scheduleDetailRecovery() {
+    if (!_needsDetailRecovery) {
+      _cancelScheduledDetailRecovery(resetBackoff: true);
+      return;
+    }
+    if (_detailRecoveryTimer != null || !mounted || !_detailForeground ||
+        !widget.workerMode || widget.currentQueueSnapshot == null ||
+        _workerPresentationDenied || _queueActionBusy ||
+        _actionControlLoads > 0 || _detailRefreshInFlight ||
+        _detailReadScope != currentSessionReadScope()) return;
+    final index = _detailRecoveryAttempts < _detailRecoveryRetryDelays.length
+        ? _detailRecoveryAttempts : _detailRecoveryRetryDelays.length - 1;
+    _detailRecoveryTimer = Timer(_detailRecoveryRetryDelays[index], () {
+      _detailRecoveryTimer = null;
+      if (!mounted || !_detailForeground || !_needsDetailRecovery ||
+          _workerPresentationDenied || _queueActionBusy ||
+          _actionControlLoads > 0 || _detailRefreshInFlight ||
+          _detailReadScope != currentSessionReadScope()) return;
+      _detailRecoveryAttempts++;
+      if (_pendingDetailRevision != null) {
+        unawaited(_refreshQueueActionControlAfterWrite());
+      } else {
+        unawaited(_loadInteractionContractAndSections());
+      }
+    });
   }
 
   Object? _currentDetailRecoveryCursor() {

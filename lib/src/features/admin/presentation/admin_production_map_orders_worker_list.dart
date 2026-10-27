@@ -17,59 +17,76 @@ extension _WorkerCompactOrders on _AdminProductionMapOrdersScreenState {
     final key = jsonEncode([account, 'worker-detail', apparatus.id, orderId]);
     final loader = widget.orderDetailLoader ??
         MobileApi.instance.workerProductionOrderDetail;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      // Only unfinished reads are shared across reopen/actions. A completed
-      // read must not certify a new action after an intervening queue event.
-      if (!_adminPendingDetailReads.contains(key)) {
-        _adminDetailReads.remove(key);
-      }
-      final future = _adminDetailReads.putIfAbsent(key, () {
-        _adminPendingDetailReads.add(key);
-        return Future<AdminApparatusQueueSnapshot>.sync(
-                () => loader(apparatus: apparatus.id, orderId: orderId))
-            .whenComplete(() => _adminPendingDetailReads.remove(key));
-      });
-      AdminApparatusQueueSnapshot detail;
-      try {
-        detail = await future;
-      } catch (_) {
+    // The complete scoped read owns one deadline, including a stale-response
+    // retry. An outer sheet timeout must not leave its second GET cached forever.
+    final deadline = Completer<AdminApparatusQueueSnapshot>();
+    final timer = Timer(_queueActionControlRefreshTimeout, () {
+      deadline.completeError(TimeoutException('Scoped order detail timed out'));
+    });
+    try {
+      for (var attempt = 0; attempt < 2; attempt++) {
+        // Only unfinished reads are shared across reopen/actions. A completed
+        // read must not certify a new action after an intervening queue event.
+        if (!_adminPendingDetailReads.contains(key)) {
+          _adminDetailReads.remove(key);
+        }
+        final future = _adminDetailReads.putIfAbsent(key, () {
+          _adminPendingDetailReads.add(key);
+          late final Future<AdminApparatusQueueSnapshot> read;
+          read = Future<AdminApparatusQueueSnapshot>.sync(
+                  () => loader(apparatus: apparatus.id, orderId: orderId))
+              .whenComplete(() {
+            if (identical(_adminDetailReads[key], read)) {
+              _adminPendingDetailReads.remove(key);
+            }
+          });
+          return read;
+        });
+        AdminApparatusQueueSnapshot detail;
+        try {
+          detail = await Future.any([future, deadline.future]);
+        } catch (_) {
+          if (identical(_adminDetailReads[key], future)) {
+            _adminDetailReads.remove(key);
+            _adminPendingDetailReads.remove(key);
+          }
+          rethrow;
+        }
+        if (!mounted ||
+            scope != currentSessionReadScope() ||
+            account != _adminPageAccount ||
+            generation != _workerQueueWindowGeneration) {
+          return null;
+        }
+        final baseline = _canonicalQueueSnapshot;
+        if (!detail.isWorkerList &&
+            detail.maps.length == 1 &&
+            detail.maps.single.map.id == orderId &&
+            !isWorkerListPresentationOrder(detail.maps.single) &&
+            detail.epoch.isNotEmpty &&
+            detail.revision != null &&
+            !_retiredSnapshotEpochs.contains(detail.epoch) &&
+            (baseline == null ||
+                (baseline.epoch == detail.epoch &&
+                    detail.revision! >= (baseline.revision ?? -1)))) {
+          while (_adminDetailReads.length > 8) {
+            _adminDetailReads.remove(
+                _adminDetailReads.keys.firstWhere((value) => value != key));
+          }
+          _workerPreparedDetail = detail;
+          _workerPreparedDetailScope = scope;
+          return detail;
+        }
         if (identical(_adminDetailReads[key], future)) {
           _adminDetailReads.remove(key);
         }
-        rethrow;
       }
-      if (!mounted ||
-          scope != currentSessionReadScope() ||
-          account != _adminPageAccount ||
-          generation != _workerQueueWindowGeneration) {
-        return null;
-      }
-      final baseline = _canonicalQueueSnapshot;
-      if (!detail.isWorkerList &&
-          detail.maps.length == 1 &&
-          detail.maps.single.map.id == orderId &&
-          !isWorkerListPresentationOrder(detail.maps.single) &&
-          detail.epoch.isNotEmpty &&
-          detail.revision != null &&
-          !_retiredSnapshotEpochs.contains(detail.epoch) &&
-          (baseline == null ||
-              (baseline.epoch == detail.epoch &&
-                  detail.revision! >= (baseline.revision ?? -1)))) {
-        while (_adminDetailReads.length > 8) {
-          _adminDetailReads.remove(
-              _adminDetailReads.keys.firstWhere((value) => value != key));
-        }
-        _workerPreparedDetail = detail;
-        _workerPreparedDetailScope = scope;
-        return detail;
-      }
-      if (identical(_adminDetailReads[key], future)) {
-        _adminDetailReads.remove(key);
-      }
+      throw const MobileApiException(
+          code: 'order_page_changed',
+          message: 'Buyurtma yangilandi. Qayta oching.');
+    } finally {
+      timer.cancel();
     }
-    throw const MobileApiException(
-        code: 'order_page_changed',
-        message: 'Buyurtma yangilandi. Qayta oching.');
   }
 
   Future<({double? base, double? kg})> _workerScopedDetailMetrics(

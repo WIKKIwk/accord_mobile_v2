@@ -63,6 +63,7 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
   Future<void> _load() async {
     final scope = currentSessionReadScope();
     final generation = ++_loadGeneration;
+    final reworkRevision = _reworkRevision;
     _query = _search.text.trim();
     final results = await Future.wait<Object>([
       QolipCatalogStore.instance.first(query: _query),
@@ -71,10 +72,13 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
     if (!mounted || generation != _loadGeneration) return;
     _update(() {
       _catalogScope = scope;
-      _reworkCodes
-        ..clear()
-        ..addAll((results[1] as List<QolipReworkEntry>)
-            .map((row) => row.qolipCode.trim().toLowerCase()));
+      // An older read must not undo a send that finished while it was pending.
+      if (reworkRevision == _reworkRevision) {
+        _reworkCodes
+          ..clear()
+          ..addAll((results[1] as List<QolipReworkEntry>)
+              .map((row) => row.qolipCode.trim().toLowerCase()));
+      }
       _adoptCatalogWindow();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleScroll());
@@ -95,6 +99,7 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
     _expandedContainerKey = preserveExpandedContainerKey;
     final query = _search.text.trim();
     if (force) {
+      _coverImageProviders.clear();
       QolipCatalogStore.instance.reset();
     } else if (QolipCatalogStore.instance.window(query).loaded) {
       ++_loadGeneration;

@@ -40,6 +40,8 @@ extension AppLocalizationsQolipReworks on AppLocalizations {
       'in_rework_count' => _t('Peredelkada: {count}', 'In rework: {count}',
           'На переделке: {count}'),
       'mileage' => _t('Probeg tarixi', 'Mileage history', 'История пробега'),
+      'distance' => _t('Aylangan masofa:', 'Distance travelled:',
+          'Пройденное расстояние:'),
       'current' => _t('Joriy probeg: {meter} m', 'Current mileage: {meter} m',
           'Текущий пробег: {meter} м'),
       'not_started' => _t('Probeg hisobi hali boshlanmagan',

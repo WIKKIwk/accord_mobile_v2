@@ -179,9 +179,10 @@ List<QolipProduct> _sharedTestModeCatalog(
       withMolds.add(target.code.toLowerCase());
     }
   }
-  if (!withQolipOnly)
+  if (!withQolipOnly) {
     result.addAll(catalog
         .where((product) => !withMolds.contains(product.code.toLowerCase())));
+  }
   final normalized = query.trim().toLowerCase();
   return result
       .where((product) =>
@@ -201,13 +202,18 @@ extension MobileApiQolipSharedSets on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final all = _sharedPhysicalMolds()
           .where((mold) => !_testModeLocalSetIds.contains(mold.setId)).toList();
-      final registered = _testModeManagedSets.values.where((entry) =>
+      var registered = _testModeManagedSets.values.where((entry) =>
           entry.set.id == identifier.trim()).firstOrNull;
       var matched = all
           .where((mold) =>
               mold.setId == identifier.trim() ||
               mold.qolipCode.toLowerCase() == identifier.trim().toLowerCase())
           .toList();
+      if (matched.isEmpty && registered == null) {
+        final name = identifier.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+        registered = _testModeManagedSets.values.where((entry) =>
+            entry.name.isNotEmpty && entry.name.toLowerCase() == name).firstOrNull;
+      }
       if (matched.isEmpty && registered == null) {
         final match = RegExp(r'^(.*)-([0-9]+)$').firstMatch(identifier.trim());
         final count = int.tryParse(match?.group(2) ?? '') ?? 0;
@@ -225,9 +231,10 @@ extension MobileApiQolipSharedSets on MobileApi {
       }
       final ids = matched.map((mold) => mold.setId).toSet();
       if (registered != null) ids.add(registered.set.id);
-      if (ids.length > 1)
+      if (ids.length > 1) {
         throw const MobileApiException(
             code: 'qolip_set_ambiguous', message: 'qolip_set_ambiguous');
+      }
       if (ids.isEmpty) return null;
       final id = ids.single;
       final members = all.where((mold) => mold.setId == id).toList()
@@ -268,10 +275,11 @@ extension MobileApiQolipSharedSets on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/shared-sets')
             .replace(queryParameters: {'identifier': identifier.trim()}),
         headers: _headers(requireToken())));
-    if (response.statusCode != 200)
+    if (response.statusCode != 200) {
       throw _qolipApiException(response,
           fallbackCode: 'qolip_set_load_failed',
           fallbackMessage: 'Qolip komplekti yuklanmadi');
+    }
     final data = await decodeJsonMapPayload(response.body);
     return data['set'] == null
         ? null
@@ -287,9 +295,10 @@ extension MobileApiQolipSharedSets on MobileApi {
     }
     if (await TestModeController.instance.isEnabled()) {
       final current = await qolipResolveSet(set.id);
-      if (current == null || current.fingerprint != set.fingerprint)
+      if (current == null || current.fingerprint != set.fingerprint) {
         throw const MobileApiException(
             code: 'qolip_set_changed', message: 'qolip_set_changed');
+      }
       final targets = _testModeQolipSetLinks.putIfAbsent(
           set.id,
           () => {
@@ -313,16 +322,18 @@ extension MobileApiQolipSharedSets on MobileApi {
           'item_code': product.code,
           'fingerprint': set.fingerprint
         })));
-    if (response.statusCode != 200)
+    if (response.statusCode != 200) {
       throw _qolipApiException(response,
           fallbackCode: 'qolip_set_save_failed',
           fallbackMessage: 'Qolip komplekti ulanmagan');
+    }
     final data = await decodeJsonMapPayload(response.body);
     final saved =
         QolipSharedSet.fromJson((data['set'] as Map).cast<String, dynamic>());
-    if (saved.id != set.id || saved.fingerprint != set.fingerprint)
+    if (saved.id != set.id || saved.fingerprint != set.fingerprint) {
       throw const MobileApiException(
           code: 'qolip_set_changed', message: 'qolip_set_changed');
+    }
     _qolipProductsSnapshot = null;
     QolipCatalogStore.instance.applyResponse(data, catalogScope);
     return saved.members
@@ -330,21 +341,23 @@ extension MobileApiQolipSharedSets on MobileApi {
   }
 
   Future<List<QolipProduct>> qolipProductMolds(String itemCode) async {
-    if (await TestModeController.instance.isEnabled())
+    if (await TestModeController.instance.isEnabled()) {
       return (await qolipProducts(
               query: itemCode, limit: 20000, withQolipOnly: true))
           .where((product) =>
               product.code.trim().toLowerCase() ==
               itemCode.trim().toLowerCase())
           .toList(growable: false);
+    }
     final response = await _sendAuthorized(() => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/shared-sets')
             .replace(queryParameters: {'item_code': itemCode.trim()}),
         headers: _headers(requireToken())));
-    if (response.statusCode != 200)
+    if (response.statusCode != 200) {
       throw _qolipApiException(response,
           fallbackCode: 'qolip_set_load_failed',
           fallbackMessage: 'Qoliplar yuklanmadi');
+    }
     final data = await decodeJsonMapPayload(response.body);
     return (data['products'] as List)
         .map((raw) =>

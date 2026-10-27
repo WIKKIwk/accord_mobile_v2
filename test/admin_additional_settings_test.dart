@@ -43,6 +43,10 @@ void main() {
   late int updateWrites;
   late bool laminationRequired;
   late int laminationWrites;
+  late bool automaticQolips;
+  late int qolipRevision;
+  late int qolipWrites;
+  late bool failQolipRead;
   late MockClient client;
   setUp(() {
     AppSession.instance.token = 'token';
@@ -56,8 +60,32 @@ void main() {
     updateWrites = 0;
     laminationRequired = true;
     laminationWrites = 0;
+    automaticQolips = false;
+    qolipRevision = 0;
+    qolipWrites = 0;
+    failQolipRead = false;
     client = MockClient((request) async {
       expect(request.headers['Authorization'], 'Bearer token');
+      if (request.url.path.endsWith('/qolip-start-settings')) {
+        if (request.method == 'PUT') {
+          qolipWrites++;
+          if (failWrite) return http.Response('{}', 500);
+          automaticQolips = (jsonDecode(request.body)
+              as Map)['automatic_confirmation_enabled'] as bool;
+          qolipRevision++;
+        } else if (failQolipRead) {
+          return http.Response('{}', 503);
+        }
+        return http.Response(
+            jsonEncode({
+              'ok': true,
+              'settings': {
+                'automatic_confirmation_enabled': automaticQolips,
+                'revision': qolipRevision,
+              }
+            }),
+            200);
+      }
       if (request.url.path.endsWith('/lamination-settings')) {
         if (request.method == 'PUT') {
           laminationWrites++;
@@ -122,6 +150,85 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isTrue);
     AppSession.instance.profile = _profile(UserRole.aparatchi);
     expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isFalse);
+  });
+
+  testWidgets(
+      'automatic mold confirmation defaults off and persists independently',
+      (tester) async {
+    const key = ValueKey('qolip-automatic-confirmation-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(automaticQolips, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(automaticQolips, isFalse);
+      expect(qolipWrites, 2);
+      expect(writes, 0);
+      expect(updateWrites, 0);
+      expect(laminationWrites, 0);
+    }, () => client);
+  });
+
+  testWidgets('automatic mold setting failed save retains the server value',
+      (tester) async {
+    automaticQolips = true;
+    failWrite = true;
+    const key = ValueKey('qolip-automatic-confirmation-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+      expect(automaticQolips, isTrue);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      expect(
+          find.text(
+              'Qolipni tasdiqlash sozlamasi saqlanmadi. Qayta urinib ko‘ring.'),
+          findsOneWidget);
+    }, () => client);
+  });
+
+  testWidgets(
+      'automatic mold setting cannot be enabled before a successful read',
+      (tester) async {
+    failQolipRead = true;
+    const key = ValueKey('qolip-automatic-confirmation-switch');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(key), 200);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).onChanged, isNull);
+      failQolipRead = false;
+      automaticQolips = true;
+      final retry = find.descendant(
+          of: find
+              .ancestor(of: find.byKey(key), matching: find.byType(Card))
+              .first,
+          matching: find.byType(TextButton));
+      await Scrollable.ensureVisible(tester.element(retry), alignment: 0.25);
+      await tester.pumpAndSettle();
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
+      expect(
+          tester.widget<SwitchListTile>(find.byKey(key)).onChanged, isNotNull);
+      expect(qolipWrites, 0);
+    }, () => client);
   });
 
   testWidgets('admin can persist and disable mandatory updates independently',

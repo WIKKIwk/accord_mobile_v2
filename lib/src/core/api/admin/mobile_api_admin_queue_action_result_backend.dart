@@ -11,6 +11,7 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     List<String> materialBarcodes = const [],
     String qolipCode = '',
     List<String> qolipCodes = const [],
+    AdminQolipAutomaticConfirmation? qolipConfirmation,
     double? producedQty,
     double? grossQty,
     double? bobinaKg,
@@ -94,6 +95,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
           if (trimmedQolipCodes.isNotEmpty) 'qolip_codes': trimmedQolipCodes,
           if (trimmedQolipCodes.isEmpty && trimmedQolipCode.isNotEmpty)
             'qolip_code': trimmedQolipCode,
+          if (qolipConfirmation != null)
+            'qolip_confirmation': qolipConfirmation.toJson(),
           if (producedQty != null) 'produced_qty': producedQty,
           if (grossQty != null) 'gross_qty': grossQty,
           if (bobinaKg != null) 'bobina_kg': bobinaKg,
@@ -149,9 +152,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     final revision = payload['rev'] is int && (payload['rev'] as int) >= 0
         ? payload['rev'] as int
         : null;
-    final epoch = payload['epoch'] is String
-        ? (payload['epoch'] as String).trim()
-        : '';
+    final epoch =
+        payload['epoch'] is String ? (payload['epoch'] as String).trim() : '';
     final raw = payload['states'];
     final rawOrderControl = payload['order_control'];
     final orderControl = rawOrderControl is Map
@@ -234,7 +236,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
       controlState: AdminPrintPreflightControlState.tryFromJson(
         payload['control_state'],
       ),
-      workActivity: AdminQueueWorkActivity.tryFromJson(payload['work_activity']),
+      workActivity:
+          AdminQueueWorkActivity.tryFromJson(payload['work_activity']),
       hasWorkActivity: payload.containsKey('work_activity'),
       orderStatus: orderStatus,
       hasOrderStatus: payload['order_status'] is Map,

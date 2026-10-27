@@ -205,16 +205,6 @@ AdminApparatusQueuePolicy _effectiveTestModeQueuePolicy(
   String apparatusId,
 ) {
   final canonical = _testModeRequiredApparatus(apparatusId);
-  final locked = canonical.operation.trim().toLowerCase() == 'print';
-  if (locked) {
-    return AdminApparatusQueuePolicy(
-      apparatusId: canonical.id,
-      apparatus: canonical.name,
-      policy: ApparatusQueuePolicy.strictSequence,
-      locked: true,
-      reason: 'pechat_always_strict',
-    );
-  }
   return _testModeApparatusQueuePolicies[canonical.id] ??
       AdminApparatusQueuePolicy(
         apparatusId: canonical.id,

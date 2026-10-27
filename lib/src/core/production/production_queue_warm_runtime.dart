@@ -10,6 +10,7 @@ import '../session/session_read_scope.dart';
 import '../session/state/app_session.dart';
 import 'worker_queue_warm_store.dart';
 import 'supply_tasks_warm_store.dart';
+import 'preparation_orders_warm_store.dart';
 
 /// Prepares active queues and Qolip names before their routes are opened.
 /// Queue stores hand their socket to the visible page; the Qolip catalog
@@ -50,7 +51,14 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
       QolipCatalogStore.instance.reset();
     }
     final supplyKind = supplyTasksRoleKind();
+    final preparation = enabled && preparationOrdersWarmEnabled();
+    if (preparation) {
+      if (_foreground) unawaited(PreparationOrdersWarmStore.instance.prepare());
+    } else {
+      PreparationOrdersWarmStore.instance.reset();
+    }
     final admin = enabled &&
+        !preparation &&
         supplyKind == null &&
         (session.can('admin.access') || session.can('production.map.manage'));
     if (supplyKind != null) {
@@ -67,6 +75,7 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
     );
     if (enabled &&
         !admin &&
+        !preparation &&
         supplyKind == null &&
         session.can('apparatus.queue.read')) {
       if (_foreground) {
@@ -111,6 +120,7 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
     );
     WorkerQueueWarmStore.instance.reset();
     SupplyTasksWarmStore.instance.reset();
+    PreparationOrdersWarmStore.instance.reset();
     QolipCatalogStore.instance.reset();
     super.dispose();
   }

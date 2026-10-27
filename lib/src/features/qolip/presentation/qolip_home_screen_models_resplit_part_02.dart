@@ -4,6 +4,7 @@ part of 'qolip_home_screen.dart';
 class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   final _qolipCode = TextEditingController();
   final _size = TextEditingController();
+  final _setLookup = QolipSetLookup();
   late final Future<Set<String>> _placedQolipCodesFuture;
   Future<List<QolipProduct>>? _productsFuture;
   QolipBlock? _block;
@@ -22,6 +23,10 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   bool _saving = false;
   bool _printingQr = false;
 
+  void _update(VoidCallback callback) {
+    if (mounted) setState(callback);
+  }
+
   bool get _createsStandaloneSet => widget.mode == _QolipAttachMode.standaloneSet;
 
   bool get _createsMolds => widget.mode != _QolipAttachMode.cellPlacement;
@@ -33,7 +38,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
     if (selected == null || !mounted) return;
     setState(() => _saving = true);
     try {
-      final saved = await reuseSelectedQolipSet(context, selected.set, product);
+      final saved = await reuseSelectedQolipSet(context, selected.set, product, setName: selected.name);
       if (mounted && saved != null) {
         _finishSpecSave(product, saved,
             selected.set.id);
@@ -250,6 +255,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                   enabled: !productSpecSaved && !_saving,
                   decoration: InputDecoration(
                     labelText: l10n.qolipText('home.mold_code_label'),
+                    hintText: _createsStandaloneSet ? null : l10n.qolipManagementText('set_name_hint'),
                   ),
                   textInputAction: TextInputAction.next,
                   onChanged: (_) => setState(() {
@@ -258,6 +264,11 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
                       _selectedColors.removeRange(count, _selectedColors.length);
                     }
                   }),
+                ),
+                if (!_createsStandaloneSet) QolipSetSuggestions(
+                  controller: _qolipCode, lookup: _setLookup,
+                  enabled: !productSpecSaved && !_saving && _product != null,
+                  onSelected: _reuseSuggestedSet,
                 ),
                 if (!_createsStandaloneSet) ...[
                   const SizedBox(height: 12),

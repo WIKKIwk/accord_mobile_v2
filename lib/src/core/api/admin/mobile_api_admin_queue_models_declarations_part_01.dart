@@ -206,6 +206,9 @@ class AdminApparatusQueueOrderActionControl {
     this.workActivity,
     this.lastWorkedAtUnix = 0,
     this.rePause,
+    this.temporaryPause,
+    this.temporarilyPaused = false,
+    this.hasValidTemporaryPauseState = true,
     this.reclose,
     this.state = '',
     this.allowedActions = const {},
@@ -234,6 +237,9 @@ class AdminApparatusQueueOrderActionControl {
   final AdminQueueWorkActivity? workActivity;
   final int lastWorkedAtUnix;
   final AdminResumePauseControl? rePause;
+  final AdminTemporaryPauseControl? temporaryPause;
+  final bool temporarilyPaused;
+  final bool hasValidTemporaryPauseState;
   final AdminReactivationRecloseControl? reclose;
   final AdminStageWorkControl? stageWork;
   final String state;
@@ -270,8 +276,20 @@ class AdminApparatusQueueOrderActionControl {
         !hasOnlyKnownActions ||
         !hasRequiredFields ||
         !hasValidRezkaMergeState ||
+        !hasValidTemporaryPauseState ||
         !_knownApparatusQueueStates.contains(normalizedState) ||
         !_queueInteractionModeMatchesState(value.mode, normalizedState)) {
+      return false;
+    }
+    if (temporaryPause != null &&
+        (normalizedState != 'in_progress' ||
+            value.mode != AdminQueueInteractionMode.inProgress ||
+            temporarilyPaused)) {
+      return false;
+    }
+    if (temporarilyPaused &&
+        (normalizedState != 'paused' ||
+            value.mode != AdminQueueInteractionMode.paused)) {
       return false;
     }
     if (allowedActions.contains('resume') && !value.resumeInputRequirementKnown) {
@@ -548,7 +566,17 @@ class AdminApparatusQueueOrderActionControl {
         hasValidRezkaMergeState = false;
       }
     }
+    final temporaryPause = AdminTemporaryPauseControl.tryFromJson(
+      json['temporary_pause'],
+    );
+    final hasValidTemporaryPauseState =
+        (json['temporary_pause'] == null || temporaryPause != null) &&
+        (!json.containsKey('temporarily_paused') ||
+            json['temporarily_paused'] is bool);
     return AdminApparatusQueueOrderActionControl(
+      temporaryPause: temporaryPause,
+      temporarilyPaused: json['temporarily_paused'] == true,
+      hasValidTemporaryPauseState: hasValidTemporaryPauseState,
       serverContractSignature: jsonEncode(json),
       workActivity: AdminQueueWorkActivity.tryFromJson(json['work_activity']),
       lastWorkedAtUnix: _positiveJsonInt(json['last_worked_at_unix']) ?? 0,

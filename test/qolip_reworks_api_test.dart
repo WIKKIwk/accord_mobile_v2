@@ -60,17 +60,20 @@ void main() {
     await TestModeController.instance.setEnabled(false);
   });
 
-  test('wire API deduplicates shared codes and returns only selected entry IDs',
+  test('wire API sends generated IDs and normalizes mold and return selections',
       () async {
+    final sendId = newQolipReworkRequestId();
+    final returnId = newQolipReworkRequestId();
+    expect(returnId, isNot(sendId));
     final requests = <http.Request>[];
     await http.runWithClient(() async {
       final sent = await MobileApi.instance.qolipSendToRework(
-          requestId: 'stable-send', qolipCodes: [' Q-1 ', 'q-1', 'Q-2']);
+          requestId: sendId, qolipCodes: [' Q-1 ', 'q-1', 'Q-2']);
       expect(sent.map((row) => row.qolipCode), ['Q-1', 'Q-2']);
       final open = await MobileApi.instance.qolipReworks();
       expect(open, hasLength(2));
-      final returned = await MobileApi.instance
-          .qolipReturnFromRework(requestId: 'stable-return', reworkIds: ['r1']);
+      final returned = await MobileApi.instance.qolipReturnFromRework(
+          requestId: returnId, reworkIds: [' r1 ', 'r1']);
       expect(returned.single.qolipCode, 'Q-1');
       expect(returned.single.isOpen, isFalse);
     },
@@ -79,7 +82,7 @@ void main() {
               expect(request.headers['Authorization'], 'Bearer rework-token');
               if (request.url.path.endsWith('/send')) {
                 expect(jsonDecode(request.body), {
-                  'request_id': 'stable-send',
+                  'request_id': sendId,
                   'qolip_codes': ['q-1', 'q-2']
                 });
                 return http.Response(
@@ -93,7 +96,7 @@ void main() {
               }
               if (request.url.path.endsWith('/return')) {
                 expect(jsonDecode(request.body), {
-                  'request_id': 'stable-return',
+                  'request_id': returnId,
                   'rework_ids': ['r1']
                 });
                 return http.Response(
@@ -114,6 +117,56 @@ void main() {
             }));
     expect(requests, hasLength(3));
   });
+
+  for (final action in ['send', 'return']) {
+    test(
+        '$action preserves its generated ID and JSON body after transport failure',
+        () async {
+      final requestId = newQolipReworkRequestId();
+      final requests = <http.Request>[];
+      Future<List<QolipReworkEntry>> submit() => action == 'send'
+          ? MobileApi.instance.qolipSendToRework(
+              requestId: requestId, qolipCodes: [' Q-1 ', 'q-1'])
+          : MobileApi.instance.qolipReturnFromRework(
+              requestId: requestId, reworkIds: [' r1 ', 'r1']);
+      await http.runWithClient(() async {
+        await expectLater(submit(), throwsA(isA<http.ClientException>()));
+        final result = await submit();
+        expect(result.single.id, 'r1');
+        expect(result.single.isOpen, action == 'send');
+      },
+          () => MockClient((request) async {
+                requests.add(request);
+                expect(request.method, 'POST');
+                expect(request.url.path, '/v1/mobile/qolip/reworks/$action');
+                expect(request.headers['Authorization'], 'Bearer rework-token');
+                expect(request.headers['Content-Type'], 'application/json');
+                expect(jsonDecode(request.body), {
+                  'request_id': requestId,
+                  if (action == 'send')
+                    'qolip_codes': ['q-1']
+                  else
+                    'rework_ids': ['r1'],
+                });
+                if (requests.length == 1) {
+                  throw http.ClientException(
+                      'Connection lost after submission');
+                }
+                return http.Response(
+                    jsonEncode({
+                      'reworks': [
+                        wireEntry('r1', 'Q-1',
+                            returnedAt: action == 'return'
+                                ? '2026-10-24T11:00:00Z'
+                                : null)
+                      ]
+                    }),
+                    200);
+              }));
+      expect(requests, hasLength(2));
+      expect(requests[1].body, requests[0].body);
+    });
+  }
 
   test('partial success response is rejected', () async {
     await http.runWithClient(() async {

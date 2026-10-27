@@ -3,9 +3,10 @@ import 'package:http/http.dart' as http;
 
 import 'api_transport_policy.dart';
 
-// Must match web_dev_config.yaml. Never send another server's credentials to
-// this proxy, and retain the real endpoint in sessions/saved accounts.
-const devApiProxyTarget = 'https://mini-rs-erp-test.wspace.sbs';
+// Only this canonical API origin may use the local preview proxy configured
+// in web_dev_config.yaml. Retain it in sessions/saved accounts, and never send
+// another server's credentials to the local core.
+const devApiProxyTarget = 'https://accord-test.wspace.sbs';
 
 http.Client createMobileHttpClient({bool useDevProxy = true}) {
   final client = http.Client();

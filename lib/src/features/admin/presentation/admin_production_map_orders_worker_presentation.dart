@@ -57,7 +57,7 @@ extension _WorkerOrderPresentation on _ReadOnlyOrderDetailSheetState {
         pauseLabel: pauseLabel,
         requiredQolips: _visibleRequiredQolips,
         qolipCodes: _scannedQolipCodes.values.toList(growable: false),
-        qolipScanned: !current.qolipScanRequired || _allRequiredQolipsScanned,
+        qolipScanned: !current.qolipScanRequired || _qolipsConfirmedForStart,
         qolipRequirementsLoaded: _qolipRequirementsLoaded &&
             !_qolipRequirementsLoading &&
             _qolipRequirementsError.isEmpty,

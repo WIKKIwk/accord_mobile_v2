@@ -148,6 +148,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'The action could not be completed',
     'ru': 'Не удалось выполнить действие',
   },
+  'worker.materials.load_failed': {
+    'uz': 'Homashyo ma’lumotlarini yuklab bo‘lmadi. Qayta tekshirilmoqda.',
+    'en': 'Could not load material details. Checking again.',
+    'ru': 'Не удалось загрузить данные сырья. Выполняется повторная проверка.',
+    'ur': 'خام مال کی تفصیلات لوڈ نہیں ہو سکیں۔ دوبارہ جانچ جاری ہے۔',
+  },
   'worker.error.network_timeout': {
     'uz': 'Internet yoki server javob bermadi. Qayta urinib ko‘ring',
     'en': 'The internet or server did not respond. Try again.',

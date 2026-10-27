@@ -19,21 +19,40 @@ extension _QolipAttachSharedSets on _QolipAttachSheetState {
         ),
       );
 
-  Future<bool> _reuseExistingSet(QolipProduct product, String identifier) async {
-    final set = await MobileApi.instance.qolipResolveSet(identifier);
-    if (set == null) return false;
-    if (!mounted) return true;
-    final saved = await reuseSelectedQolipSet(context, set, product);
-    if (mounted && saved != null) {
-      _finishSpecSave(product, saved, set.id);
+  Future<bool> _reuseExistingSet(
+      QolipProduct product, String identifier) async {
+    final result = await reuseQolipSetInput(context,
+        product: product, identifier: identifier, lookup: _setLookup);
+    if (mounted && result.products != null) {
+      _finishSpecSave(product, result.products!, result.setId!);
     }
-    return true;
+    return result.handled;
+  }
+
+  Future<void> _reuseSuggestedSet(QolipManagedSet entry) async {
+    final product = _product;
+    if (_saving || product == null || !_setLookup.isCurrent) return;
+    FocusScope.of(context).unfocus();
+    _update(() => _saving = true);
+    try {
+      final saved = await reuseSelectedQolipSet(context, entry.set, product,
+          setName: entry.name);
+      if (mounted && saved != null) {
+        _finishSpecSave(product, saved, entry.set.id);
+      }
+    } catch (error) {
+      if (mounted) {
+        await _showSpecSaveError(qolipErrorMessage(error, l10n: context.l10n));
+      }
+    } finally {
+      _update(() => _saving = false);
+    }
   }
 
   void _finishSpecSave(
       QolipProduct product, List<QolipProduct> saved, String code) {
     if (saved.isEmpty) throw StateError('empty_qolip_set');
-    setState(() {
+    _update(() {
       _product = product;
       _selectedProducts = [saved.first];
       _savedProductSpecs = saved;

@@ -46,6 +46,16 @@ class PreparationOrderListRow {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'code': code,
+        'order_number': orderNumber,
+        'title': title,
+        'customer_name': customerName,
+        'image_id': imageId,
+        'position': position,
+      };
+
   ProductionMapSaved toPresentationOrder() => ProductionMapSaved(
         map: ProductionMapDefinition(
           id: id,
@@ -74,6 +84,7 @@ class PreparationOrderListWindow {
     required this.rows,
     required this.total,
     this.nextCursor,
+    this.search = '',
   });
 
   final String scope;
@@ -85,6 +96,7 @@ class PreparationOrderListWindow {
   final List<PreparationOrderListRow> rows;
   final int total;
   final String? nextCursor;
+  final String search;
 
   factory PreparationOrderListWindow.fromJson(Map<String, dynamic> json) {
     if (json['ok'] != true ||
@@ -136,9 +148,130 @@ class PreparationOrderListWindow {
       rows: List.unmodifiable(rows),
       total: json['total'] as int,
       nextCursor: json['next_cursor'] as String?,
+      search: json['search'] is String
+          ? (json['search'] as String).trim().toLowerCase()
+          : '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'ok': true,
+        'projection': 'preparation_order_list_v1',
+        'scope': scope,
+        'epoch': epoch,
+        'rev': revision,
+        'version': version,
+        'apparatus_id': apparatusId,
+        'apparatus': [
+          for (final item in apparatus) {'id': item.id, 'name': item.name},
+        ],
+        'rows': rows.map((row) => row.toJson()).toList(),
+        'total': total,
+        'next_cursor': nextCursor,
+        'search': search,
+      };
+
+  PreparationOrderListWindow copyWith({
+    String? search,
+    int? revision,
+    String? version,
+    List<PreparationOrderListRow>? rows,
+    int? total,
+    String? nextCursor,
+    bool clearNextCursor = false,
+  }) =>
+      PreparationOrderListWindow(
+        scope: scope,
+        epoch: epoch,
+        revision: revision ?? this.revision,
+        version: version ?? this.version,
+        apparatusId: apparatusId,
+        apparatus: apparatus,
+        rows: rows == null ? this.rows : List.unmodifiable(rows),
+        total: total ?? this.total,
+        nextCursor: clearNextCursor ? null : nextCursor ?? this.nextCursor,
+        search: search ?? this.search,
+      );
+
+  /// A checkpoint validates existing display rows without another HTTP read.
+  PreparationOrderListWindow applyLiveCheckpoint(Map<String, dynamic> event) {
+    if (event['epoch'] != epoch ||
+        event['scope'] != scope ||
+        event['version'] != version ||
+        (event['apparatus_id'] != null &&
+            event['apparatus_id'] != apparatusId) ||
+        event['rev'] is! int ||
+        (event['rev'] as int) < revision) {
+      throw _preparationOrdersResync();
+    }
+    return copyWith(revision: event['rev'] as int);
+  }
+
+  /// Only an exact visible baseline may accept a patch. Cached labels never
+  /// grant detail access; the screen separately tracks server validation.
+  PreparationOrderListWindow applyLiveDelta(Map<String, dynamic> event) {
+    if (event['base_version'] != version ||
+        event['scope'] != scope ||
+        event['epoch'] != epoch ||
+        event['apparatus_id'] != apparatusId ||
+        event['rev'] is! int ||
+        (event['rev'] as int) < revision ||
+        event['order_ids'] is! List ||
+        event['upserts'] is! List ||
+        event['removed_ids'] is! List) {
+      throw _preparationOrdersResync();
+    }
+    List<String> ids(Object? raw) {
+      if (raw is! List || raw.any((id) => id is! String || id.isEmpty)) {
+        throw _preparationOrdersResync();
+      }
+      final result = raw.cast<String>();
+      if (result.toSet().length != result.length) {
+        throw _preparationOrdersResync();
+      }
+      return result;
+    }
+
+    final orderIds = ids(event['order_ids']);
+    final removed = ids(event['removed_ids']);
+    final orderIdSet = orderIds.toSet();
+    final removedSet = removed.toSet();
+    final byId = {for (final row in rows) row.id: row};
+    if (removed.any((id) => !byId.containsKey(id) || orderIdSet.contains(id)) ||
+        byId.keys.any(
+            (id) => !orderIdSet.contains(id) && !removedSet.contains(id))) {
+      throw _preparationOrdersResync();
+    }
+    for (final id in removed) {
+      byId.remove(id);
+    }
+    final upserts = <String>{};
+    for (final raw in event['upserts'] as List) {
+      if (raw is! Map) throw _preparationOrdersResync();
+      final row = PreparationOrderListRow.fromJson(raw.cast<String, dynamic>());
+      if (!upserts.add(row.id) || !orderIdSet.contains(row.id)) {
+        throw _preparationOrdersResync();
+      }
+      byId[row.id] = row;
+    }
+    if (orderIds.any((id) => !byId.containsKey(id))) {
+      throw _preparationOrdersResync();
+    }
+    final metadata = PreparationOrderListWindow.fromJson({
+      ...event,
+      'ok': true,
+      'search': search,
+      'rows': const [],
+    });
+    if (orderIds.length > metadata.total) throw _preparationOrdersResync();
+    return metadata.copyWith(rows: [for (final id in orderIds) byId[id]!]);
+  }
 }
+
+MobileApiException _preparationOrdersResync() => const MobileApiException(
+    code: 'preparation_orders_resync',
+    statusCode: 409,
+    message: 'Buyurtmalar o‘zgardi. Qayta yuklang.');
 
 MobileApiException _invalidPreparationOrderList() => const MobileApiException(
     code: 'preparation_orders_invalid',
@@ -149,7 +282,16 @@ extension MobileApiPreparationOrders on MobileApi {
     String apparatus = '',
     String search = '',
     String? cursor,
+    PreparationOrderListWindow? baseline,
+    bool refresh = false,
   }) async {
+    final normalizedSearch = search.trim().toLowerCase();
+    final conditional = cursor == null &&
+            baseline != null &&
+            baseline.search == normalizedSearch &&
+            (apparatus.isEmpty || apparatus == baseline.apparatusId)
+        ? baseline
+        : null;
     final owner = _preparationStorageKey();
     final scope = currentSessionReadScope();
     final response = await _sendAuthorized(() {
@@ -162,8 +304,13 @@ extension MobileApiPreparationOrders on MobileApi {
             .replace(queryParameters: {
           'limit': '30',
           if (apparatus.isNotEmpty) 'apparatus': apparatus,
-          if (search.isNotEmpty) 'search': search,
+          if (normalizedSearch.isNotEmpty) 'search': normalizedSearch,
           if (cursor != null) 'cursor': cursor,
+          if (conditional != null && conditional.rows.length > 30)
+            'length': '${conditional.rows.length.clamp(30, 10000)}',
+          if (conditional != null && !refresh)
+            'if_version': conditional.version,
+          if (refresh) 'refresh': 'true',
         }),
         headers: _headers(requireToken()),
       );
@@ -172,11 +319,27 @@ extension MobileApiPreparationOrders on MobileApi {
         scope != currentSessionReadScope()) {
       throw _invalidPreparationOrderList();
     }
+    if (response.statusCode == 304) {
+      if (conditional == null || refresh) throw _invalidPreparationOrderList();
+      final epoch = response.headers['x-production-epoch'];
+      final serverScope = response.headers['x-preparation-scope'];
+      final version = response.headers['x-preparation-version'];
+      final revision =
+          int.tryParse(response.headers['x-production-revision'] ?? '');
+      if ((epoch != null && epoch != conditional.epoch) ||
+          (serverScope != null && serverScope != conditional.scope) ||
+          (version != null && version != conditional.version) ||
+          (revision != null && revision < conditional.revision)) {
+        throw _preparationOrdersResync();
+      }
+      return conditional.copyWith(revision: revision);
+    }
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'preparation_orders_failed');
     }
     return PreparationOrderListWindow.fromJson(
-        await decodeJsonMapPayload(response.body));
+            await decodeJsonMapPayload(response.body))
+        .copyWith(search: normalizedSearch);
   }
 
   Future<AdminApparatusQueueSnapshot> preparationOrderDetail(
@@ -212,7 +375,8 @@ extension MobileApiPreparationOrders on MobileApi {
 
   Stream<Map<String, dynamic>> preparationOrdersLive(
           PreparationOrderListWindow window,
-          {String search = ''}) =>
+          {String search = '',
+          int? length}) =>
       _productionMapDecodedLive(() {
         final base = Uri.parse(MobileApi.baseUrl);
         return base.replace(
@@ -226,6 +390,8 @@ extension MobileApiPreparationOrders on MobileApi {
             'epoch': window.epoch,
             'rev': '${window.revision}',
             'scope': window.scope,
+            'version': window.version,
+            'length': '${length ?? window.rows.length}',
           },
         );
       }, (event) => event);

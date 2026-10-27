@@ -155,6 +155,7 @@ Future<AdminApparatusQueueActionResult> _submitAdminApparatusQueueAction(
     includeControl: true,
     materialBarcodes: request.materialBarcodes,
     qolipCodes: request.qolipCodes,
+    qolipConfirmation: request.qolipConfirmation,
     producedQty: request.producedQty,
     grossQty: request.grossQty,
     bobinaKg: request.bobinaKg,

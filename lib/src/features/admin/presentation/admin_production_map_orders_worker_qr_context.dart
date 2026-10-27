@@ -20,6 +20,7 @@ extension _PreparedFabInput on _ReadOnlyOrderDetailSheetState {
       try {
         final refreshed = await MobileApi.instance
             .adminOrderScanBootstrap(
+            automaticQolipConfirmation: true,
               apparatus: prepared.bootstrap.controlState.apparatus,
               orderId: prepared.bootstrap.controlState.orderId,
               qrPayload: prepared.qrPayload,
@@ -114,6 +115,7 @@ Future<AdminOrderScanBootstrap?> _loadWorkerFabBootstrap({
   for (var attempt = 0; attempt < 2; attempt++) {
     final result = await MobileApi.instance
         .adminOrderScanBootstrap(
+            automaticQolipConfirmation: true,
           apparatus: apparatus,
           orderId: orderId,
           includeContext: true,
@@ -158,6 +160,7 @@ Future<AdminApparatusQueueSnapshot?> _loadWorkerQrSnapshot({
       // Only a positively unsupported aggregate falls back to /sequence.
       final bootstrap = await MobileApi.instance
           .adminOrderScanBootstrap(
+            automaticQolipConfirmation: true,
             apparatus: apparatusId,
             orderId: orderId,
             includeSections: false,

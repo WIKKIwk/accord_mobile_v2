@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/api/mobile_api.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/display/order_image_provider.dart';
 import '../../../../core/widgets/display/image_fade.dart';
@@ -10,7 +11,7 @@ import '../../../shared/presentation/widgets/profile_avatar_preview.dart';
 /// [imageUrl] bo'sh bo'lsa, hisob-kitob ikonkasi (fallback) chiqadi.
 /// Ish xaritasi (Buyurtmalar / Ketma-ketlik) da ham aynan shu widget
 /// reuse qilinadi — ko'rinish bitta joydan boshqariladi.
-class AdminOrderImageThumb extends StatelessWidget {
+class AdminOrderImageThumb extends StatefulWidget {
   const AdminOrderImageThumb({
     super.key,
     required this.imageUrl,
@@ -27,7 +28,16 @@ class AdminOrderImageThumb extends StatelessWidget {
   final bool previewOnLongPress;
 
   @override
+  State<AdminOrderImageThumb> createState() => _AdminOrderImageThumbState();
+}
+
+class _AdminOrderImageThumbState extends State<AdminOrderImageThumb> {
+  final _providers = _OrderThumbProviders();
+
+  @override
   Widget build(BuildContext context) {
+    _providers.update(widget.imageUrl);
+    final dimension = widget.dimension;
     final scheme = Theme.of(context).colorScheme;
     final fallback = DecoratedBox(
       decoration: BoxDecoration(
@@ -40,21 +50,20 @@ class AdminOrderImageThumb extends StatelessWidget {
         color: scheme.onSecondaryContainer,
       ),
     );
-    final trimmedUrl = imageUrl.trim();
-    if (trimmedUrl.isEmpty) {
+    final image = _providers.thumbnail;
+    if (image == null) {
       return SizedBox.square(dimension: dimension, child: fallback);
     }
-    final image = OrderImageProvider(trimmedUrl, thumbnail: true);
     return SizedBox.square(
       dimension: dimension,
       child: ProfileAvatarPreview(
-        displayName: displayName,
-        avatarImage: OrderImageProvider(trimmedUrl),
+        displayName: widget.displayName,
+        avatarImage: _providers.full,
         semanticLabel: context.l10n.productionText(
           'worker.action.view_order_image',
         ),
-        heroTag: heroTag,
-        previewOnLongPress: previewOnLongPress,
+        heroTag: widget.heroTag,
+        previewOnLongPress: widget.previewOnLongPress,
         previewFit: BoxFit.contain,
         previewMaxScale: 64,
         previewFullScreen: true,
@@ -85,37 +94,98 @@ const double kAdminOrderCoverWidth = 68.0;
 /// ishlatiladi — shuning uchun qator balandligiga ta'sir qilmaydi,
 /// balandlikni faqat matn belgilaydi. Burchak yumaloqligini ota karta
 /// o'zi kesadi ([Clip.antiAlias]).
-class AdminOrderCoverThumb extends StatelessWidget {
+class AdminOrderCoverThumb extends StatefulWidget {
   const AdminOrderCoverThumb({
     super.key,
     required this.imageUrl,
     required this.displayName,
     required this.heroTag,
     this.width = kAdminOrderCoverWidth,
+    this.providerCache,
   });
 
   final String imageUrl;
   final String displayName;
   final String heroTag;
   final double width;
+  final OrderImageThumbCache? providerCache;
+  @override
+  State<AdminOrderCoverThumb> createState() => _AdminOrderCoverThumbState();
+}
+
+class _AdminOrderCoverThumbState extends State<AdminOrderCoverThumb> {
+  final _providers = _OrderThumbProviders();
+
   @override
   Widget build(BuildContext context) {
-    final trimmedUrl = imageUrl.trim();
-    if (trimmedUrl.isEmpty) {
-      return AdminOrderCoverImage(
-        displayName: displayName,
-        heroTag: heroTag,
-        width: width,
-      );
-    }
-    final image = OrderImageProvider(trimmedUrl, thumbnail: true);
+    final providers = widget.providerCache?._forUrl(widget.imageUrl) ??
+        (_providers..update(widget.imageUrl));
     return AdminOrderCoverImage(
-      image: image,
-      previewImage: OrderImageProvider(trimmedUrl),
-      displayName: displayName,
-      heroTag: heroTag,
-      width: width,
+      image: providers.thumbnail,
+      previewImage: providers.full,
+      displayName: widget.displayName,
+      heroTag: widget.heroTag,
+      width: widget.width,
     );
+  }
+}
+
+/// Page-owned, bounded provider metadata for rows recycled by a lazy list.
+/// Image bytes and decoded pixels retain their existing shared cache budgets.
+class OrderImageThumbCache {
+  OrderImageThumbCache({this.maxEntries = 128}) : assert(maxEntries > 0);
+
+  final int maxEntries;
+  String? _scope;
+  final _entries = <String, _OrderThumbProviders>{};
+
+  void clear() {
+    _entries.clear();
+    _scope = null;
+  }
+
+  _OrderThumbProviders _forUrl(String imageUrl) {
+    final api = MobileApi.instance;
+    final scope = api.orderImageCacheScope;
+    if (_scope != scope) {
+      clear();
+      _scope = scope;
+    }
+    final trimmed = imageUrl.trim();
+    final url =
+        trimmed.isEmpty ? '' : api.orderImageRequestUri(trimmed).toString();
+    final providers = _entries.remove(url) ?? _OrderThumbProviders();
+    providers.update(url);
+    if (url.isNotEmpty) {
+      _entries[url] = providers;
+      while (_entries.length > maxEntries) {
+        _entries.remove(_entries.keys.first);
+      }
+    }
+    return providers;
+  }
+}
+
+/// A mounted thumbnail keeps its image stream when its card changes size.
+/// Re-entry, source changes and account changes still create fresh providers;
+/// the provider's normal freshness epoch and shared cache TTL remain intact.
+class _OrderThumbProviders {
+  String? _url;
+  String? _scope;
+  OrderImageProvider? thumbnail;
+  OrderImageProvider? full;
+
+  void update(String imageUrl) {
+    final trimmed = imageUrl.trim();
+    final api = MobileApi.instance;
+    final url =
+        trimmed.isEmpty ? '' : api.orderImageRequestUri(trimmed).toString();
+    final scope = api.orderImageCacheScope;
+    if (_url == url && _scope == scope) return;
+    _url = url;
+    _scope = scope;
+    thumbnail = url.isEmpty ? null : OrderImageProvider(url, thumbnail: true);
+    full = url.isEmpty ? null : OrderImageProvider(url);
   }
 }
 

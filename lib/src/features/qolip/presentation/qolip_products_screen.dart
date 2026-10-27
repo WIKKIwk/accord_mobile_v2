@@ -50,6 +50,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   late Future<void> _future;
   late final ScrollController _scroll;
+  final _coverImageProviders = OrderImageThumbCache();
   final List<QolipCatalogItem> _catalogItems = [];
   final Map<String, QolipProductContainer> _details = {};
   final Map<String, Future<QolipProductContainer?>> _detailRequests = {};
@@ -72,6 +73,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   bool _printing = false;
   bool _reworking = false;
   final Set<String> _reworkCodes = {};
+  int _reworkRevision = 0;
   String? _reworkRequestSignature;
   String? _reworkRequestId;
   String? _catalogScope;
@@ -88,8 +90,9 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _scroll = ScrollController(initialScrollOffset:
-        QolipCatalogStore.instance.window('').scrollOffset);
+    _scroll = ScrollController(
+        initialScrollOffset:
+            QolipCatalogStore.instance.window('').scrollOffset);
     QolipCatalogStore.instance.addListener(_catalogChanged);
     _scroll.addListener(_handleScroll);
     _future = _load();
@@ -104,6 +107,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     _loadGeneration++;
     _searchDebounce?.cancel();
     _scroll.dispose();
+    _coverImageProviders.clear();
     _searchFocusNode.dispose();
     _search.dispose();
     super.dispose();
@@ -215,6 +219,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                         : MobileApi.instance.adminProductionMapOrderImageUrl(
                             orderImageOrderId,
                           ),
+                    imageProviderCache: _coverImageProviders,
                     expanded: _expandedContainerKey == container.key,
                     containerSelectionMode:
                         _selectionMode == _QolipSelectionMode.containers,

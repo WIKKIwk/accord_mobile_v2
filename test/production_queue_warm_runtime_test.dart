@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
+import 'package:accord_mobile_v2/src/core/production/preparation_orders_warm_store.dart';
 import 'package:accord_mobile_v2/src/core/production/production_queue_warm_runtime.dart';
 import 'package:accord_mobile_v2/src/core/production/worker_queue_warm_store.dart';
 import 'package:accord_mobile_v2/src/core/production/supply_tasks_warm_store.dart';
@@ -12,6 +15,20 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _selectedApparatus = 'apparatus:default:bosma_7';
+
+class _PreparationRuntimeSnapshots implements ProductionSnapshotBackend {
+  @override
+  Future<Uint8List?> read(String id, {required int maxBytes}) async => null;
+  @override
+  Future<void> write(String id, Uint8List bytes,
+      {required int savedAtMs}) async {}
+  @override
+  Future<List<ProductionSnapshotStoredEntry>> entries() async => [];
+  @override
+  Future<void> remove(String id) async {}
+  @override
+  Future<void> clear() async {}
+}
 
 AdminProductionOrderPage _runtimeSequencePage() =>
     const AdminProductionOrderPage(
@@ -179,6 +196,8 @@ void main() {
     worker.reset();
     AdminSequenceWarmStore.debugOverride = null;
     WorkerQueueWarmStore.debugOverride = null;
+    PreparationOrdersWarmStore.debugOverride?.reset();
+    PreparationOrdersWarmStore.debugOverride = null;
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     await Future.wait(streams.map((stream) => stream.close()));
@@ -225,6 +244,59 @@ void main() {
     expect(adminReads, 0);
     expect(worker.peek(scope: currentSessionReadScope(), queueLimit: 10),
         isNotNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('preparation role preloads once despite extra queue/admin access',
+      (tester) async {
+    var preparationReads = 0;
+    final preparation = PreparationOrdersWarmStore(
+      snapshots:
+          ProductionSnapshotStore(backend: _PreparationRuntimeSnapshots()),
+      selectionLoader: () async => _selectedApparatus,
+      loader: (
+          {required apparatus,
+          required search,
+          cursor,
+          baseline,
+          required refresh}) async {
+        preparationReads++;
+        expect(apparatus, _selectedApparatus);
+        return const PreparationOrderListWindow(
+          scope: 'preparation-runtime',
+          epoch: 'server',
+          revision: 1,
+          version: 'preparation-v1',
+          apparatusId: _selectedApparatus,
+          apparatus: [AdminApparatus(id: _selectedApparatus, name: 'Selected')],
+          rows: [],
+          total: 0,
+        );
+      },
+    );
+    PreparationOrdersWarmStore.debugOverride = preparation;
+    session(UserRole.tayyorlovMasteri, [
+      'preparation.access',
+      'admin.access',
+      'production.map.manage',
+      'apparatus.queue.read',
+    ]);
+    await tester
+        .pumpWidget(const ProductionQueueWarmRuntime(child: SizedBox()));
+    await tester.pumpAndSettle();
+    expect(preparationReads, 1);
+    expect(adminReads, 0);
+    expect(workerReads, 0);
+    expect(streams, isEmpty);
+    expect(preparation.peek(), isNotNull);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    AppSession.instance.revision.value++;
+    await tester.pumpAndSettle();
+    expect(preparationReads, 1);
+    expect(adminReads, 0);
+    expect(workerReads, 0);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -342,11 +414,14 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     expect(requests.map((request) => request.view),
         ['sequence', 'orders', 'move', 'move', 'closed', 'audit']);
-    expect(requests.where((request) => request.view == 'move').map((request) =>
-        [request.apparatus, request.target]), [
-      ['apparatus:default:other', _selectedApparatus],
-      [_selectedApparatus, 'apparatus:default:other'],
-    ]);
+    expect(
+        requests
+            .where((request) => request.view == 'move')
+            .map((request) => [request.apparatus, request.target]),
+        [
+          ['apparatus:default:other', _selectedApparatus],
+          [_selectedApparatus, 'apparatus:default:other'],
+        ]);
     expect(requests.every((request) => request.cursor == null), isTrue);
     expect(requests, hasLength(6),
         reason: 'Ready state does not poll list/details');

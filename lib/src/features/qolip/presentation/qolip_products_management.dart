@@ -38,6 +38,7 @@ extension _QolipProductsManagement on _QolipProductsScreenState {
       scope:
           '${product.name}\n${context.l10n.qolipManagementText('product_scope')}',
       allowExisting: true,
+      product: product,
       initialSize: existing.firstOrNull?.qolipSize ?? 0,
       availablePantonNumber: available,
       onSave: (draft) => MobileApi.instance.qolipAddProductMold(product, draft),
@@ -51,7 +52,7 @@ extension _QolipProductsManagement on _QolipProductsScreenState {
     final selected = await showQolipSetPicker(context);
     if (selected == null || !mounted) return;
     try {
-      final saved = await reuseSelectedQolipSet(context, selected.set, product);
+      final saved = await reuseSelectedQolipSet(context, selected.set, product, setName: selected.name);
       if (!mounted || saved == null) return;
       QolipDataRevision.notifyLocationsChanged();
       await _reload(force: false, preserveExpandedContainerKey: _catalogKeyForCode(product.code));
