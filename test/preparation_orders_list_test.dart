@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/production/preparation_orders_warm_store.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -29,7 +33,9 @@ class _OrdersApi {
   final listQueries = <Map<String, String>>[];
   final detailReads = <String>[];
   final imageReads = <String>[];
-  final events = StreamController<Object>.broadcast();
+  int liveListens = 0;
+  late final events =
+      StreamController<Object>.broadcast(onListen: () => liveListens++);
   Completer<http.Response>? pendingList;
   Completer<http.Response>? pendingDetail;
   Future<http.Response> Function(http.Request)? listResponse;
@@ -200,9 +206,47 @@ class _OrdersApi {
   }
 }
 
+class _ListSnapshotBackend implements ProductionSnapshotBackend {
+  final values = <String, Uint8List>{};
+  final dates = <String, int>{};
+
+  @override
+  Future<Uint8List?> read(String id, {required int maxBytes}) async =>
+      values[id];
+
+  @override
+  Future<void> write(String id, Uint8List bytes,
+      {required int savedAtMs}) async {
+    values[id] = bytes;
+    dates[id] = savedAtMs;
+  }
+
+  @override
+  Future<List<ProductionSnapshotStoredEntry>> entries() async => [
+        for (final entry in values.entries)
+          ProductionSnapshotStoredEntry(
+              id: entry.key,
+              bytes: entry.value.length,
+              savedAtMs: dates[entry.key]!),
+      ];
+
+  @override
+  Future<void> remove(String id) async {
+    values.remove(id);
+    dates.remove(id);
+  }
+
+  @override
+  Future<void> clear() async {
+    values.clear();
+    dates.clear();
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   var serial = 0;
+  late ProductionSnapshotStore snapshots;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -220,14 +264,183 @@ void main() {
       avatarUrl: '',
       capabilities: const ['preparation.access'],
     );
+    snapshots = ProductionSnapshotStore(backend: _ListSnapshotBackend());
+    PreparationOrdersWarmStore.debugOverride =
+        PreparationOrdersWarmStore(snapshots: snapshots);
   });
 
   tearDown(() async {
+    PreparationOrdersWarmStore.instance.reset();
+    PreparationOrdersWarmStore.debugOverride = null;
     await OrderImageCache.instance.clear();
     OrderImageCache.debugOverride = null;
     AdminSequenceApparatusStore.instance.clearCache();
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('cached master labels paint while HTTP validation is pending',
+      (tester) async {
+    final api = _OrdersApi()..pendingList = Completer<http.Response>();
+    PreparationOrdersWarmStore.instance
+        .remember(PreparationOrderListWindow.fromJson(api.window()));
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      await tester.pump();
+      expect(api.listQueries, hasLength(1));
+      expect(find.text('Master product 1'), findsOneWidget);
+      expect(find.text('Master customer 1'), findsOneWidget);
+      expect(api.detailReads, isEmpty);
+      expect(api.listQueries.single['if_version'], api.window()['version']);
+      api.pendingList!.complete(_response(api.window()));
+      api.pendingList = null;
+      await tester.pumpAndSettle();
+      await api.close(tester);
+    }, () => MockClient(api.respond));
+  });
+
+  testWidgets('304 preserves an entire restored multi-page master prefix',
+      (tester) async {
+    final api = _OrdersApi()..rowCount = 3;
+    PreparationOrdersWarmStore.instance
+        .remember(PreparationOrderListWindow.fromJson(api.window()));
+    api.listResponse = (_) async => http.Response('', 304, headers: {
+          'x-production-epoch': 'preparation-orders-test',
+          'x-production-revision': '8',
+          'x-preparation-scope': 'master|$_apparatus|',
+          'x-preparation-version': api.window()['version'] as String,
+        });
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      await tester.pumpAndSettle();
+      expect(api.listQueries, hasLength(1));
+      for (final id in [1, 2, 3]) {
+        expect(find.text('Master product $id'), findsOneWidget);
+        expect(find.text('${10 + id}'), findsOneWidget);
+      }
+      expect(PreparationOrdersWarmStore.instance.peek()?.revision, 8);
+      expect(api.detailReads, isEmpty);
+      await api.close(tester);
+    }, () => MockClient(api.respond));
+  });
+
+  testWidgets('master restores disk labels without waiting for HTTP',
+      (tester) async {
+    final api = _OrdersApi()..pendingList = Completer<http.Response>();
+    await tester.runAsync(() async {
+      PreparationOrdersWarmStore.instance
+          .remember(PreparationOrderListWindow.fromJson(api.window()));
+      await snapshots.flush();
+    });
+    PreparationOrdersWarmStore.instance.reset();
+    expect(PreparationOrdersWarmStore.instance.peek(), isNull);
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      // The disk fixture was seeded in the real async zone. Let its completed
+      // storage queue hand the new read back to the widget's fake clock.
+      await tester.runAsync(() async {
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+      expect(api.listQueries, hasLength(1));
+      expect(find.text('Master product 1'), findsOneWidget);
+      expect(api.detailReads, isEmpty);
+      api.titlePrefix = 'Fresh master product';
+      api.revision = 8;
+      api.pendingList!.complete(_response(api.window()));
+      api.pendingList = null;
+      await tester.pumpAndSettle();
+      expect(find.text('Fresh master product 1'), findsOneWidget);
+      expect(find.text('Master product 1'), findsNothing);
+      await api.close(tester);
+    }, () => MockClient(api.respond));
+  });
+
+  testWidgets('master checkpoint retains rows, thumbnails and socket',
+      (tester) async {
+    final api = _OrdersApi();
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      await tester.pumpAndSettle();
+      final images = List.of(api.imageReads);
+      final listeners = api.liveListens;
+      api.events.add({...api.window(), 'type': 'checkpoint', 'rev': 8});
+      await tester.pumpAndSettle();
+      expect(api.listQueries, hasLength(1));
+      expect(api.imageReads, images);
+      expect(api.liveListens, listeners);
+      expect(find.text('Master product 1'), findsOneWidget);
+      expect(api.detailReads, isEmpty);
+      await api.close(tester);
+    }, () => MockClient(api.respond));
+  });
+
+  testWidgets(
+      'master delta adds, removes and reorders without another HTTP read',
+      (tester) async {
+    final api = _OrdersApi();
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      await tester.pumpAndSettle();
+      final listeners = api.liveListens;
+      final delta = {
+        ...api.window(),
+        'type': 'list_delta',
+        'rev': 8,
+        'version': 'f' * 64,
+        'base_version': api.window()['version'],
+        'order_ids': ['zakaz-3', 'zakaz-1'],
+        'removed_ids': ['zakaz-2'],
+        'upserts': [
+          api.row(3),
+          {...api.row(1), 'title': 'Renamed master product', 'position': 42},
+        ],
+      }..remove('rows');
+      api.events.add(delta);
+      await tester.pumpAndSettle();
+      expect(api.listQueries, hasLength(1));
+      expect(api.liveListens, listeners);
+      expect(find.text('Master product 2'), findsNothing);
+      expect(find.text('Master product 3'), findsOneWidget);
+      expect(find.text('Renamed master product'), findsOneWidget);
+      expect(find.text('42'), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Master product 3')).dy,
+          lessThan(tester.getTopLeft(find.text('Renamed master product')).dy));
+      expect(api.detailReads, isEmpty);
+      await api.close(tester);
+    }, () => MockClient(api.respond));
+  });
+
+  testWidgets('missing master delta baseline starts only one HTTP repair',
+      (tester) async {
+    final api = _OrdersApi();
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      await tester.pumpAndSettle();
+      api.pendingList = Completer<http.Response>();
+      final delta = {
+        ...api.window(),
+        'type': 'list_delta',
+        'base_version': 'missing',
+        'rev': 8,
+        'version': 'f' * 64,
+        'order_ids': ['zakaz-1', 'zakaz-2'],
+        'upserts': [],
+        'removed_ids': [],
+      }..remove('rows');
+      api.events
+        ..add(delta)
+        ..add(delta);
+      await tester.pump();
+      expect(api.listQueries, hasLength(2));
+      expect(api.events.hasListener, isFalse);
+      api.pendingList!.complete(_response(api.window()));
+      api.pendingList = null;
+      await tester.pumpAndSettle();
+      expect(api.listQueries, hasLength(2));
+      expect(find.text('Master product 1'), findsOneWidget);
+      await api.close(tester);
+    }, () => MockClient(api.respond));
   });
 
   testWidgets('master loads only list data before deferring visible thumbnails',

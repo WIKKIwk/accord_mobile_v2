@@ -28,6 +28,9 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
   bool _filterExpanded = false;
   bool _openingDetail = false;
   bool _reloadQueued = false;
+  bool _forceReloadQueued = false;
+
+  PreparationOrdersWarmStore get _store => PreparationOrdersWarmStore.instance;
 
   bool get _current => mounted && _scope == currentSessionReadScope();
 
@@ -38,18 +41,100 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     WidgetsBinding.instance.addObserver(this);
     AppSession.instance.revision.addListener(_sessionChanged);
     _scrollController.addListener(_scrollChanged);
+    _apparatus = AdminSequenceApparatusStore.instance.cachedApparatusId ?? '';
+    final cached = _store.peek(apparatus: _apparatus);
+    if (cached != null) _applyWindow(cached, persist: false);
     unawaited(_start());
   }
 
   Future<void> _start() async {
     try {
-      _apparatus =
-          await AdminSequenceApparatusStore.instance.loadSavedApparatusId() ??
-              '';
+      final selected =
+          await AdminSequenceApparatusStore.instance.loadSavedApparatusId();
+      if (!_current) return;
+      if (selected != null && selected != _apparatus) {
+        _apparatus = selected;
+        final cached = _store.peek(apparatus: selected);
+        if (cached != null) {
+          _applyWindow(cached, persist: false);
+        } else {
+          _clearRows();
+        }
+      }
     } catch (_) {
       // A missing device preference must not prevent the server's first picker.
     }
-    if (_current) await _reload();
+    if (!_current) return;
+    final read = _reload();
+    // Optional disk storage must never hold up the network or the first frame.
+    unawaited(_restoreCached(_generation, _apparatus, _search));
+    await read;
+  }
+
+  Future<void> _restoreCached(
+      int generation, String apparatus, String search) async {
+    if (_rows.isNotEmpty) return;
+    final cached = await _store.restore(apparatus: apparatus, search: search);
+    if (!_current ||
+        generation != _generation ||
+        apparatus != _apparatus ||
+        search != _search ||
+        _window != null ||
+        _read == null ||
+        _error != null ||
+        cached == null) return;
+    _applyWindow(cached, persist: false, keepLoading: _read != null);
+  }
+
+  void _clearRows() {
+    setState(() {
+      _window = null;
+      _rows.clear();
+      _presentationOrders.clear();
+      _imagesEnabled.clear();
+    });
+    _listRevision.value++;
+  }
+
+  bool _sameRow(PreparationOrderListRow a, PreparationOrderListRow b) =>
+      a.id == b.id &&
+      a.code == b.code &&
+      a.orderNumber == b.orderNumber &&
+      a.title == b.title &&
+      a.customerName == b.customerName &&
+      a.imageId == b.imageId &&
+      a.position == b.position;
+
+  void _applyWindow(PreparationOrderListWindow next,
+      {bool persist = true, bool keepLoading = false}) {
+    final previous = {for (final row in _rows) row.id: row};
+    final ids = next.rows.map((row) => row.id).toSet();
+    setState(() {
+      _window = next;
+      _apparatus = next.apparatusId;
+      _rows
+        ..clear()
+        ..addAll(next.rows);
+      _presentationOrders.removeWhere((id, _) => !ids.contains(id));
+      _imagesEnabled.retainAll(ids);
+      for (final row in next.rows) {
+        final old = previous[row.id];
+        if (old == null || !_sameRow(old, row)) {
+          _presentationOrders[row.id] = row.toPresentationOrder();
+        }
+      }
+      _loading = keepLoading;
+      _error = null;
+    });
+    _listRevision.value++;
+    if (persist) _store.remember(next, search: _search);
+    final generation = _generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_current || generation != _generation) return;
+      if (!_imagesEnabled.containsAll(ids)) {
+        setState(() => _imagesEnabled.addAll(ids));
+      }
+    });
   }
 
   void _sessionChanged() {
@@ -91,13 +176,14 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     }
   }
 
-  Future<void> _reload() {
+  Future<void> _reload({bool force = false}) {
     final pending = _read;
     if (pending != null) {
       _reloadQueued = true;
+      _forceReloadQueued |= force;
       return pending;
     }
-    return _loadPage();
+    return _loadPage(force: force);
   }
 
   Future<void> _loadMore() {
@@ -107,7 +193,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     return _loadPage(append: true);
   }
 
-  Future<void> _loadPage({bool append = false}) {
+  Future<void> _loadPage({bool append = false, bool force = false}) {
     if (!_current) return Future.value();
     final generation = ++_generation;
     final apparatus = _apparatus;
@@ -123,8 +209,13 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     late final Future<void> pending;
     pending = () async {
       try {
-        var next = await MobileApi.instance.preparationOrders(
-            apparatus: apparatus, search: search, cursor: cursor);
+        var next = await _store.read(
+            apparatus: apparatus,
+            search: search,
+            cursor: cursor,
+            baseline: append ? null : previous,
+            fresh: true,
+            force: force);
         if (!_current || generation != _generation) return;
         if (append &&
             (next.version != previous!.version ||
@@ -138,14 +229,16 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
         // Refresh the already visible prefix, preserving deep scroll and an
         // open sheet from a later page. Every page must share one revision.
         final baseline = next;
+        final retainedPrefix = max(retainedLength, _rows.length);
         while (!append &&
-            pageRows.length < retainedLength &&
+            pageRows.length < retainedPrefix &&
             next.nextCursor != null) {
           final usedCursor = next.nextCursor;
-          final following = await MobileApi.instance.preparationOrders(
+          final following = await _store.read(
               apparatus: baseline.apparatusId,
               search: search,
-              cursor: usedCursor);
+              cursor: usedCursor,
+              fresh: true);
           if (!_current || generation != _generation) return;
           if (following.version != baseline.version ||
               following.scope != baseline.scope ||
@@ -169,26 +262,16 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
               code: 'preparation_orders_invalid',
               message: 'Buyurtmalar yuklanmadi. Qayta urinib ko‘ring.');
         }
-        setState(() {
-          _window = next;
-          _apparatus = next.apparatusId;
-          if (!append) {
-            _rows.clear();
-            _presentationOrders.clear();
-            _imagesEnabled.clear();
-          }
-          _rows.addAll(pageRows);
-          for (final row in pageRows) {
-            _presentationOrders[row.id] = row.toPresentationOrder();
-          }
-          _loading = false;
-        });
-        _listRevision.value++;
+        // The window always describes the whole visible prefix, including its
+        // final cursor. Cache restores, 304s and live deltas share this baseline.
+        _applyWindow(next.copyWith(rows: [
+          if (append) ..._rows,
+          ...pageRows,
+        ]));
         // Paint every visible text row before any thumbnail provider is
         // mounted. Offscreen rows remain unbuilt by the sliver list.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_current || generation != _generation) return;
-          setState(() => _imagesEnabled.addAll(pageRows.map((row) => row.id)));
           _connectLive();
         });
       } catch (error) {
@@ -206,6 +289,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
               _rows.clear();
               _presentationOrders.clear();
               _imagesEnabled.clear();
+              unawaited(_store.forget(apparatus: apparatus, search: search));
             }
           });
           _listRevision.value++;
@@ -221,7 +305,9 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
       _read = null;
       if (_current && _foreground && _reloadQueued) {
         _reloadQueued = false;
-        unawaited(_reload());
+        final force = _forceReloadQueued;
+        _forceReloadQueued = false;
+        unawaited(_reload(force: force));
       }
     });
     _read = pending;
@@ -255,11 +341,13 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     }
 
     final Stream<Object> source = widget.liveEventsLoader?.call() ??
-        MobileApi.instance.preparationOrdersLive(_window!, search: _search);
+        MobileApi.instance.preparationOrdersLive(_window!,
+            search: _search, length: max(30, _rows.length));
     _live = source.listen((event) {
       if (!_current || generation != _liveGeneration || event is! Map) return;
       _reconnectAttempt = 0;
       if (event['type'] == 'invalidate' || event['resync'] == true) {
+        _stopLive();
         unawaited(_reload());
       } else if (event['type'] == 'error') {
         _stopLive();
@@ -271,18 +359,76 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
           _error = 'Buyurtmalarga kirish huquqi o‘zgargan. Qayta yuklang.';
         });
         _listRevision.value++;
+        unawaited(_store.forget(apparatus: _apparatus, search: _search));
+      } else {
+        _applyLiveEvent(event.cast<String, dynamic>());
       }
     }, onError: (Object _, StackTrace __) => reconnect(), onDone: reconnect);
+  }
+
+  void _applyLiveEvent(Map<String, dynamic> event) {
+    final before = _window;
+    if (before == null) return;
+    if (event['epoch'] == before.epoch &&
+        event['rev'] is int &&
+        (event['rev'] as int) < before.revision) return;
+    if (event['type'] == 'list_delta' &&
+        event['epoch'] == before.epoch &&
+        event['scope'] == before.scope &&
+        event['version'] == before.version) return;
+    try {
+      switch (event['type']) {
+        case 'ready':
+        case 'checkpoint':
+          if (event['epoch'] != before.epoch ||
+              event['scope'] != before.scope ||
+              (event['version'] != null &&
+                  event['version'] != before.version) ||
+              event['rev'] is! int) {
+            throw const FormatException('Preparation baseline changed');
+          }
+          final revision = event['rev'] as int;
+          if (revision < before.revision) return;
+          // A checkpoint validates the existing rows without rebuilding them,
+          // remounting thumbnails or restarting the socket.
+          if (revision != before.revision) {
+            _window = before.copyWith(revision: revision);
+            _store.remember(_window!, search: _search);
+          }
+          if (_error != null) setState(() => _error = null);
+        case 'list_snapshot':
+          final next = PreparationOrderListWindow.fromJson(event);
+          if (next.search != _search) {
+            throw const FormatException('Preparation query changed');
+          }
+          _generation++;
+          _applyWindow(next);
+        case 'list_delta':
+          final next = before.applyLiveDelta(event);
+          if (next.search != _search) {
+            throw const FormatException('Preparation query changed');
+          }
+          _generation++;
+          _applyWindow(next);
+      }
+    } catch (_) {
+      // A missing baseline gets one shared HTTP repair, with no repeated
+      // invalidation loop while that read is running.
+      _stopLive();
+      unawaited(_reload());
+    }
   }
 
   void _changeQuery({String? apparatus, String? search}) {
     _generation++;
     _read = null;
     _reloadQueued = false;
+    _forceReloadQueued = false;
     _stopLive();
     setState(() {
       _apparatus = apparatus ?? _apparatus;
-      _search = search ?? _search;
+      _search = (search ?? _search).trim().toLowerCase();
+      _window = null;
       _rows.clear();
       _presentationOrders.clear();
       _imagesEnabled.clear();
@@ -291,7 +437,11 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     });
     _listRevision.value++;
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
-    unawaited(_reload());
+    final cached = _store.peek(apparatus: _apparatus, search: _search);
+    if (cached != null) _applyWindow(cached, persist: false);
+    final read = _reload();
+    unawaited(_restoreCached(_generation, _apparatus, _search));
+    unawaited(read);
   }
 
   void _searchChanged(String text) {
@@ -375,6 +525,10 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
   @override
   Widget build(BuildContext context) {
     final window = _window;
+    final rowIndices = {
+      for (var index = 0; index < _rows.length; index++)
+        ValueKey('preparation-order-${_rows[index].id}'): index,
+    };
     return AppShell(
       drawer: PreparationDrawer(
         selectedRouteName: AppRoutes.supplySequence,
@@ -410,7 +564,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
               alignment: Alignment.topCenter,
               child: _OrdersConnectionProgress())
           : AppRefreshIndicator(
-              onRefresh: _reload,
+              onRefresh: () => _reload(force: true),
               allowRefreshOnShortContent: true,
               child: CustomScrollView(
                 key: const ValueKey('preparation-orders-list'),
@@ -450,6 +604,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     sliver: SliverList.builder(
                       itemCount: _rows.length,
+                      findChildIndexCallback: (key) => rowIndices[key],
                       itemBuilder: (context, index) {
                         final row = _rows[index];
                         return Padding(
