@@ -75,6 +75,7 @@ Future<QolipManagedSet?> showQolipSetPicker(BuildContext context) {
             .where((entry) =>
                 entry.set.members.isNotEmpty &&
                 [
+                  entry.name,
                   entry.set.id,
                   ...entry.set.members.map((m) => m.qolipCode)
                 ].any((value) => value.toLowerCase().contains(needle)))
@@ -83,9 +84,12 @@ Future<QolipManagedSet?> showQolipSetPicker(BuildContext context) {
             .toList();
       },
       itemKey: (entry) => entry.set.id,
-      itemTitle: (entry) => entry.set.id,
-      itemSubtitle: (entry) => l10n.qolipText('products.mold_count',
-          values: {'count': entry.set.members.length}),
+      itemTitle: (entry) => entry.displayName,
+      itemSubtitle: (entry) => [
+        if (entry.name.isNotEmpty) entry.set.id,
+        l10n.qolipText('products.mold_count',
+            values: {'count': entry.set.members.length}),
+      ].join(' · '),
       onSelected: (entry) => Navigator.of(sheetContext).pop(entry),
     ),
   );

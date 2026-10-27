@@ -20,12 +20,17 @@ class QolipMoldDraft {
 }
 
 class QolipManagedSet {
-  const QolipManagedSet({required this.set, required this.source});
+  const QolipManagedSet(
+      {required this.set, required this.source, this.name = ''});
   final QolipSharedSet set;
   final QolipProduct source;
+  final String name;
+
+  String get displayName => name.isEmpty ? set.id : name;
 
   factory QolipManagedSet.fromJson(Map<String, dynamic> json) =>
       QolipManagedSet(
+        name: json['name']?.toString().trim() ?? '',
         set: QolipSharedSet.fromJson(json),
         source: QolipProduct(
           warehouse: json['warehouse']?.toString() ?? '',
@@ -136,6 +141,7 @@ extension MobileApiQolipManagement on MobileApi {
         if (snapshot == null) continue;
         final targets = _testModeQolipSetLinks[mold.setId]?.values ?? [mold];
         _testModeManagedSets[mold.setId] = QolipManagedSet(
+          name: _testModeManagedSets[mold.setId]?.name ?? '',
           set: QolipSharedSet(
             id: snapshot.id,
             fingerprint: snapshot.fingerprint,
@@ -167,6 +173,57 @@ extension MobileApiQolipManagement on MobileApi {
         .map((raw) =>
             QolipManagedSet.fromJson((raw as Map).cast<String, dynamic>()))
         .toList(growable: false);
+  }
+
+  Future<QolipManagedSet> qolipRenameSet({
+    required String setId,
+    required String name,
+  }) async {
+    final normalized = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty ||
+        normalized.runes.length > 160 ||
+        RegExp(r'[\x00-\x1f\x7f-\x9f]').hasMatch(normalized)) {
+      throw const MobileApiException(
+          code: 'qolip_set_name_invalid', message: 'qolip_set_name_invalid');
+    }
+    if (await TestModeController.instance.isEnabled()) {
+      final sets = await qolipManagedSets();
+      final current = sets.where((entry) => entry.set.id == setId).firstOrNull;
+      if (current == null) {
+        throw const MobileApiException(
+            code: 'qolip_set_changed', message: 'qolip_set_changed');
+      }
+      if (_testModeManagedSets.values.any((entry) =>
+          entry.set.id != setId &&
+          entry.name.toLowerCase() == normalized.toLowerCase())) {
+        throw const MobileApiException(
+            code: 'qolip_set_name_conflict',
+            message: 'qolip_set_name_conflict');
+      }
+      final saved = QolipManagedSet(
+          set: current.set, source: current.source, name: normalized);
+      _testModeManagedSets[setId] = saved;
+      return saved;
+    }
+    final response = await _sendAuthorized(() => _post(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/sets/rename'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode({'set_id': setId, 'name': normalized}),
+        ));
+    if (response.statusCode != 200) {
+      throw _qolipApiException(response,
+          fallbackCode: 'qolip_set_rename_failed',
+          fallbackMessage: 'Komplekt nomi saqlanmadi');
+    }
+    final data = await decodeJsonMapPayload(response.body);
+    final saved =
+        QolipManagedSet.fromJson((data['set'] as Map).cast<String, dynamic>());
+    if (saved.set.id != setId) {
+      throw const MobileApiException(
+          code: 'qolip_set_changed', message: 'qolip_set_changed');
+    }
+    return saved;
   }
 
   Future<QolipManagedSet> qolipEditSet({
@@ -236,6 +293,7 @@ extension MobileApiQolipManagement on MobileApi {
         ...additions,
       ];
       final updated = QolipManagedSet(
+        name: _testModeManagedSets[current.set.id]?.name ?? current.name,
         source: current.source,
         set: QolipSharedSet(
           id: current.set.id,

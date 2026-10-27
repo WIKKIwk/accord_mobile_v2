@@ -38,17 +38,29 @@ String qolipErrorMessage(
     'qolip_set_ambiguous' => 'ambiguous',
     _ => null
   };
-  if (sharedKey != null && l10n != null)
+  if (sharedKey != null && l10n != null) {
     return l10n.qolipSharedSetText(sharedKey);
+  }
+  final nameKey = switch (code) {
+    'qolip_set_name_invalid' => 'name_invalid',
+    'qolip_set_name_conflict' => 'name_conflict',
+    'qolip_set_rename_failed' => 'rename_failed',
+    _ => null,
+  };
+  if (nameKey != null && l10n != null) {
+    return l10n.qolipManagementText(nameKey);
+  }
   if (l10n != null && code == 'qolip_in_rework') {
     return l10n.qolipReworkText('already_away');
   }
   if (l10n != null && code == 'session_scope_changed') {
     return l10n.qolipReworkText('session_changed');
   }
-  if (l10n != null && const {
-    'qolip_rework_conflict', 'qolip_rework_request_conflict',
-  }.contains(code)) {
+  if (l10n != null &&
+      const {
+        'qolip_rework_conflict',
+        'qolip_rework_request_conflict',
+      }.contains(code)) {
     return l10n.qolipReworkText('conflict');
   }
   if (code == 'color_required') {

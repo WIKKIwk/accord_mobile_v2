@@ -7,6 +7,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -18,6 +19,7 @@ import '../state/qolip_data_revision.dart';
 import 'qolip_color_picker.dart';
 import 'qolip_home_screen.dart' show showQolipSetCreateSheet;
 import 'qolip_management_dialogs.dart';
+import 'qolip_set_name_dialog.dart';
 import 'qolip_products_screen.dart' show QolipCodeRow;
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
@@ -50,7 +52,9 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
 
   Future<void> _reload() async {
     final future = MobileApi.instance.qolipManagedSets();
-    setState(() => _future = future);
+    setState(() {
+      _future = future;
+    });
     await future;
   }
 
@@ -111,6 +115,47 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
     if (saved == true) QolipDataRevision.notifyLocationsChanged();
     // Also refresh after a rejected stale fingerprint.
     await _reload();
+  }
+
+  Future<void> _actions(QolipManagedSet entry) async {
+    if (_saving) return;
+    _focus.unfocus();
+    final action = await showSpringBottomSheet<String>(
+      context: context,
+      builder: (_) => AppActionSheet<String>(
+        title: entry.displayName,
+        subtitle: entry.name.isEmpty ? null : entry.set.id,
+        actions: [
+          AppActionSheetAction(
+            title: context.l10n.qolipManagementText('rename'),
+            icon: Icons.edit_outlined,
+            value: 'rename',
+          ),
+        ],
+      ),
+    );
+    if (!mounted || action != 'rename' || _saving) return;
+    setState(() => _saving = true);
+    try {
+      final saved = await showDialog<QolipManagedSet>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => QolipSetNameDialog(entry: entry),
+      );
+      if (!mounted || saved == null) return;
+      final sets = await _future;
+      if (!mounted) return;
+      setState(() {
+        _future = Future.value([
+          for (final set in sets)
+            if (set.set.id == saved.set.id) saved else set,
+        ]);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.qolipManagementText('renamed'))));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _remove(QolipManagedSet entry, QolipProduct mold) async {
@@ -215,6 +260,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                 .where((entry) =>
                     entry.set.members.isNotEmpty &&
                     [
+                      entry.name,
                       entry.set.id,
                       ...entry.set.members.map((m) => m.qolipCode)
                     ].any((value) => value.toLowerCase().contains(query)))
@@ -251,6 +297,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ListTile(
+                          key: ValueKey('qolip-set-${entry.set.id}'),
                           leading: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -265,12 +312,17 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                                     .colorScheme
                                     .onSecondaryContainer),
                           ),
-                          title: Text(entry.set.id,
+                          title: Text(entry.displayName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5)),
-                          subtitle: Text(l10n.qolipText('products.mold_count',
-                              values: {'count': entry.set.members.length})),
+                          subtitle: Text([
+                            if (entry.name.isNotEmpty) entry.set.id,
+                            l10n.qolipText('products.mold_count',
+                                values: {'count': entry.set.members.length}),
+                          ].join(' · ')),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -288,6 +340,7 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                               ? null
                               : () => setState(() =>
                                   _expanded = expanded ? null : entry.set.id),
+                          onLongPress: _saving ? null : () => _actions(entry),
                         ),
                         if (expanded)
                           Padding(
@@ -297,13 +350,12 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                               children: [
                                 const Divider(height: 1),
                                 const SizedBox(height: 12),
-                                Text(l10n.qolipManagementText('linked',
-                                    values: {
+                                Text(
+                                    l10n.qolipManagementText('linked', values: {
                                       'count': entry.set.productLabels.length
                                     }),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelLarge),
+                                    style:
+                                        Theme.of(context).textTheme.labelLarge),
                                 if (entry.set.productLabels.isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
