@@ -28,6 +28,8 @@ class _AdminProductionMapOrdersScreenState
   bool _adminDetailOpening = false;
   AdminApparatusQueueSnapshot? _workerPreparedDetail;
   String? _workerPreparedDetailScope;
+  ({String account, int windowGeneration, int queueGeneration})?
+      _workerPreparedDetailAuthority;
   final Map<String, Future<({double? base, double? kg})>>
       _adminOrderDetailMetrics = {};
   final Set<String> _adminPendingDetailReads = {};
@@ -2163,10 +2165,11 @@ class _AdminProductionMapOrdersScreenState
         context: context,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (_) => _BosmaWorkerFinishSheet(
+        isScrollControlled: true,
+        builder: (_) => SingleChildScrollView(child: _BosmaWorkerFinishSheet(
             canFinish: control?.allows('complete') == true,
             canTemporaryPause: temporaryPause != null,
-            canRePause: rePause != null, canReclose: reclose != null),
+            canRePause: rePause != null, canReclose: reclose != null)),
       );
       if (!mounted || scope != currentSessionReadScope() || choice == null) return;
       if (choice == _BosmaWorkerLongPressChoice.temporaryPause) {

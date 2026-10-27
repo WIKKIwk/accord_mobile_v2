@@ -35,9 +35,10 @@ extension _AdminProductionMapOrdersTemporaryPause
   ) =>
       _eligibleWorkerTemporaryPause(
         workerMode: widget.workerMode,
-        synchronized: !_queueSnapshotNeedsReconcile &&
-            !_queueSnapshotContractError &&
-            _snapshotReadScope == currentSessionReadScope(),
+        synchronized: !_queueSnapshotContractError &&
+            _snapshotReadScope == currentSessionReadScope() &&
+            (!_queueSnapshotNeedsReconcile ||
+                _hasFreshWorkerTemporaryPauseDetail(apparatus, order, control)),
         apparatus: apparatus,
         order: order,
         control: control,

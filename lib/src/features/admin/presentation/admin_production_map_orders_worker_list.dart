@@ -14,6 +14,7 @@ extension _WorkerCompactOrders on _AdminProductionMapOrdersScreenState {
     final scope = currentSessionReadScope();
     final account = _adminPageAccount;
     final generation = _workerQueueWindowGeneration;
+    final queueGeneration = _queueSnapshotGeneration;
     final key = jsonEncode([account, 'worker-detail', apparatus.id, orderId]);
     final loader = widget.orderDetailLoader ??
         MobileApi.instance.workerProductionOrderDetail;
@@ -75,6 +76,11 @@ extension _WorkerCompactOrders on _AdminProductionMapOrdersScreenState {
           }
           _workerPreparedDetail = detail;
           _workerPreparedDetailScope = scope;
+          _workerPreparedDetailAuthority = (
+            account: account,
+            windowGeneration: generation,
+            queueGeneration: queueGeneration,
+          );
           return detail;
         }
         if (identical(_adminDetailReads[key], future)) {
@@ -87,6 +93,36 @@ extension _WorkerCompactOrders on _AdminProductionMapOrdersScreenState {
     } finally {
       timer.cancel();
     }
+  }
+
+  bool _hasFreshWorkerTemporaryPauseDetail(
+    AdminApparatus apparatus,
+    ProductionMapSaved order,
+    AdminApparatusQueueOrderActionControl? control,
+  ) {
+    final detail = _workerPreparedDetail;
+    final authority = _workerPreparedDetailAuthority;
+    final baseline = _canonicalQueueSnapshot;
+    // A scoped network read can authorize this order while warm list rows
+    // still await their stream handshake. It does not validate the whole list.
+    return _canonicalCacheAwaitingValidation &&
+        baseline?.isWorkerList == true &&
+        detail != null &&
+        authority != null &&
+        _workerPreparedDetailScope == currentSessionReadScope() &&
+        authority.account == _adminPageAccount &&
+        authority.windowGeneration == _workerQueueWindowGeneration &&
+        authority.queueGeneration == _queueSnapshotGeneration &&
+        detail.maps.length == 1 &&
+        identical(detail.maps.single, order) &&
+        detail.epoch.isNotEmpty &&
+        detail.epoch == baseline!.epoch &&
+        detail.revision != null &&
+        detail.revision! >= (baseline.revision ?? -1) &&
+        !_retiredSnapshotEpochs.contains(detail.epoch) &&
+        control != null &&
+        identical(detail.queueActionControls[apparatus.id]?[order.map.id],
+            control);
   }
 
   Future<({double? base, double? kg})> _workerScopedDetailMetrics(

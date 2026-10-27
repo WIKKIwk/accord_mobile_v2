@@ -5,8 +5,10 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
 import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_models.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/session/session_read_scope.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
@@ -248,7 +250,7 @@ class _CompactHarness {
   }
 
   Future<void> mount(WidgetTester tester,
-      {Size viewport = const Size(390, 844)}) async {
+      {Size viewport = const Size(390, 844), bool settle = true}) async {
     if (!AppSession.instance.profile!.assignedApparatus.contains(stationId)) {
       AppSession.instance.profile =
           AppSession.instance.profile!.copyWith(assignedApparatus: [stationId]);
@@ -279,7 +281,13 @@ class _CompactHarness {
         liveEventsLoader: () => events.stream,
       ),
     ));
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      for (var frame = 0; frame < 8; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
   }
 
   Future<void> close(WidgetTester tester) async {
@@ -433,6 +441,91 @@ void main() {
   });
 
   _registerHydratedSheetRecoveryTests();
+
+  for (final authority in [true, false]) {
+    testWidgets(
+        authority
+            ? 'compact cached worker long press exposes fresh scoped temporary pause'
+            : 'compact cached worker long press hides absent scoped pause authority',
+        (tester) async {
+      final catalog = _catalog.copyWith(
+          sourceRevision: 1, sourceAasxSha256: 'a' * 64);
+      final harness = _CompactHarness(catalog: catalog)
+        ..detailState = 'in_progress';
+      if (authority) {
+        harness.detailControlPatch['temporary_pause'] = {
+          'session_id': 'unfinished-cached-roll',
+          'token': 'b' * 64,
+        };
+      }
+      final backend = MemoryProductionSnapshotBackend();
+      ProductionSnapshotStore.debugOverride =
+          ProductionSnapshotStore(backend: backend);
+      await TestModeController.instance.setEnabled(false);
+      await ProductionSnapshotStore.instance.write(
+          scope: currentSessionReadScope(),
+          key: jsonEncode(['canonical-queue-v1', true, false, true, 10, '']),
+          value: {
+            'schema': 1,
+            'snapshot': encodeProductionMapQueueSnapshot(harness.snapshot()),
+            'apparatus': [encodeCachedApparatus(catalog)],
+          });
+      final mutations = <http.Request>[];
+      await http.runWithClient(() async {
+        await harness.mount(tester, settle: false);
+        expect(tester.takeException(), isNull,
+            reason: 'Restored compact list must fit the phone viewport');
+        expect(harness.queueReads, 0,
+            reason: 'This must exercise restored compact rows, not a fresh list');
+        expect(harness.events.hasListener, isTrue);
+        await tester.longPress(_workerRow('zakaz-b'));
+        for (var frame = 0; frame < 8; frame++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(harness.details,
+            [(apparatus: _station, orderId: 'zakaz-b')]);
+        expect(find.byKey(const ValueKey('worker-temporary-pause')),
+            authority ? findsOneWidget : findsNothing);
+        expect(tester.takeException(), isNull,
+            reason: 'Bosma long-press menu must fit the phone viewport');
+        expect(harness.queueReads, 0,
+            reason: 'Scoped action authority must not refresh the global list');
+        expect(backend.writeCount, 1,
+            reason: 'One scoped detail must not certify and persist the list');
+        if (authority) {
+          final globalRefresh = Completer<AdminApparatusQueueSnapshot>();
+          harness.queueRefresh = globalRefresh;
+          await tester.tap(find.byKey(const ValueKey('worker-temporary-pause')));
+          for (var frame = 0; frame < 8; frame++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          expect(mutations, hasLength(1));
+          expect(jsonDecode(mutations.single.body), {
+            'apparatus': _station,
+            'order_id': 'zakaz-b',
+            'session_id': 'unfinished-cached-roll',
+            'token': 'b' * 64,
+          });
+          expect(mutations.single.url.path.endsWith('/temporary-pause'), isTrue);
+          expect(globalRefresh.isCompleted, isFalse);
+          expect(backend.writeCount, 1);
+          harness.queueStates['zakaz-b'] = 'paused';
+          harness.states['zakaz-b'] = 'paused';
+          globalRefresh.complete(harness.snapshot());
+          await _flushHydration(tester);
+        } else {
+          expect(mutations, isEmpty);
+        }
+        await harness.close(tester);
+      }, () => MockClient((request) async {
+            if (request.method == 'POST') {
+              mutations.add(request);
+              return http.Response('{"ok":true}', 200);
+            }
+            return http.Response('{}', 404);
+          }));
+    });
+  }
 
   testWidgets(
       'compact worker list renders server membership rank and tone without details',
