@@ -7,6 +7,7 @@ const _queueActionControlRefreshTimeout = Duration(seconds: 5);
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     with WidgetsBindingObserver {
   bool _detailRecoveryNeeded = false;
+  // Button controls can recover before their independently loaded materials.
   bool _materialSectionNeedsRecovery = false;
   bool get _needsDetailRecovery =>
       _detailRecoveryNeeded || _materialSectionNeedsRecovery;
@@ -28,6 +29,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   late Map<String, String> _stageStates;
 
   AdminApparatusQueueOrderActionControl? _queueActionControl;
+  bool _widgetControlRetired = false;
   _WorkerDetailPresentation? _lastWorkerPresentation;
   bool _workerPresentationDenied = false;
   AdminRezkaOutputReport? _lastRezkaOutputReport;
@@ -268,6 +270,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       setState(() {
         _actionControlGeneration++;
         _queueActionControl = null;
+        _widgetControlRetired = true;
       });
       unawaited(_refreshQueueActionControlAfterWrite());
     }
@@ -347,6 +350,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final contextChanged =
         oldWidget.order.map.id.trim() != widget.order.map.id.trim() ||
         oldStation != station;
+    // The widget carries initial authority. After a write, only scoped reads
+    // and canonical controls may replace it for this order, including legacy
+    // ACKs without inline controls.
+    final deferWidgetControl = !contextChanged &&
+        (_widgetControlRetired ||
+            _detailRefreshInFlight ||
+            _needsDetailRecovery ||
+            _actionControlLoads > 0);
     if (!widget.workerMode && !widget.detailPending &&
         widget.initialControlConfirmed &&
         station.isEmpty) {
@@ -368,15 +379,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         }
       }
     }
-    if (!_actionInFlight && (_acceptedDetailControl == null || contextChanged)) {
+    if (!_actionInFlight && !deferWidgetControl &&
+        (_acceptedDetailControl == null || contextChanged)) {
       _queueActionControl = widget.queueActionControl;
     }
-    if (_acceptedDetailControl == null || contextChanged) {
+    if (!deferWidgetControl &&
+        (_acceptedDetailControl == null || contextChanged)) {
       _stageStates = Map<String, String>.from(
         widget.stageStatesByOrderId[widget.order.map.id.trim()] ?? const {},
       );
     }
     if (contextChanged) {
+      _widgetControlRetired = false;
       _lastWorkerPresentation = null;
       _workerPresentationDenied = false;
       _materialsHaveLoaded = false;
@@ -454,7 +468,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       );
       if (_orderImageBytes == null) unawaited(_loadOrderImage());
     }
-    if (_actionInFlight || _acceptedDetailControl != null) {
+    if (_actionInFlight || _acceptedDetailControl != null || deferWidgetControl) {
       return;
     }
     if (station.isEmpty) {
@@ -1239,7 +1253,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _materialStartRequirements = null;
         _materialsLoading = false;
         _materialsError = error is MobileApiException ||
-                error is TimeoutException || error is http.ClientException
+                error is TimeoutException ||
+                error is http.ClientException
             ? _readOnlyQueueActionErrorText(error, context.l10n)
             : context.l10n.productionText('worker.materials.load_failed');
         _materialSectionNeedsRecovery =
@@ -1594,6 +1609,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (widget.beginPrintPreflight?.call() == false) return null;
     _ownsPrintPreflight = true;
     setState(() {
+      _widgetControlRetired = true;
       _actionControlGeneration++;
       _actionInFlight = true;
       _lastQueueActionPrintFailed = false;
@@ -1619,7 +1635,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       if (_installDetailControl(controlState)) {
         _refreshDetailSections(refreshDisplayOnlyMaterials: false);
       } else {
-        setState(() => _queueActionControl = null);
+        setState(() {
+          _queueActionControl = null;
+          _lastWorkerPresentation = null;
+        });
         unawaited(_refreshQueueActionControlAfterWrite());
       }
       return response.hold;
@@ -1630,6 +1649,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _actionControlGeneration++;
         _actionInFlight = false;
         _queueActionControl = null;
+        _lastWorkerPresentation = null;
       });
       unawaited(_refreshQueueActionControlAfterWrite());
       _showSheetNotice(error is TimeoutException
@@ -1640,7 +1660,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       widget.endPrintPreflight?.call();
       _ownsPrintPreflight = false;
       if (mounted && _actionInFlight) setState(() => _actionInFlight = false);
-      _drainDetailRecoveryFromStream();
       _scheduleDetailRecovery();
     }
   }
@@ -1722,6 +1741,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final operation = ++_queueActionOperation;
     setState(() {
       _actionControlGeneration++;
+      _widgetControlRetired = true;
       _actionInFlight = true;
       _lastQueueActionPrintFailed = false;
     });
@@ -1772,6 +1792,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           // Do not invent permissions from the new state. The next controls
           // arrive separately, without holding the completed action open.
           _queueActionControl = null;
+          _lastWorkerPresentation = null;
         }
         if (_queueActionShouldClearStartInputProgress(
           action: action,
@@ -1810,7 +1831,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         } else {
           // The write is acknowledged. Read its controls immediately when
           // neither the response nor live state covers it; no timer is needed.
-          setState(() => _queueActionControl = null);
+          setState(() {
+            _queueActionControl = null;
+            _lastWorkerPresentation = null;
+          });
           unawaited(_refreshQueueActionControlAfterWrite());
         }
       }
