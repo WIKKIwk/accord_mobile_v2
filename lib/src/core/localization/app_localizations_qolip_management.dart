@@ -39,6 +39,16 @@ extension AppLocalizationsQolipManagement on AppLocalizations {
       'warehouse_required' =>
         _t('Omborni tanlang', 'Select a warehouse', 'Выберите склад'),
       'choose' => _t('Komplekt tanlash', 'Choose set', 'Выбрать комплект'),
+      'set_name_hint' => _t(
+          'Komplekt nomi yoki qolip kodini yozing',
+          'Enter a set name or mold code',
+          'Введите название комплекта или код формы'),
+      'matches' => _t('Mos komplektlar ({count})', 'Matching sets ({count})',
+          'Подходящие комплекты ({count})'),
+      'all_matches' => _t('Barchasini ko‘rish ({count})', 'Show all ({count})',
+          'Показать все ({count})'),
+      'lookup_retry' => _t('Komplektlarni qayta qidirish', 'Retry set search',
+          'Повторить поиск комплектов'),
       'copy_code' => _t('Komplekt kodini nusxalash', 'Copy set code',
           'Скопировать код комплекта'),
       'new_set' => _t('Yangi muqobil komplekt', 'New alternative set',
