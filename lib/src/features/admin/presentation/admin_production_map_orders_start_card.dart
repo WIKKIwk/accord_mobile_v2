@@ -32,6 +32,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
     required this.inputProgressError,
     required this.requiresQolipScan,
     required this.qolipScanned,
+    this.automaticQolipContent,
     required this.qolipCodes,
     this.onResetQolips,
     required this.requiredQolips,
@@ -98,6 +99,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   final String inputProgressError;
   final bool requiresQolipScan;
   final bool qolipScanned;
+  final Widget? automaticQolipContent;
   final List<String> qolipCodes;
   final VoidCallback? onResetQolips;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
@@ -722,7 +724,13 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 );
               },
             ),
-          if ((uiState.showStart || uiState.showResume) && requiresQolipScan) ...[
+          if ((uiState.showStart || uiState.showBackendBlockingState) &&
+              automaticQolipContent != null) ...[
+            const Divider(height: 28),
+            automaticQolipContent!,
+          ],
+          if (automaticQolipContent == null &&
+              (uiState.showStart || uiState.showResume) && requiresQolipScan) ...[
             Divider(
               height: 28,
               color: scheme.outlineVariant.withValues(alpha: 0.5),

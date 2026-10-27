@@ -55,6 +55,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.onToggleSummaryExpanded,
     required this.requiresQolipScan,
     required this.qolipScanned,
+    this.automaticQolipContent,
     required this.qolipCodes,
     this.onResetQolips,
     required this.requiredQolips,
@@ -149,6 +150,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback onToggleSummaryExpanded;
   final bool requiresQolipScan;
   final bool qolipScanned;
+  final Widget? automaticQolipContent;
   final List<String> qolipCodes;
   final VoidCallback? onResetQolips;
   final List<AdminProductionMapRequiredQolip> requiredQolips;
@@ -388,6 +390,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       inputProgressError: inputProgressError,
                       requiresQolipScan: requiresQolipScan,
                       qolipScanned: qolipScanned,
+                      automaticQolipContent: automaticQolipContent,
                       qolipCodes: qolipCodes,
                       onResetQolips: onResetQolips,
                       requiredQolips: requiredQolips,

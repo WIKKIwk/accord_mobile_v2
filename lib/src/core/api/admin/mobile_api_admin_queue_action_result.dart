@@ -1,7 +1,7 @@
 part of '../mobile_api.dart';
 
 extension MobileApiAdminQueueActionResult on MobileApi {
-Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
+  Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     required String apparatus,
     required String orderId,
     required String action,
@@ -10,6 +10,7 @@ Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     List<String> materialBarcodes = const [],
     String qolipCode = '',
     List<String> qolipCodes = const [],
+    AdminQolipAutomaticConfirmation? qolipConfirmation,
     double? producedQty,
     double? grossQty,
     double? bobinaKg,
@@ -47,7 +48,15 @@ Future<AdminApparatusQueueActionResult> adminApparatusQueueActionResult({
     bool freezeWithIssue = false,
     String issueNote = '',
   }) async {
-final normalizedApparatusId = apparatus.trim();
+    final normalizedApparatusId = apparatus.trim();
+    if (qolipConfirmation != null) {
+      qolipConfirmation.toJson();
+      if (action != 'start' ||
+          qolipCode.trim().isNotEmpty ||
+          qolipCodes.any((code) => code.trim().isNotEmpty)) {
+        throw _invalidQolipAutomaticConfirmation();
+      }
+    }
     if (!isCanonicalApparatusId(normalizedApparatusId)) {
       throw const MobileApiException(
         code: 'apparatus_id_invalid',
@@ -77,15 +86,24 @@ final normalizedApparatusId = apparatus.trim();
     }
     final issueFreezeRequested = action == 'freeze' && freezeWithIssue;
     if (await TestModeController.instance.isEnabled()) {
+      if (qolipConfirmation != null) {
+        throw const MobileApiException(
+          code: 'qolip_automatic_confirmation_unavailable',
+          message:
+              'Qoliplarni avtomatik tasdiqlash ERP ulanishini talab qiladi',
+        );
+      }
       if (action == 'start' || action == 'resume') {
         await _requireTestModeOrderQolipsAvailable(orderId);
       }
       if (outputPaddonCode.trim().isNotEmpty) {
-        throw const MobileApiException(code: 'paddon_invalid_input',
+        throw const MobileApiException(
+            code: 'paddon_invalid_input',
             message: 'Paddonga avtomatik qo‘shish ERP ulanishini talab qiladi');
       }
       if (completeWithoutOutput) {
-        throw const MobileApiException(code: 'queue_action_not_allowed',
+        throw const MobileApiException(
+            code: 'queue_action_not_allowed',
             message: 'Rulonsiz yakunlash ERP ulanishini talab qiladi');
       }
       if (rezkaRecordFrameIndex != null) {
@@ -95,50 +113,51 @@ final normalizedApparatusId = apparatus.trim();
         );
       }
       return _adminApparatusQueueActionResultTestMode(
-      apparatus: apparatus,
-      orderId: orderId,
-      action: action,
-      materialBarcode: materialBarcode,
-      materialBarcodes: materialBarcodes,
-      qolipCode: qolipCode,
-      qolipCodes: qolipCodes,
-      producedQty: producedQty,
-      grossQty: grossQty,
-      bobinaKg: bobinaKg,
-      diameter: diameter,
-      returnInkKg: returnInkKg,
-      laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
-      laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
-      rezkaBosmaWaste: rezkaBosmaWaste,
-      rezkaLaminationWaste: rezkaLaminationWaste,
-      rezkaEdgeWaste: rezkaEdgeWaste,
-      totalWaste: totalWaste,
-      finishedGoodsKg: finishedGoodsKg,
-      finishedGoodsMeter: finishedGoodsMeter,
-      rezkaFrames: rezkaFrames,
-      uom: uom,
-      qrPayload: qrPayload,
-      progressBatchId: progressBatchId,
-      customerName: customerName,
-      driverUrl: driverUrl,
-      printTransport: printTransport,
-      printer: printer,
-      printMode: printMode,
-      completionRequestNote: completionRequestNote,
-      returnedPaintItems: returnedPaintItems,
-      returnedPaintImageId: returnedPaintImageId,
-      fullCompletionReportRequired: fullCompletionReportRequired,
-      workerHandoff: workerHandoff,
-      removeRollFromApparatus: removeRollFromApparatus,
-      freezeRequestId: freezeRequestId,
-      freezeWithIssue: freezeWithIssue,
-      issueNote: issueNote,
-      normalizedApparatusId: normalizedApparatusId,
-      trimmedIssueNote: trimmedIssueNote,
-      issueFreezeRequested: issueFreezeRequested,
+        apparatus: apparatus,
+        orderId: orderId,
+        action: action,
+        materialBarcode: materialBarcode,
+        materialBarcodes: materialBarcodes,
+        qolipCode: qolipCode,
+        qolipCodes: qolipCodes,
+        producedQty: producedQty,
+        grossQty: grossQty,
+        bobinaKg: bobinaKg,
+        diameter: diameter,
+        returnInkKg: returnInkKg,
+        laminationPrintLeftoverRolls: laminationPrintLeftoverRolls,
+        laminationFilmLeftoverRolls: laminationFilmLeftoverRolls,
+        rezkaBosmaWaste: rezkaBosmaWaste,
+        rezkaLaminationWaste: rezkaLaminationWaste,
+        rezkaEdgeWaste: rezkaEdgeWaste,
+        totalWaste: totalWaste,
+        finishedGoodsKg: finishedGoodsKg,
+        finishedGoodsMeter: finishedGoodsMeter,
+        rezkaFrames: rezkaFrames,
+        uom: uom,
+        qrPayload: qrPayload,
+        progressBatchId: progressBatchId,
+        customerName: customerName,
+        driverUrl: driverUrl,
+        printTransport: printTransport,
+        printer: printer,
+        printMode: printMode,
+        completionRequestNote: completionRequestNote,
+        returnedPaintItems: returnedPaintItems,
+        returnedPaintImageId: returnedPaintImageId,
+        fullCompletionReportRequired: fullCompletionReportRequired,
+        workerHandoff: workerHandoff,
+        removeRollFromApparatus: removeRollFromApparatus,
+        freezeRequestId: freezeRequestId,
+        freezeWithIssue: freezeWithIssue,
+        issueNote: issueNote,
+        normalizedApparatusId: normalizedApparatusId,
+        trimmedIssueNote: trimmedIssueNote,
+        issueFreezeRequested: issueFreezeRequested,
       );
     }
     return _adminApparatusQueueActionResultBackend(
+      qolipConfirmation: qolipConfirmation,
       includeControl: includeControl,
       outputPaddonCode: outputPaddonCode,
       printPreflightHoldId: printPreflightHoldId,

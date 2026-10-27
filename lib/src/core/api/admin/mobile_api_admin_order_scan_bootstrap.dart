@@ -53,7 +53,10 @@ class AdminOrderScanBootstrap {
       controlState: control,
       scope: rawControl['scope'] as String,
       materials: _completeBootstrapMaterials(ready('materials'), orderId),
-      qolips: _completeBootstrapQolips(ready('qolips')),
+      qolips: _completeBootstrapQolips(
+        ready('qolips'),
+        interaction: control.control.interaction,
+      ),
       materialAssignments: _bootstrapMaterialAssignments(
           sections is Map ? sections['material_assignments'] : null, control),
       inputProgressBatches: _bootstrapInputProgress(
@@ -90,8 +93,8 @@ AdminApparatusQueueSnapshot _completeBootstrapQueueContext(
       raw['stage_states'] is! Map) {
     throw _productionMapQueueContractException('invalid scan queue context');
   }
-  final snapshot = _productionMapQueueSnapshotFromJson(
-      raw.cast<String, dynamic>());
+  final snapshot =
+      _productionMapQueueSnapshotFromJson(raw.cast<String, dynamic>());
   final targetControl =
       snapshot.queueActionControls[control.apparatus]?[control.orderId];
   final ids = snapshot.maps.map((order) => order.map.id.trim()).toList();
@@ -159,7 +162,7 @@ bool _bootstrapStrings(Object? raw) =>
     raw is List && raw.every((value) => value is String && value.isNotEmpty);
 
 bool _bootstrapScopedSection(
-    Object? raw, AdminPrintPreflightControlState control) =>
+        Object? raw, AdminPrintPreflightControlState control) =>
     raw is Map &&
     raw['status'] == 'ready' &&
     raw['apparatus'] == control.apparatus &&
@@ -168,7 +171,8 @@ bool _bootstrapScopedSection(
 
 List<AdminRawMaterialAssignment>? _bootstrapMaterialAssignments(
     Object? section, AdminPrintPreflightControlState control) {
-  if (!_bootstrapScopedSection(section, control) || section is! Map ||
+  if (!_bootstrapScopedSection(section, control) ||
+      section is! Map ||
       section['data'] is! List) {
     return null;
   }
@@ -177,7 +181,8 @@ List<AdminRawMaterialAssignment>? _bootstrapMaterialAssignments(
   final result = <AdminRawMaterialAssignment>[];
   try {
     for (final raw in rows) {
-      if (raw is! Map || raw['order_id'] != control.orderId ||
+      if (raw is! Map ||
+          raw['order_id'] != control.orderId ||
           raw['apparatus'] != control.apparatus ||
           raw['barcode'] is! String ||
           (raw['barcode'] as String).trim().isEmpty ||
@@ -186,8 +191,8 @@ List<AdminRawMaterialAssignment>? _bootstrapMaterialAssignments(
               .any((key) => raw[key] is! String)) {
         return null;
       }
-      result.add(AdminRawMaterialAssignment.fromJson(
-          raw.cast<String, dynamic>()));
+      result.add(
+          AdminRawMaterialAssignment.fromJson(raw.cast<String, dynamic>()));
     }
   } catch (_) {
     return null;
@@ -197,8 +202,10 @@ List<AdminRawMaterialAssignment>? _bootstrapMaterialAssignments(
 
 List<AdminProgressBatch>? _bootstrapInputProgress(
     Object? section, AdminPrintPreflightControlState control) {
-  if (!_bootstrapScopedSection(section, control) || section is! Map ||
-      section['limit'] is! int || section['limit'] != 500 ||
+  if (!_bootstrapScopedSection(section, control) ||
+      section is! Map ||
+      section['limit'] is! int ||
+      section['limit'] != 500 ||
       section['status_filter'] != 'waiting' ||
       section['data'] is! Map) {
     return null;
@@ -210,7 +217,8 @@ List<AdminProgressBatch>? _bootstrapInputProgress(
   final result = <AdminProgressBatch>[];
   try {
     for (final raw in rows) {
-      if (raw is! Map || raw['order_id'] != control.orderId ||
+      if (raw is! Map ||
+          raw['order_id'] != control.orderId ||
           raw['wip_status'] != 'waiting' ||
           raw['batch_id'] is! String ||
           (raw['batch_id'] as String).trim().isEmpty ||
@@ -218,7 +226,8 @@ List<AdminProgressBatch>? _bootstrapInputProgress(
           raw['qr_payload'] is! String ||
           (raw['qr_payload'] as String).trim().isEmpty ||
           !qrs.add((raw['qr_payload'] as String).trim().toUpperCase()) ||
-          raw['apparatus'] is! String || raw['uom'] is! String ||
+          raw['apparatus'] is! String ||
+          raw['uom'] is! String ||
           raw['produced_qty'] is! num ||
           !(raw['produced_qty'] as num).isFinite ||
           (raw['payload_json'] != null && raw['payload_json'] is! Map)) {
@@ -292,7 +301,10 @@ AdminRawMaterialStartRequirements? _completeBootstrapMaterials(
   }
 }
 
-AdminProductionMapQolipValidation? _completeBootstrapQolips(Object? raw) {
+AdminProductionMapQolipValidation? _completeBootstrapQolips(
+  Object? raw, {
+  AdminQueueWorkerInteraction? interaction,
+}) {
   if (raw is! Map || raw['ok'] != true || raw['qolip'] is! Map) return null;
   final qolip = raw['qolip'] as Map;
   final entries = qolip['required_qolips'];
@@ -315,9 +327,20 @@ AdminProductionMapQolipValidation? _completeBootstrapQolips(Object? raw) {
   for (var index = 0; index < entries.length; index++) {
     if (entries[index]['qolip_code'] != codes[index]) return null;
   }
-  return AdminProductionMapQolipValidation.fromJson(
-    qolip.cast<String, dynamic>(),
-  );
+  try {
+    final result = AdminProductionMapQolipValidation.fromJson(
+      qolip.cast<String, dynamic>(),
+    );
+    final automatic = interaction?.qolipAutomaticConfirmation ?? false;
+    if (result.automaticConfirmationEnabled != automatic ||
+        (automatic &&
+            result.policyRevision != interaction!.qolipPolicyRevision)) {
+      return null;
+    }
+    return result;
+  } catch (_) {
+    return null;
+  }
 }
 
 extension MobileApiAdminOrderScanBootstrap on MobileApi {
@@ -329,6 +352,7 @@ extension MobileApiAdminOrderScanBootstrap on MobileApi {
     List<String> materialBarcodes = const [],
     bool includeSections = true,
     bool includeContext = false,
+    bool automaticQolipConfirmation = false,
     String qrPayload = '',
   }) async {
     final station = _requireCanonicalApparatusId(apparatus);
@@ -343,6 +367,8 @@ extension MobileApiAdminOrderScanBootstrap on MobileApi {
             'order_id': order,
             if (!includeSections) 'include_sections': 'false',
             if (includeContext) 'include_context': 'true',
+            if (automaticQolipConfirmation)
+              'automatic_qolip_confirmation': 'true',
             if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
             if (materialBarcodes.isNotEmpty)
               'material_barcodes': materialBarcodes.join(','),

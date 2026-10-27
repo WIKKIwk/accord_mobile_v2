@@ -51,6 +51,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   final Set<String> _scannedMaterialBarcodes = {};
   final Map<String, String> _scannedQolipCodes = {};
   final Map<String, AdminProductionMapRequiredQolip> _requiredQolips = {};
+  AdminProductionMapQolipValidation? _automaticQolipValidation;
+  String? _automaticQolipSetId;
+  int? _automaticQolipReadRevision;
+  int? _automaticQolipRequestedRevision;
   int _qolipRequirementsGeneration = 0;
   bool _qolipRequirementsLoaded = false;
   bool _qolipRequirementsLoading = false;
@@ -314,6 +318,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _materialsLoading = false;
       _inputProgressLoading = false;
       _qolipRequirementsGeneration++;
+      _clearAutomaticQolips();
       _requiredQolips.clear();
       _qolipRequirementsLoaded = false;
       _qolipRequirementsLoading = false;
@@ -383,6 +388,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
       _qolipRequirementsGeneration++;
+      _clearAutomaticQolips();
       _requiredQolips.clear();
       _qolipRequirementsLoaded = false;
       _qolipRequirementsLoading = false;
@@ -567,6 +573,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             uiState.materialRequiredCount > uiState.materialScannedCount;
     final qolipScanPending = (uiState.showStart || uiState.showResume) &&
         uiState.qolipScanRequired &&
+        !_automaticQolipMode &&
         !_qolipRequirementsLoading &&
         _qolipRequirementsError.isEmpty &&
         _requiredQolips.isNotEmpty &&
@@ -588,10 +595,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     // Start preparation cannot proceed without the required mold set. Keep
     // independent material intake and merge scans available for active work.
     final startScanRequirementsReady = !uiState.qolipScanRequired ||
+        (_automaticQolipMode ? _automaticQolipsReady :
         (_qolipRequirementsLoaded &&
             !_qolipRequirementsLoading &&
             _qolipRequirementsError.isEmpty &&
-            _requiredQolips.isNotEmpty);
+            _requiredQolips.isNotEmpty));
     return (
       visible: !_wipGuidanceOpen && !_mergeConfirmationPending &&
           ((startScanRequirementsReady &&
@@ -634,7 +642,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         !uiState.contractSynchronized;
     final requiresQolipScan = uiState.qolipScanRequired;
     final qolipScanAllowsStart =
-        !requiresQolipScan || _allRequiredQolipsScanned;
+        !requiresQolipScan || _qolipsConfirmedForStart;
     final materialStartUnavailableReason = _materialStartUnavailableReason(
       orderWidthMm: map.widthMm,
       materialRequirements: _materialStartRequirements,
@@ -746,6 +754,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         showQuickScanner: !_initialQrScanPending && scanTasks.visible,
         allowConcurrentQuickScanner: widget.workerMode && !scanTasks.merge,
         onQuickScan: _handleQuickScan,
+        automaticQolipContent: _automaticQolipMode
+            ? _automaticQolipContent() : null,
         requiresQolipScan: retainingPresentation
             ? presentation.uiState.qolipScanRequired : requiresQolipScan,
         qolipScanned: retainingPresentation
@@ -1318,6 +1328,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final apparatus = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
     final generation = ++_qolipRequirementsGeneration;
+    final automaticMode = _automaticQolipMode;
+    final readRevision = _acceptedDetailControl?.revision;
+    if (automaticMode) _automaticQolipRequestedRevision = readRevision;
+    final policyRevision = _queueActionControl?.interaction?.qolipPolicyRevision;
+    bool current() => generation == _qolipRequirementsGeneration &&
+        (!automaticMode || readRevision == _acceptedDetailControl?.revision) &&
+        automaticMode == _automaticQolipMode &&
+        policyRevision == _queueActionControl?.interaction?.qolipPolicyRevision;
     if (!_queueActionContractSynchronized ||
         _queueActionControl?.interaction?.qolipMode !=
             AdminQueueQolipMode.scanRequired) {
@@ -1335,29 +1353,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           await MobileApi.instance.adminProductionMapQolipRequirements(
         apparatus: apparatus,
         orderId: orderId,
+        automaticConfirmation: automaticMode,
       );
-      if (!mounted ||
-          generation != _qolipRequirementsGeneration ||
+      if (!mounted || !current() ||
           readIsCurrent?.call() == false ||
           widget.apparatus?.id.trim() != apparatus ||
           widget.order.map.id.trim() != orderId) {
         return;
       }
       setState(() {
-        _replaceRequiredQolips(validation.requiredQolips);
+        _acceptQolipRequirements(validation);
         _qolipRequirementsLoaded = true;
         _qolipRequirementsLoading = false;
         _qolipRequirementsError = '';
       });
     } catch (error) {
-      if (!mounted ||
-          generation != _qolipRequirementsGeneration ||
+      if (!mounted || !current() ||
           readIsCurrent?.call() == false ||
           widget.apparatus?.id.trim() != apparatus ||
           widget.order.map.id.trim() != orderId) {
         return;
       }
       setState(() {
+        _clearAutomaticQolips();
         _requiredQolips.clear();
         _qolipRequirementsLoading = false;
         _qolipRequirementsError = _readOnlyQueueActionErrorText(
@@ -1413,6 +1431,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         widget.currentQueueSnapshot != null &&
         !await TestModeController.instance.isEnabled()) {
       final bootstrap = await MobileApi.instance.adminOrderScanBootstrap(
+            automaticQolipConfirmation: true,
         apparatus: apparatus, orderId: orderId, includeSections: false,
       ).timeout(_queueActionControlRefreshTimeout);
       if (!mounted || generation != _actionControlGeneration ||
@@ -1686,7 +1705,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       scannedMaterialBarcodes: _scannedMaterialBarcodes,
       startInputProgressBatch: _startInputProgressBatch,
       startInputOpeningWipBatch: _startInputOpeningWipBatch,
-      qolipScanned: _allRequiredQolipsScanned,
+      qolipScanned: _qolipsConfirmedForStart,
       l10n: l10n,
     );
     if (prepared == null) {
@@ -1726,6 +1745,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
               printMode: printMode,
               completionRequestNote: completionRequestNote,
               qolipCodes: qolipCodes,
+              qolipConfirmation: action == 'start'
+                  ? _automaticQolipConfirmation : null,
               workerHandoff: workerHandoff,
               removeRollFromApparatus: removeRollFromApparatus,
               freezeWithIssue: freezeWithIssue,
@@ -1760,6 +1781,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           _startInputOpeningWipBatch = null;
         }
         if (action == 'start' && states != null) {
+          _clearAutomaticQolips();
           _scannedQolipCodes.clear();
           _requiredQolips.clear();
           _qolipsExpanded = false;
@@ -1871,6 +1893,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           error is MobileApiException && error.code == 'qolip_scan_incomplete';
       setState(() {
         _actionInFlight = false;
+        if (action == 'start') _clearAutomaticQolips();
         if (action == 'start' && _queueActionShouldClearQolipScan(error)) {
           _scannedQolipCodes.clear();
           if (requirementsChanged) {
@@ -1965,6 +1988,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _queueActionControl?.interaction?.qolipMode !=
             AdminQueueQolipMode.scanRequired) {
       return const [];
+    }
+    if (action == 'start' && _automaticQolipMode) {
+      if (_automaticQolipsReady) return const [];
+      _showSheetNotice(_automaticQolipBlockingText);
+      return null;
     }
     if (_scannedQolipCodes.isNotEmpty) {
       if (_allRequiredQolipsScanned) {
@@ -2235,7 +2263,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       }
 
       Object? scanError;
-      if (_queueActionControl?.interaction?.qolipMode ==
+      if (!_automaticQolipMode && _queueActionControl?.interaction?.qolipMode ==
           AdminQueueQolipMode.scanRequired) {
         final requiredQolip = _requiredQolips[normalized.toLowerCase()];
         if (requiredQolip != null) {

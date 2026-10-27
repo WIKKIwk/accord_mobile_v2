@@ -1,7 +1,7 @@
 part of '../mobile_api.dart';
 
 extension MobileApiAdminQueueAction on MobileApi {
-Future<Map<String, String>> adminApparatusQueueAction({
+  Future<Map<String, String>> adminApparatusQueueAction({
     required String apparatus,
     required String orderId,
     required String action,
@@ -9,6 +9,7 @@ Future<Map<String, String>> adminApparatusQueueAction({
     List<String> materialBarcodes = const [],
     String qolipCode = '',
     List<String> qolipCodes = const [],
+    AdminQolipAutomaticConfirmation? qolipConfirmation,
     double? producedQty,
     double? grossQty,
     double? bobinaKg,
@@ -44,6 +45,7 @@ Future<Map<String, String>> adminApparatusQueueAction({
       materialBarcodes: materialBarcodes,
       qolipCode: qolipCode,
       qolipCodes: qolipCodes,
+      qolipConfirmation: qolipConfirmation,
       producedQty: producedQty,
       grossQty: grossQty,
       bobinaKg: bobinaKg,

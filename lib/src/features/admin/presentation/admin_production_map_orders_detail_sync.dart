@@ -110,6 +110,21 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
       _materialsLoading = true;
       _materialsError = '';
     }
+    final previousInteraction = _queueActionControl?.interaction;
+    final nextInteraction = control.control.interaction;
+    if ((previousInteraction?.qolipAutomaticConfirmation == true ||
+            nextInteraction?.qolipAutomaticConfirmation == true) &&
+        (previousInteraction?.qolipAutomaticConfirmation !=
+                nextInteraction?.qolipAutomaticConfirmation ||
+            previousInteraction?.qolipPolicyRevision !=
+                nextInteraction?.qolipPolicyRevision)) {
+      _qolipRequirementsGeneration++;
+      _clearAutomaticQolips();
+      _requiredQolips.clear();
+      _scannedQolipCodes.clear();
+      _qolipRequirementsLoaded = false;
+      _qolipRequirementsError = '';
+    }
     _workerPresentationDenied = false;
     _acceptedDetailControl = control;
     _queueActionControl = control.control;
@@ -184,6 +199,10 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
     final waitingForAction = _pendingDetailRevision != null;
     if (!_installCanonicalDetailSnapshot() || _queueActionBusy) return;
     if (!changed) {
+      if (_automaticQolipMode &&
+          _automaticQolipRequestedRevision != _acceptedDetailControl?.revision) {
+        unawaited(_loadQolipRequirements());
+      }
       if (recoveryNeeded && !hydratedAdmin) _queueDetailRecoveryFromStream();
       return;
     }

@@ -97,6 +97,7 @@ part 'admin/mobile_api_admin_progress_qr.dart';
 part 'admin/mobile_api_admin_users_workers.dart';
 part 'admin/mobile_api_admin_suppliers_customers.dart';
 part 'admin/mobile_api_admin_qolip_orders.dart';
+part 'admin/mobile_api_qolip_start_settings.dart';
 part 'admin/mobile_api_admin_opening_wip.dart';
 part 'admin/mobile_api_admin_training.dart';
 part 'admin/mobile_api_admin_telegram.dart';

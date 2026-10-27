@@ -44,10 +44,19 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       return qolipReworkText('order_unavailable');
     }
     final key = switch (code.trim().toLowerCase()) {
+      'qolip_confirmation_invalid' ||
+      'qolip_automatic_confirmation_invalid' =>
+        'qolip.start.auto.unknown_state',
+      'qolip_automatic_confirmation_disabled' ||
+      'qolip_policy_changed' =>
+        'qolip.start.auto.settings_changed',
+      'qolip_set_changed' => 'qolip.start.auto.set_changed',
+      'qolip_automatic_confirmation_unavailable' =>
+        'qolip.start.auto.unavailable',
       'apparatus_busy' => 'worker.waiting.apparatus_busy',
       'print_preflight_active' => 'worker.waiting.print_preflight_active',
       'print_preflight_other_order_active' =>
-          'worker.waiting.print_preflight_other_order_active',
+        'worker.waiting.print_preflight_other_order_active',
       'previous_stage_not_configured' =>
         'worker.error.previous_stage_not_configured',
       'wip_route_source_unresolved' => 'worker.error.wip_route_source',
@@ -55,18 +64,24 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
         'worker.error.wip_route_destination',
       'wip_route_ambiguous' => 'worker.error.wip_route_ambiguous',
       'wip_route_changed' => 'worker.error.wip_route_changed',
-      'progress_batch_not_found' || 'progress_qr_not_found' =>
+      'progress_batch_not_found' ||
+      'progress_qr_not_found' =>
         'worker.qr.not_found',
       'progress_batch_not_accepted' => 'worker.qr.not_accepted',
-      'progress_qr_invalid_response' || 'progress_qr_validation_missing' =>
+      'progress_qr_invalid_response' ||
+      'progress_qr_validation_missing' =>
         'worker.qr.invalid_response',
       'raw_material_assignment_required' =>
         'worker.error.incomplete_material_groups',
       'material_deliverer_missing' => 'worker.delivery.no_deliverers',
-      'material_deliverer_not_allowed' => 'worker.delivery.deliverer_unavailable',
-      'material_delivery_location_missing' => 'worker.delivery.location_missing',
+      'material_deliverer_not_allowed' =>
+        'worker.delivery.deliverer_unavailable',
+      'material_delivery_location_missing' =>
+        'worker.delivery.location_missing',
       'material_delivery_receipt_unconfirmed' => 'worker.delivery.unconfirmed',
-      'material_delivery_candidates' || 'material_delivery_receipt' => 'worker.delivery.failed',
+      'material_delivery_candidates' ||
+      'material_delivery_receipt' =>
+        'worker.delivery.failed',
       'raw_material_needs_cutting' => 'worker.delivery.needs_cutting',
       'raw_material_width_mismatch' => 'worker.error.material_width_mismatch',
       'waiting_sequence' => 'worker.waiting.sequence',

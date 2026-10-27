@@ -116,6 +116,7 @@ part 'admin_production_map_orders_summary_details.dart';
 part 'admin_production_map_orders_read_only_sheet.dart';
 part 'admin_production_map_orders_material_delivery.dart';
 part 'admin_production_map_orders_scan_bootstrap.dart';
+part 'admin_production_map_orders_automatic_qolips.dart';
 part 'admin_production_map_orders_detail_sync.dart';
 part 'admin_production_map_orders_live_state.dart';
 part 'admin_production_map_orders_admin_paging.dart';

@@ -68,6 +68,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       }
       final result = prepared?.bootstrap ?? await MobileApi.instance
           .adminOrderScanBootstrap(
+            automaticQolipConfirmation: true,
             apparatus: apparatus,
             orderId: orderId,
             materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
@@ -117,7 +118,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       final qolips = needsQolips ? result.qolips : null;
       if (qolips != null) {
         _setScanBootstrapState(() {
-          _replaceRequiredQolips(qolips.requiredQolips);
+          _acceptQolipRequirements(qolips, readRevision: control.revision);
           _qolipRequirementsLoaded = true;
           _qolipRequirementsError = '';
         });
@@ -143,6 +144,10 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
           code: 'order_scan_bootstrap_stale',
           message: 'Order state changed while scan requirements loaded',
         );
+      }
+      if (current() && _automaticQolipMode &&
+          _automaticQolipReadRevision != _acceptedDetailControl?.revision) {
+        await _loadQolipRequirements(readIsCurrent: current);
       }
       if (current()) _detailRecoveryNeeded = false;
       return true;
@@ -172,6 +177,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
         _intakeCandidateAssignments = const [];
         _materialsLoading = false;
         _materialsError = _readOnlyQueueActionErrorText(error, context.l10n);
+        _clearAutomaticQolips();
         _requiredQolips.clear();
         _qolipRequirementsLoaded = false;
         _qolipRequirementsLoading = false;

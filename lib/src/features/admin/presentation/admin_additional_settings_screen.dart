@@ -11,6 +11,7 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../shared/models/app_models.dart';
 import 'widgets/admin_app_update_settings_card.dart';
 import 'widgets/admin_lamination_settings_card.dart';
+import 'widgets/admin_qolip_start_settings_card.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
 
@@ -141,18 +142,21 @@ class _AdminAdditionalSettingsScreenState
                         )),
                         Card(
                             child: SwitchListTile(
-                          key: const ValueKey('paddon-worker-visibility-switch'),
+                          key:
+                              const ValueKey('paddon-worker-visibility-switch'),
                           title: Text(context.l10n.productionText(
                               'paddon.management.worker_visibility.title')),
                           subtitle: Text(context.l10n.productionText(
                               'paddon.management.worker_visibility.description')),
-                          value: snapshot.data?.workerVisibilityEnabled ?? false,
+                          value:
+                              snapshot.data?.workerVisibilityEnabled ?? false,
                           onChanged: _saving
                               ? null
                               : (enabled) => _saveSettings(
                                   workerVisibilityEnabled: enabled),
                         )),
                         const AdminLaminationSettingsCard(),
+                        const AdminQolipStartSettingsCard(),
                         if (_saving) const LinearProgressIndicator(),
                       ]);
                 },

@@ -1,6 +1,113 @@
 part of 'app_localizations.dart';
 
 const _paddonManagementTranslations = {
+  'qolip.start.settings.title': {
+    'uz': 'Bosmachilar qoliplarni skan qilmasdan ish boshlashi',
+    'en': 'Printing operators can start without scanning molds',
+    'ru': 'Печатники могут начинать работу без сканирования форм',
+    'ur': 'پرنٹنگ کارکن سانچے اسکین کیے بغیر کام شروع کر سکتے ہیں',
+  },
+  'qolip.start.settings.description': {
+    'uz':
+        'Yoqilganda mavjud qolip komplekti ish boshlashdan oldin avtomatik tekshiriladi. Peredelkadagi, band yoki biriktirilmagan qoliplar bilan ish boshlanmaydi.',
+    'en':
+        'When enabled, the assigned mold set is checked automatically before starting. Molds in rework, busy molds and missing assignments still block starting.',
+    'ru':
+        'При включении назначенный комплект форм проверяется автоматически перед началом работы. Формы в переделке, занятые формы и отсутствие назначенных форм блокируют запуск.',
+    'ur':
+        'فعال ہونے پر کام شروع کرنے سے پہلے مقررہ سانچوں کا سیٹ خودکار طور پر جانچا جاتا ہے۔ مرمت میں موجود، مصروف یا غیر مقررہ سانچے کام شروع کرنے سے روکتے ہیں۔',
+  },
+  'qolip.start.settings.load_failed': {
+    'uz': 'Qolipni tasdiqlash sozlamasi yuklanmadi.',
+    'en': 'Could not load the mold confirmation setting.',
+    'ru': 'Не удалось загрузить настройку подтверждения форм.',
+    'ur': 'سانچوں کی تصدیق کی ترتیب لوڈ نہیں ہو سکی۔',
+  },
+  'qolip.start.settings.save_failed': {
+    'uz': 'Qolipni tasdiqlash sozlamasi saqlanmadi. Qayta urinib ko‘ring.',
+    'en': 'Could not save the mold confirmation setting. Please retry.',
+    'ru':
+        'Не удалось сохранить настройку подтверждения форм. Повторите попытку.',
+    'ur': 'سانچوں کی تصدیق کی ترتیب محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔',
+  },
+  'qolip.start.auto.confirmed': {
+    'uz': 'Qoliplar avtomatik tasdiqlandi',
+    'en': 'Molds confirmed automatically',
+    'ru': 'Формы подтверждены автоматически',
+    'ur': 'سانچوں کی خودکار تصدیق ہو گئی',
+  },
+  'qolip.start.auto.checking': {
+    'uz': 'Qoliplar tekshirilmoqda',
+    'en': 'Checking molds',
+    'ru': 'Проверка форм',
+    'ur': 'سانچوں کی جانچ ہو رہی ہے',
+  },
+  'qolip.start.auto.choose_set': {
+    'uz': 'Ishlatiladigan komplektni tanlang',
+    'en': 'Choose the mold set to use',
+    'ru': 'Выберите комплект форм для работы',
+    'ur': 'استعمال کے لیے سانچوں کا سیٹ منتخب کریں',
+  },
+  'qolip.start.auto.set_label': {
+    'uz': 'Komplekt',
+    'en': 'Mold set',
+    'ru': 'Комплект форм',
+    'ur': 'سانچوں کا سیٹ',
+  },
+  'qolip.start.auto.blocked': {
+    'uz': 'Qolip komplektida muammo bor. Ish boshlash mumkin emas.',
+    'en': 'The mold set has a problem. Work cannot start.',
+    'ru': 'В комплекте форм есть проблема. Начать работу нельзя.',
+    'ur': 'سانچوں کے سیٹ میں مسئلہ ہے۔ کام شروع نہیں ہو سکتا۔',
+  },
+  'qolip.start.auto.settings_changed': {
+    'uz': 'Qolipni tasdiqlash sozlamasi o‘zgardi. Qayta tekshiring.',
+    'en': 'The mold confirmation setting changed. Check again.',
+    'ru': 'Настройка подтверждения форм изменилась. Повторите проверку.',
+    'ur': 'سانچوں کی تصدیق کی ترتیب بدل گئی ہے۔ دوبارہ جانچیں۔',
+  },
+  'qolip.start.auto.set_changed': {
+    'uz': 'Qolip komplekti o‘zgardi. Qayta tekshiring.',
+    'en': 'The mold set changed. Check again.',
+    'ru': 'Комплект форм изменился. Повторите проверку.',
+    'ur': 'سانچوں کا سیٹ بدل گیا ہے۔ دوبارہ جانچیں۔',
+  },
+  'qolip.start.auto.unavailable': {
+    'uz': 'Qoliplar holatini tekshirib bo‘lmadi. Qayta urinib ko‘ring.',
+    'en': 'Could not check the molds. Please retry.',
+    'ru': 'Не удалось проверить формы. Повторите попытку.',
+    'ur': 'سانچوں کی جانچ نہیں ہو سکی۔ دوبارہ کوشش کریں۔',
+  },
+  'qolip.start.auto.missing': {
+    'uz': 'Mahsulotga qolip biriktirilmagan',
+    'en': 'No mold is assigned to this product',
+    'ru': 'К продукту не назначена форма',
+    'ur': 'اس پروڈکٹ کے لیے کوئی سانچہ مقرر نہیں ہے',
+  },
+  'qolip.start.auto.in_use': {
+    'uz': 'Qolip boshqa ishda band',
+    'en': 'The mold is busy with another job',
+    'ru': 'Форма занята в другой работе',
+    'ur': 'سانچہ دوسرے کام میں مصروف ہے',
+  },
+  'qolip.start.auto.checkout_other': {
+    'uz': 'Qolip boshqa ishchiga berilgan',
+    'en': 'The mold is checked out to another worker',
+    'ru': 'Форма выдана другому работнику',
+    'ur': 'سانچہ دوسرے کارکن کو دیا گیا ہے',
+  },
+  'qolip.start.auto.no_location': {
+    'uz': 'Qolipning joylashuvi aniqlanmadi',
+    'en': 'The mold location is unknown',
+    'ru': 'Местоположение формы не определено',
+    'ur': 'سانچے کا مقام معلوم نہیں ہے',
+  },
+  'qolip.start.auto.unknown_state': {
+    'uz': 'Qolip holati tasdiqlanmadi',
+    'en': 'The mold state could not be confirmed',
+    'ru': 'Состояние формы не подтверждено',
+    'ur': 'سانچے کی حالت کی تصدیق نہیں ہو سکی',
+  },
   'lamination.settings.title': {
     'uz': 'Laminatsiyachi ikki qatlamdan birini kiritish majburiyati',
     'en': 'Require lamination layer remainder entry',

@@ -14,6 +14,7 @@ class _ReadOnlyQueueActionRequest {
     required this.action,
     this.materialBarcodes = const [],
     this.qolipCodes = const [],
+    this.qolipConfirmation,
     this.producedQty,
     this.grossQty,
     this.bobinaKg,
@@ -54,6 +55,7 @@ class _ReadOnlyQueueActionRequest {
   final String action;
   final List<String> materialBarcodes;
   final List<String> qolipCodes;
+  final AdminQolipAutomaticConfirmation? qolipConfirmation;
   final double? producedQty;
   final double? grossQty;
   final double? bobinaKg;

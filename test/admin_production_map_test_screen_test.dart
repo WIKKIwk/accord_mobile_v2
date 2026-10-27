@@ -109,6 +109,7 @@ part 'admin_production_map_order_delete_test_part.dart';
 part 'admin_production_map_closed_sync_test_part.dart';
 part 'admin_production_map_order_alert_test_part.dart';
 part 'admin_production_map_scan_bootstrap_test_part.dart';
+part 'admin_production_map_qolip_automatic_test_part.dart';
 part 'admin_production_map_worker_sync_optimization_test_part.dart';
 part 'admin_production_map_stream_efficiency_test_part.dart';
 part 'admin_production_map_page_stream_races_test_part.dart';
@@ -195,6 +196,8 @@ void main() {
   _registerClosedOrdersSyncTests();
   _registerOrderAlertTests();
   _registerScanBootstrapTests();
+  _registerAutomaticQolipTests();
+  _registerAutomaticQolipLiveTests();
   _registerWorkerSyncOptimizationTests();
   _registerStreamEfficiencyTests();
   _registerPageStreamRaceTests();

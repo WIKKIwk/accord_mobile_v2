@@ -58,6 +58,8 @@ class AdminQueueWorkerInteraction {
     this.blockingReasonCode = '',
     this.resumeInputRequired = false,
     this.resumeInputRequirementKnown = true,
+    this.qolipAutomaticConfirmation = false,
+    this.qolipPolicyRevision = 0,
   });
 
   final AdminQueueInteractionMode mode;
@@ -71,6 +73,8 @@ class AdminQueueWorkerInteraction {
   final String blockingReasonCode;
   final bool resumeInputRequired;
   final bool resumeInputRequirementKnown;
+  final bool qolipAutomaticConfirmation;
+  final int qolipPolicyRevision;
 
   static AdminQueueWorkerInteraction? tryFromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -94,7 +98,15 @@ class AdminQueueWorkerInteraction {
         qolipMode == null ||
         json['material_scan_required'] is! bool ||
         json['assigned_materials_display_only'] is! bool ||
-        json['material_intake_allowed'] is! bool) {
+        json['material_intake_allowed'] is! bool ||
+        (json.containsKey('qolip_automatic_confirmation') &&
+            json['qolip_automatic_confirmation'] is! bool) ||
+        (json.containsKey('qolip_policy_revision') &&
+            (json['qolip_policy_revision'] is! int ||
+                (json['qolip_policy_revision'] as int) < 0)) ||
+        (json['qolip_automatic_confirmation'] == true &&
+            (json['qolip_policy_revision'] is! int ||
+                qolipMode != AdminQueueQolipMode.scanRequired))) {
       return null;
     }
     return AdminQueueWorkerInteraction(
@@ -110,6 +122,8 @@ class AdminQueueWorkerInteraction {
       blockingReasonCode: json['blocking_reason_code']?.toString().trim() ?? '',
       resumeInputRequired: json['resume_input_required'] == true,
       resumeInputRequirementKnown: json['resume_input_required'] is bool,
+      qolipAutomaticConfirmation: json['qolip_automatic_confirmation'] == true,
+      qolipPolicyRevision: json['qolip_policy_revision'] as int? ?? 0,
     );
   }
 }
