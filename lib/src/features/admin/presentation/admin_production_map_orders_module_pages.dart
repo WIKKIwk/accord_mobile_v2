@@ -1048,10 +1048,23 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
                           index: index,
                           position: sequencePositions[orders[index].map.id.trim()],
                           readOnly: true,
+                          apparatusLabel: queueActionControls[
+                                      orders[index].map.id.trim()]
+                                  ?.temporarilyPaused == true
+                              ? context.l10n.productionText(
+                                  'worker.temporary_pause.status')
+                              : '',
                           onTap: () => onTapOrder(orders[index]),
                           onLongPress: () => onLongPressOrder(orders[index]),
                           tone: displayStates.containsKey(orders[index].map.id)
-                              ? _adminSequenceTone(displayStates[orders[index].map.id]!)
+                              ? _adminSequenceTone(
+                                  // A successful temporary-pause POST can
+                                  // precede the next compact display snapshot.
+                                  queueStates[orders[index].map.id] == 'paused' &&
+                                          displayStates[orders[index].map.id] ==
+                                              'in_progress'
+                                      ? 'paused'
+                                      : displayStates[orders[index].map.id]!)
                               : _resolveWorkerOrderCardTone(
                             printPreflightPassed: _orderPrintPreflightPassed(
                               orderId: orders[index].map.id,
@@ -1102,16 +1115,29 @@ enum _LaminatsiyaWorkerLongPressChoice {
   finishWork,
   continueRoll,
   removeRoll,
+  temporaryPause,
   rePause,
   reclose,
 }
 
-enum _BosmaWorkerLongPressChoice { finishWork, astatkaReport, rePause, reclose }
+enum _BosmaWorkerLongPressChoice {
+  finishWork,
+  astatkaReport,
+  temporaryPause,
+  rePause,
+  reclose,
+}
 
 class _BosmaWorkerFinishSheet extends StatelessWidget {
-  const _BosmaWorkerFinishSheet({required this.canFinish, this.canRePause = false, this.canReclose = false});
+  const _BosmaWorkerFinishSheet({
+    required this.canFinish,
+    this.canTemporaryPause = false,
+    this.canRePause = false,
+    this.canReclose = false,
+  });
 
   final bool canFinish;
+  final bool canTemporaryPause;
   final bool canReclose;
   final bool canRePause;
 
@@ -1130,6 +1156,11 @@ class _BosmaWorkerFinishSheet extends StatelessWidget {
             const SizedBox(height: 8),
             Text(l10n.productionText('worker.finish.description')),
             const SizedBox(height: 16),
+            if (canTemporaryPause)
+              _WorkerTemporaryPauseButton(
+                onPressed: () => Navigator.of(context)
+                    .pop(_BosmaWorkerLongPressChoice.temporaryPause),
+              ),
             if (canRePause)
               _WorkerRePauseButton(onPressed: () => Navigator.of(context)
                   .pop(_BosmaWorkerLongPressChoice.rePause)),
@@ -1164,11 +1195,13 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
   const _LaminatsiyaWorkerFinishSheet({
     this.isRezka = false,
     this.isLamination = false,
+    this.canTemporaryPause = false,
     this.canRePause = false,
     this.canReclose = false,
   });
 
   final bool canRePause;
+  final bool canTemporaryPause;
   final bool isRezka;
   final bool canReclose;
   final bool isLamination;
@@ -1206,6 +1239,11 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (canTemporaryPause)
+              _WorkerTemporaryPauseButton(
+                onPressed: () => Navigator.of(context)
+                    .pop(_LaminatsiyaWorkerLongPressChoice.temporaryPause),
+              ),
             if (canRePause)
               _WorkerRePauseButton(onPressed: () => Navigator.of(context)
                   .pop(_LaminatsiyaWorkerLongPressChoice.rePause)),

@@ -271,6 +271,7 @@ void _registeradmin_production_map_queue_snapshot_testCases02() {
             'allowed_actions': ['resume'],
             'interaction': {
               'mode': 'paused',
+              'resume_input_required': false,
               'start_materials_mode': 'hidden',
               'material_scan_required': false,
               'assigned_materials_display_only': false,
@@ -332,6 +333,7 @@ void _registeradmin_production_map_queue_snapshot_testCases02() {
         'allowed_actions': actions,
         'interaction': {
           'mode': mode,
+          'resume_input_required': false,
           'start_materials_mode': startMaterialsMode,
           'material_scan_required': materialScanRequired,
           'assigned_materials_display_only': true,

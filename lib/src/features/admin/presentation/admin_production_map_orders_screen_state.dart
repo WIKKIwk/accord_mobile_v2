@@ -1263,6 +1263,10 @@ class _AdminProductionMapOrdersScreenState
                     .map((item) => item.map.id)
                     .toList(growable: false),
             onQueueAction: detailPending ? null : _handleQueueAction,
+            onTemporaryPause: detailPending
+                ? null
+                : (control) =>
+                    _runWorkerTemporaryPause(apparatus, detailOrder, control),
             progressDriverUrlPicker: widget.progressDriverUrlPicker,
             initialOrderControls: detailPending
                 ? const {}
@@ -1312,6 +1316,12 @@ class _AdminProductionMapOrdersScreenState
               load: () => workerHydrated
                   ? _readWorkerListDetail(apparatus, mapId)
                   : _readAdminSequenceDetail(apparatus, mapId),
+              isAuthorityUsable: !workerHydrated ? null : (snapshot) {
+                final control = snapshot.queueActionControls[apparatus.id.trim()]?[mapId];
+                return control?.isConsistentWith(
+                    snapshot.orderControlFor(mapId),
+                    queueState: snapshot.queueStates[apparatus.id.trim()]?[mapId]) == true;
+              },
               builder: (detail, authority, presentationAllowed) => detailBuilder(detail, authority,
                   detailPending: detail == null,
                   workerPresentationAllowed: presentationAllowed,
@@ -1725,10 +1735,13 @@ class _AdminProductionMapOrdersScreenState
               ?[currentOrder?.map.id.trim()] ??
           (currentOrder == null ? null : _queueActionControlForApparatus(
               apparatus: station, orderId: currentOrder.map.id));
-      final canFinishCurrent = currentOrder != null &&
+      final canStopCurrent = currentOrder != null &&
           currentOrder.map.id.trim() != targetOrderId &&
-          currentControl?.allows('complete') == true;
-      final canPrepareSwitch = canFinishCurrent &&
+          (currentControl?.allows('complete') == true ||
+              _workerTemporaryPauseControl(
+                      station, currentOrder, currentControl) !=
+                  null);
+      final canPrepareSwitch = canStopCurrent &&
           targetControl?.interaction?.mode ==
               AdminQueueInteractionMode.freshStartBlocked &&
           targetControl?.interaction?.blockingReasonCode == 'apparatus_busy';
@@ -2087,6 +2100,7 @@ class _AdminProductionMapOrdersScreenState
       await _hydrateWorkerActions(apparatus, order);
       return;
     }
+    final scope = currentSessionReadScope();
     final operation = apparatus.operation.trim().toLowerCase();
     final isLaminatsiya = apparatus.usesLaminationWorkflow;
     final isBosma = operation == 'print';
@@ -2117,9 +2131,13 @@ class _AdminProductionMapOrdersScreenState
       return;
     }
     final stageWork = control?.stageWork;
+    final temporaryPause =
+        _workerTemporaryPauseControl(apparatus, order, control);
     final rePause = _workerRePauseControl(apparatus, order, control);
     final reclose = _workerRecloseControl(apparatus, order, control);
-    if (stageWork?.astatkaAvailable == true && operation != 'laminate' && rePause == null && reclose == null) {
+    if (stageWork?.astatkaAvailable == true &&
+        operation != 'laminate' &&
+        temporaryPause == null && rePause == null && reclose == null) {
       _showWatchOrderDetail(
           apparatus: apparatus, order: order, startAstatkaOnOpen: true);
       return;
@@ -2145,9 +2163,16 @@ class _AdminProductionMapOrdersScreenState
         showDragHandle: true,
         builder: (_) => _BosmaWorkerFinishSheet(
             canFinish: control?.allows('complete') == true,
+            canTemporaryPause: temporaryPause != null,
             canRePause: rePause != null, canReclose: reclose != null),
       );
-      if (!mounted || choice == null) return;
+      if (!mounted || scope != currentSessionReadScope() || choice == null) return;
+      if (choice == _BosmaWorkerLongPressChoice.temporaryPause) {
+        if (temporaryPause != null) {
+          await _runWorkerTemporaryPause(apparatus, order, temporaryPause);
+        }
+        return;
+      }
       if (choice == _BosmaWorkerLongPressChoice.reclose) {
         if (reclose != null) await _runWorkerReclose(apparatus, order, reclose);
         return;
@@ -2170,7 +2195,7 @@ class _AdminProductionMapOrdersScreenState
         apparatus: apparatus,
         order: order,
       );
-      if (!mounted) return;
+      if (!mounted || scope != currentSessionReadScope()) return;
       if (handoffBatch != null) {
         final choice =
             await showModalBottomSheet<_LaminatsiyaWorkerLongPressChoice>(
@@ -2180,7 +2205,7 @@ class _AdminProductionMapOrdersScreenState
           builder: (_) => _LaminatsiyaWorkerHandoffSheet(
               showAstatka: operation == 'laminate'),
         );
-        if (!mounted) return;
+        if (!mounted || scope != currentSessionReadScope()) return;
         switch (choice) {
           case _LaminatsiyaWorkerLongPressChoice.continueRoll:
             _showWatchOrderDetail(
@@ -2200,6 +2225,7 @@ class _AdminProductionMapOrdersScreenState
               order: order,
               startAstatkaOnOpen: true,
             );
+          case _LaminatsiyaWorkerLongPressChoice.temporaryPause:
           case _LaminatsiyaWorkerLongPressChoice.rePause:
           case _LaminatsiyaWorkerLongPressChoice.reclose:
           case null:
@@ -2220,11 +2246,18 @@ class _AdminProductionMapOrdersScreenState
         builder: (_) => _LaminatsiyaWorkerFinishSheet(
           isRezka: operation == 'cut',
           isLamination: operation == 'laminate',
+          canTemporaryPause: temporaryPause != null,
           canRePause: rePause != null,
           canReclose: reclose != null,
         ),
       );
-      if (!mounted || choice == null) return;
+      if (!mounted || scope != currentSessionReadScope() || choice == null) return;
+      if (choice == _LaminatsiyaWorkerLongPressChoice.temporaryPause) {
+        if (temporaryPause != null) {
+          await _runWorkerTemporaryPause(apparatus, order, temporaryPause);
+        }
+        return;
+      }
       if (choice == _LaminatsiyaWorkerLongPressChoice.rePause) {
         if (rePause != null) await _runWorkerRePause(apparatus, order, rePause);
         return;

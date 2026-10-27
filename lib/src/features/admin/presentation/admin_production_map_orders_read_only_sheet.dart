@@ -7,6 +7,11 @@ const _queueActionControlRefreshTimeout = Duration(seconds: 5);
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     with WidgetsBindingObserver {
   bool _detailRecoveryNeeded = false;
+  bool _materialSectionNeedsRecovery = false;
+  bool get _needsDetailRecovery =>
+      _detailRecoveryNeeded || _materialSectionNeedsRecovery;
+  Timer? _detailRecoveryTimer;
+  int _detailRecoveryAttempts = 0;
   bool _useInitialControlOnce = false;
   bool _initialDetailActionScheduled = false;
   Object? _detailRecoveryCursor;
@@ -46,6 +51,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   final Set<String> _scannedMaterialBarcodes = {};
   final Map<String, String> _scannedQolipCodes = {};
   final Map<String, AdminProductionMapRequiredQolip> _requiredQolips = {};
+  int _qolipRequirementsGeneration = 0;
   bool _qolipRequirementsLoaded = false;
   bool _qolipRequirementsLoading = false;
   String _qolipRequirementsError = '';
@@ -233,6 +239,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   @override
   void dispose() {
+    _cancelScheduledDetailRecovery();
     WidgetsBinding.instance.removeObserver(this);
     widget.queueSnapshotListenable?.removeListener(_onCanonicalDetailSnapshot);
     widget.queueActionsInFlight?.removeListener(_onSharedQueueActionChanged);
@@ -260,13 +267,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       });
       unawaited(_refreshQueueActionControlAfterWrite());
     }
+    _scheduleDetailRecovery();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _detailForeground = state == AppLifecycleState.resumed;
+    if (!_detailForeground) _cancelScheduledDetailRecovery();
     if (widget.detailPending) return;
-    if (_detailForeground && !_queueActionContractSynchronized &&
+    if (_detailForeground &&
+        (!_queueActionContractSynchronized || _needsDetailRecovery) &&
         !_queueActionBusy && _detailReadScope == currentSessionReadScope()) {
       if (_pendingDetailRevision != null) {
         unawaited(_refreshQueueActionControlAfterWrite());
@@ -279,6 +289,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   void _onDetailSessionChanged() {
     final scope = currentSessionReadScope();
     if (scope == _observedDetailReadScope) return;
+    _cancelScheduledDetailRecovery(resetBackoff: true);
+    _detailRecoveryNeeded = false;
+    _materialSectionNeedsRecovery = false;
     _observedDetailReadScope = scope;
     _detailRecoveryEventCursor = null;
     _detailRecoveryCursor = null;
@@ -300,6 +313,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _intakeCandidateAssignments = const [];
       _materialsLoading = false;
       _inputProgressLoading = false;
+      _qolipRequirementsGeneration++;
       _requiredQolips.clear();
       _qolipRequirementsLoaded = false;
       _qolipRequirementsLoading = false;
@@ -368,6 +382,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _scanBootstrapUnsupported = false;
       _scannedMaterialBarcodes.clear();
       _scannedQolipCodes.clear();
+      _qolipRequirementsGeneration++;
       _requiredQolips.clear();
       _qolipRequirementsLoaded = false;
       _qolipRequirementsLoading = false;
@@ -400,6 +415,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _materialStartRequirements = null;
       _intakeCandidateAssignments = const [];
       _materialsError = '';
+      _materialSectionNeedsRecovery = false;
       _materialsLoading = true;
       _orderImageBytes = null;
       _orderImageLoading = false;
@@ -933,6 +949,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   Future<void> _loadInteractionContractAndSections() async {
     if (widget.detailPending) return;
+    _cancelScheduledDetailRecovery();
     _detailRecoveryNeeded = false;
     _detailRecoveryEventCursor = null;
     _detailRecoveryCursor = _currentDetailRecoveryCursor();
@@ -940,6 +957,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       await _readInteractionContractAndSections();
     } finally {
       _drainDetailRecoveryFromStream();
+      _scheduleDetailRecovery();
     }
   }
 
@@ -957,14 +975,20 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (await _loadScanBootstrap(generation)) return;
     if (!mounted || generation != _scanBootstrapGeneration) return;
     if (widget.apparatus != null) {
+      final controlGeneration = _actionControlGeneration;
       try {
         final prepared =
-            _useInitialControlOnce ? _canonicalDetailControl() : null;
+            (_useInitialControlOnce || widget.scopedWorkerDetail)
+                ? _canonicalDetailControl() : null;
         _useInitialControlOnce = false;
         final refreshed =
             prepared?.control ?? await _loadCurrentQueueActionControl();
         if (prepared != null) _applyDetailControl(prepared);
-        if (!mounted) return;
+        // A canonical update can retire this awaited read. Its null or failed
+        // result must not withdraw the replacement control.
+        if (!mounted || generation != _scanBootstrapGeneration ||
+            controlGeneration != _actionControlGeneration ||
+            _detailReadScope != currentSessionReadScope()) return;
         if (refreshed?.isConsistentWith(
               _orderControlState,
               queueState: _queueStates[widget.order.map.id.trim()],
@@ -986,7 +1010,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           _markDetailRecoveryNeeded();
         }
       } catch (error) {
-        if (!mounted) return;
+        if (!mounted || generation != _scanBootstrapGeneration ||
+            controlGeneration != _actionControlGeneration ||
+            _detailReadScope != currentSessionReadScope()) return;
         debugPrint('Production interaction contract refresh failed: $error');
         setState(() => _queueActionControl = null);
         if (!widget.workerMode) {
@@ -1147,7 +1173,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _materialsLoading = false;
       _materialsHaveLoaded = true;
       _materialsError = '';
+      _materialSectionNeedsRecovery = false;
     });
+    _scheduleDetailRecovery();
   }
 
   bool _materialContextIsCurrent(String orderId, String apparatus) {
@@ -1179,18 +1207,16 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         apparatus: apparatus,
         materialBarcodes: _scannedMaterialBarcodes.toList(growable: false),
         preparedAssignments: preparedAssignments,
-      );
-      if (!mounted ||
+      ).timeout(_queueActionControlRefreshTimeout);
+      if (!_materialContextIsCurrent(orderId, apparatus) ||
           readIsCurrent?.call() == false ||
-          loadGeneration != _materialLoadGeneration ||
-          widget.order.map.id.trim() != orderId ||
-          (widget.apparatus?.id.trim() ?? '') != apparatus) {
+          loadGeneration != _materialLoadGeneration) {
         return false;
       }
       _applyMaterialAssignmentsSnapshot(snapshot);
       return true;
-    } catch (error) {
-      if (!mounted ||
+    } catch (error, stackTrace) {
+      if (!_materialContextIsCurrent(orderId, apparatus) ||
           readIsCurrent?.call() == false ||
           loadGeneration != _materialLoadGeneration) {
         return false;
@@ -1202,8 +1228,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _materialIntakeMode = false;
         _materialStartRequirements = null;
         _materialsLoading = false;
-        _materialsError = _readOnlyQueueActionErrorText(error, context.l10n);
+        _materialsError = error is MobileApiException ||
+                error is TimeoutException || error is http.ClientException
+            ? _readOnlyQueueActionErrorText(error, context.l10n)
+            : context.l10n.productionText('worker.materials.load_failed');
+        _materialSectionNeedsRecovery =
+            _retryableMaterialSectionReadError(error);
       });
+      debugPrint('Production material read failed: order=$orderId '
+          'apparatus=$apparatus type=${error.runtimeType}'
+          '${error is MobileApiException ? ' code=${error.code} status=${error.statusCode}' : ''}');
+      debugPrintStack(stackTrace: stackTrace);
+      _scheduleDetailRecovery();
       return false;
     }
   }
@@ -1281,6 +1317,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (!widget.workerMode && !widget.canManageQueue) return;
     final apparatus = widget.apparatus?.id.trim() ?? '';
     final orderId = widget.order.map.id.trim();
+    final generation = ++_qolipRequirementsGeneration;
     if (!_queueActionContractSynchronized ||
         _queueActionControl?.interaction?.qolipMode !=
             AdminQueueQolipMode.scanRequired) {
@@ -1300,6 +1337,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         orderId: orderId,
       );
       if (!mounted ||
+          generation != _qolipRequirementsGeneration ||
           readIsCurrent?.call() == false ||
           widget.apparatus?.id.trim() != apparatus ||
           widget.order.map.id.trim() != orderId) {
@@ -1313,6 +1351,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       });
     } catch (error) {
       if (!mounted ||
+          generation != _qolipRequirementsGeneration ||
           readIsCurrent?.call() == false ||
           widget.apparatus?.id.trim() != apparatus ||
           widget.order.map.id.trim() != orderId) {
@@ -1582,6 +1621,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       widget.endPrintPreflight?.call();
       _ownsPrintPreflight = false;
       if (mounted && _actionInFlight) setState(() => _actionInFlight = false);
+      _drainDetailRecoveryFromStream();
+      _scheduleDetailRecovery();
     }
   }
 
@@ -1879,14 +1920,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   Future<void> _refreshQueueActionControlAfterWrite() async {
     if (_detailRefreshGeneration == _actionControlGeneration) return;
+    _cancelScheduledDetailRecovery();
     _detailRecoveryNeeded = false;
     _detailRecoveryEventCursor = null;
     _detailRecoveryCursor = _currentDetailRecoveryCursor();
     final generation = ++_actionControlGeneration;
+    final scanGeneration = _scanBootstrapGeneration;
     _detailRefreshGeneration = generation;
     try {
       final control = await _loadCurrentQueueActionControl();
-      if (!mounted || generation != _actionControlGeneration) return;
+      if (!mounted || generation != _actionControlGeneration ||
+          scanGeneration != _scanBootstrapGeneration ||
+          _detailReadScope != currentSessionReadScope()) return;
       setState(() => _queueActionControl = control);
       if (!_queueActionContractSynchronized) {
         _markDetailRecoveryNeeded();
@@ -1897,6 +1942,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       // Requirements depend on the new interaction, not the preceding action.
       _refreshDetailSections();
     } catch (error) {
+      if (!mounted || generation != _actionControlGeneration ||
+          scanGeneration != _scanBootstrapGeneration ||
+          _detailReadScope != currentSessionReadScope()) return;
       if (!_queueActionContractSynchronized) {
         _markDetailRecoveryNeeded(error: error);
       }
@@ -1905,6 +1953,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     } finally {
       if (_detailRefreshGeneration == generation) _detailRefreshGeneration = null;
       _drainDetailRecoveryFromStream();
+      _scheduleDetailRecovery();
     }
   }
 
@@ -2456,12 +2505,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     targetControl = snapshot.queueActionControls[station]?[targetOrderId];
     targetQueueState = snapshot.queueStates[station]?[targetOrderId];
     final targetOrderControl = snapshot.orderControlFor(targetOrderId);
+    final temporaryPause = widget.onTemporaryPause == null
+        ? null
+        : _eligibleWorkerTemporaryPause(
+          workerMode: widget.workerMode,
+          synchronized: _queueActionContractSynchronized && !_queueActionBusy,
+          apparatus: widget.apparatus,
+          order: widget.order,
+          control: _queueActionControl,
+          orderControl: _effectiveOrderControlState,
+          queueState: _queueStates[widget.order.map.id.trim()],
+        );
     final canPrepareSwitch =
         targetControl?.interaction?.mode ==
             AdminQueueInteractionMode.freshStartBlocked &&
             targetControl?.interaction?.blockingReasonCode == 'apparatus_busy' &&
             _queueActionContractSynchronized &&
-            _queueActionControl?.allows('complete') == true;
+            (_queueActionControl?.allows('complete') == true ||
+                temporaryPause != null);
     if (targetControl?.isConsistentWith(
               targetOrderControl,
               queueState: targetQueueState,
@@ -2488,7 +2549,24 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final usesTimelineAstatka =
         (widget.apparatus?.usesLaminationWorkflow ?? false) ||
             operation == 'cut';
-    final confirmed = await showM3ConfirmDialog(
+    if (temporaryPause != null) {
+      final choice = await showModalBottomSheet<_WorkerOrderSwitchChoice>(
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => _WorkerTemporaryPauseSwitchSheet(
+            canComplete: _queueActionControl?.allows('complete') == true),
+      );
+      if (!mounted || scope != currentSessionReadScope() || choice == null) {
+        return false;
+      }
+      if (choice == _WorkerOrderSwitchChoice.temporaryPause) {
+        final completed = await widget.onTemporaryPause!(temporaryPause);
+        return completed && mounted && scope == currentSessionReadScope();
+      }
+      // The explicit completion choice retains the existing measured output flow.
+    }
+    final confirmed = temporaryPause != null || (await showM3ConfirmDialog(
           context: context,
           title: context.l10n.productionText('worker.order.switch.title'),
           message:
@@ -2509,7 +2587,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           ),
           confirmButtonKey: const ValueKey('production-switch-order-confirm'),
         ) ??
-        false;
+        false);
     if (!confirmed || !mounted || scope != currentSessionReadScope()) {
       return false;
     }
@@ -3717,6 +3795,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.sequenceOrderIds = const [],
     this.visibleOrderIds = const [],
     this.onQueueAction,
+    this.onTemporaryPause,
     this.progressDriverUrlPicker,
     this.allowWipQrReprint = true,
     this.initialOrderControls = const {},
@@ -3769,6 +3848,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final List<String> sequenceOrderIds;
   final List<String> visibleOrderIds;
   final _ReadOnlyQueueActionCallback? onQueueAction;
+  final Future<bool> Function(AdminTemporaryPauseControl control)?
+      onTemporaryPause;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final bool allowWipQrReprint;
   final Map<String, AdminOrderControlState> initialOrderControls;

@@ -35,6 +35,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
     final apparatus = widget.apparatus!.id.trim();
     final scope = currentSessionReadScope();
     final actionGeneration = _actionControlGeneration;
+    AdminPrintPreflightControlState? incomingControl;
     AdminPrintPreflightControlState? acceptedControl;
     bool contextCurrent() =>
         _materialContextIsCurrent(orderId, apparatus) &&
@@ -53,6 +54,8 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       _qolipRequirementsLoaded = false;
       _qolipRequirementsError = '';
     });
+    var materialGeneration = _materialLoadGeneration;
+    var qolipGeneration = _qolipRequirementsGeneration;
     try {
       final prepared = _pendingFabPreparedScan;
       _pendingFabPreparedScan = null;
@@ -76,6 +79,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
         return false;
       }
       final control = result.controlState;
+      incomingControl = control;
       // A scoped read never fills global delta history or advances its cursor.
       // A newer revision is harmless only when the target state is unchanged.
       if (!_liveAllowsDetailControl(control)) {
@@ -120,7 +124,7 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       }
       // Each missing/failed/incomplete section keeps its independent reader.
       // Candidate lists and authoritative QR lookups keep existing behavior.
-      await Future.wait([
+      final sectionReads = [
         if (materials == null) _loadMaterialAssignments(
           readIsCurrent: current,
           preparedAssignments: result.materialAssignments,
@@ -130,7 +134,10 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
           readIsCurrent: current,
           preparedBatches: result.inputProgressBatches,
         ),
-      ]);
+      ];
+      materialGeneration = _materialLoadGeneration;
+      qolipGeneration = _qolipRequirementsGeneration;
+      await Future.wait(sectionReads);
       if (contextCurrent() && !current()) {
         throw const MobileApiException(
           code: 'order_scan_bootstrap_stale',
@@ -141,6 +148,22 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       return true;
     } catch (error) {
       if (!mounted || !contextCurrent()) return true;
+      final canonical = _canonicalDetailControl();
+      if (error is MobileApiException &&
+          error.code == 'order_scan_bootstrap_stale' &&
+          incomingControl != null && canonical != null &&
+          canonical.epoch == incomingControl.epoch &&
+          canonical.revision > incomingControl.revision &&
+          _queueActionContractSynchronized &&
+          _sameDetailControl(canonical) &&
+          _liveAllowsDetailControl(canonical)) {
+        // An old successful GET cannot withdraw newer canonical authority.
+        // Its sections still need fresh readers, owned by the current state.
+        _detailRecoveryNeeded = false;
+        _setScanBootstrapState(() => _qolipRequirementsLoading = false);
+        _refreshDetailSections();
+        return true;
+      }
       _setScanBootstrapState(() {
         _queueActionControl = null;
         _materialStartRequirements = null;
@@ -157,7 +180,28 @@ extension _OrderDetailScanBootstrap on _ReadOnlyOrderDetailSheetState {
       _markDetailRecoveryNeeded(error: error);
       return true;
     } finally {
-      if (mounted) _setScanBootstrapState(() => _actionControlLoads--);
+      if (mounted) {
+        _setScanBootstrapState(() {
+          _actionControlLoads--;
+          // A shared write can retire this bootstrap while its replacement
+          // reads only the control. Do not leave the abandoned section flags
+          // spinning, or clear flags now owned by a newer section/bootstrap.
+          if (generation != _scanBootstrapGeneration ||
+              !_materialContextIsCurrent(orderId, apparatus) ||
+              scope != currentSessionReadScope() || contextCurrent()) return;
+          if (materialGeneration == _materialLoadGeneration &&
+              _materialsLoading) {
+            _materialsLoading = false;
+            _materialsError = '';
+          }
+          if (qolipGeneration == _qolipRequirementsGeneration &&
+              _qolipRequirementsLoading) {
+            _qolipRequirementsLoading = false;
+            _qolipRequirementsError = '';
+          }
+          if (!_queueActionContractSynchronized) _detailRecoveryNeeded = true;
+        });
+      }
     }
   }
 }

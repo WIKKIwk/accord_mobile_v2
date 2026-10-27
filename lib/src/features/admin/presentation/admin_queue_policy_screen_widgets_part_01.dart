@@ -174,19 +174,6 @@ class _AdminQueuePolicyPanelState extends State<AdminQueuePolicyPanel>
   AdminApparatusQueuePolicy _effectivePolicy(AdminApparatus apparatus) {
     final apparatusId = apparatus.id.trim();
     final direct = _policies[apparatusId];
-    final pechatLocked = apparatus.isPechat;
-    if (pechatLocked) {
-      return AdminApparatusQueuePolicy(
-        apparatusId: apparatusId,
-        apparatus: apparatus.name,
-        sourceRevision: direct?.sourceRevision ?? apparatus.sourceRevision,
-        sourceAasxSha256:
-            direct?.sourceAasxSha256 ?? apparatus.sourceAasxSha256,
-        policy: ApparatusQueuePolicy.strictSequence,
-        locked: true,
-        reason: 'pechat_always_strict',
-      );
-    }
     if (direct != null) {
       return direct;
     }

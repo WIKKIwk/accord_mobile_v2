@@ -339,6 +339,18 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                               ),
                             ),
                     ),
+                  if (uiState.contractSynchronized &&
+                      queueActionControlsByApparatus[uiState.station]?[uiState.orderId]
+                              ?.temporarilyPaused == true)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: Chip(
+                        key: const ValueKey('worker-temporarily-paused-status'),
+                        avatar: const Icon(Icons.pause_circle_outline),
+                        label: Text(context.l10n.productionText(
+                            'worker.temporary_pause.status')),
+                      ),
+                    ),
                   if (!summaryOnlyMode)
                     _OrderStartUnifiedCard(
                       uiState: cardUiState,

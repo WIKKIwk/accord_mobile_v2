@@ -20,8 +20,9 @@ Map<String, dynamic> _syncControl(String state) => {
       },
     };
 
-Map<String, dynamic> _syncBootstrap(int revision, String state) {
-  final result = scanBootstrap(revision: revision);
+Map<String, dynamic> _syncBootstrap(int revision, String state,
+    {String epoch = 'scan-server'}) {
+  final result = scanBootstrap(revision: revision, epoch: epoch);
   result['control_state']['control'] = _syncControl(state);
   result['control_state']['queue_state'] = state;
   result['control_state']['order_control'] =
@@ -80,6 +81,7 @@ void _registerWorkerSyncOptimizationTests() {
       var snapshotReads = 0;
       var state = 'pending';
       var revision = 7;
+      var epoch = 'scan-server';
       final requests = <http.Request>[];
       final post = Completer<http.Response>();
       await http.runWithClient(() async {
@@ -98,7 +100,7 @@ void _registerWorkerSyncOptimizationTests() {
               workerMode: true,
               queueSnapshotLoader: () async {
                 snapshotReads++;
-                return _syncLive(fixture.order, revision, state);
+                return _syncLive(fixture.order, revision, state, epoch: epoch);
               },
               apparatusLoader: () async => fixture.apparatus,
               liveEventsLoader: () => events.stream),
@@ -138,7 +140,9 @@ void _registerWorkerSyncOptimizationTests() {
           await tester.pump();
         }
         if (ordering == 'new server epoch before old ACK') {
-          events.add(_syncLive(fixture.order, 1, state, epoch: 'restarted-server'));
+          epoch = 'restarted-server';
+          revision = 1;
+          events.add(_syncLive(fixture.order, revision, state, epoch: epoch));
           await tester.pump();
         }
         if (ordering == 'reopen during write') {
@@ -157,7 +161,7 @@ void _registerWorkerSyncOptimizationTests() {
               hasLength(1));
         }
         if (accountChanged) {
-          await AppSession.instance.setSession(
+          await tester.runAsync(() => AppSession.instance.setSession(
               token: 'other-token',
               profile: const SessionProfile(
                   role: UserRole.aparatchi,
@@ -167,7 +171,7 @@ void _registerWorkerSyncOptimizationTests() {
                   phone: '',
                   avatarUrl: '',
                   capabilities: ['apparatus.queue.read'],
-                  assignedApparatus: [scanApparatus]));
+                  assignedApparatus: [scanApparatus])));
         }
         final ackRevision = ordering == 'ACK control before older live' ? 9 : 8;
         final ackControl = _syncBootstrap(
@@ -222,7 +226,13 @@ void _registerWorkerSyncOptimizationTests() {
           await tester.pump();
         }
         await tester.pump(const Duration(seconds: 3));
-        await tester.pumpAndSettle();
+        if (accountChanged) {
+          // This route's retired account cannot regain authority. Its existing
+          // synchronization animation is intentionally not a settling signal.
+          await tester.pump();
+        } else {
+          await tester.pumpAndSettle();
+        }
         expect(
             snapshotReads,
             baselineReads +
@@ -281,7 +291,11 @@ void _registerWorkerSyncOptimizationTests() {
                   return post.future;
                 if (request.url.path.endsWith('/order-scan-bootstrap')) {
                   return Future.value(http.Response(
-                      jsonEncode(_syncBootstrap(revision, state)), 200));
+                      jsonEncode(_syncBootstrap(revision, state, epoch: epoch)),
+                      200));
+                }
+                if (request.url.path.endsWith('/raw-material-assignments')) {
+                  return Future.value(http.Response('[]', 200));
                 }
                 return Future.value(http.Response('{}', 200));
               }));

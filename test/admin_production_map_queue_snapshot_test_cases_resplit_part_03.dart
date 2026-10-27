@@ -107,6 +107,7 @@ void _registeradmin_production_map_queue_snapshot_testCases03() {
       'allowed_actions': ['resume', 'complete'],
       'interaction': {
         'mode': 'paused',
+        'resume_input_required': false,
         'start_materials_mode': 'hidden',
         'material_scan_required': false,
         'assigned_materials_display_only': false,

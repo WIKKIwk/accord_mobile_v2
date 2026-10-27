@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
@@ -20,6 +21,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'order_scan_bootstrap_fixtures.dart';
 import 'production_snapshot_test_backend.dart';
+
+part 'worker_compact_sheet_recovery_test_part.dart';
 
 const _station = 'apparatus:default:bosma_7';
 const _epoch = 'compact-worker-ui-server';
@@ -62,6 +65,7 @@ class _CompactHarness {
   final events = StreamController<Object>.broadcast();
   final details = <({String apparatus, String orderId})>[];
   Completer<AdminApparatusQueueSnapshot>? pending;
+  Completer<AdminApparatusQueueSnapshot>? queueRefresh;
   int queueReads = 0;
   int revision = 7;
   int detailRevision = 7;
@@ -71,6 +75,7 @@ class _CompactHarness {
   bool wrongOrder = false;
   bool includeDetailControl = true;
   Object? detailError;
+  Future<AdminApparatusQueueSnapshot> Function()? detailResponse;
   bool reportPrompt = false;
   bool detailReportRequired = true;
   String detailReportSessionId = 'report-session-one';
@@ -236,6 +241,7 @@ class _CompactHarness {
   Future<AdminApparatusQueueSnapshot> detail(
       {required String apparatus, required String orderId}) async {
     details.add((apparatus: apparatus, orderId: orderId));
+    if (detailResponse != null) return detailResponse!();
     if (detailError != null) throw detailError!;
     if (pending != null) return pending!.future;
     return full(orderId);
@@ -266,6 +272,7 @@ class _CompactHarness {
         apparatusLoader: () async => [catalog],
         queueSnapshotLoader: () async {
           queueReads++;
+          if (queueRefresh != null) return queueRefresh!.future;
           return snapshot();
         },
         orderDetailLoader: detail,
@@ -424,6 +431,8 @@ void main() {
     AppSession.instance.profile = null;
     await TestModeController.instance.setEnabled(false);
   });
+
+  _registerHydratedSheetRecoveryTests();
 
   testWidgets(
       'compact worker list renders server membership rank and tone without details',
@@ -893,7 +902,7 @@ void main() {
   }
 
   testWidgets(
-      'compact worker denied detail refresh clears retained actions until validated recovery',
+      'compact worker denied detail refresh clears actions until validated reopen',
       (tester) async {
     final harness = _CompactHarness();
     await harness.mount(tester);
@@ -943,12 +952,19 @@ void main() {
       ..detailError = null;
     harness.events.add(harness.snapshot());
     await tester.pumpAndSettle();
+    expect(harness.details, hasLength(2),
+        reason: 'Permission denial stops automatic recovery until reopened');
+    await tester.tap(find.byKey(const ValueKey('production-order-detail-close')));
+    await tester.pumpAndSettle();
+    await tester.tap(_workerRow('zakaz-a'));
+    await tester.pumpAndSettle();
     expect(harness.details, hasLength(3));
     expect(_content(tester).uiState.contractSynchronized, isTrue);
     expect(_content(tester).actionsEnabled, isTrue);
     expect(start, findsOneWidget);
     expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
-    expect(identical(tester.state(_sheet()), originalState), isTrue);
+    expect(identical(tester.state(_sheet()), originalState), isFalse,
+        reason: 'Reopening after denial creates a new scoped detail state');
     await harness.close(tester);
   });
 
@@ -1087,6 +1103,304 @@ void main() {
     expect(harness.details, hasLength(1));
     expect(mobileApiTestModeBosmaAstatkaReports(), isEmpty);
     await harness.close(tester);
+  });
+
+  testWidgets(
+      'temporary removal starts next compact order while global refresh is blocked',
+      (tester) async {
+    final harness = _CompactHarness()
+      ..detailState = 'in_progress'
+      ..visible = ['zakaz-a', 'zakaz-b'];
+    harness.states['zakaz-a'] = 'in_progress';
+    harness.queueStates['zakaz-a'] = 'in_progress';
+    harness.states['zakaz-b'] = 'pending';
+    harness.queueStates['zakaz-b'] = 'pending';
+    harness.detailControlPatch['temporary_pause'] = {
+      'session_id': 'compact-unfinished-roll',
+      'token': List.filled(64, 'c').join(),
+    };
+    harness.events.onListen = () => scheduleMicrotask(() {
+          if (!harness.events.isClosed) harness.events.add(harness.snapshot());
+        });
+    final mutations = <http.Request>[];
+    final started = Completer<http.Response>();
+    await http.runWithClient(() async {
+      await harness.mount(tester, viewport: const Size(390, 1100));
+      await tester.longPress(_workerRow('zakaz-a'));
+      await tester.pumpAndSettle();
+      expect(harness.details, [(apparatus: _station, orderId: 'zakaz-a')]);
+      harness.queueRefresh = Completer<AdminApparatusQueueSnapshot>();
+      final globalReads = harness.queueReads;
+      await TestModeController.instance.setEnabled(false);
+      await tester.tap(find.byKey(const ValueKey('worker-temporary-pause')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(mutations, hasLength(1));
+      expect(mutations.single.url.path, endsWith('/temporary-pause'));
+      expect(harness.queueReads, greaterThan(globalReads));
+      expect(harness.queueRefresh!.isCompleted, isFalse);
+
+      // The list remains at its old global cursor. This fresh single-order
+      // read authorizes the urgent next job after the acknowledged suspension.
+      harness
+        ..revision = 8
+        ..detailRevision = 8
+        ..detailState = 'pending'
+        ..detailTitle = 'Urgent next package';
+      harness.detailControlPatch.remove('temporary_pause');
+      harness.states['zakaz-a'] = 'paused';
+      harness.queueStates['zakaz-a'] = 'paused';
+      harness.pending = Completer<AdminApparatusQueueSnapshot>();
+      dismissAdminTopNotice();
+      await tester.tap(_workerRow('zakaz-b'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(harness.details, [
+        (apparatus: _station, orderId: 'zakaz-a'),
+        (apparatus: _station, orderId: 'zakaz-b'),
+      ]);
+      expect(_sheet(pending: true), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Boshlash'), findsNothing,
+          reason: 'The old compact row cannot invent start permission');
+      harness.pending!.complete(harness.full('zakaz-b'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_sheet(pending: false), findsOneWidget);
+      expect(_content(tester).uiState.contractSynchronized, isTrue);
+      final start = find.widgetWithText(FilledButton, 'Boshlash');
+      expect(start, findsOneWidget);
+      expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+      final dynamic sheet = tester.widget(_sheet(pending: false));
+      expect(sheet.queueActionsInFlight.value, isEmpty,
+          reason: 'The pause busy state ends at ACK, not global refresh');
+      expect(sheet.currentQueueSnapshot().revision, 8);
+      expect(harness.queueRefresh!.isCompleted, isFalse);
+      await tester.ensureVisible(start);
+      await tester.tap(start);
+      await tester.pump();
+      expect(mutations, hasLength(2),
+          reason: 'Next work starts without waiting for the global snapshot');
+      expect(mutations.last.url.path, endsWith('/queue-action'));
+      expect(jsonDecode(mutations.last.body)['order_id'], 'zakaz-b');
+      expect(jsonDecode(mutations.last.body)['action'], 'start');
+      expect(harness.queueRefresh!.isCompleted, isFalse);
+      expect(harness.details, hasLength(2),
+          reason: 'Start reuses its fresh scoped contract without a preflight');
+      started.complete(http.Response(
+          jsonEncode({
+            'ok': true,
+            'states': {'zakaz-a': 'paused', 'zakaz-b': 'in_progress'},
+          }),
+          200));
+      harness.queueRefresh!.complete(harness.snapshot());
+      await tester.pumpAndSettle();
+      await harness.close(tester);
+    }, () => MockClient((request) {
+      if (request.method == 'POST') {
+        mutations.add(request);
+        return request.url.path.endsWith('/temporary-pause')
+            ? Future.value(http.Response('{"ok":true}', 200))
+            : started.future;
+      }
+      if (request.url.path.endsWith('/order-scan-bootstrap')) {
+        final control = harness.full('zakaz-b')
+            .queueActionControls[_station]!['zakaz-b']!;
+        Map<String, dynamic> section(Object data) => {
+              'status': 'ready',
+              'apparatus': _station,
+              'order_id': 'zakaz-b',
+              'stage_node_id': 'work',
+              'data': data,
+            };
+        return Future.value(http.Response(
+            jsonEncode({
+              'ok': true,
+              'control_state': {
+                'apparatus': _station,
+                'order_id': 'zakaz-b',
+                'rev': 8,
+                'epoch': _epoch,
+                'scope': 'fresh-next-order-setup',
+                'control': jsonDecode(control.serverContractSignature),
+                'queue_state': 'pending',
+                'stage_states': <String, String>{},
+                'order_control': 'active',
+              },
+              'sections': {
+                'material_assignments': section(<Object>[]),
+                'input_progress': {
+                  ...section({'batches': <Object>[]}),
+                  'limit': 500,
+                  'status_filter': 'waiting',
+                },
+              },
+            }),
+            200));
+      }
+      return Future.value(http.Response('{"error":"not_found"}', 404));
+    }));
+  });
+
+  for (final outcome in ['success', 'rejected', 'lost response', 'newer live']) {
+    testWidgets(
+        'temporary removal acknowledges compact pause before refresh: $outcome',
+        (tester) async {
+      final harness = _CompactHarness()..detailState = 'in_progress';
+      harness.states['zakaz-a'] = 'in_progress';
+      harness.queueStates['zakaz-a'] = 'in_progress';
+      harness.detailControlPatch['temporary_pause'] = {
+        'session_id': 'compact-unfinished-roll',
+        'token': List.filled(64, 'c').join(),
+      };
+      harness.events.onListen = () => scheduleMicrotask(() {
+            if (!harness.events.isClosed) harness.events.add(harness.snapshot());
+          });
+      final response = Completer<http.Response>();
+      final requests = <http.Request>[];
+      await http.runWithClient(() async {
+        await harness.mount(tester, viewport: const Size(390, 1100));
+        final initial = harness.snapshot();
+        await tester.longPress(_workerRow('zakaz-a'));
+        await tester.pumpAndSettle();
+        expect(harness.details, hasLength(1));
+        final action = find.byKey(const ValueKey('worker-temporary-pause'));
+        expect(action, findsOneWidget);
+        harness.queueRefresh = Completer<AdminApparatusQueueSnapshot>();
+        await TestModeController.instance.setEnabled(false);
+        final reads = harness.queueReads;
+        await tester.tap(action);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(requests, hasLength(1));
+        expect(requests.single.method, 'POST');
+        expect(requests.single.url.path, endsWith('/temporary-pause'));
+        expect(harness.details, hasLength(1),
+            reason: 'The menu already hydrated authority; no click preflight');
+        expect(_sequenceRow(tester, 'zakaz-a').tone.toString(),
+            endsWith('.inProgress'), reason: 'Do not pause before acknowledgement');
+        if (outcome == 'newer live') {
+          // Another device already resumed after this pause committed, while
+          // its POST response was still delayed in transit.
+          harness.revision = 9;
+          harness.detailRevision = 9;
+          harness.events.add(harness.snapshot());
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        if (outcome == 'lost response') {
+          response.completeError(http.ClientException('Response lost after commit'));
+        } else {
+          response.complete(http.Response(
+              outcome == 'rejected'
+                  ? '{"error":"queue_action_not_allowed"}'
+                  : '{"ok":true}',
+              outcome == 'rejected' ? 409 : 200));
+        }
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(harness.queueReads, greaterThan(reads));
+        expect(harness.queueRefresh!.isCompleted, isFalse);
+        expect(_sequenceRow(tester, 'zakaz-a').tone.toString(),
+            endsWith(outcome == 'success' ? '.paused' : '.inProgress'),
+            reason: 'An acknowledged pause paints immediately; an uncertain '
+                'response or newer live state cannot invent or rewind state');
+        expect(_sequenceRow(tester, 'zakaz-b').tone.toString(),
+            endsWith('.inProgress'), reason: 'Other rows retain their state');
+        expect(initial.queueStates[_station]!['zakaz-a'], 'in_progress',
+            reason: 'Canonical immutable snapshots remain untouched');
+        expect(initial.workerDisplayStates[_station]!['zakaz-a'], 'in_progress');
+        expect(requests.where((request) => request.method == 'POST'), hasLength(1));
+        // The canonical read remains authoritative, including a later resume.
+        harness.queueRefresh!.complete(harness.snapshot());
+        await tester.pumpAndSettle();
+        expect(_sequenceRow(tester, 'zakaz-a').tone.toString(),
+            endsWith('.inProgress'));
+        await harness.close(tester);
+      }, () => MockClient((request) {
+        requests.add(request);
+        return request.method == 'POST'
+            ? response.future
+            : Future.value(http.Response('{"error":"not_found"}', 404));
+      }));
+    });
+  }
+
+  testWidgets(
+      'compact worker temporary removal hydrates authority and reconciles stale token',
+      (tester) async {
+    final token = List.filled(64, 'c').join();
+    final harness = _CompactHarness()
+      ..detailState = 'in_progress'
+      ..pending = Completer<AdminApparatusQueueSnapshot>();
+    harness.states['zakaz-a'] = 'in_progress';
+    harness.queueStates['zakaz-a'] = 'in_progress';
+    harness.detailControlPatch['temporary_pause'] = {
+      'session_id': 'compact-unfinished-roll',
+      'token': token,
+    };
+    harness.events.onListen = () => scheduleMicrotask(() {
+          if (!harness.events.isClosed) harness.events.add(harness.snapshot());
+        });
+    final mutations = <http.Request>[];
+    await http.runWithClient(() async {
+      expect(harness.snapshot().queueActionControls, isEmpty);
+      await harness.mount(tester, viewport: const Size(390, 1100));
+      await tester.longPress(_workerRow('zakaz-a'));
+      await tester.pump();
+      expect(harness.details, [(apparatus: _station, orderId: 'zakaz-a')]);
+      final action = find.byKey(const ValueKey('worker-temporary-pause'));
+      expect(action, findsNothing,
+          reason: 'A compact display row cannot authorize suspension');
+      harness.pending!.complete(harness.full('zakaz-a'));
+      await tester.pumpAndSettle();
+      harness.pending = null;
+      expect(action, findsOneWidget,
+          reason: 'The hydrated full control supplies suspension authority');
+      expect(harness.details, hasLength(1));
+      expect(mutations, isEmpty);
+
+      // The menu retains its captured token while a newer compact revision
+      // withdraws full controls. The backend rejects that token without an
+      // output action fallback or a mutation retry.
+      harness.detailControlPatch.remove('temporary_pause');
+      harness
+        ..revision = 8
+        ..detailRevision = 8;
+      harness.events.add(harness.snapshot());
+      await tester.pumpAndSettle();
+      await TestModeController.instance.setEnabled(false);
+      final reads = harness.queueReads;
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      expect(mutations, hasLength(1));
+      expect(mutations.single.url.path, endsWith('/temporary-pause'));
+      expect(jsonDecode(mutations.single.body), {
+        'apparatus': _station,
+        'order_id': 'zakaz-a',
+        'session_id': 'compact-unfinished-roll',
+        'token': token,
+      });
+      expect(harness.queueReads, greaterThan(reads),
+          reason: 'An uncertain/rejected write is reconciled through reads');
+      expect(find.byWidgetPredicate((widget) =>
+          widget.runtimeType.toString().contains('ProgressQty')), findsNothing);
+      expect(harness.queueStates['zakaz-a'], 'in_progress');
+      dismissAdminTopNotice();
+      await tester.pumpAndSettle();
+      await tester.longPress(_workerRow('zakaz-a'));
+      await tester.pumpAndSettle();
+      expect(harness.details, hasLength(2));
+      expect(action, findsNothing,
+          reason: 'The latest scoped detail no longer offers suspension');
+      expect(mutations, hasLength(1));
+      await harness.close(tester);
+    }, () => MockClient((request) async {
+      if (request.method == 'POST') {
+        mutations.add(request);
+        return http.Response('{"error":"queue_action_not_allowed"}', 409);
+      }
+      return http.Response('{"error":"not_found"}', 404);
+    }));
   });
 
   testWidgets(
