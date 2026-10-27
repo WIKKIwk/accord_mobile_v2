@@ -56,9 +56,17 @@ Future<bool> _showWorkerWorkReactivation({
 }) async {
   final scope = currentSessionReadScope();
   final l10n = context.l10n;
-  final actionKey = batch == null
-      ? 'worker.reactivate.order_action'
-      : 'worker.reactivate.wip_action';
+  final isLamination = batch != null && apparatus.usesLaminationWorkflow;
+  final actionKey = isLamination
+      ? 'worker.reactivate.lamination_action'
+      : batch == null
+          ? 'worker.reactivate.order_action'
+          : 'worker.reactivate.wip_action';
+  final explanationKey = isLamination
+      ? 'worker.reactivate.lamination_explanation'
+      : batch == null
+          ? 'worker.reactivate.order_explanation'
+          : 'worker.reactivate.wip_explanation';
   AdminWorkReactivationPreview? preview;
   try {
     preview = await MobileApi.instance.adminWorkReactivationPreview(
@@ -182,8 +190,7 @@ Future<bool> _showWorkerWorkReactivation({
   final confirmed = await showM3ConfirmDialog(
     context: context,
     title: l10n.productionText(actionKey),
-    message:
-        '$identity\n\n${l10n.productionText(batch == null ? 'worker.reactivate.order_explanation' : 'worker.reactivate.wip_explanation')}',
+    message: '$identity\n\n${l10n.productionText(explanationKey)}',
     cancelLabel: l10n.productionText('worker.action.cancel'),
     confirmLabel: l10n.productionText('worker.reactivate.confirm'),
     confirmButtonKey: const ValueKey('worker-reactivate-confirm'),

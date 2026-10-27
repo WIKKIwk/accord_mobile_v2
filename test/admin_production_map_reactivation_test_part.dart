@@ -1,5 +1,13 @@
 part of 'admin_production_map_test_screen_test.dart';
 
+// The work screen can retain animated loading/status indicators. Pump the
+// route transition, then let each test assert its specific loaded UI.
+Future<void> _pumpCompletedWorkFrames(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
 class _ReactivationFixture {
   _ReactivationFixture(this.station, {this.denial});
   final String station;
@@ -15,6 +23,7 @@ class _ReactivationFixture {
   Future<void> open(
     WidgetTester tester, {
     Future<String?> Function(BuildContext context)? progressDriverUrlPicker,
+    String actingWorkerRef = workerRef,
   }) async {
     await TestModeController.instance.setEnabled(true);
     var map = _twoStageProductionOrderMap(
@@ -82,11 +91,14 @@ class _ReactivationFixture {
         bobinaKg: 1,
         totalWaste: 1,
         uom: 'm');
+    AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+      ref: actingWorkerRef,
+    );
     await _usePhoneViewport(tester);
     addTearDown(() async {
       dismissAdminTopNotice();
       await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
+      await _pumpCompletedWorkFrames(tester);
     });
     await tester.pumpWidget(MaterialApp(
         locale: const Locale('uz'),
@@ -102,10 +114,12 @@ class _ReactivationFixture {
             workerMode: true,
             progressDriverUrlPicker: progressDriverUrlPicker,
             liveEventsLoader: () => const Stream.empty())));
-    await tester.pumpAndSettle();
+    await _pumpCompletedWorkFrames(tester);
     await tester.ensureVisible(find.text('Tugallangan'));
     await tester.tap(find.text('Tugallangan'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.textContaining('Reactivation order'), findsWidgets);
     await TestModeController.instance.setEnabled(false);
   }
@@ -120,10 +134,10 @@ class _ReactivationFixture {
       await tester.longPress(row);
     } else {
       await tester.tap(row);
-      await tester.pumpAndSettle();
+      await _pumpCompletedWorkFrames(tester);
       await tester.longPress(find.byKey(const ValueKey('worker-wip-item-0')));
     }
-    await tester.pumpAndSettle();
+    await _pumpCompletedWorkFrames(tester);
   }
 
   Future<http.Response> respond(http.Request request) async {
@@ -178,6 +192,49 @@ class _ReactivationFixture {
 }
 
 void _registerReactivationTests() {
+  for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
+    testWidgets('assigned next shift can reopen completed work on $station',
+        (tester) async {
+      final fixture = _ReactivationFixture(station);
+      await http.runWithClient(() async {
+        await fixture.open(tester, actingWorkerRef: 'incoming-shift-worker');
+        expect(AppSession.instance.profile!.ref, 'incoming-shift-worker');
+        await fixture.longPressTarget(tester);
+        await tester.tap(
+            find.byKey(const ValueKey('worker-reactivate-completed-work')));
+        await _pumpCompletedWorkFrames(tester);
+        if (station == _lamination1Id) {
+          expect(find.textContaining('Laminatsiya ishi pauzada qayta ochiladi'),
+              findsOneWidget);
+          expect(
+              find.textContaining(
+                  'Oldingi chiqish WIP’lari keyingi bosqichdagi holatida qoladi'),
+              findsOneWidget);
+          expect(find.textContaining('qoldiq yoki boshqa yaroqli kirish WIP'),
+              findsOneWidget);
+        }
+        expect(fixture.writes, isEmpty);
+        await tester.tap(
+            find.byKey(const ValueKey('worker-reactivate-confirm')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(fixture.writes, hasLength(1));
+        final body = jsonDecode(fixture.writes.single.body) as Map;
+        expect(body['session_id'], 'finished-session');
+        expect(body['stage_node_id'], fixture.stage);
+        if (!fixture.isPrint) {
+          expect(body['batch_id'], _ReactivationFixture.batchId);
+          final history = fixture.requests
+              .firstWhere((r) => r.url.path.endsWith('/wip-batches'));
+          expect(history.url.queryParameters['producer_apparatus'], station);
+          expect(history.url.queryParameters.containsKey('own_worker'), isFalse);
+        }
+        dismissAdminTopNotice();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await _pumpCompletedWorkFrames(tester);
+      }, () => MockClient(fixture.respond));
+    });
+  }
   // Print reopens an order; downstream stages reopen the selected output WIP.
   for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
     testWidgets(
@@ -192,7 +249,7 @@ void _registerReactivationTests() {
         expect(action, findsOneWidget);
         expect(fixture.writes, isEmpty);
         await tester.tap(action);
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         expect(
             find.textContaining('faqat qo‘shimcha ishlab chiqarilgan miqdorni'),
             findsOneWidget);
@@ -221,7 +278,7 @@ void _registerReactivationTests() {
         }
         dismissAdminTopNotice();
         await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
       }, () => MockClient(fixture.respond));
     });
   }
@@ -236,7 +293,7 @@ void _registerReactivationTests() {
           await fixture.longPressTarget(tester);
           await tester.tap(
               find.byKey(const ValueKey('worker-reactivate-completed-work')));
-          await tester.pumpAndSettle();
+          await _pumpCompletedWorkFrames(tester);
           if (switchAccount) {
             AppSession.instance.profile = SessionProfile(
                 role: UserRole.aparatchi,
@@ -257,7 +314,7 @@ void _registerReactivationTests() {
           } else {
             await tester.tap(find.text('Bekor qilish'));
           }
-          await tester.pumpAndSettle();
+          await _pumpCompletedWorkFrames(tester);
           expect(fixture.writes, isEmpty);
         }, () => MockClient(fixture.respond));
       });
@@ -288,7 +345,7 @@ void _registerReactivationTests() {
           if (denial == 'final_stage_closed' || denial == 'order_closed') {
             await tester.tap(
                 find.byKey(const ValueKey('worker-reactivate-denial-details')));
-            await tester.pumpAndSettle();
+            await _pumpCompletedWorkFrames(tester);
             expect(find.byType(AlertDialog), findsOneWidget);
             expect(
                 find.descendant(
@@ -317,19 +374,19 @@ void _registerReactivationTests() {
                 matching: find.byType(InkWell))
             .first;
         await tester.longPress(row);
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
             findsNothing);
         expect(fixture.requests.where((r) => r.url.path.endsWith('/preview')),
             isEmpty);
         if (find.byType(BottomSheet).evaluate().isNotEmpty) {
           Navigator.of(tester.element(find.byType(BottomSheet).last)).pop();
-          await tester.pumpAndSettle();
+          await _pumpCompletedWorkFrames(tester);
         }
         await tester.tap(row);
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         expect(
             find.byKey(const ValueKey(
                 'worker-wip-history-preview-reactivation-output')),
@@ -337,9 +394,9 @@ void _registerReactivationTests() {
         expect(fixture.requests.where((r) => r.url.path.endsWith('/preview')),
             isEmpty);
         Navigator.of(tester.element(find.byType(BottomSheet).last)).pop();
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         await tester.longPress(find.byKey(const ValueKey('worker-wip-item-0')));
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
             findsOneWidget);
         expect(
@@ -370,7 +427,7 @@ void _registerReactivationTests() {
                 of: find.textContaining('Reactivation order'),
                 matching: find.byType(InkWell))
             .first);
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         final wip = find.byKey(const ValueKey('worker-wip-item-0'));
         await tester.longPress(wip);
         await tester.pump();
@@ -384,7 +441,7 @@ void _registerReactivationTests() {
         expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
             findsNothing);
         pendingPreview.complete(await fixture.respond(previewRequests.single));
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
             findsOneWidget);
         expect(fixture.writes, isEmpty);

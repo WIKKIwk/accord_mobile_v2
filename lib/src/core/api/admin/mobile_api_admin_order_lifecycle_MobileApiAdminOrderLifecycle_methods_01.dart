@@ -139,10 +139,16 @@ extension MobileApiAdminOrderLifecycleAstPart01 on MobileApi {
           message: 'Yakunlangan orderlar yuklanmadi',
         );
       }
-      final actorRef = AppSession.instance.profile?.ref.trim() ?? '';
+      final profile = AppSession.instance.profile;
+      final actorRef = profile?.ref.trim() ?? '';
+      final assigned = profile?.assignedApparatus.map((id) => id.trim()).toSet() ??
+          const <String>{};
       return [
         for (final item in _testModeCompletedQueueOrders)
-          if (item.actorRef == actorRef) item.order,
+          if (profile?.role == UserRole.aparatchi
+              ? assigned.contains(item.order.apparatus.trim())
+              : item.actorRef == actorRef)
+            item.order,
       ];
     }
     final response = await _sendAuthorized(

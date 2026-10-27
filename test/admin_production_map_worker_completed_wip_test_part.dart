@@ -21,9 +21,9 @@ void _registerWorkerCompletedWipTests() {
               matching: find.byType(InkWell),
             )
             .first);
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
 
-        expect(find.text('2 ta WIP yaratilgan'), findsOneWidget);
+        expect(find.text('3 ta WIP yaratilgan'), findsOneWidget);
         expect(find.text('5 m'), findsOneWidget);
         expect(find.text('121 m'), findsOneWidget);
         expect(
@@ -31,7 +31,7 @@ void _registerWorkerCompletedWipTests() {
                 of: find.byKey(const ValueKey('worker-wip-item-0')),
                 matching: find.text('5 m')),
             findsOneWidget);
-        expect(find.text('999 m'), findsNothing);
+        expect(find.text('999 m'), findsOneWidget);
         expect(find.text('Rulonni yechish'), findsNothing);
         expect(find.text('Tugatish'), findsNothing);
         expect(find.text('Boshlash'), findsNothing);
@@ -44,7 +44,7 @@ void _registerWorkerCompletedWipTests() {
 
         // A short tap keeps details/reprint separate from reactivation actions.
         await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
         expect(find.text('Qayta chop etish'), findsOneWidget);
         expect(find.byKey(const ValueKey('worker-reactivate-completed-work')),
             findsNothing);
@@ -63,6 +63,9 @@ void _registerWorkerCompletedWipTests() {
         expect(body['print_count'], 1);
         expect(fixture.writes, isEmpty);
         expect(tester.takeException(), isNull);
+        dismissAdminTopNotice();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await _pumpCompletedWorkFrames(tester);
       },
           () => MockClient((request) async {
                 requests.add(request);
@@ -77,7 +80,8 @@ void _registerWorkerCompletedWipTests() {
                 expect(request.url.queryParameters['status'], 'all');
                 expect(
                     request.url.queryParameters['producer_apparatus'], station);
-                expect(request.url.queryParameters['own_worker'], 'true');
+                expect(request.url.queryParameters.containsKey('own_worker'),
+                    isFalse);
                 output = ((jsonDecode(response.body) as Map)['batches'] as List)
                     .single
                     .cast<String, dynamic>();
@@ -158,9 +162,9 @@ void _registerWorkerCompletedWipTests() {
             matching: find.byType(InkWell),
           )
           .first);
-      await tester.pumpAndSettle();
+      await _pumpCompletedWorkFrames(tester);
       await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
-      await tester.pumpAndSettle();
+      await _pumpCompletedWorkFrames(tester);
       await tester.tap(find.text('Qayta chop etish'));
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump();
@@ -285,10 +289,10 @@ void _registerWorkerCompletedWipTests() {
         liveEventsLoader: () => const Stream.empty(),
       ),
     ));
-    await tester.pumpAndSettle();
+    await _pumpCompletedWorkFrames(tester);
     await tester.ensureVisible(find.text('Tugallangan'));
     await tester.tap(find.text('Tugallangan'));
-    await tester.pumpAndSettle();
+    await _pumpCompletedWorkFrames(tester);
     expect(find.text('Tugallanmoqda'), findsOneWidget);
     // Exercise the real HTTP loader, not the authorization-free TestMode API.
     await TestModeController.instance.setEnabled(false);
@@ -315,7 +319,7 @@ void _registerWorkerCompletedWipTests() {
               matching: find.byType(InkWell),
             )
             .first);
-        await tester.pumpAndSettle();
+        await _pumpCompletedWorkFrames(tester);
 
         final error =
             find.text(l10n.productionText('worker.wip.history.error'));
@@ -328,7 +332,7 @@ void _registerWorkerCompletedWipTests() {
             of: find.byType(BottomSheet),
             matching: find.text('Qayta urinish'),
           ));
-          await tester.pumpAndSettle();
+          await _pumpCompletedWorkFrames(tester);
         }
         expect(error, findsNothing);
         final searchButton = find.byKey(const ValueKey('worker-wip-search-qr'));
@@ -347,14 +351,14 @@ void _registerWorkerCompletedWipTests() {
           if (scenario == 'qr-search') {
             Future<void> scan(String qr) async {
               await tester.tap(searchButton);
-              await tester.pumpAndSettle();
+              await _pumpCompletedWorkFrames(tester);
               expect(find.byType(RawMaterialScanDialog), findsOneWidget);
               final scanner =
                   tester.widget<MobileScanner>(find.byType(MobileScanner));
               scanner.onDetect!(BarcodeCapture(
                 barcodes: [Barcode(rawValue: qr, format: BarcodeFormat.qrCode)],
               ));
-              await tester.pumpAndSettle();
+              await _pumpCompletedWorkFrames(tester);
               expect(find.byType(RawMaterialScanDialog), findsNothing);
             }
 
@@ -365,7 +369,7 @@ void _registerWorkerCompletedWipTests() {
             expect(find.byKey(const ValueKey('worker-wip-item-1')),
                 findsOneWidget);
             await tester.tap(find.byKey(const ValueKey('worker-wip-show-all')));
-            await tester.pumpAndSettle();
+            await _pumpCompletedWorkFrames(tester);
             expect(find.text('12 m'), findsOneWidget);
             expect(find.text('34 m'), findsOneWidget);
 
@@ -381,17 +385,17 @@ void _registerWorkerCompletedWipTests() {
                 findsNothing);
 
             await tester.tap(searchButton);
-            await tester.pumpAndSettle();
+            await _pumpCompletedWorkFrames(tester);
             Navigator.of(tester.element(find.byType(RawMaterialScanDialog)))
                 .pop();
-            await tester.pumpAndSettle();
+            await _pumpCompletedWorkFrames(tester);
             expect(find.text('12 m'), findsOneWidget);
             expect(find.text('34 m'), findsOneWidget);
             expect(
                 tester.widget<FilledButton>(searchButton).onPressed, isNotNull);
           }
           await tester.tap(find.byKey(const ValueKey('worker-wip-item-0')));
-          await tester.pumpAndSettle();
+          await _pumpCompletedWorkFrames(tester);
           expect(
               find.byKey(
                   const ValueKey('worker-wip-history-reprint-output-$orderId')),
@@ -424,13 +428,14 @@ void _registerWorkerCompletedWipTests() {
           () => MockClient((request) async {
                 requests.add(request);
                 if (!request.url.path.endsWith('/wip-batches')) {
-                  // This personal view uses the exact order and producer.
+                  // Assigned apparatus history uses the exact order and producer.
                   return http.Response('{"error":"forbidden"}', 403);
                 }
                 expect(request.url.queryParameters['order_id'], orderId);
                 expect(request.url.queryParameters['producer_apparatus'],
                     _lamination1Id);
-                expect(request.url.queryParameters['own_worker'], 'true');
+                expect(request.url.queryParameters.containsKey('own_worker'),
+                    isFalse);
                 expect(request.url.queryParameters.containsKey('apparatus'),
                     isFalse);
                 historyAttempts++;

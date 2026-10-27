@@ -113,7 +113,7 @@ class _WorkerWipHistorySheet extends StatefulWidget {
     this.progressDriverUrlPicker,
     this.sourceApparatusId = '',
     this.apparatusTitle = '',
-    this.ownWorkerOutputOnly = false,
+    this.assignedApparatusOutputOnly = false,
     this.allowReactivation = false,
     this.onReactivationAttempted,
   });
@@ -125,7 +125,7 @@ class _WorkerWipHistorySheet extends StatefulWidget {
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final String sourceApparatusId;
   final String apparatusTitle;
-  final bool ownWorkerOutputOnly;
+  final bool assignedApparatusOutputOnly;
   final bool allowReactivation;
   final VoidCallback? onReactivationAttempted;
 
@@ -141,7 +141,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   bool _searchNotFound = false;
   bool _reactivationInFlight = false;
   bool get _historyScopeCurrent =>
-      !widget.ownWorkerOutputOnly ||
+      !widget.assignedApparatusOutputOnly ||
       _historyReadScope == currentSessionReadScope();
 
   @override
@@ -154,7 +154,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   Future<List<AdminProgressBatch>> _load() async {
     final orderId = widget.order.map.id.trim();
     final sourceApparatusId = widget.sourceApparatusId.trim();
-    if (widget.ownWorkerOutputOnly) {
+    if (widget.assignedApparatusOutputOnly) {
       if (!_historyScopeCurrent) {
         throw const MobileApiException(
             code: 'session_scope_changed', message: '');
@@ -164,18 +164,23 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       final apparatusId = sourceApparatusId.isNotEmpty
           ? sourceApparatusId
           : widget.apparatus?.id.trim() ?? '';
-      final workerRef = AppSession.instance.profile?.ref.trim() ?? '';
-      if (orderId.isEmpty || apparatusId.isEmpty || workerRef.isEmpty) {
+      final profile = AppSession.instance.profile;
+      if (orderId.isEmpty ||
+          apparatusId.isEmpty ||
+          profile == null ||
+          profile.role != UserRole.aparatchi ||
+          profile.ref.trim().isEmpty ||
+          !profile.assignedApparatus.any((id) => id.trim() == apparatusId)) {
         throw const MobileApiException(
             code: 'forbidden', message: '', statusCode: 403);
       }
-      // Filter original producer and authenticated worker before pagination;
-      // current location changes must not hide downstream-processed output.
+      // Assigned workers may continue another shift's completed work. The
+      // server authorizes this exact order and producer before pagination;
+      // current location and original worker identity remain historical data.
       final batches = await MobileApi.instance.adminWipBatches(
         status: 'all',
         orderId: orderId,
         producerApparatus: apparatusId,
-        ownWorkerOnly: true,
         limit: 500,
       );
       if (!_historyScopeCurrent) {
@@ -183,9 +188,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
             code: 'session_scope_changed', message: '');
       }
       return _mergeWorkerWipBatches(
-        _wipBatchesProducedByApparatus(
-            batches.where((batch) =>
-                workerRef.isNotEmpty && batch.workerRef.trim() == workerRef),
+        _wipBatchesProducedByApparatus(batches,
             orderId: orderId,
             apparatusId: apparatusId),
         const <AdminProgressBatch>[],

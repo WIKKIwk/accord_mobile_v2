@@ -2797,7 +2797,7 @@ class _AdminProductionMapOrdersScreenState
         apparatus: entry.apparatus,
         apparatusCatalog: _apparatus,
         workerMode: true,
-        ownWorkerOutputOnly: true,
+        assignedApparatusOutputOnly: true,
         sourceApparatusId: entry.apparatusId,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         allowReactivation: entry.apparatus?.usesLaminationWorkflow == true ||

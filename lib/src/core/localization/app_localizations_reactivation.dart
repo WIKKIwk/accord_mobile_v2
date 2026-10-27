@@ -37,6 +37,12 @@ const _workReactivationTranslations = {
     "ru": "Возобновить этот WIP",
     "ur": "یہ WIP دوبارہ فعال کریں"
   },
+  "worker.reactivate.lamination_action": {
+    "uz": "Bu laminatsiya ishini qayta ochish",
+    "en": "Reopen this lamination work",
+    "ru": "Возобновить эту работу ламинации",
+    "ur": "لیمینیشن کا یہ کام دوبارہ کھولیں"
+  },
   "worker.reactivate.confirm": {
     "uz": "Qayta faollashtirish",
     "en": "Reactivate",
@@ -74,6 +80,16 @@ const _workReactivationTranslations = {
         "Заказ вернётся на паузе на этапе этого WIP. Для работы нажмите «Продолжить»; до начала можно закрыть его повторно. Связанные выходные WIP будут заняты на время работы. Учтённые метры, килограммы и отходы сохраняются; вводите только дополнительный выпуск. Доступность WIP и занятость аппарата проверяются повторно при подтверждении.",
     "ur":
         "آرڈر اس WIP کے مرحلے پر توقف میں واپس آئے گا۔ کام کے لیے جاری رکھیں دبائیں؛ شروع کرنے سے پہلے دوبارہ بند کر سکتے ہیں۔ کام کے دوران منسلک آؤٹ پٹ WIP محفوظ رکھے جائیں گے۔ پہلے درج میٹر، کلوگرام اور ضائع شدہ مقدار برقرار رہیں گے؛ صرف اضافی پیداوار درج کریں۔ تصدیق پر WIP کی دستیابی اور مشین کی مصروفیت دوبارہ جانچی جائے گی۔"
+  },
+  "worker.reactivate.lamination_explanation": {
+    "uz":
+        "Laminatsiya ishi pauzada qayta ochiladi. Oldingi chiqish WIP’lari keyingi bosqichdagi holatida qoladi. Davom ettirishda mavjud kirish ruloni ishlatiladi; u mavjud bo‘lmasa, qoldiq yoki boshqa yaroqli kirish WIP’ini skanerlang. Ishlash uchun Davom ettirish tugmasini bosing; hali boshlamagan bo‘lsangiz, Qayta yopish mumkin. Oldingi metraj, kilogramm va chiqindi saqlanadi; faqat qo‘shimcha ishlab chiqarilgan miqdorni qayd eting.",
+    "en":
+        "Lamination work reopens paused. Previous output WIPs keep their downstream state. Resume uses the available input roll; otherwise scan a remainder or another eligible input WIP. Press Resume to work, or Close again before starting. Recorded metres, kilograms and waste are retained; enter only additional production.",
+    "ru":
+        "Работа ламинации откроется на паузе. Прежние выходные WIP сохранят состояние на следующем этапе. Для продолжения используется доступный входной рулон; иначе отсканируйте остаток или другой подходящий входной WIP. Нажмите «Продолжить» для работы; до начала можно закрыть её повторно. Учтённые метры, килограммы и отходы сохраняются; вводите только дополнительный выпуск.",
+    "ur":
+        "لیمینیشن کا کام توقف میں دوبارہ کھلے گا۔ پہلے کے آؤٹ پٹ WIP اگلے مرحلے پر اپنی حالت میں رہیں گے۔ جاری رکھنے کے لیے دستیاب ان پٹ رول استعمال ہوگا؛ ورنہ بچا ہوا رول یا دوسرا موزوں ان پٹ WIP اسکین کریں۔ کام کے لیے جاری رکھیں دبائیں؛ شروع کرنے سے پہلے دوبارہ بند کر سکتے ہیں۔ پہلے درج میٹر، کلوگرام اور ضائع شدہ مقدار برقرار رہیں گے؛ صرف اضافی پیداوار درج کریں۔"
   },
   "worker.reactivate.success": {
     "uz": "Ish pauzada qayta ochildi. Ishlash uchun Davom ettirishni bosing.",
