@@ -633,7 +633,15 @@ _ReadOnlyOrderDetailUiState _readOnlyOrderDetailUiState({
       queueActionControl.allows('roll_complete');
   final showComplete = contractSynchronized &&
       canManageQueue &&
-      queueActionControl.allows('complete');
+      (queueActionControl.allows('complete') ||
+          _unstartedWorkerRecloseControl(
+            order: order,
+            apparatusId: station,
+            canManageQueue: canManageQueue,
+            control: queueActionControl,
+            orderControlState: orderControlState,
+            queueState: queueState,
+          ) != null);
   final showResume = contractSynchronized &&
       canManageQueue &&
       queueActionControl.allows('resume');

@@ -1271,6 +1271,10 @@ class _AdminProductionMapOrdersScreenState
                 ? null
                 : (control) =>
                     _runWorkerTemporaryPause(apparatus, detailOrder, control),
+            onReclose: detailPending
+                ? null
+                : (control) =>
+                    _runWorkerReclose(apparatus, detailOrder, control),
             progressDriverUrlPicker: widget.progressDriverUrlPicker,
             initialOrderControls: detailPending
                 ? const {}
@@ -2167,7 +2171,7 @@ class _AdminProductionMapOrdersScreenState
         showDragHandle: true,
         isScrollControlled: true,
         builder: (_) => SingleChildScrollView(child: _BosmaWorkerFinishSheet(
-            canFinish: control?.allows('complete') == true,
+            canFinish: control?.allows('complete') == true || reclose != null,
             canTemporaryPause: temporaryPause != null,
             canRePause: rePause != null, canReclose: reclose != null)),
       );
@@ -2184,6 +2188,10 @@ class _AdminProductionMapOrdersScreenState
       }
       if (choice == _BosmaWorkerLongPressChoice.rePause) {
         if (rePause != null) await _runWorkerRePause(apparatus, order, rePause);
+        return;
+      }
+      if (choice == _BosmaWorkerLongPressChoice.finishWork && reclose != null) {
+        await _runWorkerReclose(apparatus, order, reclose);
         return;
       }
       _showWatchOrderDetail(
@@ -2272,6 +2280,10 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
       if (choice != _LaminatsiyaWorkerLongPressChoice.finishWork) return;
+      if (reclose != null) {
+        await _runWorkerReclose(apparatus, order, reclose);
+        return;
+      }
       _showWatchOrderDetail(
         apparatus: apparatus,
         order: order,

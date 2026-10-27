@@ -1258,7 +1258,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
                 _LaminatsiyaWorkerLongPressChoice.finishWork,
               ),
               icon: const Icon(Icons.logout_rounded),
-              label: Text(title),
+              label: Text(canReclose
+                  ? context.l10n.productionText('worker.action.complete')
+                  : title),
             ),
           ],
         ),

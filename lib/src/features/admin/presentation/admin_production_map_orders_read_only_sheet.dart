@@ -851,7 +851,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         onPause: () => unawaited(_runProgressAction('pause')),
         onMerge: _toggleMergeScanMode,
         onRollComplete: () => unawaited(_runProgressAction('roll_complete')),
-        onComplete: () => unawaited(_runProgressAction('complete')),
+        onComplete: () => unawaited(_handleCompleteAction()),
         onResume: () => unawaited(_handleResumeAction()),
         orderControlState: _effectiveOrderControlState,
         allowMaterialUnlink: _allowMaterialUnlink,
@@ -3043,6 +3043,27 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
   }
 
+  AdminReactivationRecloseControl? get _finishRecloseControl =>
+      _unstartedWorkerRecloseControl(
+        order: widget.order,
+        apparatusId: widget.apparatus?.id.trim() ?? '',
+        canManageQueue: widget.workerMode && widget.canManageQueue &&
+            _queueActionContractSynchronized,
+        control: _queueActionControl,
+        orderControlState: _effectiveOrderControlState,
+        queueState: _queueStates[widget.order.map.id.trim()],
+      );
+
+  Future<void> _handleCompleteAction() async {
+    final scope = currentSessionReadScope();
+    final reclose = _finishRecloseControl != null;
+    final outcome = await _runProgressAction('complete');
+    if (reclose && mounted && scope == currentSessionReadScope() &&
+        outcome == _ProgressActionOutcome.completed) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
   Future<_ProgressActionOutcome> _runProgressAction(
     String action, {
     bool? fullCompletionReportRequired,
@@ -3082,6 +3103,23 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
     if (_effectiveOrderControlState == AdminOrderControlState.frozen) {
       return _ProgressActionOutcome.failed;
+    }
+    final reclose = action == 'complete' && !workerHandoff &&
+            !removeRollFromApparatus
+        ? _finishRecloseControl
+        : null;
+    if (reclose != null) {
+      final close = widget.onReclose;
+      if (close == null) return _ProgressActionOutcome.failed;
+      final scope = currentSessionReadScope();
+      final succeeded = await close(reclose);
+      if (!mounted || scope != currentSessionReadScope()) {
+        return _ProgressActionOutcome.cancelled;
+      }
+      // A rejected or unconfirmed close must never open production forms.
+      return succeeded
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
     }
     final freezeRequestSafeStop =
         _effectiveOrderControlState == AdminOrderControlState.freezeRequested;
@@ -3848,6 +3886,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.visibleOrderIds = const [],
     this.onQueueAction,
     this.onTemporaryPause,
+    this.onReclose,
     this.progressDriverUrlPicker,
     this.allowWipQrReprint = true,
     this.initialOrderControls = const {},
@@ -3902,6 +3941,8 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   final _ReadOnlyQueueActionCallback? onQueueAction;
   final Future<bool> Function(AdminTemporaryPauseControl control)?
       onTemporaryPause;
+  final Future<bool> Function(AdminReactivationRecloseControl control)?
+      onReclose;
   final Future<String?> Function(BuildContext context)? progressDriverUrlPicker;
   final bool allowWipQrReprint;
   final Map<String, AdminOrderControlState> initialOrderControls;

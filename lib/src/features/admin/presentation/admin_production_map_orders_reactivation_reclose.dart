@@ -1,5 +1,28 @@
 part of 'admin_production_map_orders_screen.dart';
 
+AdminReactivationRecloseControl? _unstartedWorkerRecloseControl({
+  required ProductionMapSaved order,
+  required String apparatusId,
+  required bool canManageQueue,
+  required AdminApparatusQueueOrderActionControl? control,
+  required AdminOrderControlState orderControlState,
+  required String? queueState,
+}) {
+  final profile = AppSession.instance.profile;
+  if (!canManageQueue ||
+      order.map.id.startsWith('training-') ||
+      profile?.assignedApparatus.any((id) => id.trim() == apparatusId) != true ||
+      control?.state != 'paused' ||
+      orderControlState != AdminOrderControlState.active ||
+      control?.isConsistentWith(orderControlState, queueState: queueState) !=
+          true ||
+      control?.reclose?.stageNodeId != control?.stageNodeId ||
+      control?.reclose?.belongsTo(profile) != true) {
+    return null;
+  }
+  return control!.reclose;
+}
+
 extension _AdminProductionMapOrdersReclose
     on _AdminProductionMapOrdersScreenState {
   AdminReactivationRecloseControl? _workerRecloseControl(
@@ -7,36 +30,30 @@ extension _AdminProductionMapOrdersReclose
       ProductionMapSaved order,
       AdminApparatusQueueOrderActionControl? control) {
     if (!widget.workerMode ||
-        order.map.id.startsWith('training-') ||
         _queueSnapshotNeedsReconcile ||
-        _queueSnapshotContractError ||
-        control?.state != 'paused' ||
-        (_orderControlsByOrderId[order.map.id] ??
-                AdminOrderControlState.active) !=
-            AdminOrderControlState.active ||
-        control?.isConsistentWith(
-              _orderControlsByOrderId[order.map.id] ??
-                  AdminOrderControlState.active,
-              queueState: _queueStatesForApparatus(apparatus,
-                  queueStatesByApparatus:
-                      _queueStatesByApparatus)[order.map.id],
-            ) !=
-            true ||
-        control?.reclose?.stageNodeId != control?.stageNodeId ||
-        control?.reclose?.belongsTo(AppSession.instance.profile) != true) {
+        _queueSnapshotContractError) {
       return null;
     }
-    return control!.reclose;
+    return _unstartedWorkerRecloseControl(
+      order: order,
+      apparatusId: apparatus.id.trim(),
+      canManageQueue: true,
+      control: control,
+      orderControlState: _orderControlsByOrderId[order.map.id] ??
+          AdminOrderControlState.active,
+      queueState: _queueStatesForApparatus(apparatus,
+          queueStatesByApparatus: _queueStatesByApparatus)[order.map.id],
+    );
   }
 
-  Future<void> _runWorkerReclose(
+  Future<bool> _runWorkerReclose(
       AdminApparatus apparatus,
       ProductionMapSaved order,
       AdminReactivationRecloseControl checkpoint) async {
     final apparatusId = apparatus.id.trim();
     final orderId = order.map.id.trim();
     final key = '$apparatusId|$orderId';
-    if (!_beginQueueAction(key)) return;
+    if (!_beginQueueAction(key)) return false;
     final scope = currentSessionReadScope();
     var success = false;
     try {
@@ -72,6 +89,7 @@ extension _AdminProductionMapOrdersReclose
         _endQueueAction(key);
       }
     }
+    return success;
   }
 }
 
