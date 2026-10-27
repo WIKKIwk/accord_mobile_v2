@@ -84,7 +84,6 @@ void _registerOrderAlertTests() {
       home: AdminProductionMapOrdersScreen(
         readOnly: true,
         workerMode: true,
-        liveEventsLoader: () => const Stream.empty(),
       ),
     ));
     await tester.pumpAndSettle();
@@ -137,7 +136,11 @@ void _registerOrderAlertTests() {
         isPrint && scenario.qolipCount == 0 ? findsOneWidget : findsNothing,
       );
       if (scenario.qolipCount > 0) {
-        expect(find.text('0/${scenario.qolipCount}'), findsOneWidget);
+        final dynamic content = tester.widget(find.byWidgetPredicate(
+            (widget) =>
+                widget.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+        expect(content.requiredQolips, hasLength(scenario.qolipCount));
+        expect(content.qolipCodes, isEmpty);
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
