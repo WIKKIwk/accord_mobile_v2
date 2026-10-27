@@ -117,6 +117,9 @@ extension _AutomaticOrderQolips on _ReadOnlyOrderDetailSheetState {
         selectedSetId: _automaticQolipSetId,
         confirmed: _automaticQolipsReady,
         loading: _qolipRequirementsLoading,
+        expanded: _qolipsExpanded,
+        onToggleExpanded: () =>
+            setState(() => _qolipsExpanded = !_qolipsExpanded),
         blockingText: _automaticQolipsReady ? '' : _automaticQolipBlockingText,
         enabled: _queueActionContractSynchronized &&
             !_queueActionBusy &&
@@ -137,6 +140,8 @@ class _AutomaticQolipReadiness extends StatelessWidget {
       required this.selectedSetId,
       required this.confirmed,
       required this.loading,
+      required this.expanded,
+      required this.onToggleExpanded,
       required this.blockingText,
       required this.enabled,
       required this.onSelect});
@@ -145,6 +150,8 @@ class _AutomaticQolipReadiness extends StatelessWidget {
   final String? selectedSetId;
   final bool confirmed;
   final bool loading;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
   final String blockingText;
   final bool enabled;
   final ValueChanged<String> onSelect;
@@ -161,20 +168,41 @@ class _AutomaticQolipReadiness extends StatelessWidget {
             mold.isExtension ||
             mold.setId == selectedSetId)
         .toList();
+    final confirmedCount = molds
+        .where(
+            (mold) => mold.ready && !loading && mold.blockingReasonCode.isEmpty)
+        .length;
+    final choosingSet = sets.length > 1 && selectedSetId == null;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Icon(confirmed ? Icons.check_circle_rounded : Icons.layers_outlined,
-            color: confirmed ? scheme.primary : scheme.onSurfaceVariant),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(l10n.productionText('worker.molds'),
-                style: Theme.of(context).textTheme.titleSmall)),
-      ]),
+      _ScannedItemsExpansionHeader(
+        key: const ValueKey('production-qolips-expansion'),
+        title: l10n.productionText(
+            choosingSet ? 'worker.mold.alternatives' : 'worker.molds'),
+        countText: l10n.productionText('worker.mold.progress', values: {
+          'scanned': confirmedCount,
+          'required': molds.length,
+        }),
+        countNumber:
+            choosingSet ? '${sets.length}' : '$confirmedCount/${molds.length}',
+        countUnit: choosingSet
+            ? l10n.productionText('worker.mold.set_unit')
+            : (l10n.isUzbek ? 'ta' : ''),
+        isLoading: loading,
+        expanded: molds.isNotEmpty && expanded,
+        onTap: molds.isNotEmpty ? onToggleExpanded : null,
+        trailing: confirmed
+            ? Icon(Icons.check_rounded,
+                key: const ValueKey('production-qolip-auto-status'),
+                color: scheme.primary,
+                semanticLabel:
+                    l10n.productionText('qolip.start.auto.confirmed'))
+            : null,
+      ),
       if (loading) ...[
         const SizedBox(height: 8),
         const LinearProgressIndicator(),
       ],
-      if (sets.length > 1) ...[
+      if (expanded && sets.length > 1) ...[
         const SizedBox(height: 8),
         Text(l10n.productionText('qolip.start.auto.choose_set')),
         const SizedBox(height: 8),
@@ -188,13 +216,6 @@ class _AutomaticQolipReadiness extends StatelessWidget {
             ),
         ]),
       ],
-      if (confirmed)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(l10n.productionText('qolip.start.auto.confirmed'),
-              key: const ValueKey('production-qolip-auto-status'),
-              style: TextStyle(color: scheme.primary)),
-        ),
       if (blockingText.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -203,34 +224,18 @@ class _AutomaticQolipReadiness extends StatelessWidget {
               style: TextStyle(
                   color: loading ? scheme.onSurfaceVariant : scheme.error)),
         ),
-      for (final mold in molds)
-        Padding(
-          key: ValueKey('production-qolip-auto-' + mold.qolipCode),
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(
-                mold.ready && !loading
-                    ? Icons.check_circle_rounded
-                    : Icons.warning_amber_rounded,
-                color: mold.ready && !loading ? scheme.primary : scheme.error),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text([mold.qolipCode, mold.color]
-                    .where((value) => value.isNotEmpty)
-                    .join(' · ')),
-                if (mold.blockingReasonCode.isNotEmpty)
-                  Text(
-                      l10n.productionErrorMessage(mold.blockingReasonCode,
-                          fallback:
-                              l10n.productionText('qolip.start.auto.blocked')),
-                      style: TextStyle(color: scheme.error)),
-              ],
-            )),
-          ]),
-        ),
+      if (expanded)
+        for (final (index, mold) in molds.indexed)
+          Padding(
+            key: ValueKey('production-qolip-auto-' + mold.qolipCode),
+            padding: EdgeInsets.only(top: index == 0 ? 12 : 8),
+            child: _ScannedQolipTile(
+              qolip: mold,
+              scanned:
+                  mold.ready && !loading && mold.blockingReasonCode.isEmpty,
+              blockingReasonCode: mold.blockingReasonCode,
+            ),
+          ),
     ]);
   }
 }

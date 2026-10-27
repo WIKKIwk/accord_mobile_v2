@@ -161,6 +161,17 @@ void _registerAutomaticQolipTests() {
             canStart ? isNotNull : isNull);
         expect(find.byType(ProductionQuickScannerPanel),
             material ? findsOneWidget : findsNothing);
+        final expansion =
+            find.byKey(const ValueKey('production-qolips-expansion'));
+        expect(expansion, findsOneWidget);
+        expect(find.byKey(const ValueKey('production-qolip-auto-AUTO-A-1')),
+            findsNothing,
+            reason: 'automatic confirmation keeps the original collapsed list');
+        if (outcome != 'missing') {
+          await tester.ensureVisible(expansion);
+          await tester.tap(expansion);
+          await tester.pumpAndSettle();
+        }
         if (outcome == 'single' || material) {
           expect(find.byKey(const ValueKey('production-qolip-auto-status')),
               findsOneWidget);
@@ -168,6 +179,26 @@ void _registerAutomaticQolipTests() {
               findsOneWidget);
           expect(find.byKey(const ValueKey('production-qolip-auto-AUTO-B-1')),
               findsOneWidget);
+          final firstMold =
+              find.byKey(const ValueKey('production-scanned-qolip-auto-a-1'));
+          expect(firstMold, findsOneWidget,
+              reason: 'use the existing scanned mold card and checkmark');
+          expect(
+              find.descendant(
+                  of: firstMold, matching: find.byIcon(Icons.check_rounded)),
+              findsOneWidget);
+          await tester.ensureVisible(expansion);
+          await tester.tap(expansion);
+          await tester.pumpAndSettle();
+          expect(firstMold, findsNothing);
+          expect(find.byKey(const ValueKey('production-qolip-auto-status')),
+              findsOneWidget,
+              reason: 'collapsing the list retains automatic confirmation');
+          expect(tester.widget<FilledButton>(button).onPressed,
+              canStart ? isNotNull : isNull);
+          await tester.tap(expansion);
+          await tester.pumpAndSettle();
+          expect(firstMold, findsOneWidget);
         }
         if (outcome == 'alternatives') {
           final choice = find.byKey(
@@ -192,7 +223,7 @@ void _registerAutomaticQolipTests() {
               find.byKey(const ValueKey('production-qolip-auto-AUTO-B-1'));
           expect(
               find.descendant(
-                  of: good, matching: find.byIcon(Icons.check_circle_rounded)),
+                  of: good, matching: find.byIcon(Icons.check_rounded)),
               findsOneWidget);
           expect(
               find.descendant(
