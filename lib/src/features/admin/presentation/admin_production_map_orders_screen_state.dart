@@ -706,11 +706,13 @@ class _AdminProductionMapOrdersScreenState
                                   closedOrders: _closedOrders,
                                   onSetModule: _setModule,
                                   ordersForApparatus: _ordersForApparatus,
+                                  // Versioned admin moves can use cached rows
+                                  // immediately while live validation continues.
                                   sequenceReorderEnabled:
-                                      (!_adminPaging || (_searchQuery.trim().isEmpty &&
+                                      (!_adminPaging || (!_queueSnapshotContractError &&
+                                          _searchQuery.trim().isEmpty &&
                                           _adminModuleWindows(_OpenedOrderModule.sequence)
-                                              .every((w) => w.loaded && w.error == null &&
-                                                  !w.cacheNeedsValidation))) &&
+                                              .every((w) => w.loaded && w.error == null))) &&
                                       _selectedApparatus != null &&
                                       _queuePolicyForApparatus(
                                         _selectedApparatus!,

@@ -151,10 +151,10 @@ void _registerAdminPageCacheTests() {
     harness.catalogWait = Completer<List<AdminApparatus>>();
     await harness.open(tester);
     harness.expectRows(tester, harness.ids);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-    harness.modules(tester).onReorder(0, 1);
-    await tester.pump();
-    harness.expectRows(tester, harness.ids);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(find.byIcon(Icons.drag_handle_rounded),
+        findsNWidgets(harness.ids.length));
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     harness.expectQuiet(tester, reads);
     expect(harness.connections, 2);
     await harness.ready(tester);
@@ -195,7 +195,8 @@ void _registerAdminPageCacheTests() {
     for (var visit = 0; visit < 3; visit++) {
       await harness.open(tester);
       harness.expectRows(tester, harness.ids);
-      expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+      expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+      expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
       harness.expectQuiet(tester, reads);
       await harness.leave(tester);
     }
@@ -336,7 +337,8 @@ void _registerAdminPageCacheTests() {
     harness.serverEpoch = 'restarted-server';
     harness.revision = 1;
     await harness.open(tester);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
       'type': 'page_window_resync',
       'window': harness.activeWindow(tester).liveId,

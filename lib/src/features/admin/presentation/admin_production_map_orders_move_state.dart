@@ -182,17 +182,16 @@ extension _AdminProductionMapOrdersMoveState
     int oldIndex,
     int newIndex,
   ) async {
-    if (widget.readOnly || _searchQuery.trim().isNotEmpty) {
+    if (widget.readOnly || _searchQuery.trim().isNotEmpty ||
+        (_adminPaging && _queueSnapshotContractError)) {
       return;
     }
     final apparatus = _selectedApparatus;
     if (apparatus == null) {
       return;
     }
-    if (_adminPaging &&
-        _adminWindow('sequence', apparatus: apparatus.id).cacheNeedsValidation) {
-      return;
-    }
+    // Admin reorder uses the cached sequence version immediately. The server
+    // atomically rejects stale versions; live validation continues separately.
     if (_queuePolicyForApparatus(
           apparatus,
           queuePoliciesByApparatus: _queuePoliciesByApparatus,

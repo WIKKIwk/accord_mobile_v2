@@ -86,7 +86,10 @@ void _registerAdminPersistentPageCacheTests() {
     final reads = harness.reads.length;
     await restart(tester, harness, backend);
     harness.expectRows(tester, harness.ids);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(find.byIcon(Icons.drag_handle_rounded),
+        findsNWidgets(harness.ids.length));
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     harness.expectQuiet(tester, reads);
     await harness.ready(tester);
     expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
@@ -109,7 +112,8 @@ void _registerAdminPersistentPageCacheTests() {
     install(backend);
     await harness.open(tester);
     harness.expectRows(tester, before);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     harness.sendCanonicalDelta(states: {before.last: 'in_progress'});
     await tester.pumpAndSettle();
     harness.expectRows(tester, harness.ids);
@@ -121,14 +125,15 @@ void _registerAdminPersistentPageCacheTests() {
     await restart(tester, harness, backend);
     harness.expectRows(tester, harness.ids);
     expect(harness.cardColor(tester, before.last), isNot(colour));
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     await harness.ready(tester);
     harness.expectQuiet(tester, reads);
     await harness.leave(tester);
   });
 
   testWidgets(
-      'admin durable pages: offline restoration keeps cached rows read-only',
+      'admin durable pages: restoration exposes cached version before validation',
       (tester) async {
     final backend = MemoryProductionSnapshotBackend();
     final harness = await prepare(tester, backend);
@@ -138,11 +143,8 @@ void _registerAdminPersistentPageCacheTests() {
     harness.catalogWait = Completer<List<AdminApparatus>>();
     await harness.open(tester);
     harness.expectRows(tester, harness.ids);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-    harness.modules(tester).onReorder(0, 1);
-    await tester.pump();
-    harness.expectRows(tester, harness.ids);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     await harness.leave(tester);
     harness.catalogWait!.complete(harness.fixture.apparatus);
     await tester.pump();
@@ -230,7 +232,8 @@ void _registerAdminPersistentPageCacheTests() {
     harness.serverEpoch = 'new-server-epoch';
     harness.revision = 1;
     await harness.open(tester);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
       'type': 'page_window_resync',
       'window': harness.activeWindow(tester).liveId,

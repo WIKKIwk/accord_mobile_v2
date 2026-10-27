@@ -67,12 +67,15 @@ void _registerAdminWarmNavigationTests() {
     expect(harness.reads.where((r) => r.view == 'orders'), hasLength(1));
     await harness.open(tester, sequenceWarmStore: store, settle: false);
     harness.expectRows(tester, harness.ids);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(find.byIcon(Icons.drag_handle_rounded),
+        findsNWidgets(harness.ids.length));
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     expect(harness.reads.length, reads);
     expect(harness.catalogReads, 0);
     await tester.pumpAndSettle();
     await harness.ready(tester);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isFalse);
     expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
     expect(find.byIcon(Icons.drag_handle_rounded),
         findsNWidgets(harness.ids.length));
@@ -105,8 +108,125 @@ void _registerAdminWarmNavigationTests() {
   });
 
   for (final source in ['warm', 'cache']) {
+    testWidgets('warm navigation: $source first frame sends a versioned drag',
+        (tester) async {
+      late final _AdminPageCacheNavigationHarness harness;
+      AdminSequenceWarmStore? store;
+      if (source == 'warm') {
+        final prepared = await prepare(tester);
+        harness = prepared.$1;
+        store = prepared.$2;
+        await store.prepare(currentAdminSequenceWarmScope());
+        await tester.pumpAndSettle();
+      } else {
+        harness = _AdminPageCacheNavigationHarness(
+            await _prepareScanBootstrapFixture(tester));
+        await harness.host(tester);
+        await harness.open(tester);
+        await harness.ready(tester);
+        await harness.leave(tester);
+      }
+      final reads = harness.reads.length;
+      await http.runWithClient(() async {
+        await harness.open(tester, sequenceWarmStore: store, settle: false);
+        expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+        expect(find.byIcon(Icons.drag_handle_rounded),
+            findsNWidgets(harness.ids.length));
+        expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
+        final original = harness.ids.toList();
+        final moved = [original[1], original[2], original[0]];
+        await TestModeController.instance.setEnabled(false);
+        harness.modules(tester).onReorder(0, 2);
+        await _flushSequenceStreamSync(tester);
+        expect(harness.writes, hasLength(1),
+            reason: 'The first drag must not wait for a live-ready frame');
+        final command = jsonDecode(harness.writes.single.body) as Map;
+        expect(command['apparatus'], scanApparatus);
+        expect(command['order_id'], original.first);
+        expect(command['after_order_id'], original.last);
+        expect(command['expected_version'], '0' * 64);
+        expect(command['idempotency_key'], matches(RegExp(r'^[a-f0-9]{32}$')));
+        harness.expectRows(tester, moved);
+        expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue,
+            reason: 'An optimistic drag cannot certify the cached page');
+        expect(harness.reads, hasLength(reads));
+
+        // The server's committed delta may arrive before its HTTP receipt.
+        harness.installCanonical(moved,
+            revision: 8, sequenceRevision: 6, sequenceVersion: '1' * 64);
+        harness.sendCanonicalDelta();
+        await tester.pumpAndSettle();
+        expect(harness.activeWindow(tester).cacheNeedsValidation, isFalse);
+        harness.acknowledge(0, moved,
+            sequenceRevision: 6, sequenceVersion: '1' * 64);
+        await tester.pumpAndSettle();
+        harness.expectRows(tester, moved);
+        expect(harness.writes, hasLength(1));
+        expect(harness.reads, hasLength(reads));
+        await harness.leave(tester);
+      }, () => MockClient(harness.respond));
+      store?.configure(scope: null, foreground: false);
+    });
+  }
+
+  testWidgets('warm navigation: stale first-frame drag rebases before retry',
+      (tester) async {
+    final (harness, store, _) = await prepare(tester);
+    await store.prepare(currentAdminSequenceWarmScope());
+    await tester.pumpAndSettle();
+    final reads = harness.reads.length;
+    await http.runWithClient(() async {
+      await harness.open(tester, sequenceWarmStore: store, settle: false);
+      final original = harness.ids.toList();
+      await TestModeController.instance.setEnabled(false);
+      harness.modules(tester).onReorder(0, 2);
+      await _flushSequenceStreamSync(tester);
+      expect(harness.writes, hasLength(1));
+      final first = jsonDecode(harness.writes.first.body) as Map;
+      expect(first['expected_version'], '0' * 64);
+      final recovery = Completer<AdminProductionOrderPage?>();
+      harness.delayedReconcile = recovery;
+      final concurrent = [original[1], original[0], original[2]];
+      harness.installCanonical(concurrent,
+          revision: 8, sequenceRevision: 6, sequenceVersion: '1' * 64);
+      harness.replies.first.complete(http.Response(
+          jsonEncode({'error': 'queue_reorder_conflict'}), 409));
+      await _flushSequenceStreamSync(tester);
+      expect(harness.writes, hasLength(1),
+          reason: 'A conflict must wait for a fresh server version');
+      final extra = harness.reads.skip(reads).toList();
+      expect(extra, hasLength(1));
+      expect(extra.single.view, 'sequence');
+      expect(extra.single.apparatus, scanApparatus);
+      harness.delayedReconcile = null;
+      recovery.complete(
+          await AdminProductionOrderPage.fromJson(harness.payload()));
+      await _flushSequenceStreamSync(tester);
+      expect(harness.writes, hasLength(2));
+      final retry = jsonDecode(harness.writes.last.body) as Map;
+      expect(retry['expected_version'], '1' * 64);
+      expect(retry['idempotency_key'], isNot(first['idempotency_key']));
+      expect(retry['order_id'], original.first);
+      expect(retry['after_order_id'], original.last);
+      final moved = [original[1], original[2], original[0]];
+      harness.installCanonical(moved,
+          revision: 9, sequenceRevision: 7, sequenceVersion: '2' * 64);
+      harness.sendCanonicalDelta(baseVersion: 'v8');
+      await tester.pumpAndSettle();
+      harness.acknowledge(1, moved,
+          sequenceRevision: 7, sequenceVersion: '2' * 64);
+      await tester.pumpAndSettle();
+      harness.expectRows(tester, moved);
+      expect(harness.writes, hasLength(2));
+      expect(harness.reads, hasLength(reads + 1));
+      await harness.leave(tester);
+    }, () => MockClient(harness.respond));
+    store.configure(scope: null, foreground: false);
+  });
+
+  for (final source in ['warm', 'cache']) {
     testWidgets(
-        'warm navigation: $source checkpoint enables actual handles without GET',
+        'warm navigation: $source checkpoint validates cached window without GET',
         (tester) async {
       late final _AdminPageCacheNavigationHarness harness;
       AdminSequenceWarmStore? store;
@@ -127,8 +247,10 @@ void _registerAdminWarmNavigationTests() {
       final reads = harness.reads.length;
       await harness.open(tester, sequenceWarmStore: store);
       harness.expectRows(tester, harness.ids);
-      expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-      expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+      expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+      expect(find.byIcon(Icons.drag_handle_rounded),
+          findsNWidgets(harness.ids.length));
+      expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
       final AdminProductionOrderPage page =
           harness.activeWindow(tester).pages.first;
       harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
@@ -175,8 +297,7 @@ void _registerAdminWarmNavigationTests() {
         epoch: harness.serverEpoch, revision: harness.revision, ready: true));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 9));
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     expect(harness.reads, hasLength(reads));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
@@ -220,7 +341,7 @@ void _registerAdminWarmNavigationTests() {
     'cursor',
   ]) {
     testWidgets(
-        'warm navigation: mismatched checkpoint $mismatch cannot authorize rows',
+        'warm navigation: mismatched checkpoint $mismatch cannot certify cache',
         (tester) async {
       final (harness, store, _) = await prepare(tester);
       await store.prepare(currentAdminSequenceWarmScope());
@@ -244,14 +365,14 @@ void _registerAdminWarmNavigationTests() {
         ],
       }));
       await _flushSequenceStreamSync(tester);
-      expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-      expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+      expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
       harness.expectRows(tester, harness.ids);
       harness.delayedReconcile = null;
       recovery.complete(
           await AdminProductionOrderPage.fromJson(harness.payload()));
       await tester.pumpAndSettle();
       await harness.ready(tester);
+      expect(harness.activeWindow(tester).cacheNeedsValidation, isFalse);
       expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
       expect(find.byIcon(Icons.drag_handle_rounded),
           findsNWidgets(harness.ids.length));
@@ -291,8 +412,7 @@ void _registerAdminWarmNavigationTests() {
       'next_cursors': [page.nextCursor],
     }));
     await _flushSequenceStreamSync(tester);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     harness.expectRows(tester, original);
     harness.delayedReconcile = null;
     recovery.complete(
@@ -315,8 +435,7 @@ void _registerAdminWarmNavigationTests() {
     await tester.pumpAndSettle();
     final reads = harness.reads.length;
     await harness.open(tester, sequenceWarmStore: store);
-    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
-    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isTrue);
     harness.events.addError(http.ClientException('initial socket failure'));
     await tester.pumpAndSettle();
     final extra = harness.reads.skip(reads).toList();
@@ -429,6 +548,7 @@ void _registerAdminWarmNavigationTests() {
     harness.expectRows(tester, harness.ids);
     await tester.pumpAndSettle();
     await harness.ready(tester);
+    expect(harness.activeWindow(tester).cacheNeedsValidation, isFalse);
     expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
     expect(harness.reads, hasLength(reads));
     await harness.leave(tester);
