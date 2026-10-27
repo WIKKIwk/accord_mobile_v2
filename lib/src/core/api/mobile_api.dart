@@ -2,6 +2,7 @@ import '../../features/admin/logic/apparatus_queue_state.dart';
 import '../session/session_read_scope.dart';
 import '../models/order_product.dart';
 export '../models/order_product.dart';
+export 'qolip/qolip_rework_request_id.dart';
 import '../../features/admin/logic/canonical_apparatus_groups.dart';
 import '../../features/admin/logic/production_map_chain.dart';
 import '../../features/admin/logic/production_map_pechat_rules.dart';

@@ -167,6 +167,7 @@ class _QolipProductContainerCard extends StatelessWidget {
     required this.onCopyCode,
     required this.onEditQolip,
     required this.onAdd,
+    this.imageProviderCache,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -175,6 +176,7 @@ class _QolipProductContainerCard extends StatelessWidget {
   final Future<void> Function() onRetry;
   final QolipProductContainer container;
   final String imageUrl;
+  final OrderImageThumbCache? imageProviderCache;
   final bool expanded;
   final bool containerSelectionMode;
   final bool qolipSelectionMode;
@@ -477,6 +479,7 @@ class _QolipProductContainerCard extends StatelessWidget {
             width: kAdminOrderCoverWidth,
             child: AdminOrderCoverThumb(
               imageUrl: imageUrl,
+              providerCache: imageProviderCache,
               displayName:
                   container.name.isEmpty ? container.code : container.name,
               heroTag: 'qolip-order-image-${container.key}',

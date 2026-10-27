@@ -18,14 +18,25 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   void _openFabAction() {
     if (_reworking || _deleting || _printing) return;
     final l10n = context.l10n;
-    final selected = _selectionMode == _QolipSelectionMode.containers &&
-            _selectedContainerKeys.length == 1
-        ? _allContainers.where((item) => _selectedContainerKeys.contains(item.key)).firstOrNull
+    final selectedProducts = _selectedProducts();
+    final selectedProductCodes = selectedProducts
+        .map((product) => product.code.trim().toLowerCase())
+        .toSet();
+    final selectedProduct = selectedProductCodes.length == 1
+        ? selectedProducts.first
         : null;
+    final addMold = AdminFabMenuAction(
+      title: l10n.qolipText('products.add'),
+      icon: Icons.inventory_2_rounded,
+      onTap: () => unawaited(selectedProduct == null
+          ? _openQolipSpecSheet()
+          : _addProductMold(selectedProduct)),
+    );
     showAdminCreateHubSheet(
       context,
       actions: [
-        if (_selectedQolipCodes.isNotEmpty)
+        if (_selectedQolipCodes.isNotEmpty) ...[
+          addMold,
           AdminFabMenuAction(
             title: l10n.qolipReworkText(
                 _selectionMode == _QolipSelectionMode.containers
@@ -33,37 +44,19 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
             icon: Icons.build_outlined,
             onTap: () => unawaited(_sendSelectionToRework()),
           ),
-        if (_selectedProducts().map((row) => row.qolipCode.toLowerCase()).toSet().length == 1)
+        ] else ...[
           AdminFabMenuAction(
-            title: l10n.qolipReworkText('mileage'),
-            icon: Icons.speed_rounded,
-            onTap: () => unawaited(showQolipMileageSheet(
-                context, _selectedProducts().first.qolipCode)),
+            title: l10n.qolipManagementText('title'),
+            icon: Icons.layers_outlined,
+            onTap: () => _openDrawerRoute(AppRoutes.qolipSets),
           ),
-        if (selected != null)
+          addMold,
           AdminFabMenuAction(
-            title: l10n.qolipText('products.add_alternative'),
-            icon: Icons.playlist_add_rounded,
-            onTap: () => unawaited(_openQolipSpecSheet(
-              initialProduct: selected.catalogProduct,
-              lockProduct: true,
-            )),
+            title: l10n.qolipText('products.ledger'),
+            icon: Icons.menu_book_rounded,
+            onTap: () => _openDrawerRoute(AppRoutes.qolipCheckouts),
           ),
-        AdminFabMenuAction(
-          title: l10n.qolipManagementText('title'),
-          icon: Icons.layers_outlined,
-          onTap: () => _openDrawerRoute(AppRoutes.qolipSets),
-        ),
-        AdminFabMenuAction(
-          title: l10n.qolipText('products.add'),
-          icon: Icons.inventory_2_rounded,
-          onTap: () => unawaited(_openQolipSpecSheet()),
-        ),
-        AdminFabMenuAction(
-          title: l10n.qolipText('products.ledger'),
-          icon: Icons.menu_book_rounded,
-          onTap: () => _openDrawerRoute(AppRoutes.qolipCheckouts),
-        ),
+        ],
       ],
     );
   }
@@ -336,6 +329,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     }
     final itemName = product.name.trim().isEmpty ? code : product.name.trim();
     final l10n = context.l10n;
+    Future<QolipMileage>? mileageFuture;
     await showModalBottomSheet<void>(
       context: context,
       isDismissible: true,
@@ -344,31 +338,54 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (_) => RpsQrReprintSheet(
-        title: l10n.qolipText('products.qr_title'),
-        payload: code,
-        onPayloadTap: () => _copyQolipCode(product),
-        payloadTapTooltip: l10n.adminText('action.copy'),
-        payloadTapKey: ValueKey('qolip-code-qr-payload-$code'),
-        itemName: itemName,
-        previewKey: ValueKey('qolip-code-qr-preview-$code'),
-        reprintButtonKey: ValueKey('qolip-code-qr-reprint-$code'),
-        details: [
-          if (product.code.trim().isNotEmpty)
-            RpsQrDetail(l10n.qolipText('products.product_code'), product.code),
-          if (product.qolipSize > 0)
-            RpsQrDetail(
-                l10n.qolipText('products.size'), '${product.qolipSize}'),
-          if (product.customerNames.isNotEmpty)
-            RpsQrDetail(l10n.qolipText('products.customer'),
-                product.customerNames.join(', ')),
-        ],
-        onReprint: () => _reprintQolipCodeQr(product),
-        errorMessage: (error) => qolipErrorMessage(
-          error,
-          fallback: l10n.qolipText('products.qr_failed'),
-          l10n: l10n,
-        ),
+      builder: (_) => FutureBuilder<QolipMileage>(
+        future: mileageFuture ??= MobileApi.instance.qolipMileage(code),
+        builder: (_, snapshot) {
+          final mileage = snapshot.data;
+          return RpsQrReprintSheet(
+            title: l10n.qolipText('products.qr_title'),
+            payload: code,
+            onPayloadTap: () => _copyQolipCode(product),
+            payloadTapTooltip: l10n.adminText('action.copy'),
+            payloadTapKey: ValueKey('qolip-code-qr-payload-$code'),
+            itemName: itemName,
+            previewKey: ValueKey('qolip-code-qr-preview-$code'),
+            reprintButtonKey: ValueKey('qolip-code-qr-reprint-$code'),
+            details: [
+              if (product.code.trim().isNotEmpty)
+                RpsQrDetail(
+                  l10n.qolipText('products.product_code'),
+                  product.code,
+                ),
+              if (product.qolipSize > 0)
+                RpsQrDetail(
+                  l10n.qolipText('products.size'),
+                  '${product.qolipSize}',
+                ),
+              if (product.customerNames.isNotEmpty)
+                RpsQrDetail(
+                  l10n.qolipText('products.customer'),
+                  product.customerNames.join(', '),
+                ),
+              if (mileage != null &&
+                  mileage.trackingEnabled &&
+                  mileage.currentMeter != null)
+                RpsQrDetail(
+                  l10n.qolipReworkText('distance'),
+                  l10n.qolipReworkText(
+                    'cycle',
+                    values: {'meter': qolipMileageMeter(mileage.currentMeter!)},
+                  ),
+                ),
+            ],
+            onReprint: () => _reprintQolipCodeQr(product),
+            errorMessage: (error) => qolipErrorMessage(
+              error,
+              fallback: l10n.qolipText('products.qr_failed'),
+              l10n: l10n,
+            ),
+          );
+        },
       ),
     );
   }

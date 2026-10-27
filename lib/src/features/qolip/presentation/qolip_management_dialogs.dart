@@ -138,6 +138,15 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
   bool _existing = false;
   bool _saving = false;
 
+  String? get _validationError {
+    if (_code.text.trim().isEmpty) return 'code_required';
+    if (_existing) return null;
+    final size = int.tryParse(_size.text.trim()) ?? 0;
+    if (size <= 0 || size > 2147483647) return 'size_required';
+    if (_color == null) return 'color_required';
+    return null;
+  }
+
   @override
   void dispose() {
     _code.dispose();
@@ -149,13 +158,7 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
     if (_saving) return;
     final l10n = context.l10n;
     final size = int.tryParse(_size.text.trim()) ?? 0;
-    final validation = _code.text.trim().isEmpty
-        ? 'code_required'
-        : !_existing && (size <= 0 || size > 2147483647)
-            ? 'size_required'
-            : !_existing && _color == null
-                ? 'color_required'
-                : null;
+    final validation = _validationError;
     if (validation != null) {
       setState(() => _error = l10n.qolipManagementText(validation));
       return;
@@ -218,6 +221,7 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
               ],
               TextField(
                 controller: _code,
+                onChanged: (_) => setState(() => _error = null),
                 enabled: !_saving,
                 autofocus: true,
                 maxLength: 512,
@@ -232,6 +236,7 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
               else ...[
                 TextField(
                   controller: _size,
+                  onChanged: (_) => setState(() => _error = null),
                   enabled: !_saving,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
@@ -256,17 +261,29 @@ class _MoldAddDialogState extends State<_MoldAddDialog> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-            child: Text(l10n.qolipText('action.cancel')),
-          ),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(l10n.qolipText('action.save')),
+          SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FilledButton(
+                  onPressed:
+                      !_saving && _validationError == null ? _save : null,
+                  child: _saving
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text(l10n.qolipText('action.save')),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed:
+                      _saving ? null : () => Navigator.of(context).pop(false),
+                  child: Text(l10n.qolipText('action.cancel')),
+                ),
+              ],
+            ),
           ),
         ],
       ),
