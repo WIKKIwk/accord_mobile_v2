@@ -238,6 +238,12 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       if (_adminPaging) {
+        // A closed/failed socket must not strand restored rows behind their
+        // validation guard. Reconcile once; confirmed pages skip this on retry.
+        if (_adminModuleWindows(_module).any((window) => window.cacheNeedsValidation)) {
+          await _ensureAdminModule(_module, refresh: true);
+          if (!mounted || generation != _liveStreamGeneration) return;
+        }
         if (streamError is MobileApiException &&
             const {'page_live_window_too_large', 'paged_live_required'}.contains(streamError.code)) {
           _adminWindowLiveFallback = true;
@@ -291,10 +297,19 @@ extension _AdminProductionMapOrdersLiveState
       }
     }
     final pageWindows = _adminPaging ? _adminLiveDescriptors() : const <Map<String, Object?>>[];
+    final validatingWindows = _adminPaging
+        ? _adminModuleWindows(_module).where((window) =>
+            window.cacheNeedsValidation &&
+            pageWindows.any((page) => page['id'] == window.liveId)).toList()
+        : const <_AdminOrderWindow>[];
+    var needsWindowValidation = validatingWindows.isNotEmpty;
     final completer = Completer<void>();
     _liveStreamFinished = completer;
     final firstSnapshotTimer = Timer(const Duration(seconds: 10), () {
-      if (!completer.isCompleted) {
+      if (!completer.isCompleted && (validatingWindows.isEmpty ||
+          validatingWindows.any((window) => window.account == _adminPageAccount &&
+              _adminModuleWindows(_module).contains(window) &&
+              window.cacheNeedsValidation))) {
         completer.completeError(TimeoutException('First production snapshot'));
       }
     });
@@ -344,8 +359,9 @@ extension _AdminProductionMapOrdersLiveState
           }
           return;
         }
-        // A fresh message means the stream is healthy: reset backoff.
-        firstSnapshotTimer.cancel();
+        // Generic page notifications do not certify a restored window. Keep
+        // its existing timeout until scoped validation actually completes.
+        if (!needsWindowValidation) firstSnapshotTimer.cancel();
         _workerLiveHealthy = true;
         if (!receivedFirstMessage) {
           receivedFirstMessage = true;
@@ -362,6 +378,21 @@ extension _AdminProductionMapOrdersLiveState
             _queueAdminWindowLive(message, generation,
                 subscribedLength: pageWindows.where((window) => window['id'] == message.window)
                     .firstOrNull?['length'] as int?);
+            if (needsWindowValidation) {
+              unawaited(_adminWindowEvents.then<void>((_) {
+                if (!mounted || completer.isCompleted ||
+                    generation != _liveStreamGeneration ||
+                    readScope != currentSessionReadScope()) return;
+                final active = _adminModuleWindows(_module);
+                if (validatingWindows.every((window) =>
+                    active.contains(window) && window.account == _adminPageAccount &&
+                    window.loaded && !window.cacheNeedsValidation &&
+                    !window.awaitingLive && !window.dirty && window.error == null)) {
+                  needsWindowValidation = false;
+                  firstSnapshotTimer.cancel();
+                }
+              }, onError: (Object _, StackTrace __) {}));
+            }
           } else {
             _applyAdminPageLive(message);
           }

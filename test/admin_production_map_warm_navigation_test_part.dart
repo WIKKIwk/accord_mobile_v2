@@ -68,11 +68,16 @@ void _registerAdminWarmNavigationTests() {
     await harness.open(tester, sequenceWarmStore: store, settle: false);
     harness.expectRows(tester, harness.ids);
     expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
     expect(harness.reads.length, reads);
     expect(harness.catalogReads, 0);
     await tester.pumpAndSettle();
     await harness.ready(tester);
     expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(find.byIcon(Icons.drag_handle_rounded),
+        findsNWidgets(harness.ids.length));
+    await tester.pump(const Duration(seconds: 12));
+    await tester.pumpAndSettle();
     expect(harness.reads.length, reads);
     await harness.leave(tester);
     store.configure(scope: null, foreground: false);
@@ -95,6 +100,243 @@ void _registerAdminWarmNavigationTests() {
     expect(harness.reads.where((r) => r.view == 'orders'), hasLength(1));
     expect(harness.catalogReads, 0);
     await harness.ready(tester);
+    await harness.leave(tester);
+    store.configure(scope: null, foreground: false);
+  });
+
+  for (final source in ['warm', 'cache']) {
+    testWidgets(
+        'warm navigation: $source checkpoint enables actual handles without GET',
+        (tester) async {
+      late final _AdminPageCacheNavigationHarness harness;
+      AdminSequenceWarmStore? store;
+      if (source == 'warm') {
+        final prepared = await prepare(tester);
+        harness = prepared.$1;
+        store = prepared.$2;
+        await store.prepare(currentAdminSequenceWarmScope());
+        await tester.pumpAndSettle();
+      } else {
+        harness = _AdminPageCacheNavigationHarness(
+            await _prepareScanBootstrapFixture(tester));
+        await harness.host(tester);
+        await harness.open(tester);
+        await harness.ready(tester);
+        await harness.leave(tester);
+      }
+      final reads = harness.reads.length;
+      await harness.open(tester, sequenceWarmStore: store);
+      harness.expectRows(tester, harness.ids);
+      expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+      expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+      final AdminProductionOrderPage page =
+          harness.activeWindow(tester).pages.first;
+      harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
+        'type': 'page_window_checkpoint',
+        'window': harness.activeWindow(tester).liveId,
+        'epoch': page.epoch,
+        'rev': page.revision,
+        'base_version': page.version,
+        'version': page.version,
+        'next_cursors': [page.nextCursor],
+      }));
+      await tester.pumpAndSettle();
+      expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+      expect(find.byIcon(Icons.drag_handle_rounded),
+          findsNWidgets(harness.ids.length));
+      harness.expectRows(tester, harness.ids);
+      expect(harness.reads, hasLength(reads));
+
+      final reordered = harness.ids.reversed.toList();
+      harness.installCanonical(reordered,
+          revision: 8, sequenceRevision: 6, sequenceVersion: '1' * 64);
+      harness.sendCanonicalDelta();
+      await tester.pumpAndSettle();
+      harness.expectRows(tester, reordered);
+      expect(find.byIcon(Icons.drag_handle_rounded),
+          findsNWidgets(reordered.length));
+      await tester.pump(const Duration(seconds: 12));
+      await tester.pumpAndSettle();
+      harness.expectQuiet(tester, reads);
+      await harness.leave(tester);
+      store?.configure(scope: null, foreground: false);
+    });
+  }
+
+  testWidgets(
+      'warm navigation: generic ready validates once after startup deadline',
+      (tester) async {
+    final (harness, store, _) = await prepare(tester);
+    await store.prepare(currentAdminSequenceWarmScope());
+    await tester.pumpAndSettle();
+    final reads = harness.reads.length;
+    await harness.open(tester, sequenceWarmStore: store);
+    harness.events.add(AdminProductionMapPageChange(
+        epoch: harness.serverEpoch, revision: harness.revision, ready: true));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 9));
+    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    expect(harness.reads, hasLength(reads));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    final extra = harness.reads.skip(reads).toList();
+    expect(extra, hasLength(1));
+    expect(extra.single.view, 'sequence');
+    expect(extra.single.apparatus, scanApparatus);
+    expect(extra.single.ifVersion, isNull,
+        reason: 'Startup timeout retains the existing dirty-window recovery');
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(find.byIcon(Icons.drag_handle_rounded),
+        findsNWidgets(harness.ids.length));
+    harness.expectRows(tester, harness.ids);
+    // Timeout recovery reopens the existing stream. The server still sends
+    // its generic greeting, which must be sufficient once HTTP proved rows.
+    await tester.pump(const Duration(seconds: 2));
+    harness.events.add(AdminProductionMapPageChange(
+        epoch: harness.serverEpoch, revision: harness.revision, ready: true));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 20));
+    await tester.pumpAndSettle();
+    expect(harness.reads, hasLength(reads + 1),
+        reason: 'Initial validation must not become HTTP polling');
+    final reordered = harness.ids.reversed.toList();
+    harness.installCanonical(reordered,
+        revision: 8, sequenceRevision: 6, sequenceVersion: '1' * 64);
+    harness.sendCanonicalDelta();
+    await tester.pumpAndSettle();
+    harness.expectRows(tester, reordered);
+    expect(harness.reads, hasLength(reads + 1));
+    await harness.leave(tester);
+    store.configure(scope: null, foreground: false);
+  });
+
+  for (final mismatch in [
+    'epoch',
+    'version',
+    'revision',
+    'window',
+    'base version',
+    'cursor',
+  ]) {
+    testWidgets(
+        'warm navigation: mismatched checkpoint $mismatch cannot authorize rows',
+        (tester) async {
+      final (harness, store, _) = await prepare(tester);
+      await store.prepare(currentAdminSequenceWarmScope());
+      await tester.pumpAndSettle();
+      await harness.open(tester, sequenceWarmStore: store);
+      final recovery = Completer<AdminProductionOrderPage?>();
+      harness.delayedReconcile = recovery;
+      final AdminProductionOrderPage page =
+          harness.activeWindow(tester).pages.first;
+      harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
+        'type': 'page_window_checkpoint',
+        'window': mismatch == 'window'
+            ? 'unsubscribed-window'
+            : harness.activeWindow(tester).liveId,
+        'epoch': mismatch == 'epoch' ? 'other-server' : page.epoch,
+        'rev': mismatch == 'revision' ? page.revision! - 1 : page.revision,
+        'base_version': mismatch == 'base version' ? 'other-base' : page.version,
+        'version': mismatch == 'version' ? 'another-version' : page.version,
+        'next_cursors': [
+          mismatch == 'cursor' ? 'unconfirmed-next' : page.nextCursor,
+        ],
+      }));
+      await _flushSequenceStreamSync(tester);
+      expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+      expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+      harness.expectRows(tester, harness.ids);
+      harness.delayedReconcile = null;
+      recovery.complete(
+          await AdminProductionOrderPage.fromJson(harness.payload()));
+      await tester.pumpAndSettle();
+      await harness.ready(tester);
+      expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+      expect(find.byIcon(Icons.drag_handle_rounded),
+          findsNWidgets(harness.ids.length));
+      await harness.leave(tester);
+      store.configure(scope: null, foreground: false);
+    });
+  }
+
+  testWidgets(
+      'warm navigation: old checkpoint cannot certify a dirty window',
+      (tester) async {
+    final (harness, store, _) = await prepare(tester);
+    await store.prepare(currentAdminSequenceWarmScope());
+    await tester.pumpAndSettle();
+    final reads = harness.reads.length;
+    await harness.open(tester, sequenceWarmStore: store);
+    final original = harness.ids.toList();
+    final AdminProductionOrderPage page =
+        harness.activeWindow(tester).pages.first;
+    final recovery = Completer<AdminProductionOrderPage?>();
+    harness.delayedReconcile = recovery;
+    final reordered = original.reversed.toList();
+    harness.installCanonical(reordered,
+        revision: 8, sequenceRevision: 6, sequenceVersion: '1' * 64);
+    harness.events.add(AdminProductionMapPageChange(
+        epoch: harness.serverEpoch, revision: harness.revision, ready: false));
+    await _flushSequenceStreamSync(tester);
+    expect(harness.activeWindow(tester).dirty, isTrue);
+    expect(harness.reads, hasLength(reads + 1));
+    harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
+      'type': 'page_window_checkpoint',
+      'window': harness.activeWindow(tester).liveId,
+      'epoch': page.epoch,
+      'rev': page.revision,
+      'base_version': page.version,
+      'version': page.version,
+      'next_cursors': [page.nextCursor],
+    }));
+    await _flushSequenceStreamSync(tester);
+    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    harness.expectRows(tester, original);
+    harness.delayedReconcile = null;
+    recovery.complete(
+        await AdminProductionOrderPage.fromJson(harness.payload()));
+    await tester.pumpAndSettle();
+    harness.expectRows(tester, reordered);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(find.byIcon(Icons.drag_handle_rounded),
+        findsNWidgets(reordered.length));
+    expect(harness.reads, hasLength(reads + 1));
+    await harness.leave(tester);
+    store.configure(scope: null, foreground: false);
+  });
+
+  testWidgets(
+      'warm navigation: initial socket error validates rows once',
+      (tester) async {
+    final (harness, store, _) = await prepare(tester);
+    await store.prepare(currentAdminSequenceWarmScope());
+    await tester.pumpAndSettle();
+    final reads = harness.reads.length;
+    await harness.open(tester, sequenceWarmStore: store);
+    expect(harness.modules(tester).sequenceReorderEnabled, isFalse);
+    expect(find.byIcon(Icons.drag_handle_rounded), findsNothing);
+    harness.events.addError(http.ClientException('initial socket failure'));
+    await tester.pumpAndSettle();
+    final extra = harness.reads.skip(reads).toList();
+    expect(extra, hasLength(1));
+    expect(extra.single.view, 'sequence');
+    expect(extra.single.apparatus, scanApparatus);
+    expect(harness.modules(tester).sequenceReorderEnabled, isTrue);
+    expect(find.byIcon(Icons.drag_handle_rounded),
+        findsNWidgets(harness.ids.length));
+    harness.expectRows(tester, harness.ids);
+    await tester.pump(const Duration(seconds: 2));
+    harness.events.add(AdminProductionMapPageChange(
+        epoch: harness.serverEpoch,
+        revision: harness.revision,
+        ready: true));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 20));
+    await tester.pumpAndSettle();
+    expect(harness.reads, hasLength(reads + 1),
+        reason: 'Socket retries must not repeat initial HTTP validation');
     await harness.leave(tester);
     store.configure(scope: null, foreground: false);
   });

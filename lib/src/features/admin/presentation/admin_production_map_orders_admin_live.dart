@@ -267,8 +267,20 @@ extension _AdminOrdersPagedLive on _AdminProductionMapOrdersScreenState {
       if (message.epoch == before.first.epoch &&
           message.revision < (before.first.revision ?? -1)) return;
       try {
-        if (message.type == 'page_window_ready') {
-          if (message.value['resync'] != false ||
+        final checkpointCursors = message.value['next_cursors'];
+        final confirmsPublishedCheckpoint =
+            message.type == 'page_window_checkpoint' &&
+            window.sequencePendingPages == null &&
+            !window.dirty &&
+            message.value['base_version'] == before.first.version &&
+            checkpointCursors is List &&
+            listEquals(checkpointCursors,
+                before.map((page) => page.nextCursor).toList()) &&
+            before.every((page) => page.version == message.version &&
+                page.epoch == message.epoch && page.revision == message.revision);
+        if (message.type == 'page_window_ready' || confirmsPublishedCheckpoint) {
+          if ((message.type == 'page_window_ready' &&
+                  message.value['resync'] != false) ||
               message.version != before.first.version ||
               message.epoch != before.first.epoch ||
               message.revision != before.first.revision ||
