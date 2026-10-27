@@ -114,7 +114,7 @@ class _SequenceModulePageState extends State<_SequenceModulePage> {
       final canReorder = (summary?.canReorder ?? true) &&
           widget.reorderEnabled &&
           !widget.readOnly &&
-          !apparatusState.isActive &&
+          !apparatusState.blocksSequenceReorder &&
           !isFrozen;
 
       return _SequenceOrderRow(

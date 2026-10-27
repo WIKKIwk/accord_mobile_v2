@@ -10,6 +10,11 @@ enum ApparatusQueueOrderState {
       this == ApparatusQueueOrderState.inProgress ||
       this == ApparatusQueueOrderState.printPreflight ||
       this == ApparatusQueueOrderState.paused;
+
+  // Paused work retains its session, but does not pin the apparatus sequence.
+  bool get blocksSequenceReorder =>
+      this == ApparatusQueueOrderState.inProgress ||
+      this == ApparatusQueueOrderState.printPreflight;
 }
 
 enum OrderQueueActivityState {

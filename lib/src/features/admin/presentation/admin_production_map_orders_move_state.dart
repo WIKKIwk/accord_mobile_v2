@@ -217,7 +217,7 @@ extension _AdminProductionMapOrdersMoveState
       _orderControlsByOrderId,
       moved.map.id.trim(),
     ).isFrozen;
-    if (movedState.isActive || isMovedFrozen ||
+    if (movedState.blocksSequenceReorder || isMovedFrozen ||
         movedState == ApparatusQueueOrderState.frozen) {
       return;
     }
@@ -225,8 +225,9 @@ extension _AdminProductionMapOrdersMoveState
     var lastActiveIndex = -1;
     for (var i = 0; i < orders.length; i++) {
       if (i == oldIndex) continue;
-      if (_moveOrderQueueState(orders[i], apparatus).isActive) {
-        lastActiveIndex = i;
+      if (_moveOrderQueueState(orders[i], apparatus).blocksSequenceReorder) {
+        // onReorderItem's target is the final index after removing the row.
+        lastActiveIndex = i > oldIndex ? i - 1 : i;
       }
     }
     var targetIndex = newIndex;

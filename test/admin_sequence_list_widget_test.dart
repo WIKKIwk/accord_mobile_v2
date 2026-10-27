@@ -8,6 +8,7 @@ import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_sequence_list.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_test_screen.dart';
@@ -928,6 +929,173 @@ void main() {
         isNotNull);
     cache.clear();
   });
+
+  for (final move in [
+    (
+      label: 'paused order down',
+      pausedId: 'order-a',
+      runningId: null,
+      from: 0,
+      to: 2,
+      expected: ['order-b', 'order-c', 'order-a'],
+    ),
+    (
+      label: 'paused order up',
+      pausedId: 'order-c',
+      runningId: null,
+      from: 2,
+      to: 0,
+      expected: ['order-c', 'order-a', 'order-b'],
+    ),
+    (
+      label: 'pending order across paused order',
+      pausedId: 'order-b',
+      runningId: null,
+      from: 2,
+      to: 0,
+      expected: ['order-c', 'order-a', 'order-b'],
+    ),
+    (
+      label: 'paused order immediately below running order',
+      pausedId: 'order-a',
+      runningId: 'order-b',
+      from: 0,
+      to: 1,
+      expected: ['order-b', 'order-a', 'order-c'],
+    ),
+  ]) {
+    testWidgets('sequence summary can move ${move.label}', (tester) async {
+      final harness =
+          _SummaryHarness(orderIds: ['order-a', 'order-b', 'order-c']);
+      harness.rowOverrides[move.pausedId] = {
+        'queue_state': 'paused',
+        'display_state': 'paused',
+        'can_reorder': true,
+      };
+      if (move.runningId != null) {
+        harness.rowOverrides[move.runningId!] = {
+          'queue_state': 'in_progress',
+          'display_state': 'in_progress',
+          'can_reorder': false,
+        };
+      }
+      final writes = <http.Request>[];
+      final reply = Completer<http.Response>();
+      await http.runWithClient(() async {
+        await harness.mount(tester);
+        final dynamic pausedRow = tester.widget(_row(move.pausedId));
+        expect(pausedRow.canReorder, isTrue);
+        expect(
+            find.descendant(
+                of: _row(move.pausedId),
+                matching: find.byType(M3SequenceDragHandle)),
+            findsOneWidget);
+        await TestModeController.instance.setEnabled(false);
+        tester
+            .widget<ReorderableListView>(find.byType(ReorderableListView))
+            .onReorderItem!(move.from, move.to);
+        await tester.pump();
+        await tester.pump();
+        expect(writes, hasLength(1));
+        final sent = jsonDecode(writes.single.body) as Map;
+        final movedId = harness.orderIds[move.from];
+        expect(sent['order_id'], movedId);
+        expect(sent['expected_version'], 'a' * 64);
+        expect(sent['idempotency_key'], matches(RegExp(r'^[a-f0-9]{32}$')));
+        final movedIndex = move.expected.indexOf(movedId);
+        if (movedIndex < move.expected.length - 1) {
+          expect(sent['before_order_id'], move.expected[movedIndex + 1]);
+          expect(sent.containsKey('after_order_id'), isFalse);
+        } else {
+          expect(sent['after_order_id'], 'order-c');
+          expect(sent.containsKey('before_order_id'), isFalse);
+        }
+        reply.complete(http.Response(
+            jsonEncode({
+              'ok': true,
+              'order_ids': move.expected,
+              'version': 'b' * 64,
+              'revision': 6,
+              'epoch': _epoch,
+              'adjusted': false,
+            }),
+            200));
+        await tester.pumpAndSettle();
+        expect(_rowOrder(tester), move.expected);
+        expect(harness.detailReads, isEmpty);
+        await harness.dispose(tester);
+      },
+          () => MockClient((request) {
+                if (request.method == 'POST' &&
+                    request.url.path.endsWith('/production-maps/sequence')) {
+                  writes.add(request);
+                  return reply.future;
+                }
+                return Future.value(http.Response('{}', 404));
+              }));
+    });
+  }
+
+  for (final state in ['in_progress', 'print_preflight']) {
+    testWidgets('sequence summary keeps $state order protected',
+        (tester) async {
+      final harness = _SummaryHarness(
+          orderIds: ['order-a', 'order-b', 'order-c', 'order-d']);
+      harness.rowOverrides['order-b'] = {
+        'queue_state': state,
+        'display_state': state,
+        // The client must independently protect actual executing work.
+        'can_reorder': true,
+      };
+      final writes = <http.Request>[];
+      final reply = Completer<http.Response>();
+      await http.runWithClient(() async {
+        await harness.mount(tester);
+        final dynamic runningRow = tester.widget(_row('order-b'));
+        expect(runningRow.canReorder, isFalse);
+        expect(
+            find.descendant(
+                of: _row('order-b'),
+                matching: find.byType(M3SequenceDragHandle)),
+            findsNothing);
+        await TestModeController.instance.setEnabled(false);
+        ReorderableListView list() => tester
+            .widget<ReorderableListView>(find.byType(ReorderableListView));
+        list().onReorderItem!(1, 3);
+        await tester.pump();
+        await tester.pump();
+        expect(writes, isEmpty);
+        list().onReorderItem!(3, 0);
+        await tester.pump();
+        await tester.pump();
+        expect(writes, hasLength(1));
+        final sent = jsonDecode(writes.single.body) as Map;
+        expect(sent['order_id'], 'order-d');
+        expect(sent['before_order_id'], 'order-c',
+            reason: 'Later work cannot be inserted ahead of running work');
+        reply.complete(http.Response(
+            jsonEncode({
+              'ok': true,
+              'order_ids': ['order-a', 'order-b', 'order-d', 'order-c'],
+              'version': 'b' * 64,
+              'revision': 6,
+              'epoch': _epoch,
+              'adjusted': false,
+            }),
+            200));
+        await tester.pumpAndSettle();
+        await harness.dispose(tester);
+      },
+          () => MockClient((request) {
+                if (request.method == 'POST' &&
+                    request.url.path.endsWith('/production-maps/sequence')) {
+                  writes.add(request);
+                  return reply.future;
+                }
+                return Future.value(http.Response('{}', 404));
+              }));
+    });
+  }
 
   testWidgets(
       'sequence reorder ACK waits for matching summary sequence version',

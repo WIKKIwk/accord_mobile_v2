@@ -6,6 +6,7 @@ void _registerSequenceReorderTests() {
     'first',
     'locked',
     'down',
+    'paused-down',
     'rejected',
     'missing-result',
     'lost-reply',
@@ -56,7 +57,15 @@ void _registerSequenceReorderTests() {
             visibleOrderIds: {
               _print8Id: scenario == 'hidden' ? [ids[0], ids[2]] : ids
             },
-            queueStates: initial.queueStates,
+            queueStates: scenario == 'paused-down'
+                ? {
+                    ...initial.queueStates,
+                    _print8Id: {
+                      ...?initial.queueStates[_print8Id],
+                      ids.first: 'paused',
+                    },
+                  }
+                : initial.queueStates,
             queuePolicies: initial.queuePolicies,
             orderControls: {
               ...initial.orderControls,
@@ -104,7 +113,7 @@ void _registerSequenceReorderTests() {
 
         final list = tester
             .widget<ReorderableListView>(find.byType(ReorderableListView));
-        final down = scenario == 'down';
+        final down = scenario == 'down' || scenario == 'paused-down';
         final reduced = scenario == 'frozen' || scenario == 'hidden';
         if (reduced) expect(list.itemCount, 2);
         final requested =
@@ -113,6 +122,7 @@ void _registerSequenceReorderTests() {
           'nearest' => [ids[0], ids[2], ids[1]],
           'first' => requested,
           'down' => [ids[1], ids[0], ids[2]],
+          'paused-down' => requested,
           'frozen' => [ids[2], ids[0]],
           'hidden' || 'lost-reply' || 'newer-success' || 'search-readonly' => [
               ids[2],
