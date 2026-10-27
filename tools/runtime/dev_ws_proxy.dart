@@ -1,10 +1,11 @@
-// Development bridge for browsers that cannot reach the public WSS endpoint.
+// Local preview bridge to the local core, without a public tunnel round trip.
 // Run with `dart tools/runtime/dev_ws_proxy.dart`; no HTTP polling is involved.
 import 'dart:async';
 import 'dart:io';
 
 const _port = 39119;
-const _upstreamHost = 'mini-rs-erp-test.wspace.sbs';
+const _upstreamHost = '127.0.0.1';
+const _upstreamPort = 8081;
 const _connectTimeout = Duration(seconds: 10);
 const _pingInterval = Duration(seconds: 25);
 const _maxPayload = 64 * 1024 * 1024;
@@ -56,8 +57,9 @@ Future<void> _handle(HttpRequest request) async {
   try {
     // The target is fixed. Only the application's path and query are forwarded.
     final target = Uri(
-      scheme: 'wss',
+      scheme: 'ws',
       host: _upstreamHost,
+      port: _upstreamPort,
       path: request.uri.path,
       query: request.uri.hasQuery ? request.uri.query : null,
     );
