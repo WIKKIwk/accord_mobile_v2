@@ -99,6 +99,31 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
       get queueActionControlsByApparatus =>
           widget.queueActionControlsByApparatus;
   AdminOrderControlState get orderControlState => widget.orderControlState;
+  bool get _canViewParticipants =>
+      !workerMode &&
+      !widget.detailPending &&
+      AppSession.instance.can('admin.access');
+
+  void _showParticipants(ProductionMapNode node) {
+    final apparatus = _orderMapNodeStationId(node);
+    if (!_canViewParticipants || apparatus.isEmpty || node.id.trim().isEmpty) {
+      return;
+    }
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => _StageParticipantsSheet(
+          orderId: orderId,
+          stageNodeId: node.id,
+          apparatus: apparatus,
+          apparatusTitle: node.title,
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -251,6 +276,25 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
                             ]))
                       else ...[
                         if (_loading) const LinearProgressIndicator(),
+                        if (_canViewParticipants)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 4, 14, 6),
+                            child: Row(
+                              children: [
+                                Icon(Icons.touch_app_outlined,
+                                    size: 16, color: scheme.onSurfaceVariant),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    context.l10n.stageParticipantsText('hint'),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         for (var index = 0; index < steps.length; index++) ...[
                           _SequenceStepTile(
                             node: steps[index],
@@ -307,6 +351,12 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
                                     _orderMapNodeStationId(steps[index])
                                         .isNotEmpty
                                 ? () => onTapApparatus(steps[index])
+                                : null,
+                            onLongPress: _canViewParticipants &&
+                                    steps[index].kind == 'apparatus' &&
+                                    _orderMapNodeStationId(steps[index])
+                                        .isNotEmpty
+                                ? () => _showParticipants(steps[index])
                                 : null,
                           ),
                         ],

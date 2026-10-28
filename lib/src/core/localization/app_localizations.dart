@@ -14,6 +14,7 @@ part 'app_localizations_temporary_pause.dart';
 part 'app_localizations_reactivation.dart';
 part 'app_localizations_worker_delivery.dart';
 part 'app_localizations_worker_material_use.dart';
+part 'app_localizations_stage_participants.dart';
 part 'app_localizations_qolip_shared_sets.dart';
 part 'app_localizations_qolip_management.dart';
 part 'app_localizations_qolip_reworks.dart';

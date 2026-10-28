@@ -1239,6 +1239,7 @@ class _SequenceStepTile extends StatelessWidget {
     this.displayStatus,
     this.wipFacts,
     this.onTap,
+    this.onLongPress,
   });
   final ProductionMapNode node;
   final String operation;
@@ -1253,6 +1254,7 @@ class _SequenceStepTile extends StatelessWidget {
   bool get _colourMatched =>
       status == ApparatusQueueOrderState.printPreflight && printPreflightPassed;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   static const _completedGreen = Color(0xFF2E7D32);
 
   @override
@@ -1382,6 +1384,7 @@ class _SequenceStepTile extends StatelessWidget {
               : null,
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Padding(
             padding: current
                 ? const EdgeInsets.fromLTRB(10, 8, 10, 8)
