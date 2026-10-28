@@ -373,6 +373,8 @@ class GScaleRpsBatchStopRequest {
 
 class GScaleRpsBatchStartRequest {
   const GScaleRpsBatchStartRequest({
+    this.preparationFormulaMaterialId = '',
+    this.preparationFormulaVariantId = '',
     this.orderId = '',
     this.apparatus = '',
     required this.clientBatchId,
@@ -394,6 +396,8 @@ class GScaleRpsBatchStartRequest {
   final String orderId;
   final String apparatus;
   final String clientBatchId;
+  final String preparationFormulaMaterialId;
+  final String preparationFormulaVariantId;
   final String driverUrl;
   final String itemCode;
   final String itemName;
@@ -411,6 +415,11 @@ class GScaleRpsBatchStartRequest {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'client_batch_id': clientBatchId.trim(),
+      if (preparationFormulaMaterialId.trim().isNotEmpty)
+        'preparation_formula': {
+          'material_id': preparationFormulaMaterialId.trim(),
+          'variant_id': preparationFormulaVariantId.trim(),
+        },
       if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
       if (apparatus.trim().isNotEmpty) 'apparatus': apparatus.trim(),
       'driver_url': driverUrl.trim().trimRightSlash(),

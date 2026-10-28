@@ -159,6 +159,7 @@ class _OperatorDashboardPageState extends State<OperatorDashboardPage>
             !oldWidget.freshForm ||
             oldWidget.initialMaterialId != widget.initialMaterialId ||
             oldWidget.initialMaterialName != widget.initialMaterialName ||
+            oldWidget.initialFormulaVariantId != widget.initialFormulaVariantId ||
             (previousLinkedOrderId.isEmpty &&
                 nextLinkedOrderId.isNotEmpty &&
                 !_preparationPresetApplied));

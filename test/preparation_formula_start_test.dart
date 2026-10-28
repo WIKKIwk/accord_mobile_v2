@@ -98,6 +98,7 @@ void main() {
       expect(destination!.initialOrder!.title, 'Mosh');
       expect(destination!.initialMaterialId, 'pe-pr');
       expect(destination!.initialMaterialName, 'PE PR');
+      expect(destination!.initialFormulaVariantId, 'legacy');
       expect(destination!.initialWarehouse, isNull);
       expect(destination!.freshForm, isTrue);
       expect(AppSession.instance.profile!.role, UserRole.tayyorlovMasteri);

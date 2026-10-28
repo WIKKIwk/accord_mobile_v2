@@ -299,6 +299,7 @@ class _PreparationOrderFormulaScreenState
           }),
           materialId: widget.materialId,
           materialName: widget.materialName,
+          formulaVariantId: widget.variantId,
           freshForm: true,
         ),
       );
@@ -1007,6 +1008,9 @@ class _SavedFormulaCard extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          if (formula.code.isNotEmpty)
+                            SelectableText(formula.code,
+                                style: theme.textTheme.bodySmall),
                           UrduAwareText(
                             formula.sharePercent == null
                                 ? 'Shnek ulushi belgilanmagan'

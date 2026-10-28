@@ -127,6 +127,28 @@ void main() {
     });
   }
 
+  for (final variant in ['', 'other-variant', 'variant-lg']) {
+    testWidgets('formula receipt resumes only a batch with its saved variant: $variant',
+        (tester) async {
+      final batch = GScaleRpsBatchSession.fromJson({
+        'id': 'active-formula-batch', 'revision': 1, 'active': true,
+        'item_code': 'PE PR', 'item_name': 'PE PR', 'warehouse': 'Own W',
+        'length_m': 125, 'order_assignment': {
+          'order_id': 'order-0317',
+          if (variant.isNotEmpty) 'preparation_formula': {
+            'material_id': 'builtin-pe-pr', 'variant_id': variant,
+          },
+        },
+      });
+      await _withCatalog(tester, [_item('PE PR', 'PE PR')], () async {
+        await tester.pumpWidget(_app(_dashboard(batch: batch, formulaVariantId: 'variant-lg')));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Faol batch tanlangan shnek formulasiga bog‘lanmagan'),
+            variant == 'variant-lg' ? findsNothing : findsWidgets);
+      });
+    });
+  }
+
   testWidgets(
       'an active batch keeps its context and reports a conflicting formula material',
       (tester) async {
@@ -385,6 +407,7 @@ OperatorDashboardPage _dashboard({
   String linkedOrderId = 'order-0317',
   String materialId = 'builtin-pe-pr',
   String materialName = 'PE PR',
+  String formulaVariantId = '',
   PrintTransport printTransport = PrintTransport.wifi,
 }) =>
     OperatorDashboardPage(
@@ -395,6 +418,7 @@ OperatorDashboardPage _dashboard({
       freshForm: freshForm,
       initialMaterialId: materialId,
       initialMaterialName: materialName,
+      initialFormulaVariantId: formulaVariantId,
       printTransport: printTransport,
       onExitMode: () async {},
       onChangeServer: () async {},

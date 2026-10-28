@@ -80,6 +80,7 @@ class GScaleRpsBatchResponse {
 
 class GScaleRpsBatchSession {
   const GScaleRpsBatchSession({
+    this.preparationFormula = const {},
     this.orderId = '',
     this.apparatus = '',
     required this.id,
@@ -110,6 +111,10 @@ class GScaleRpsBatchSession {
     return GScaleRpsBatchSession(
       orderId: _gscaleText((json['order_assignment'] as Map?)?['order_id']),
       apparatus: _gscaleText((json['order_assignment'] as Map?)?['apparatus']),
+      preparationFormula: Map<String, dynamic>.unmodifiable(
+        ((json['order_assignment'] as Map?)?['preparation_formula'] as Map?)
+            ?.cast<String, dynamic>() ?? const {},
+      ),
       id: _gscaleText(json['id']),
       batchCode: _gscaleText(json['batch_code']),
       revision: (json['revision'] as num?)?.toInt() ?? 0,
@@ -167,6 +172,10 @@ class GScaleRpsBatchSession {
   final String createdAt;
   final String updatedAt;
   final List<GScaleRpsBatchPrintEntry> prints;
+  final Map<String, dynamic> preparationFormula;
+
+  String get preparationFormulaVariantId =>
+      _gscaleText(preparationFormula['variant_id']);
 
   String get displayItemName => itemName.isEmpty ? itemCode : itemName;
 }

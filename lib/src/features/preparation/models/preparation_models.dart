@@ -306,6 +306,7 @@ class PreparationFormula {
     required this.productCode,
     required this.name,
     required this.lines,
+    this.code = '',
     this.sharePercent,
   });
   factory PreparationFormula.fromJson(Map<String, dynamic> json) {
@@ -328,6 +329,7 @@ class PreparationFormula {
       });
     final rawName = json['name'] as String?;
     return PreparationFormula(
+      code: (json['formula_code'] as String? ?? '').trim(),
       productCode: (json['product_code'] as String? ?? '').trim(),
       name: (rawName == null || rawName.trim().isEmpty)
           ? 'Asosiy'
@@ -359,6 +361,7 @@ class PreparationFormula {
   }
 
   final String productCode;
+  final String code;
   final String name;
   final List<PreparationFormulaLine> lines;
   final String? sharePercent;

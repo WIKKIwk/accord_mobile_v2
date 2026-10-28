@@ -31,7 +31,6 @@ extension _PreparationReceiptPreset on _OperatorDashboardPageState {
   String get _preparationPresetConflictMessage {
     final batch = _authoritativeRsBatch;
     if (!_isPreparationFormulaReceipt ||
-        _preparationPresetApplied ||
         batch?.active != true) {
       return '';
     }
@@ -40,6 +39,12 @@ extension _PreparationReceiptPreset on _OperatorDashboardPageState {
             batch.itemCode != _preparationPresetItem!.itemCode)) {
       return 'Boshqa homashyo yoki order uchun batch faol. Avval uni to‘xtating.';
     }
+    if (batch.preparationFormula['material_id'] != widget.initialMaterialId ||
+        (widget.initialFormulaVariantId.isNotEmpty &&
+            batch.preparationFormulaVariantId != widget.initialFormulaVariantId)) {
+      return 'Faol batch tanlangan shnek formulasiga bog‘lanmagan. Avval uni to‘xtating va formuladan qayta boshlang.';
+    }
+    if (_preparationPresetApplied) return '';
     if (_preparationPresetItem == null) {
       return 'Tanlangan homashyo tekshirilmaguncha faol batchdan chop etib bo‘lmaydi.';
     }

@@ -39,6 +39,8 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
                 'N ${formatCompactKg(entry.netQty)} ${entry.unit}',
           ),
           RpsQrDetail('Ombor', session.warehouse),
+          if (session.preparationFormula.isNotEmpty)
+            RpsQrDetail('Shnek formulasi', _text(session.preparationFormula['variant_name'])),
         ],
         onReprint: () => _reprintArchiveReceipt(entry),
         errorMessage: archiveReceiptReprintErrorMessage,

@@ -598,6 +598,10 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     final started = await api
         .gscaleRpsBatchStart(
           buildGScaleRpsBatchStartRequest(
+            preparationFormulaMaterialId: _isPreparationFormulaReceipt
+                ? widget.initialMaterialId ?? '' : '',
+            preparationFormulaVariantId: _isPreparationFormulaReceipt
+                ? widget.initialFormulaVariantId : '',
             orderId: orderId,
             apparatus: apparatus,
             driverUrl: driverUrl,

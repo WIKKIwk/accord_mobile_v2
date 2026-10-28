@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/navigation/app_root_navigation.dart';
+import '../../../core/session/session.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
@@ -26,6 +28,7 @@ part 'preparation_screen_forms.dart';
 part 'preparation_warehouse_management.dart';
 part 'preparation_materials_screen.dart';
 part 'preparation_formula_orders_screen.dart';
+part 'preparation_formula_catalog_screen.dart';
 
 const double _adminHomePanelCardGap = 4;
 

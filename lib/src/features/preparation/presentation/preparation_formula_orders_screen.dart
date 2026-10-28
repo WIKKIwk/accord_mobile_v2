@@ -329,6 +329,7 @@ class _PreparationFormulaSetDetailsState
                       title: [entry.variantName, entry.materialName, entry.formula.name]
                           .where((part) => part.isNotEmpty).join(' • '),
                       subtitle: [
+                        if (entry.formula.code.isNotEmpty) entry.formula.code,
                         entry.formula.sharePercent == null
                             ? 'Shnek ulushi belgilanmagan'
                             : 'Shnek ulushi: ${preparationDisplay(entry.formula.sharePercent!)}%',
@@ -338,6 +339,7 @@ class _PreparationFormulaSetDetailsState
                           '${line.name} • ${preparationDisplay(line.percent)}%',
                       ].join('\n'),
                       subtitleMaxLines: entry.formula.lines.length + 1 +
+                          (entry.formula.code.isEmpty ? 0 : 1) +
                           (entry.materialId.isEmpty ? 1 : 0),
                       onTap: _busy ? null : () => _actions(entry),
                     ),

@@ -108,6 +108,9 @@ extension __OperatorDashboardPageStateAstPart06 on _OperatorDashboardPageState {
     if (session.warehouse.isNotEmpty) {
       parts.add(session.warehouse);
     }
+    if (session.preparationFormula.isNotEmpty) {
+      parts.add('Formula: ${_text(session.preparationFormula['variant_name'])}');
+    }
     if (session.tareEnabled && session.tareKg > 0) {
       parts.add('Tare ${formatCompactKg(session.tareKg)} kg');
     }

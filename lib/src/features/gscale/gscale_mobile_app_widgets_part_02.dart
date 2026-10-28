@@ -387,6 +387,7 @@ class OperatorDashboardPage extends StatefulWidget {
     this.initialWarehouse,
     this.initialMaterialId,
     this.initialMaterialName,
+    this.initialFormulaVariantId = '',
     this.freshForm = false,
     super.key,
   });
@@ -414,6 +415,7 @@ class OperatorDashboardPage extends StatefulWidget {
   final String? initialWarehouse;
   final String? initialMaterialId;
   final String? initialMaterialName;
+  final String initialFormulaVariantId;
   final bool freshForm;
 
   /// Bog'langan order eni (mm). Berilgan bo'lsa, eni field'i diapazondan

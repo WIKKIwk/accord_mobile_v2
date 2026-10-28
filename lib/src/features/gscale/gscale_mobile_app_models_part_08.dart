@@ -172,6 +172,7 @@ String formatArchiveTimestamp(String raw) {
 
 class MobileArchiveSession {
   const MobileArchiveSession({
+    this.preparationFormula = const {},
     required this.sessionId,
     required this.active,
     required this.itemCode,
@@ -236,6 +237,7 @@ class MobileArchiveSession {
     );
     return MobileArchiveSession(
       sessionId: batch.id,
+      preparationFormula: batch.preparationFormula,
       batchCode: batch.batchCode,
       active: batch.active,
       itemCode: batch.itemCode,
@@ -270,6 +272,7 @@ class MobileArchiveSession {
   final double tareKg;
   final int printCount;
   final List<MobileArchivePrintEntry> prints;
+  final Map<String, dynamic> preparationFormula;
 
   String get displayItemName => itemName.isEmpty ? itemCode : itemName;
   String get displayUnit => unit.isEmpty ? 'kg' : unit;
@@ -294,6 +297,16 @@ class _ArchiveSessionDetailsSheet extends StatelessWidget {
       'Holat': session.active ? 'ACTIVE' : 'CLOSED',
       if (session.batchCode.trim().isNotEmpty) 'Batch': session.batchCode,
       if (session.warehouse.trim().isNotEmpty) 'Ombor': session.warehouse,
+      if (session.preparationFormula.isNotEmpty) ...{
+        'Shnek formulasi': _text(session.preparationFormula['variant_name']),
+        'Homashyo': _text(session.preparationFormula['material_name']),
+        'Formula olingan': formatArchiveTimestamp(
+            _text(session.preparationFormula['captured_at'])),
+        for (final formula in (session.preparationFormula['formulas'] as List? ?? const []).whereType<Map>())
+          'Shnek ${_text(formula['name'])} (${_text(formula['share_percent'])}%)':
+              (formula['lines'] as List? ?? const []).whereType<Map>().map((line) =>
+                '${_text(line['name'], fallback: _text(line['item_code']))}: ${_text(line['percent'])}%').join('\n'),
+      },
       if (session.startedAt.trim().isNotEmpty)
         'Boshlangan': formatArchiveTimestamp(session.startedAt),
       if (session.endedAt.trim().isNotEmpty)

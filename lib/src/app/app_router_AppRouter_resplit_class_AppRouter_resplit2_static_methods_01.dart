@@ -596,6 +596,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
             ? (settings.arguments as GScaleModeArgs).materialId : null,
         initialMaterialName: settings.arguments is GScaleModeArgs
             ? (settings.arguments as GScaleModeArgs).materialName : null,
+        initialFormulaVariantId: settings.arguments is GScaleModeArgs
+            ? (settings.arguments as GScaleModeArgs).formulaVariantId : '',
         freshForm: settings.arguments is GScaleModeArgs &&
             (settings.arguments as GScaleModeArgs).freshForm,
         initialWarehouse: settings.arguments is GScaleModeArgs
@@ -629,6 +631,9 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, const BoyoqchiHomeScreen());
     case AppRoutes.preparation:
       return AppRouter._buildRoute(settings, const PreparationScreen());
+    case AppRoutes.preparationFormulas:
+      return AppRouter._buildRoute(
+          settings, const PreparationFormulaCatalogScreen());
     case AppRoutes.rawMaterialSplit:
       return AppRouter._buildRoute(settings, const RawMaterialSplitScreen());
     case AppRoutes.rawMaterialSplitHistory:

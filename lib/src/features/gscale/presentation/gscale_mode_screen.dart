@@ -25,12 +25,14 @@ class GScaleModeArgs {
     this.warehouse,
     this.materialId,
     this.materialName,
+    this.formulaVariantId = '',
     this.freshForm = false,
   });
   final PreparationOrder? order;
   final String? warehouse;
   final String? materialId;
   final String? materialName;
+  final String formulaVariantId;
   final bool freshForm;
 }
 
@@ -41,6 +43,7 @@ class GScaleModeScreen extends StatelessWidget {
     this.initialOrder,
     this.initialMaterialId,
     this.initialMaterialName,
+    this.initialFormulaVariantId = '',
     this.freshForm = false,
   });
 
@@ -48,6 +51,7 @@ class GScaleModeScreen extends StatelessWidget {
   final PreparationOrder? initialOrder;
   final String? initialMaterialId;
   final String? initialMaterialName;
+  final String initialFormulaVariantId;
   final bool freshForm;
 
   @override
@@ -80,6 +84,7 @@ class GScaleModeScreen extends StatelessWidget {
         initialWarehouse: initialWarehouse,
         initialMaterialId: initialMaterialId,
         initialMaterialName: initialMaterialName,
+        initialFormulaVariantId: initialFormulaVariantId,
         freshForm: freshForm,
       );
     }
@@ -116,6 +121,7 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
     this.initialOrder,
     this.initialMaterialId,
     this.initialMaterialName,
+    this.initialFormulaVariantId = '',
     this.freshForm = false,
   });
 
@@ -130,6 +136,7 @@ class _MaterialGScaleControlScreen extends StatefulWidget {
   final PreparationOrder? initialOrder;
   final String? initialMaterialId;
   final String? initialMaterialName;
+  final String initialFormulaVariantId;
   final bool freshForm;
 
   @override
@@ -297,6 +304,7 @@ class _MaterialGScaleControlScreenState
               initialWarehouse: widget.initialWarehouse,
               initialMaterialId: widget.initialMaterialId,
               initialMaterialName: widget.initialMaterialName,
+              initialFormulaVariantId: widget.initialFormulaVariantId,
               freshForm: widget.freshForm,
               orderSectionBuilder:
                   widget.linkPrintsToOrder ? orderSection : null,

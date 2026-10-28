@@ -97,6 +97,12 @@ class PreparationDrawer extends StatelessWidget {
           routeName: AppRoutes.preparation,
         ),
         const RoleNavigationDrawerDestination(
+          label: 'Formulalar',
+          icon: Icons.functions_outlined,
+          selectedIcon: Icons.functions_rounded,
+          routeName: AppRoutes.preparationFormulas,
+        ),
+        const RoleNavigationDrawerDestination(
           icon: Icons.format_list_numbered_outlined,
           selectedIcon: Icons.format_list_numbered_rounded,
           label: 'Ketma-ketlik',
