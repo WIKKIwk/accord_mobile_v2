@@ -317,9 +317,10 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                     _ItemDetailHeader(
                       detail: detail,
                       saving: _saving,
-                      disabled: _changingGroup || _deleting,
+                      disabled: _changingGroup || _deleting || detail.isCombo,
                       onEdit: () => _edit(detail),
                     ),
+                    if (detail.isCombo) ProductionComboCatalogSummary(itemCode: detail.code),
                     const SizedBox(height: 10),
                     _ItemDetailSection(
                       title: l10n.adminText('detail.main_info'),
@@ -344,7 +345,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                               key: const ValueKey(
                                 'admin-item-detail-change-group',
                               ),
-                              onPressed: mutationBusy
+                              onPressed: mutationBusy || detail.isCombo
                                   ? null
                                   : () => _changeGroup(detail),
                               icon: _changingGroup
@@ -393,14 +394,14 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                       const SizedBox(height: 10),
                       _ItemCustomersSection(
                         customers: detail.customers,
-                        enabled: !mutationBusy,
+                        enabled: !mutationBusy && !detail.isCombo,
                         onManage: () => _manageCustomers(detail),
                       ),
                     ],
                     const SizedBox(height: 10),
                     _ItemDeleteSection(
                       deleting: _deleting,
-                      enabled: !_saving && !_changingGroup,
+                      enabled: !_saving && !_changingGroup && !detail.isCombo,
                       onDelete: () => _delete(detail),
                     ),
                   ],

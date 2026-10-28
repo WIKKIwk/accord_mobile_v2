@@ -284,6 +284,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
               ? _testModeAssignOrderNumberIfMissing(map)
               : map;
           orderMap = orderMap.copyWith(
+            combo: template.combo,
             printValSizeMm: template.printValSizeMm,
             clearPrintValSize: template.printValSizeMm == null,
           );
@@ -411,6 +412,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
     if (await TestModeController.instance.isEnabled()) {
       final map = ProductionMapDefinition(
         products: template.products,
+        combo: template.combo,
         id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
         productCode: template.itemCode.trim().isEmpty
             ? template.product.trim()

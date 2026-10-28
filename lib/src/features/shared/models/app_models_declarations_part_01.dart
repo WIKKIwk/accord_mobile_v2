@@ -186,6 +186,7 @@ class SupplierItem {
   final String warehouse;
   final String itemGroup;
   final bool requiresDimensions;
+  bool get isCombo => itemGroup.trim().toLowerCase() == 'kombo';
   final Map<String, String> orderApparatusOptions;
   final List<double> orderMicrons;
   final List<String> customerNames;
@@ -229,6 +230,7 @@ class AdminItemDetail {
   final String uom;
   final String itemGroup;
   final bool isFinishedGoods;
+  bool get isCombo => itemGroup.trim().toLowerCase() == 'kombo';
   final int createdAtUnix;
   final int updatedAtUnix;
   final List<CustomerDirectoryEntry> customers;

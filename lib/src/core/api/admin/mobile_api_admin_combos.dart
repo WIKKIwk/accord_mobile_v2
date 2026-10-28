@@ -33,6 +33,12 @@ final _testModeComboRevisions = <String, ProductionComboCatalogEntry>{};
 int _testModeComboSequence = 0;
 
 extension MobileApiProductionCombos on MobileApi {
+  void invalidateProductionComboCatalog() {
+    _qolipProductsSnapshot = null;
+    QolipCatalogStore.instance.reset();
+    QolipCatalogStore.instance.invalidateDetails();
+  }
+
   Future<ProductionComboReference> adminSaveProductionCombo({
     required String name,
     required CalculateOrderTemplate template,

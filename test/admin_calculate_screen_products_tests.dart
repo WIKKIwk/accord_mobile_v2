@@ -98,6 +98,7 @@ void _registerProductTests() {
         find.widgetWithText(TextFormField, 'Umumiy KG'), '300');
     await tester.tap(find.text('Hisoblash'));
     await tester.pumpAndSettle();
+    await _confirmComboName(tester, 'Vitaminlar');
     expect(find.text('Mahsulotlar bo‘yicha taxminiy chiqish'), findsOneWidget);
     await tester.tap(find.text('Mahsulot qo‘shish'));
     await tester.pumpAndSettle();
@@ -119,6 +120,7 @@ void _registerProductTests() {
         find.widgetWithText(TextFormField, 'Umumiy KG'), '300');
     await tester.tap(find.text('Hisoblash'));
     await tester.pumpAndSettle();
+    await _confirmComboName(tester, 'Vitaminlar');
     expect(find.text('Mahsulotlar bo‘yicha taxminiy chiqish'), findsOneWidget);
     await tester.enterText(
         find.widgetWithText(TextFormField, '1 ta kadrning eni').at(2), '90');
@@ -126,4 +128,12 @@ void _registerProductTests() {
     expect(find.text('Mahsulotlar bo‘yicha taxminiy chiqish'), findsNothing);
     expect(find.text('Jami: 6 kadr · foydali en 580 mm'), findsOneWidget);
   });
+}
+
+Future<void> _confirmComboName(WidgetTester tester, String name) async {
+  final input = find.byKey(const ValueKey('combo-name-input'));
+  if (input.evaluate().isEmpty) return;
+  await tester.enterText(input, name);
+  await tester.tap(find.byKey(const ValueKey('combo-name-confirm')));
+  await tester.pumpAndSettle();
 }

@@ -41,7 +41,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
       ? _products.map((row) => row.value).toList(growable: false)
       : const [];
   String get _activeItemCode =>
-      _multipleProducts ? (_products.firstOrNull?.itemCode ?? '') : _itemCode;
+      _multipleProducts ? (_combo?.itemCode ?? _products.firstOrNull?.itemCode ?? '') : _itemCode;
   double get _activeFrameSize =>
       _multipleProducts ? 0 : _parseRequiredDouble(_frameProductSizeMm.text);
   double get _activeFrameCount => _multipleProducts
@@ -110,6 +110,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
         _frameCount.text = row.count.text;
       }
       _multipleProducts = enabled;
+      if (!enabled) { _combo = null; _comboLayoutSignature = ''; }
       _result = null;
       _lastCalculatedSignature = '';
     });

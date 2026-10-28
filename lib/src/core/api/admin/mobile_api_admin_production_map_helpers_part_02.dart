@@ -222,6 +222,12 @@ MobileApiException _adminProductionMapException(
       'qolip_scan_incomplete' =>
         'Mahsulotga biriktirilgan barcha qoliplarni scan qiling',
       'qolip_code_not_found' => 'Qolip QR topilmadi',
+      'combo_name_conflict' => 'Bu nomdagi kombo mavjud. Boshqa nom kiriting',
+      'combo_reference_mismatch' => 'Kombo joylashuvi o‘zgargan. Qayta hisoblang',
+      'combo_reference_required' => 'Kombo nomini saqlab, qayta hisoblang',
+      'combo_not_found' => 'Kombo topilmadi',
+      'combo_store_unavailable' => 'Kombo katalogi vaqtincha ishlamayapti',
+      'combo_qolip_required' => 'Kombo uchun qolip biriktirilmagan',
       'qolip_code_mismatch' => 'Bu qolip ushbu zakaz mahsulotiga mos emas',
       'qolip_code_required' => 'Kamida bitta qolipni tanlang',
       'qolip_already_in_use' => 'Bu qolip boshqa aparatda ishlatilmoqda',

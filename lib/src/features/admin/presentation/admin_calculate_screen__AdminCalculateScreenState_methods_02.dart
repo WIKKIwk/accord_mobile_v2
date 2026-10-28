@@ -49,6 +49,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           : null;
       final clonedMap = sourceMap.copyWith(
         products: _activeProducts,
+        combo: _multipleProducts ? _combo : null,
+        clearCombo: !_multipleProducts,
         id: _savedOrderRequestId,
         title: _resolvedOrderName(),
         imageId: currentDraft.imageId.trim(),
@@ -332,6 +334,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     final thirdLayer = _legacyLayer(2);
     return CalculateOrderTemplate(
       products: _activeProducts,
+      combo: _multipleProducts ? _combo : null,
       productionOptions: _productionOptions,
       id: _templateId,
       code: _orderCode,

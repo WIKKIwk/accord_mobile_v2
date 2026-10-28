@@ -229,6 +229,10 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
+                  if (map.combo != null)
+                    map.products.isEmpty
+                      ? ProductionComboCatalogSummary(itemCode: map.combo!.itemCode)
+                      : ProductionComboSummary(combo: map.combo!, products: map.products),
                   if (detailError != null)
                     Padding(
                       padding: const EdgeInsets.all(12),

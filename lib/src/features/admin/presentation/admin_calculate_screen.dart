@@ -7,6 +7,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/spring_pressable.dart';
 import '../../../core/widgets/forms/forms.dart';
@@ -15,6 +16,7 @@ import '../../../core/widgets/display/order_image_provider.dart';
 import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/production_map_models.dart';
+import '../../qolip/state/qolip_data_revision.dart';
 import '../state/calculate_order_store.dart';
 import 'calculate_product_picker_loader.dart';
 import 'admin_item_create_screen.dart';
@@ -36,6 +38,7 @@ part 'admin_calculate_screen__AdminCalculateScreenState_methods_02.dart';
 part 'admin_calculate_screen__AdminCalculateScreenState_methods_03.dart';
 part 'admin_calculate_screen__AdminCalculateScreenState_methods_04.dart';
 part 'admin_calculate_screen_products.dart';
+part 'admin_calculate_screen_combo.dart';
 part 'admin_calculate_screen_models_part_01.dart';
 part 'admin_calculate_screen_widgets_part_02.dart';
 part 'admin_calculate_screen_declarations_part_03.dart';
@@ -50,6 +53,10 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _customer = TextEditingController();
   final _product = TextEditingController();
   bool _multipleProducts = false;
+  ProductionComboReference? _combo;
+  String _comboLayoutSignature = '';
+  String _comboScope = '';
+  bool _loadingCombo = false;
   final List<_ProductControllers> _products = [];
   String _orderType = 'Rulon';
   CalculateOrderProductionOptions? _productionOptions =
@@ -95,6 +102,8 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   CalculateResponse? _result;
   String _lastCalculatedSignature = '';
   String _error = '';
+
+  void _updateComboState(VoidCallback action) => setState(action);
 
   OpenedOrderEditRestrictions get _orderEditRestrictions =>
       widget.openedOrder?.restrictions ?? const OpenedOrderEditRestrictions();
@@ -168,7 +177,9 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       .toList(growable: false);
 
   bool get _hasFreshCalculation =>
-      _result != null && _lastCalculatedSignature == _calculationSignature();
+      !_calculating && !_loadingCombo &&
+      _result != null && _lastCalculatedSignature == _calculationSignature() &&
+      (!_needsComboIdentity || _hasCurrentCombo);
 
   Future<void> _saveOpenedOrder() async {
     final source = widget.openedOrder;

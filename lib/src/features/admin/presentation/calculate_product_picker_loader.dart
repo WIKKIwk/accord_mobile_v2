@@ -44,6 +44,7 @@ Future<CustomerDirectoryEntry?> loadCalculateProductCustomer({
 
 Future<List<SupplierItem>> loadCalculateProductPickerPage({
   required String customerRef,
+  bool includeCombos = false,
   required String query,
   required int offset,
   required int limit,
@@ -57,7 +58,8 @@ Future<List<SupplierItem>> loadCalculateProductPickerPage({
     final filtered = detail.assignedItems
         .where(
           (item) =>
-              _isCalculateFinishedProduct(item) &&
+              (_isCalculateFinishedProduct(item) ||
+                  (includeCombos && item.isCombo)) &&
               (normalizedQuery.isEmpty ||
                   searchMatches(normalizedQuery, [
                     item.name,
@@ -81,7 +83,10 @@ Future<List<SupplierItem>> loadCalculateProductPickerPage({
     offset: offset,
     limit: limit,
   );
-  return items.where(_isCalculateFinishedProduct).toList(growable: false);
+  return items
+      .where((item) =>
+          _isCalculateFinishedProduct(item) || (includeCombos && item.isCombo))
+      .toList(growable: false);
 }
 
 bool _isCalculateFinishedProduct(SupplierItem item) =>
@@ -92,6 +97,7 @@ Future<List<CalculateProductPickerOption>>
     loadCalculateProductPickerOptionsPage({
   required String customerRef,
   required String customerName,
+  bool includeCombos = false,
   required String query,
   required int offset,
   required int limit,
@@ -100,6 +106,7 @@ Future<List<CalculateProductPickerOption>>
 }) async {
   final items = await loadCalculateProductPickerPage(
     customerRef: customerRef,
+    includeCombos: includeCombos,
     query: query,
     offset: offset,
     limit: limit,

@@ -290,6 +290,7 @@ extension _AdminProductionMapTestDefinitionState
           ]);
     return ProductionMapDefinition(
       products: context?.templateDraft?.products ?? savedMap?.products ?? const [],
+      combo: context?.templateDraft?.combo ?? savedMap?.combo,
       id: widget.templateOnly
           ? _templateMapId(context, savedMap)
           : _orderMode

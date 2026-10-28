@@ -70,7 +70,7 @@ class _ItemDetailHeader extends StatelessWidget {
               const SizedBox(height: 14),
               Chip(
                 avatar: Icon(Icons.task_alt_rounded, size: 18),
-                label: Text(l10n.adminText('detail.finished_product')),
+                label: Text(l10n.adminText(detail.isCombo ? 'calculate.combo' : 'detail.finished_product')),
                 visualDensity: VisualDensity.compact,
               ),
             ],

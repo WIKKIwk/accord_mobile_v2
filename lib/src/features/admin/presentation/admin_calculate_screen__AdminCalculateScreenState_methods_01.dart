@@ -83,6 +83,8 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _itemCode = template.itemCode;
       _product.text = template.product;
       _replaceProducts(template.products);
+      _combo = template.combo;
+      _comboScope = currentSessionReadScope();
       if (_multipleProducts) _editingAllFields = true;
       _orderType = const ['rulon', 'paket']
               .contains(template.status.trim().toLowerCase())
@@ -120,6 +122,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _note.text = template.note;
       _result = null;
       _lastCalculatedSignature = '';
+      _comboLayoutSignature = _combo == null ? '' : productionComboLayoutSignature(_buildTemplateDraft());
     } finally {
       _applyingTemplate = false;
     }
@@ -263,6 +266,8 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
         final cleanSourceMap = source.map.withoutAlternativeAssignments();
         savedMap = cleanSourceMap.copyWith(
           products: _activeProducts,
+          combo: _multipleProducts ? _combo : null,
+          clearCombo: !_multipleProducts,
           id: _templateIsFork ? 'template-$_templateId' : cleanSourceMap.id,
           title: _resolvedOrderName(),
           imageId: _imageId.trim(),

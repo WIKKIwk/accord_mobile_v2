@@ -9,6 +9,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       return;
     }
     final pickerCustomerRef = _customerRef;
+    final pickerScope = currentSessionReadScope();
     final pickerCustomerName = _customer.text.trim();
     final canCreateProduct = AppSession.instance.can('catalog.item.create');
     var openProductCreate = false;
@@ -36,12 +37,11 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
                 }
               : null,
           pageSize: 80,
-          cacheKey: _customerRef.trim().isEmpty
-              ? 'calculate:finished-items:v2:customer-names'
-              : 'calculate:customer-finished-items:v2:${_customerRef.trim()}',
+          cacheKey: 'calculate:products:v3:${target == null ? 'catalog' : 'components'}:${_customerRef.trim()}',
           loadPage: (query, offset, limit) {
             return loadCalculateProductPickerOptionsPage(
               customerRef: _customerRef,
+              includeCombos: target == null && widget.openedOrder == null,
               customerName: pickerCustomerName,
               query: query,
               offset: offset,
@@ -78,6 +78,11 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     }
     final picked = selection;
     if (picked == null || !mounted) {
+      return;
+    }
+    if (picked.isCombo) {
+      if (pickerScope != currentSessionReadScope()) return;
+      if (target == null) await _selectCatalogCombo(picked);
       return;
     }
     if (target != null) {
@@ -139,6 +144,8 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         _savedOrderRequestSignature = '';
       }
       _productCustomerGeneration = generation;
+      _combo = null;
+      _comboLayoutSignature = '';
       _itemCode = picked.code;
       _product.text =
           picked.name.trim().isEmpty ? picked.code : picked.name.trim();
@@ -185,6 +192,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
   }
 
   String _resolvedOrderName() {
+    if (_multipleProducts && _combo != null) return _combo!.name;
     final product = _multipleProducts
         ? _activeProducts.map((p) => p.product).where((p) => p.isNotEmpty).join(' + ')
         : _product.text.trim();
@@ -286,6 +294,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
   }
 
   Future<void> _calculate() async {
+    if (_calculating || _loadingCombo) return;
     FocusManager.instance.primaryFocus?.unfocus();
     final productError = _productsValidationError();
     if (productError != null) {
@@ -309,6 +318,8 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       return;
     }
     final signature = _calculationSignature();
+    final scope = currentSessionReadScope();
+    final draft = _buildTemplateDraft();
     setState(() {
       _calculating = true;
       _error = '';
@@ -333,17 +344,16 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           note: _note.text,
         ),
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted || scope != currentSessionReadScope() || signature != _calculationSignature()) return;
+      final comboReady = await _persistCalculatedCombo(
+        draft: draft, calculationSignature: signature, scope: scope);
+      if (!comboReady || !mounted || scope != currentSessionReadScope()) return;
       setState(() {
         _result = result;
         _lastCalculatedSignature = signature;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted || scope != currentSessionReadScope()) return;
       setState(() {
         _error = error is MobileApiException ? error.message : error.toString();
         _result = null;
@@ -451,6 +461,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         onChanged: _orderEditDimensionsLocked || _calculating || _openingAutomaticOrder || _openingSavedOrder || _savingOpenedOrder
             ? null : _setMultipleProducts,
       )),
+      if (_multipleProducts && _combo != null) _comboIdentityCard(),
       _SectionHeader(title: l10n.adminText('calculate.order_section')),
       _PickerInput(
         label: l10n.adminText('label.customer'),

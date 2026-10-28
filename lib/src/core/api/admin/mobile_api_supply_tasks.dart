@@ -42,10 +42,14 @@ class SupplyTaskRow {
     required this.position,
     required this.apparatusCount,
     required this.taskState,
+    this.combo,
+    this.products = const [],
   });
   final String id, code, orderNumber, title, productCode, customerName, imageId;
   final int position, apparatusCount;
   final String taskState;
+  final ProductionComboReference? combo;
+  final List<OrderProduct> products;
 
   factory SupplyTaskRow.fromJson(Map<String, dynamic> json) {
     if (!const [
@@ -74,6 +78,8 @@ class SupplyTaskRow {
       position: json['position'],
       apparatusCount: json['apparatus_count'],
       taskState: json['task_state'],
+      combo: ProductionComboReference.fromJson(json['combo']),
+      products: OrderProduct.listFromJson(json['products']),
     );
   }
 
@@ -88,6 +94,8 @@ class SupplyTaskRow {
         'position': position,
         'apparatus_count': apparatusCount,
         'task_state': taskState,
+        if (combo != null) 'combo': combo!.toJson(),
+        if (products.isNotEmpty) 'products': products.map((p) => p.toJson()).toList(),
       };
 
   ProductionMapSaved toPresentationOrder() {
@@ -95,6 +103,8 @@ class SupplyTaskRow {
     if (cached != null) return cached;
     final order = ProductionMapSaved(
       map: ProductionMapDefinition(
+          combo: combo,
+          products: products,
           id: id,
           code: code,
           orderNumber: orderNumber,

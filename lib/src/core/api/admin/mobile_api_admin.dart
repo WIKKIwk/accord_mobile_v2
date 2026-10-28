@@ -453,6 +453,8 @@ ProductionMapDefinition? _templateMapCopyForSave(
   }
   return ProductionMapDefinition(
     id: 'template-$mapId',
+    combo: map.combo,
+    products: map.products,
     productCode: map.productCode,
     title: map.title,
     code: '',

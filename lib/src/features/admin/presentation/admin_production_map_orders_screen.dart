@@ -80,6 +80,7 @@ import '../state/admin_sequence_apparatus_store.dart';
 import '../state/admin_order_page_cache.dart';
 import '../state/admin_sequence_warm_store.dart';
 import '../../../core/cache/production_snapshot_store.dart';
+import '../../../core/widgets/display/production_combo_summary.dart';
 import '../../../core/cache/production_snapshot_models.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/presentation/widgets/order_image_viewer.dart';

@@ -8,10 +8,10 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
       const SizedBox(height: 22),
       SpringPressable(
         enabled:
-            !_calculating && !_savingOpenedOrder && !_openingAutomaticOrder,
+            !_calculating && !_loadingCombo && !_savingOpenedOrder && !_openingAutomaticOrder,
         child: FilledButton.icon(
           onPressed:
-              _calculating || _savingOpenedOrder || _openingAutomaticOrder
+              _calculating || _loadingCombo || _savingOpenedOrder || _openingAutomaticOrder
                   ? null
                   : _calculate,
           icon: const Icon(Icons.calculate_outlined),

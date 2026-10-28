@@ -463,6 +463,7 @@ bool _queueActionShouldClearQolipScan(Object error) {
     'qolip_scan_incomplete',
     'qolip_code_not_found',
     'qolip_code_mismatch',
+    'combo_qolip_required',
     'qolip_location_not_found',
     'insufficient_stock',
     'location_identity_mismatch',
