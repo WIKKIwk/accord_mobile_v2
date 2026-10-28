@@ -16,6 +16,19 @@ class RawMaterialListAssignment {
   bool get isFrozen => orderControl == AdminOrderControlState.frozen;
 }
 
+RawMaterialListAssignment? rawMaterialListAssignmentForAsset(
+  InventoryAsset asset,
+) {
+  final summary = asset.orderAssignment;
+  return summary == null
+      ? null
+      : RawMaterialListAssignment(
+          orderId: summary.orderId,
+          orderLabel: summary.orderLabel,
+          orderControl: AdminOrderControlState.fromRaw(summary.orderControl),
+        );
+}
+
 Map<String, RawMaterialListAssignment> rawMaterialListAssignmentsByBarcode({
   required List<AdminRawMaterialAssignment> assignments,
   required List<ProductionMapSaved> orders,

@@ -156,6 +156,36 @@ class InventoryLocationReference {
   }
 }
 
+/// List-only order identity and colour. Execution/assignment details are read
+/// from the authoritative lookup only when the item sheet is opened.
+class InventoryOrderAssignment {
+  const InventoryOrderAssignment({
+    required this.orderId,
+    required this.orderLabel,
+    this.orderControl = 'active',
+  });
+
+  final String orderId;
+  final String orderLabel;
+  final String orderControl;
+
+  factory InventoryOrderAssignment.fromJson(Map<String, dynamic> json) {
+    final id = json['order_id'] as String? ?? '';
+    final label = json['order_label'] as String? ?? '';
+    final control = json['order_control'] as String? ?? 'active';
+    if (id.trim().isEmpty ||
+        label.trim().isEmpty ||
+        !const {'active', 'freeze_requested', 'frozen'}.contains(control)) {
+      throw const FormatException('Invalid inventory order assignment');
+    }
+    return InventoryOrderAssignment(
+      orderId: id,
+      orderLabel: label,
+      orderControl: control,
+    );
+  }
+}
+
 class InventoryAsset {
   const InventoryAsset({
     required this.kind,
@@ -171,6 +201,8 @@ class InventoryAsset {
     required this.physicalLocation,
     this.transferId = '',
     this.placementVersion = 1,
+    this.orderAssignment,
+    this.orderAssignmentKnown = false,
   });
 
   final InventoryAssetKind kind;
@@ -186,12 +218,19 @@ class InventoryAsset {
   final InventoryLocationReference physicalLocation;
   final String transferId;
   final int placementVersion;
+  final InventoryOrderAssignment? orderAssignment;
+  // Omitted metadata (legacy/mutation response) must not mean "unassigned".
+  final bool orderAssignmentKnown;
 
   bool get isAvailable =>
       status.trim().toLowerCase() == 'available' && transferId.trim().isEmpty;
 
   factory InventoryAsset.fromJson(Map<String, dynamic> json) {
     final location = json['physical_location'];
+    final assignment = json['order_assignment'];
+    if (assignment != null && assignment is! Map) {
+      throw const FormatException('Invalid inventory order assignment');
+    }
     return InventoryAsset(
       kind: InventoryAssetKind.fromJson(json['kind']),
       assetRef: json['asset_ref']?.toString() ?? '',
@@ -208,6 +247,11 @@ class InventoryAsset {
       ),
       transferId: json['transfer_id']?.toString() ?? '',
       placementVersion: (json['placement_version'] as num?)?.toInt() ?? 1,
+      orderAssignmentKnown: json.containsKey('order_assignment'),
+      orderAssignment: assignment is Map
+          ? InventoryOrderAssignment.fromJson(
+              assignment.cast<String, dynamic>())
+          : null,
     );
   }
 
@@ -218,6 +262,8 @@ class InventoryAsset {
     InventoryLocationReference? physicalLocation,
     String? transferId,
     int? placementVersion,
+    InventoryOrderAssignment? orderAssignment,
+    bool? orderAssignmentKnown,
   }) {
     return InventoryAsset(
       kind: kind,
@@ -233,6 +279,10 @@ class InventoryAsset {
       physicalLocation: physicalLocation ?? this.physicalLocation,
       transferId: transferId ?? this.transferId,
       placementVersion: placementVersion ?? this.placementVersion,
+      orderAssignment: orderAssignmentKnown == true
+          ? orderAssignment
+          : orderAssignment ?? this.orderAssignment,
+      orderAssignmentKnown: orderAssignmentKnown ?? this.orderAssignmentKnown,
     );
   }
 }

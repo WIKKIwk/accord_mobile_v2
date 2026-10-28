@@ -43,6 +43,7 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
     InventoryAssetKind? assetKind,
     // Legacy API name: shared state inventory within the user's access scope.
     bool currentUserStatesOnly = false,
+    bool includeOrderAssignment = false,
     int limit = 100,
     int offset = 0,
   }) async {
@@ -79,7 +80,40 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
           )
           .skip(offset)
           .take(limit)
-          .toList(growable: false);
+          .map((asset) {
+        if (asset.kind != InventoryAssetKind.rawMaterial) return asset;
+        final barcode = asset.identifier.trim().toUpperCase();
+        final assignment = _testModeRawMaterialAssignments
+            .where(
+              (a) => a.barcode.trim().toUpperCase() == barcode,
+            )
+            .firstOrNull;
+        final saved = assignment == null
+            ? null
+            : _testModeProductionMaps
+                .where((s) => s.map.id == assignment.orderId)
+                .firstOrNull;
+        final control = assignment == null
+            ? AdminOrderControlState.active
+            : _testModeOrderControls[assignment.orderId] ??
+                AdminOrderControlState.active;
+        final map = saved?.map;
+        final label = assignment == null
+            ? ''
+            : map == null || control != AdminOrderControlState.active
+                ? assignment.orderId
+                : '${map.code.trim().isNotEmpty ? map.code : map.orderNumber.trim().isNotEmpty ? map.orderNumber : map.id}${map.title.trim().isEmpty ? '' : ' · ${map.title.trim()}'}';
+        return asset.copyWith(
+          orderAssignmentKnown: true,
+          orderAssignment: assignment == null
+              ? null
+              : InventoryOrderAssignment(
+                  orderId: assignment.orderId,
+                  orderLabel: label,
+                  orderControl: control.apiValue,
+                ),
+        );
+      }).toList(growable: false);
     }
     final response = await _sendAuthorized(
       () => _get(
@@ -92,6 +126,7 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
             if (query.trim().isNotEmpty) 'query': query.trim(),
             if (assetKind != null) 'asset_kind': assetKind.apiValue,
             if (currentUserStatesOnly) 'current_user_states_only': 'true',
+            if (includeOrderAssignment) 'include_order_assignment': 'true',
             'limit': '$limit',
             if (offset > 0) 'offset': '$offset',
           },
