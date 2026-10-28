@@ -133,6 +133,7 @@ part 'qolip/mobile_api_qolip_shared_sets.dart';
 part 'qolip/mobile_api_qolip_management.dart';
 part 'qolip/mobile_api_qolip_reworks.dart';
 part 'qolip/mobile_api_qolip_storage.dart';
+part 'qolip/mobile_api_qolip_storage_print.dart';
 part 'qolip/mobile_api_qolip_order_products.dart';
 part 'qolip/mobile_api_qolip_products_cache.dart';
 part 'qolip/mobile_api_qolip_catalog.dart';
