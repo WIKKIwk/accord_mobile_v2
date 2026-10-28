@@ -184,6 +184,47 @@ void main() {
     lease.dispose();
   });
 
+  test('token rotation reconnects with retained version and rejects old reset',
+      () async {
+    var token = 'old-token';
+    store = InventoryViewStore(
+        scopeReader: () => scope,
+        tokenReader: () => token,
+        liveEnabled: () => true,
+        snapshotLoader: (_) async {
+          reads++;
+          return [];
+        },
+        liveLoader: (_, version) {
+          versions.add(version);
+          final socket = StreamController<Map<String, dynamic>>(sync: true);
+          sockets.add(socket);
+          return socket.stream;
+        });
+    final lease = store.assets();
+    sockets.single.add(_snapshot([_asset('a')]));
+    await lease.ready;
+    final original = lease.rows;
+    token = 'new-token';
+    store.configure(foreground: true);
+    expect(sockets.first.hasListener, isFalse);
+    expect(versions, [null, 'version-1']);
+    expect(lease.rows, same(original));
+    sockets.first.add({'event': 'inventory.reset'});
+    sockets.last.add({
+      'event': 'inventory.ready',
+      'id': 'window',
+      'epoch': 'epoch-2',
+      'revision': 0,
+      'version': 'version-1',
+    });
+    expect(lease.rows, same(original));
+    expect(lease.trusted, isTrue);
+    expect(lease.error, isNull);
+    expect(reads, 0);
+    lease.dispose();
+  });
+
   test('scope reset clears mounted leases and rejects late account HTTP',
       () async {
     final pending = Completer<List<Object>>();

@@ -25,6 +25,7 @@ class InventoryViewStore {
     InventorySnapshotLoader? snapshotLoader,
     InventoryLiveLoader? liveLoader,
     String Function()? scopeReader,
+    String? Function()? tokenReader,
     bool Function()? liveEnabled,
     this.firstMessageTimeout = const Duration(seconds: 10),
     this.reconnectDelay,
@@ -32,6 +33,7 @@ class InventoryViewStore {
   })  : _snapshotLoader = snapshotLoader ?? _loadSnapshot,
         _liveLoader = liveLoader ?? _openLive,
         _scopeReader = scopeReader ?? currentSessionReadScope,
+        _tokenReader = tokenReader ?? (() => AppSession.instance.token),
         _liveEnabled =
             liveEnabled ?? (() => !AppSession.instance.isTestModeSession);
 
@@ -42,12 +44,14 @@ class InventoryViewStore {
   final InventorySnapshotLoader _snapshotLoader;
   final InventoryLiveLoader _liveLoader;
   final String Function() _scopeReader;
+  final String? Function() _tokenReader;
   final bool Function() _liveEnabled;
   final Duration firstMessageTimeout;
   final Duration Function(int attempt)? reconnectDelay;
   final int maxIdleViews;
   final Map<String, _InventoryViewEntry<dynamic>> _entries = {};
   String? _scope;
+  String? _token;
   bool _foreground = true;
   bool _blocked = false;
   int _generation = 0;
@@ -104,8 +108,8 @@ class InventoryViewStore {
 
   /// Lifecycle/account integration. Token refreshes preserve the read scope.
   void configure({required bool foreground}) {
-    _synchronizeScope();
     _foreground = foreground;
+    _synchronizeScope();
     for (final entry in _entries.values.toList()) {
       if (foreground && !_blocked) {
         unawaited(entry.ensure().catchError((Object _) {}));
@@ -117,9 +121,28 @@ class InventoryViewStore {
 
   void _synchronizeScope() {
     final current = _scopeReader();
-    if (_scope == current) return;
-    reset();
-    _scope = current;
+    final token = _tokenReader();
+    if (_scope != current) {
+      reset();
+      _scope = current;
+      _token = token;
+      return;
+    }
+    if (_token == token) return;
+    _token = token;
+    // A refreshed token preserves authorization scope and decoded rows, but
+    // every socket must authenticate with it. Invalidate all old callbacks
+    // before opening any replacement so an expiring socket cannot reset the
+    // newly authenticated windows.
+    final entries = _entries.values.toList();
+    for (final entry in entries) {
+      entry.stop();
+    }
+    if (_foreground && !_blocked) {
+      for (final entry in entries) {
+        unawaited(entry.ensure().catchError((Object _) {}));
+      }
+    }
   }
 
   void reset() {
@@ -127,6 +150,7 @@ class InventoryViewStore {
     final previous = _entries.values.toList();
     _entries.clear();
     _scope = null;
+    _token = null;
     _blocked = false;
     _reconciling = null;
     for (final entry in previous) {
@@ -163,6 +187,7 @@ class InventoryViewStore {
   bool _current(_InventoryViewEntry<dynamic> entry) =>
       entry.generation == _generation &&
       _scope == _scopeReader() &&
+      _token == _tokenReader() &&
       identical(_entries[entry.query.key], entry) &&
       !_blocked;
 
