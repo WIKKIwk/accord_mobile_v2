@@ -56,7 +56,6 @@ class InventoryViewStore {
   bool _blocked = false;
   int _generation = 0;
   int _visit = 0;
-  Future<void>? _reconciling;
 
   InventoryViewLease<InventoryLocation> locations() =>
       _acquire(InventoryViewQuery.locations());
@@ -152,7 +151,6 @@ class InventoryViewStore {
     _scope = null;
     _token = null;
     _blocked = false;
-    _reconciling = null;
     for (final entry in previous) {
       entry.clear();
     }
@@ -162,17 +160,12 @@ class InventoryViewStore {
   /// not established live continuity needs repair, so it cannot publish an
   /// older pre-write HTTP receipt after the write succeeds.
   Future<void> reconcileAfterWrite() {
-    if (_reconciling != null) return _reconciling!;
     final pending = <Future<void>>[];
     for (final entry in _entries.values.toList()) {
       if (!entry.trusted && _current(entry)) pending.add(entry.refresh());
     }
     if (pending.isEmpty) return Future.value();
-    final generation = _generation;
-    return _reconciling =
-        Future.wait(pending).then<void>((_) {}).whenComplete(() {
-      if (generation == _generation) _reconciling = null;
-    });
+    return Future.wait(pending).then<void>((_) {});
   }
 
   void _resetAuthorization() {

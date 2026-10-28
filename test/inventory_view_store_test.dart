@@ -242,7 +242,7 @@ void main() {
     lease.dispose();
   });
 
-  test('committed write cancels stale HTTP; concurrent repairs are joined',
+  test('committed write cancels stale initial HTTP before publishing',
       () async {
     final pending = <Completer<List<Object>>>[];
     store = InventoryViewStore(
@@ -256,14 +256,42 @@ void main() {
     final lease = store.assets();
     expect(pending, hasLength(1));
     final repair = store.reconcileAfterWrite();
-    final joined = store.reconcileAfterWrite();
     expect(pending, hasLength(2));
     pending.first.complete([InventoryAsset.fromJson(_asset('stale'))]);
     await _flush();
     expect(lease.rows, isNull);
     pending.last.complete([InventoryAsset.fromJson(_asset('committed'))]);
-    await Future.wait([repair, joined]);
+    await repair;
     expect(lease.rows!.single.assetRef, 'committed');
+    lease.dispose();
+  });
+
+  test('a later committed write invalidates an earlier pending repair',
+      () async {
+    final pending = <Completer<List<Object>>>[];
+    store = InventoryViewStore(
+        scopeReader: () => scope,
+        liveEnabled: () => false,
+        snapshotLoader: (_) {
+          final read = Completer<List<Object>>();
+          pending.add(read);
+          return read.future;
+        });
+    final lease = store.assets();
+    pending.single.complete([InventoryAsset.fromJson(_asset('baseline'))]);
+    await lease.ready;
+    final firstRepair = store.reconcileAfterWrite();
+    expect(pending, hasLength(2));
+    // Another write commits after the first repair started reading. Its
+    // invalidation must happen immediately rather than joining that old GET.
+    final secondRepair = store.reconcileAfterWrite();
+    expect(pending, hasLength(3));
+    pending[1].complete([InventoryAsset.fromJson(_asset('first-commit'))]);
+    await _flush();
+    expect(lease.rows!.single.assetRef, 'baseline');
+    pending[2].complete([InventoryAsset.fromJson(_asset('second-commit'))]);
+    await Future.wait([firstRepair, secondRepair]);
+    expect(lease.rows!.single.assetRef, 'second-commit');
     lease.dispose();
   });
 
