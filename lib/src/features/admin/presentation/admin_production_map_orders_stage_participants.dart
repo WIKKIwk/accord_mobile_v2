@@ -52,10 +52,15 @@ class _StageParticipantsSheetState extends State<_StageParticipantsSheet> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final changed = _scope != currentSessionReadScope();
+    final screenSize = MediaQuery.sizeOf(context);
+    final maxHeight = screenSize.height * 0.7;
     return SafeArea(
       child: ConstrainedBox(
-        constraints:
-            BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+        constraints: BoxConstraints(
+          minWidth: screenSize.width,
+          minHeight: min(280, maxHeight),
+          maxHeight: maxHeight,
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(

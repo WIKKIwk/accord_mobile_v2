@@ -63,6 +63,7 @@ void _registerStageParticipantsTests() {
         await tester.longPress(machine);
         await tester.pumpAndSettle();
         expect(find.text('Ishtirokchilarni yuklab bo‘lmadi'), findsOneWidget);
+        final errorSize = tester.getSize(find.byType(BottomSheet).last);
         await tester.tap(find.text('Qayta urinish').last);
         await tester.pumpAndSettle();
         expect(find.text('Ishtirokchilar'), findsOneWidget);
@@ -70,6 +71,10 @@ void _registerStageParticipantsTests() {
         expect(find.text('Boshlagan · Qatnashgan'), findsOneWidget);
         expect(find.text('Vali'), findsOneWidget);
         expect(find.text('Ishlayapti'), findsWidgets);
+        final populatedSize = tester.getSize(find.byType(BottomSheet).last);
+        expect(errorSize, populatedSize);
+        expect(populatedSize.width,
+            tester.view.physicalSize.width / tester.view.devicePixelRatio);
         expect(requests, hasLength(2));
         expect(requests.last.url.queryParameters, {
           'order_id': orderId,
@@ -84,6 +89,7 @@ void _registerStageParticipantsTests() {
         await tester.pumpAndSettle();
         expect(find.text('Bu bosqichda hali ishtirokchilar qayd etilmagan'),
             findsOneWidget);
+        expect(tester.getSize(find.byType(BottomSheet).last), populatedSize);
         Navigator.of(tester.element(find.text('Ishtirokchilar'))).pop();
         await tester.pumpAndSettle();
         await tester.tap(machine);
