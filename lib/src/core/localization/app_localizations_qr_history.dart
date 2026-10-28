@@ -1,6 +1,30 @@
 part of 'app_localizations.dart';
 
 const _qrHistoryTranslations = {
+  'worker.wip.history.total_gross': {
+    'uz': 'Jami brutto',
+    'en': 'Total gross',
+    'ru': 'Всего брутто',
+    'ur': 'کل مجموعی وزن',
+  },
+  'worker.wip.history.total_net': {
+    'uz': 'Jami netto',
+    'en': 'Total net',
+    'ru': 'Всего нетто',
+    'ur': 'کل خالص وزن',
+  },
+  'worker.wip.history.total_meters': {
+    'uz': 'Jami metraj',
+    'en': 'Total length',
+    'ru': 'Общий метраж',
+    'ur': 'کل لمبائی',
+  },
+  'worker.wip.history.partial_total': {
+    'uz': 'Qisman: {count} ta WIPda kiritilmagan',
+    'en': 'Partial: not recorded for {count} WIPs',
+    'ru': 'Частично: нет данных для {count} WIP',
+    'ur': 'جزوی: {count} WIP کے لیے درج نہیں',
+  },
   'worker.wip.info.gross_weight': {
     'uz': 'Brutto',
     'en': 'Gross weight',

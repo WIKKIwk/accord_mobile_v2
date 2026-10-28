@@ -530,6 +530,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
                     }
                     return _WorkerWipHistoryList(
                       batches: batches,
+                      showOutputTotals: widget.assignedApparatusOutputOnly,
                       searchBatchId: _searchBatchId,
                       apparatusCatalog: widget.apparatusCatalog,
                       onTap: (batch) => unawaited(_showWipDetails(batch)),
@@ -698,12 +699,14 @@ List<AdminProgressBatch> _wipBatchesProducedByApparatus(
 class _WorkerWipHistoryList extends StatelessWidget {
   const _WorkerWipHistoryList({
     required this.batches,
+    this.showOutputTotals = false,
     this.searchBatchId = '',
     required this.apparatusCatalog,
     required this.onTap,
     required this.onLongPress,
   });
   final List<AdminProgressBatch> batches;
+  final bool showOutputTotals;
   final String searchBatchId;
   final List<AdminApparatus> apparatusCatalog;
   final void Function(AdminProgressBatch batch)? onTap;
@@ -730,6 +733,9 @@ class _WorkerWipHistoryList extends StatelessWidget {
           waitingCount: waitingCount,
           inUseCount: inUseCount,
           processedCount: processedCount,
+          outputTotals: showOutputTotals
+              ? _WorkerWipHistoryTotals.fromBatches(batches)
+              : null,
         ),
         const SizedBox(height: 12),
         for (var index = 0; index < batches.length; index++)
@@ -758,11 +764,13 @@ class _WorkerWipHistorySummary extends StatelessWidget {
     required this.waitingCount,
     required this.inUseCount,
     required this.processedCount,
+    this.outputTotals,
   });
   final int count;
   final int waitingCount;
   final int inUseCount;
   final int processedCount;
+  final _WorkerWipHistoryTotals? outputTotals;
 
   @override
   Widget build(BuildContext context) {
@@ -794,6 +802,33 @@ class _WorkerWipHistorySummary extends StatelessWidget {
                     color: scheme.onTertiaryContainer,
                   ),
             ),
+            if (outputTotals != null) ...[
+              const SizedBox(height: 10),
+              _WorkerWipTotalLine(
+                key: const ValueKey('worker-wip-total-gross'),
+                label: context.l10n.productionText(
+                  'worker.wip.history.total_gross',
+                ),
+                unit: 'kg',
+                total: outputTotals!.gross,
+              ),
+              _WorkerWipTotalLine(
+                key: const ValueKey('worker-wip-total-net'),
+                label: context.l10n.productionText(
+                  'worker.wip.history.total_net',
+                ),
+                unit: 'kg',
+                total: outputTotals!.net,
+              ),
+              _WorkerWipTotalLine(
+                key: const ValueKey('worker-wip-total-meters'),
+                label: context.l10n.productionText(
+                  'worker.wip.history.total_meters',
+                ),
+                unit: 'm',
+                total: outputTotals!.meters,
+              ),
+            ],
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -822,6 +857,125 @@ class _WorkerWipHistorySummary extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WorkerWipHistoryTotal {
+  const _WorkerWipHistoryTotal(this.units, this.knownCount, this.missingCount);
+
+  final int units;
+  final int knownCount;
+  final int missingCount;
+}
+
+class _WorkerWipHistoryTotals {
+  const _WorkerWipHistoryTotals({
+    required this.gross,
+    required this.net,
+    required this.meters,
+  });
+
+  factory _WorkerWipHistoryTotals.fromBatches(
+      List<AdminProgressBatch> batches) {
+    _WorkerWipHistoryTotal sum(int? Function(AdminProgressBatch) measurement) {
+      var units = 0;
+      var known = 0;
+      for (final batch in batches) {
+        final value = measurement(batch);
+        if (value != null) {
+          units += value;
+          known++;
+        }
+      }
+      return _WorkerWipHistoryTotal(units, known, batches.length - known);
+    }
+
+    return _WorkerWipHistoryTotals(
+      gross: sum(_workerWipGrossUnits),
+      net: sum((batch) {
+        final gross = _workerWipGrossUnits(batch);
+        final bobina = _workerWipMeasurementUnits(batch.bobinaKg);
+        return gross != null && bobina != null && bobina <= gross
+            ? gross - bobina
+            : null;
+      }),
+      meters: sum((batch) {
+        final meter = batch.finishedGoodsMeter;
+        if (meter != null) return _workerWipMeasurementUnits(meter);
+        return const {'m', 'meter', 'metr'}
+                .contains(batch.uom.trim().toLowerCase())
+            ? _workerWipMeasurementUnits(batch.producedQty)
+            : null;
+      }),
+    );
+  }
+
+  final _WorkerWipHistoryTotal gross;
+  final _WorkerWipHistoryTotal net;
+  final _WorkerWipHistoryTotal meters;
+}
+
+int? _workerWipMeasurementUnits(double? value) {
+  if (value == null || !value.isFinite || value < 0 || value >= 1e12) {
+    return null;
+  }
+  return (value * 1000000).round();
+}
+
+int? _workerWipGrossUnits(AdminProgressBatch batch) {
+  final rawGross = batch.payloadJson['gross_qty'];
+  final gross = _workerWipMeasurementUnits(rawGross == null
+      ? batch.finishedGoodsKg
+      : rawGross is num
+          ? rawGross.toDouble()
+          : null);
+  return gross != null && gross > 0 ? gross : null;
+}
+
+class _WorkerWipTotalLine extends StatelessWidget {
+  const _WorkerWipTotalLine({
+    super.key,
+    required this.label,
+    required this.unit,
+    required this.total,
+  });
+
+  final String label;
+  final String unit;
+  final _WorkerWipHistoryTotal total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onTertiaryContainer;
+    final value = total.knownCount == 0
+        ? context.l10n.productionText('worker.paddon.bobina_unknown')
+        : formatQuantityWithUnit(
+            total.units / 1000000,
+            unit,
+            decimalPlaces: 6,
+            trimTrailingZeros: true,
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label: $value',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (total.knownCount > 0 && total.missingCount > 0)
+          Text(
+            context.l10n.productionText(
+              'worker.wip.history.partial_total',
+              values: {'count': total.missingCount},
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: color),
+          ),
+      ],
     );
   }
 }

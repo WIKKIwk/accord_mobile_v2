@@ -25,13 +25,24 @@ void _registerWorkerCompletedWipTests() {
 
         expect(find.text('3 ta WIP yaratilgan'), findsOneWidget);
         expect(find.text('5 m'), findsOneWidget);
-        expect(find.text('121 m'), findsOneWidget);
         expect(
             find.descendant(
                 of: find.byKey(const ValueKey('worker-wip-item-0')),
                 matching: find.text('5 m')),
             findsOneWidget);
+        final historyScrollable = find.descendant(
+          of: find.byKey(const ValueKey('worker-wip-history-sheet')),
+          matching: find.byType(Scrollable),
+        );
+        await tester.scrollUntilVisible(find.text('121 m'), 150,
+            scrollable: historyScrollable);
+        expect(find.text('121 m'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('999 m'), 150,
+            scrollable: historyScrollable);
         expect(find.text('999 m'), findsOneWidget);
+        await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('worker-wip-item-0')), -150,
+            scrollable: historyScrollable);
         expect(find.text('Rulonni yechish'), findsNothing);
         expect(find.text('Tugatish'), findsNothing);
         expect(find.text('Boshlash'), findsNothing);
@@ -655,6 +666,9 @@ void _registerWorkerCompletedWipTests() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('2 ta WIP yaratilgan'), findsOneWidget);
+      expect(find.text('Jami brutto: 31 kg'), findsOneWidget);
+      expect(find.text('Jami netto: 29 kg'), findsOneWidget);
+      expect(find.text('Jami metraj: 18 m'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('worker-wip-search-qr')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
@@ -667,8 +681,11 @@ void _registerWorkerCompletedWipTests() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('7 m'), findsOneWidget);
+      expect(find.text('7 METR'), findsOneWidget);
       expect(find.text('12 m'), findsNothing);
+      expect(find.text('Jami brutto: 31 kg'), findsOneWidget);
+      expect(find.text('Jami netto: 29 kg'), findsOneWidget);
+      expect(find.text('Jami metraj: 18 m'), findsOneWidget);
       await tester.longPress(find.byKey(const ValueKey('worker-wip-item-1')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
@@ -718,7 +735,11 @@ void _registerWorkerCompletedWipTests() {
                         'status': 'completed',
                         'wip_status': 'waiting',
                         'produced_qty': cursor.isEmpty ? 12 : 7,
-                        'uom': 'm',
+                        'uom': cursor.isEmpty ? 'm' : 'METR',
+                        if (cursor.isEmpty) 'finished_goods_meter': 11,
+                        'finished_goods_kg': cursor.isEmpty ? 14 : 16,
+                        'bobina_kg': cursor.isEmpty ? 1.5 : 0.5,
+                        if (cursor.isEmpty) 'payload_json': {'gross_qty': 15},
                         'completed_at_unix': cursor.isEmpty ? 100 : 90,
                         'qr_payload': cursor.isEmpty
                             ? '400000000000000000000001'
@@ -727,6 +748,84 @@ void _registerWorkerCompletedWipTests() {
                     ],
                     'next_before_batch_id':
                         cursor.isEmpty ? 'newer-output' : null,
+                  }),
+                  200);
+            }));
+  });
+
+  testWidgets('completed history marks missing output measurements',
+      (tester) async {
+    await http.runWithClient(() async {
+      await openCompletedTab(tester);
+      await tester.tap(find.byKey(ValueKey((
+        'worker-completed-order',
+        orderId,
+        _lamination1Id,
+      ))));
+      await _pumpCompletedWorkFrames(tester);
+
+      expect(find.text('3 ta WIP yaratilgan'), findsOneWidget);
+      expect(find.text('Jami brutto: 13.123456 kg'), findsOneWidget);
+      expect(find.text('Jami netto: 9 kg'), findsOneWidget);
+      expect(find.text('Jami metraj: 12.25 m'), findsOneWidget);
+      expect(find.text('Qisman: 1 ta WIPda kiritilmagan'), findsNWidgets(3));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpCompletedWorkFrames(tester);
+    },
+        () => MockClient((request) async {
+              expect(request.url.path.endsWith('/wip-batches'), isTrue);
+              final common = <String, Object?>{
+                'order_id': orderId,
+                'apparatus': _lamination1Id,
+                'current_apparatus': _lamination1Id,
+                'action': 'complete',
+                'status': 'completed',
+                'wip_status': 'waiting',
+                'uom': 'm',
+              };
+              return http.Response(
+                  jsonEncode({
+                    'batches': [
+                      {
+                        ...common,
+                        'batch_id': 'known',
+                        'produced_qty': 12,
+                        'finished_goods_meter': 12.25,
+                        'finished_goods_kg': 10.123456,
+                        'bobina_kg': 1.123456,
+                      },
+                      {
+                        ...common,
+                        'batch_id': 'missing',
+                        'produced_qty': 20,
+                        'uom': 'kg',
+                      },
+                      {
+                        ...common,
+                        'batch_id': 'zero-net',
+                        'produced_qty': 5,
+                        'finished_goods_meter': 0,
+                        'finished_goods_kg': 3,
+                        'bobina_kg': 3,
+                      },
+                      {
+                        ...common,
+                        'batch_id': 'other-order',
+                        'order_id': 'another-order',
+                        'produced_qty': 999,
+                        'finished_goods_kg': 999,
+                        'bobina_kg': 0,
+                      },
+                      {
+                        ...common,
+                        'batch_id': 'other-stage',
+                        'apparatus': _print7Id,
+                        'produced_qty': 999,
+                        'finished_goods_kg': 999,
+                        'bobina_kg': 0,
+                      },
+                    ],
                   }),
                   200);
             }));
