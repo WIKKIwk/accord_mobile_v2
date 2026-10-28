@@ -181,8 +181,12 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
       final targetStates = Map<String, String>.from(
         _testModeApparatusQueueStates[targetKey] ?? const {},
       );
-      if (apparatusQueueOrderStateFromRaw(sourceStates[normalizedOrderId]) !=
-          ApparatusQueueOrderState.paused) {
+      final sourceState = apparatusQueueOrderStateFromRaw(
+        sourceStates[normalizedOrderId],
+      );
+      final requeued = sourceState == ApparatusQueueOrderState.pending &&
+          _testModeRequeuedOrderIds.contains(normalizedOrderId);
+      if (sourceState != ApparatusQueueOrderState.paused && !requeued) {
         throw const MobileApiException(
           code: 'apparatus_transfer_order_not_paused',
           message: 'Ko‘chirishdan oldin orderni pause qiling',
@@ -244,12 +248,19 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
             ..removeWhere((id) => id.trim() == normalizedOrderId)
             ..add(normalizedOrderId);
       sourceStates.remove(normalizedOrderId);
-      targetStates[normalizedOrderId] = 'paused';
+      targetStates[normalizedOrderId] = requeued ? 'pending' : 'paused';
       _testModeProductionMaps[index] = saved;
       _testModeApparatusSequences[sourceKey] = sourceSequence;
       _testModeApparatusSequences[targetKey] = targetSequence;
       _testModeApparatusQueueStates[sourceKey] = sourceStates;
       _testModeApparatusQueueStates[targetKey] = targetStates;
+      final control = _testModeQueueActionControlFixtures[sourceKey]
+          ?.remove(normalizedOrderId);
+      if (control != null) {
+        final controls = _testModeQueueActionControlFixtures
+            .putIfAbsent(targetKey, () => {});
+        controls[normalizedOrderId] = control;
+      }
       _testModeMoveScheduleReservations(
         orderId: normalizedOrderId,
         fromApparatusId: sourceKey,

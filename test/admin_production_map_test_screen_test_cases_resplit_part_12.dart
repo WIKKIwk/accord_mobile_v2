@@ -169,95 +169,122 @@ void _registeradmin_production_map_test_screen_testCases12() {
     },
   );
 
-  testWidgets('opened orders move module transfers paused order with reason', (
-    tester,
-  ) async {
-    await TestModeController.instance.setEnabled(true);
-    const source = _print7Id;
-    const target = _print8Id;
-    const orderId = 'zakaz-paused-ui-transfer';
-    const targetOrderId = 'zakaz-paused-ui-target';
-    await MobileApi.instance.adminSaveProductionMap(
-      _productionOrderMap(
-        id: orderId,
-        title: 'Paused UI transfer order',
-        productCode: 'PUT-1',
-        apparatusId: source,
-        product: 'paused UI transfer product',
-        rollCount: 7,
-        widthMm: 650,
-      ),
-    );
-    await MobileApi.instance.adminSaveProductionMap(
-      _productionOrderMap(
-        id: targetOrderId,
-        title: 'Paused UI target order',
-        productCode: 'PUT-2',
-        apparatusId: target,
-        product: 'paused UI target product',
-        rollCount: 7,
-        widthMm: 650,
-      ),
-    );
-    await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: source,
-      orderIds: const [orderId],
-    );
-    await MobileApi.instance.adminSaveProductionMapSequence(
-      apparatus: target,
-      orderIds: const [targetOrderId],
-    );
-    await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: source,
-      orderId: orderId,
-      action: 'start',
-    );
-    await MobileApi.instance.adminApparatusQueueActionResult(
-      apparatus: source,
-      orderId: orderId,
-      action: 'pause',
-      producedQty: 4,
-    );
+  for (final requeuedReady in <bool?>[null, false, true]) {
+    testWidgets(
+      'opened orders move module transfers ${requeuedReady == null ? 'paused' : 'requeued ready=$requeuedReady'} order with reason',
+      (tester) async {
+        await TestModeController.instance.setEnabled(true);
+        const source = _print7Id;
+        const target = _print8Id;
+        const orderId = 'zakaz-paused-ui-transfer';
+        const targetOrderId = 'zakaz-paused-ui-target';
+        await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: orderId,
+            title: 'Paused UI transfer order',
+            productCode: 'PUT-1',
+            apparatusId: source,
+            product: 'paused UI transfer product',
+            rollCount: 7,
+            widthMm: 650,
+          ),
+        );
+        await MobileApi.instance.adminSaveProductionMap(
+          _productionOrderMap(
+            id: targetOrderId,
+            title: 'Paused UI target order',
+            productCode: 'PUT-2',
+            apparatusId: target,
+            product: 'paused UI target product',
+            rollCount: 7,
+            widthMm: 650,
+          ),
+        );
+        await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: source,
+          orderIds: const [orderId],
+        );
+        await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: target,
+          orderIds: const [targetOrderId],
+        );
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: source,
+          orderId: orderId,
+          action: 'start',
+        );
+        await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: source,
+          orderId: orderId,
+          action: 'pause',
+          producedQty: 4,
+        );
+        if (requeuedReady != null) {
+          await MobileApi.instance.adminProductionMapOrderControl(
+            orderId: orderId,
+            action: AdminOrderControlAction.freeze,
+          );
+          await MobileApi.instance.adminProductionMapOrderControl(
+            orderId: orderId,
+            action: AdminOrderControlAction.unfreeze,
+          );
+          setMobileApiTestModeQueueActionControlFixture(
+            apparatus: source,
+            orderId: orderId,
+            control: _requeuedQueueControl(ready: requeuedReady),
+          );
+          final before = await MobileApi.instance
+              .adminProductionMapQueueSnapshot();
+          expect(before.queueStates[source]?[orderId], 'pending');
+        }
 
-    await _usePhoneViewport(tester);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        locale: const Locale('uz'),
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapOrdersScreen(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Ko‘chirish'));
-    await tester.pumpAndSettle();
+        await _usePhoneViewport(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            locale: const Locale('uz'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AdminProductionMapOrdersScreen(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Ko‘chirish'));
+        await tester.pumpAndSettle();
 
-    await _dragOrderHandleToBottomZone(
-      tester,
-      orderTitle: 'Paused UI transfer order',
-      targetText: 'Paused UI target order',
-    );
-    expect(find.text('Avariya sababini kiriting'), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const ValueKey('apparatus-transfer-reason')),
-      '7 rangli pechat apparati buzildi',
-    );
-    await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish'));
-    await tester.pumpAndSettle();
+        await _dragOrderHandleToBottomZone(
+          tester,
+          orderTitle: 'Paused UI transfer order',
+          targetText: 'Paused UI target order',
+        );
+        expect(find.text('Avariya sababini kiriting'), findsOneWidget);
+        await tester.enterText(
+          find.byKey(const ValueKey('apparatus-transfer-reason')),
+          '7 rangli pechat apparati buzildi',
+        );
+        await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+        await tester.pumpAndSettle();
 
-    final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
-    expect(snapshot.queueStates[source]?[orderId], isNull);
-    expect(snapshot.queueStates[target]?[orderId], 'paused');
-    final maps = await MobileApi.instance.adminProductionMaps();
-    expect(_apparatusTitle(maps, orderId), '8 ta rangli bosma aparat');
-    await tester.pump(const Duration(seconds: 3));
-  });
+        final snapshot = await MobileApi.instance
+            .adminProductionMapQueueSnapshot();
+        expect(snapshot.queueStates[source]?[orderId], isNull);
+        expect(
+          snapshot.queueStates[target]?[orderId],
+          requeuedReady == null ? 'paused' : 'pending',
+        );
+        expect(snapshot.sequences[target], [targetOrderId, orderId]);
+        final maps = await MobileApi.instance.adminProductionMaps();
+        expect(_apparatusTitle(maps, orderId), '8 ta rangli bosma aparat');
+        expect(find.text('1 ta buyurtma ko‘chirildi'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 6));
+      },
+    );
+  }
 
   testWidgets('opened orders move module moves every selected pechat order', (
     tester,

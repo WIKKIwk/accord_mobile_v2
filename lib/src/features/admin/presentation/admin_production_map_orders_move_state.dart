@@ -570,6 +570,19 @@ extension _AdminProductionMapOrdersMoveState
     return apparatusQueueOrderStateFromRaw(states[order.map.id.trim()]);
   }
 
+  bool _moveOrderRequiresSessionTransfer(
+    ProductionMapSaved order,
+    AdminApparatus apparatus,
+  ) {
+    final state = _moveOrderQueueState(order, apparatus);
+    if (state == ApparatusQueueOrderState.paused) return true;
+    if (state != ApparatusQueueOrderState.pending) return false;
+    final mode = _queueActionControlsByApparatus[apparatus.id.trim()]
+        ?[order.map.id.trim()]?.interaction?.mode;
+    return mode == AdminQueueInteractionMode.requeuedWaiting ||
+        mode == AdminQueueInteractionMode.requeuedReady;
+  }
+
   Future<String?> _askApparatusTransferReason({
     required int orderCount,
     required AdminApparatus from,
@@ -639,25 +652,24 @@ extension _AdminProductionMapOrdersMoveState
       );
       return;
     }
-    final pausedOrders = orders
+    final transferOrders = orders
         .where(
-          (order) =>
-              _moveOrderQueueState(order, from) ==
-              ApparatusQueueOrderState.paused,
+          (order) => _moveOrderRequiresSessionTransfer(order, from),
         )
         .toList(growable: false);
     final pendingOrders = orders
         .where(
           (order) =>
               _moveOrderQueueState(order, from) ==
-              ApparatusQueueOrderState.pending,
+              ApparatusQueueOrderState.pending &&
+              !_moveOrderRequiresSessionTransfer(order, from),
         )
         .toList(growable: false);
     _clearMoveDragState();
     String? transferReason;
-    if (pausedOrders.isNotEmpty) {
+    if (transferOrders.isNotEmpty) {
       transferReason = await _askApparatusTransferReason(
-        orderCount: pausedOrders.length,
+        orderCount: transferOrders.length,
         from: from,
         to: to,
       );
@@ -668,8 +680,8 @@ extension _AdminProductionMapOrdersMoveState
     try {
       final savedById = <String, ProductionMapSaved>{};
       final transferTimestamp = DateTime.now().microsecondsSinceEpoch;
-      for (var index = 0; index < pausedOrders.length; index++) {
-        final order = pausedOrders[index];
+      for (var index = 0; index < transferOrders.length; index++) {
+        final order = transferOrders[index];
         final saved = await MobileApi.instance.adminTransferProductionMapOrder(
           orderId: order.map.id,
           fromApparatus: from.id,
