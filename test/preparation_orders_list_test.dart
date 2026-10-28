@@ -44,6 +44,8 @@ class _OrdersApi {
   int rowCount = 2;
   int revision = 7;
   String titlePrefix = 'Master product';
+  Map<String, dynamic>? detailCombo;
+  List<Map<String, dynamic>>? detailProducts;
 
   Map<String, dynamic> row(int number) => {
         'id': 'zakaz-$number',
@@ -94,6 +96,8 @@ class _OrdersApi {
               'width_mm': 384,
               'base_length': 900,
               'order_kg': 120,
+              if (detailCombo != null) 'combo': detailCombo,
+              if (detailProducts != null) 'products': detailProducts,
               'nodes': [
                 {'id': 'start', 'kind': 'start', 'title': 'Start'},
                 {
@@ -509,6 +513,45 @@ void main() {
               request.url.path.contains('/raw-material-') ||
               request.url.path.contains('/progress-batches')),
           isEmpty);
+      await api.close(tester);
+    }, () => MockClient(api.respond));
+  });
+
+  testWidgets('master does not see the combo details card', (tester) async {
+    final api = _OrdersApi()
+      ..detailCombo = {
+        'id': 'combo-1',
+        'item_code': 'COMBO-1',
+        'name': 'Master combo',
+        'revision': 1,
+      }
+      ..detailProducts = [
+        {
+          'id': 'p1',
+          'item_code': 'SKU-A',
+          'product': 'Yashil',
+          'frame_product_size_mm': 120,
+          'frame_count': 2,
+        },
+      ];
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Master product 1'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Full master product 1'), findsOneWidget);
+      expect(find.text('120 kg'), findsOneWidget);
+      expect(find.byKey(const ValueKey('production-order-combo:zakaz-1')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('production-order-combo-toggle')),
+          findsNothing);
+      expect(find.text('Kombo ma’lumotlari'), findsNothing);
+      expect(find.text('Kombo tarkibi'), findsNothing);
+      expect(find.text('Master combo'), findsNothing);
+      expect(find.textContaining('SKU-A'), findsNothing);
+      expect(api.requests.where((r) => r.url.path.endsWith('/admin/combos')),
+          isEmpty);
+      expect(tester.takeException(), isNull);
       await api.close(tester);
     }, () => MockClient(api.respond));
   });

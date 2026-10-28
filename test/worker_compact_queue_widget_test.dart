@@ -74,6 +74,8 @@ class _CompactHarness {
   String detailEpoch = _epoch;
   String detailTitle = 'Alpha package';
   String detailState = 'pending';
+  Map<String, dynamic>? detailCombo;
+  List<Map<String, dynamic>>? detailProducts;
   bool wrongOrder = false;
   bool includeDetailControl = true;
   Object? detailError;
@@ -177,6 +179,8 @@ class _CompactHarness {
               'customer_name': 'Worker customer',
               'product_code': 'WORKER-FILM',
               'image_id': 'image-$id',
+              if (detailCombo != null) 'combo': detailCombo,
+              if (detailProducts != null) 'products': detailProducts,
               'nodes': [
                 {'id': 'start', 'kind': 'start', 'title': 'Start'},
                 {
@@ -446,6 +450,54 @@ void main() {
   });
 
   _registerHydratedSheetRecoveryTests();
+
+  testWidgets('worker does not see the combo details card', (tester) async {
+    final harness = _CompactHarness()
+      ..detailCombo = {
+        'id': 'combo-1',
+        'item_code': 'COMBO-1',
+        'name': 'Shashoqcha',
+        'revision': 1,
+      }
+      ..detailProducts = [
+        {
+          'id': 'p1',
+          'item_code': 'SKU-A',
+          'product': 'Yashil',
+          'frame_product_size_mm': 120,
+          'frame_count': 2,
+        },
+        {
+          'id': 'p2',
+          'item_code': 'SKU-B',
+          'product': 'Kukuruz qora',
+          'frame_product_size_mm': 120,
+          'frame_count': 1,
+        },
+      ];
+    await harness.mount(tester, viewport: const Size(390, 844));
+    await tester.tap(_workerRow('zakaz-a'));
+    await tester.pumpAndSettle();
+
+    expect(_privateWidget('_OrderStartUnifiedCard'), findsOneWidget);
+    expect(_privateWidget('_OrderSummaryCard'), findsOneWidget);
+    expect(find.byKey(const ValueKey('production-order-combo:zakaz-a')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('production-order-combo-toggle')),
+        findsNothing);
+    for (final value in [
+      'Kombo ma’lumotlari',
+      'Kombo tarkibi',
+      'Kombo · v1',
+      'Shashoqcha',
+      'COMBO-1',
+    ]) {
+      expect(find.text(value), findsNothing);
+    }
+    expect(find.textContaining('SKU-A'), findsNothing);
+    expect(harness.details, [(apparatus: _station, orderId: 'zakaz-a')]);
+    await harness.close(tester);
+  });
 
   for (final authority in [true, false]) {
     testWidgets(

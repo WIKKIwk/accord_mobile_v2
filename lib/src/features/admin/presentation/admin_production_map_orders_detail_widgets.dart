@@ -202,9 +202,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
         : createdAt.isEmpty
             ? context.l10n.adminText('detail.date_missing')
             : createdAt;
-    final showAdminComboCard = !workerMode &&
-        !summaryOnlyMode &&
-        AppSession.instance.profile?.role == UserRole.admin;
     final cardUiState = presentationUiState ?? uiState;
     final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
       map: map,
@@ -237,10 +234,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
-                  if (map.combo != null && !showAdminComboCard)
-                    map.products.isEmpty && canReadProductionComboCatalog
-                      ? ProductionComboCatalogSummary(itemCode: map.combo!.itemCode)
-                      : ProductionComboSummary(combo: map.combo!, products: map.products),
                   if (detailError != null)
                     Padding(
                       padding: const EdgeInsets.all(12),
@@ -549,7 +542,8 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                   ],
-                  if (showAdminComboCard && map.combo != null) ...[
+                  if (AppSession.instance.profile?.role == UserRole.admin &&
+                      map.combo != null) ...[
                     _OrderComboDetailCard(
                       key: ValueKey('production-order-combo:${map.id}'),
                       map: map,
