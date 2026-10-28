@@ -130,10 +130,15 @@ void _registerProductTests() {
   });
 }
 
-Future<void> _confirmComboName(WidgetTester tester, String name) async {
+Future<void> _confirmComboName(WidgetTester tester, String name,
+    {bool doubleSubmit = false}) async {
   final input = find.byKey(const ValueKey('combo-name-input'));
   if (input.evaluate().isEmpty) return;
   await tester.enterText(input, name);
   await tester.tap(find.byKey(const ValueKey('combo-name-confirm')));
+  if (doubleSubmit) {
+    await tester.tap(find.byKey(const ValueKey('combo-name-confirm')),
+        warnIfMissed: false);
+  }
   await tester.pumpAndSettle();
 }

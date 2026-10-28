@@ -4,7 +4,10 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:accord_mobile_v2/src/core/widgets/display/production_combo_summary.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,6 +54,77 @@ void main() {
   });
   tearDown(() {
     AppSession.instance.token = null;
+  });
+
+  testWidgets(
+      'material-only detail does not request private combo catalog metadata',
+      (tester) async {
+    final previous = AppSession.instance.profile;
+    addTearDown(() {
+      AppSession.instance.profile = previous;
+    });
+    AppSession.instance.profile = const SessionProfile(
+        role: UserRole.materialTaminotchi,
+        displayName: 'Supply',
+        legalName: 'Supply',
+        ref: 'SUPPLY',
+        phone: '',
+        avatarUrl: '');
+    var reads = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+          home: ProductionComboCatalogSummary(itemCode: 'COMBO-1')));
+      await tester.pumpAndSettle();
+      expect(canReadProductionComboCatalog, isFalse);
+      expect(reads, 0);
+    },
+        () => MockClient((request) async {
+              reads++;
+              return http.Response('{}', 403);
+            }));
+  });
+
+  test(
+      'TestMode combo lookup keeps an immutable quantity-free snapshot scoped to its account',
+      () async {
+    await TestModeController.instance.setEnabled(true);
+    final previous = AppSession.instance.profile;
+    addTearDown(() {
+      AppSession.instance.profile = previous;
+    });
+    AppSession.instance.profile = const SessionProfile(
+        role: UserRole.admin,
+        displayName: 'First',
+        legalName: 'First',
+        ref: 'FIRST',
+        phone: '',
+        avatarUrl: '');
+    final ref = await MobileApi.instance.adminSaveProductionCombo(
+        name: 'Scope test',
+        template: _template().copyWith(
+            clearCombo: true,
+            kg: 300,
+            id: 'draft-1',
+            code: 'DRAFT',
+            orderNumber: '1001',
+            sourceMapId: 'source-map'));
+    final entry = await MobileApi.instance.adminProductionCombo(ref.itemCode);
+    expect(entry.template.kg, 0);
+    expect(entry.template.id, isEmpty);
+    expect(entry.template.code, isEmpty);
+    expect(entry.template.orderNumber, isEmpty);
+    expect(entry.template.sourceMapId, isEmpty);
+    expect(entry.template.itemCode, ref.itemCode);
+    expect(entry.template.products.map((p) => p.itemCode), ['SKU-A', 'SKU-B']);
+    AppSession.instance.profile = const SessionProfile(
+        role: UserRole.admin,
+        displayName: 'Other',
+        legalName: 'Other',
+        ref: 'OTHER',
+        phone: '',
+        avatarUrl: '');
+    await expectLater(MobileApi.instance.adminProductionCombo(ref.itemCode),
+        throwsA(isA<MobileApiException>()));
   });
 
   test(

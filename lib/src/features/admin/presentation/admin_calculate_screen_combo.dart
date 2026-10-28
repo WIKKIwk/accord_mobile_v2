@@ -23,7 +23,7 @@ extension _CalculateCombo on _AdminCalculateScreenState {
     required String calculationSignature,
     required String scope,
   }) async {
-    if (!_needsComboIdentity) return true;
+    if (!_needsComboIdentity || _hasCurrentCombo) return true;
     var name = _combo?.name;
     if (name == null || name.trim().isEmpty) {
       name = await showDialog<String>(
@@ -133,6 +133,7 @@ class _ComboNameDialog extends StatefulWidget {
 class _ComboNameDialogState extends State<_ComboNameDialog> {
   final _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _submitted = false;
   @override
   void dispose() {
     _controller.dispose();
@@ -140,8 +141,15 @@ class _ComboNameDialogState extends State<_ComboNameDialog> {
   }
 
   void _submit() {
-    if (_formKey.currentState?.validate() != true) return;
+    if (_submitted || _formKey.currentState?.validate() != true) return;
+    _submitted = true;
     Navigator.of(context).pop(_controller.text.trim());
+  }
+
+  void _cancel() {
+    if (_submitted) return;
+    _submitted = true;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -156,7 +164,7 @@ class _ComboNameDialogState extends State<_ComboNameDialog> {
                   key: const ValueKey('combo-name-input'),
                   controller: _controller,
                   autofocus: true,
-                  maxLength: 120,
+                  maxLength: 160,
                   textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                       labelText:
@@ -169,7 +177,7 @@ class _ComboNameDialogState extends State<_ComboNameDialog> {
         actions: [
           TextButton(
               key: const ValueKey('combo-name-cancel'),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: _cancel,
               child: Text(context.l10n.adminText('action.cancel'))),
           FilledButton(
               key: const ValueKey('combo-name-confirm'),

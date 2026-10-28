@@ -221,6 +221,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           await MobileApi.instance.adminSaveTrainingProductionMapWithOrder(
         map: ProductionMapDefinition(
           products: _activeProducts,
+          combo: _multipleProducts ? _combo : null,
           id: 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}',
           productCode: _firstNonEmpty([
             _activeItemCode,
@@ -414,6 +415,11 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     }
     setState(() {
       _productCustomerGeneration++;
+      if (_customerRef != picked.ref) {
+        _combo = null;
+        _comboLayoutSignature = '';
+        _comboScope = '';
+      }
       _customerRef = picked.ref;
       _customer.text =
           picked.name.trim().isEmpty ? picked.ref : picked.name.trim();

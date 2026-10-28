@@ -137,6 +137,13 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
   String _calculationSignature() {
     return [
       _multipleProducts.toString(),
+      if (_needsComboIdentity) ...[
+        _customerRef.trim(),
+        _imageId.trim(),
+        _color.text.trim(),
+        (_productionOptions?.coldGlue ?? false).toString(),
+        _productionOptions?.diameterMm?.toString() ?? '',
+      ],
       jsonEncode(_activeProducts.map((p) => p.toJson()).toList()),
       _product.text.trim(),
       _kg.text.trim(),

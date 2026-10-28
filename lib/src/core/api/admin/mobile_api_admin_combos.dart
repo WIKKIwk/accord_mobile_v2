@@ -29,7 +29,14 @@ String productionComboLayoutSignature(CalculateOrderTemplate template) =>
       'color': template.color,
     });
 
+void _checkProductionComboScope(String scope) {
+  if (scope != currentSessionReadScope()) {
+    throw StateError('Combo account changed');
+  }
+}
+
 final _testModeComboRevisions = <String, ProductionComboCatalogEntry>{};
+final _testModeComboScopes = <String, String>{};
 int _testModeComboSequence = 0;
 
 extension MobileApiProductionCombos on MobileApi {
@@ -44,20 +51,27 @@ extension MobileApiProductionCombos on MobileApi {
     required CalculateOrderTemplate template,
     String? comboId,
   }) async {
-    if (await TestModeController.instance.isEnabled()) {
+    final scope = currentSessionReadScope();
+    final testMode = await TestModeController.instance.isEnabled();
+    _checkProductionComboScope(scope);
+    if (testMode) {
       final fingerprint = productionComboLayoutSignature(template);
-      final scope = '${MobileApi.baseUrl}:${AppSession.instance.profile?.ref}';
-      final id = comboId ?? 'combo-${++_testModeComboSequence}';
+      final id = comboId ?? 'test-combo-${++_testModeComboSequence}';
       final previous = _testModeComboRevisions.values
-          .where(
-              (entry) => entry.combo.id == '$scope:$id' || entry.combo.id == id)
+          .where((entry) =>
+              entry.combo.id == id &&
+              _testModeComboScopes[entry.combo.itemCode] == scope)
           .toList();
+      if (comboId != null && previous.isEmpty) {
+        throw const MobileApiException(
+            code: 'combo_not_found', message: 'Kombo topilmadi');
+      }
       for (final entry in previous) {
         if (entry.combo.layoutFingerprint == fingerprint) return entry.combo;
       }
       final revision = previous.length + 1;
       final combo = ProductionComboReference(
-        id: previous.firstOrNull?.combo.id ?? '$scope:$id',
+        id: id,
         itemCode: 'COMBO-${++_testModeComboSequence}-$revision',
         name: name.trim(),
         revision: revision,
@@ -69,20 +83,32 @@ extension MobileApiProductionCombos on MobileApi {
             combo: combo,
             itemCode: combo.itemCode,
             name: combo.name,
-            product: combo.name),
+            product: combo.name,
+            kg: 0,
+            id: '',
+            code: '',
+            orderNumber: '',
+            sourceMapId: '',
+            variantId: '',
+            savedAt: DateTime.fromMillisecondsSinceEpoch(0)),
       );
+      _testModeComboScopes[combo.itemCode] = scope;
       return combo;
     }
-    final response = await _sendAuthorized(() => _post(
-          Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/combos'),
-          headers: _headers(requireToken())
-            ..['Content-Type'] = 'application/json',
-          body: jsonEncode({
-            'name': name.trim(),
-            'template': template.toJson(),
-            if (comboId != null && comboId.isNotEmpty) 'combo_id': comboId
-          }),
-        ));
+    final response = await _sendAuthorized(() {
+      _checkProductionComboScope(scope);
+      return _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/combos'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'name': name.trim(),
+          'template': template.toJson(),
+          if (comboId != null && comboId.isNotEmpty) 'combo_id': comboId
+        }),
+      );
+    });
+    _checkProductionComboScope(scope);
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'combo_save_failed');
     }
@@ -99,17 +125,26 @@ extension MobileApiProductionCombos on MobileApi {
 
   Future<ProductionComboCatalogEntry> adminProductionCombo(
       String itemCode) async {
-    if (await TestModeController.instance.isEnabled()) {
+    final scope = currentSessionReadScope();
+    final testMode = await TestModeController.instance.isEnabled();
+    _checkProductionComboScope(scope);
+    if (testMode) {
       final entry = _testModeComboRevisions[itemCode];
-      if (entry != null) return entry;
+      if (entry != null && _testModeComboScopes[itemCode] == scope) {
+        return entry;
+      }
       throw const MobileApiException(
           code: 'combo_not_found', message: 'Kombo topilmadi');
     }
-    final response = await _sendAuthorized(() => _get(
-          Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/combos')
-              .replace(queryParameters: {'item_code': itemCode}),
-          headers: _headers(requireToken()),
-        ));
+    final response = await _sendAuthorized(() {
+      _checkProductionComboScope(scope);
+      return _get(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/combos')
+            .replace(queryParameters: {'item_code': itemCode}),
+        headers: _headers(requireToken()),
+      );
+    });
+    _checkProductionComboScope(scope);
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'combo_load_failed');
     }

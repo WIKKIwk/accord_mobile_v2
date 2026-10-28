@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import '../../api/mobile_api.dart';
 import '../../localization/app_localizations.dart';
 import '../../session/session_read_scope.dart';
+import '../../session/state/app_session.dart';
+
+bool get canReadProductionComboCatalog =>
+    AppSession.instance.can('admin.access') ||
+    AppSession.instance.can('production.map.manage') ||
+    AppSession.instance.can('qolip.manage');
 
 /// A combo identifies tooling for one layout; each row remains an output SKU.
 class ProductionComboSummary extends StatelessWidget {
@@ -46,9 +52,11 @@ class ProductionComboCatalogSummary extends StatefulWidget {
 
 class _ProductionComboCatalogSummaryState
     extends State<ProductionComboCatalogSummary> {
-  late Future<ProductionComboCatalogEntry> _entry;
+  Future<ProductionComboCatalogEntry>? _entry;
+  String _scope = '';
   Future<ProductionComboCatalogEntry> _load() async {
     final scope = currentSessionReadScope();
+    _scope = scope;
     final entry =
         await MobileApi.instance.adminProductionCombo(widget.itemCode);
     if (scope != currentSessionReadScope()) {
@@ -60,32 +68,39 @@ class _ProductionComboCatalogSummaryState
   @override
   void initState() {
     super.initState();
-    _entry = _load();
+    if (canReadProductionComboCatalog) _entry = _load();
   }
 
   @override
   void didUpdateWidget(covariant ProductionComboCatalogSummary oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.itemCode != widget.itemCode) _entry = _load();
+    if (oldWidget.itemCode != widget.itemCode &&
+        canReadProductionComboCatalog) {
+      _entry = _load();
+    }
   }
 
   @override
-  Widget build(BuildContext context) =>
-      FutureBuilder<ProductionComboCatalogEntry>(
-          future: _entry,
-          builder: (context, snapshot) {
-            final value = snapshot.data;
-            if (value != null) {
-              return ProductionComboSummary(
-                  combo: value.combo, products: value.template.products);
-            }
-            if (snapshot.hasError) {
-              return TextButton.icon(
-                  onPressed: () => setState(() => _entry = _load()),
-                  icon: const Icon(Icons.refresh),
-                  label: Text(
-                      context.l10n.adminText('calculate.combo_load_failed')));
-            }
-            return const LinearProgressIndicator();
-          });
+  Widget build(BuildContext context) {
+    if (!canReadProductionComboCatalog) return const SizedBox.shrink();
+    if (_entry == null || _scope != currentSessionReadScope()) _entry = _load();
+    return FutureBuilder<ProductionComboCatalogEntry>(
+        key: ValueKey('${widget.itemCode}:$_scope'),
+        future: _entry,
+        builder: (context, snapshot) {
+          final value = snapshot.data;
+          if (value != null) {
+            return ProductionComboSummary(
+                combo: value.combo, products: value.template.products);
+          }
+          if (snapshot.hasError) {
+            return TextButton.icon(
+                onPressed: () => setState(() => _entry = _load()),
+                icon: const Icon(Icons.refresh),
+                label: Text(
+                    context.l10n.adminText('calculate.combo_load_failed')));
+          }
+          return const LinearProgressIndicator();
+        });
+  }
 }

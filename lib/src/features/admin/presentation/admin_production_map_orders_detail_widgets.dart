@@ -230,7 +230,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 ),
                 children: [
                   if (map.combo != null)
-                    map.products.isEmpty
+                    map.products.isEmpty && canReadProductionComboCatalog
                       ? ProductionComboCatalogSummary(itemCode: map.combo!.itemCode)
                       : ProductionComboSummary(combo: map.combo!, products: map.products),
                   if (detailError != null)

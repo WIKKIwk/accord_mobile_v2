@@ -2,6 +2,63 @@ part of 'admin_calculate_screen_test.dart';
 
 void _registerComboTests() {
   testWidgets(
+      'planner recalculates an unchanged combo without a catalog create request',
+      (tester) async {
+    await TestModeController.instance.setEnabled(false);
+    AppSession.instance.profile = const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Planner',
+        legalName: 'Planner',
+        ref: 'PLANNER',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['production.map.manage']);
+    const ref = ProductionComboReference(
+        id: 'combo-planner',
+        itemCode: 'COMBO-PLANNER',
+        name: 'Existing combo',
+        revision: 3,
+        layoutFingerprint: 'fingerprint');
+    var comboWrites = 0;
+    await http.runWithClient(() async {
+      await _pumpCalculateScreen(tester,
+          template: _mixedTemplate().copyWith(
+              combo: ref,
+              name: ref.name,
+              product: ref.name,
+              itemCode: ref.itemCode));
+      tester.view.physicalSize = const Size(430, 5000);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Umumiy KG'), '400');
+      await tester.tap(find.text('Hisoblash'));
+      await tester.pumpAndSettle();
+      expect(AppSession.instance.can('catalog.item.create'), isFalse);
+      expect(comboWrites, 0);
+      expect(find.byKey(const ValueKey('combo-name-input')), findsNothing);
+      expect(find.text('Kombo · v3'), findsOneWidget);
+      expect(
+          find.text('Mahsulotlar bo‘yicha taxminiy chiqish'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              if (request.url.path == '/v1/mobile/admin/combos') comboWrites++;
+              if (request.url.path == '/v1/mobile/calculate') {
+                return http.Response(
+                    jsonEncode({
+                      'ok': true,
+                      'kg': 400,
+                      'width_mm': 575,
+                      'results': [
+                        {'rounded_length': 500}
+                      ]
+                    }),
+                    200);
+              }
+              return http.Response('{"templates":[]}', 200);
+            }));
+  });
+
+  testWidgets(
       'combo calculate cancel does not enable opening or create a catalog item',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
@@ -133,6 +190,44 @@ void _registerComboTests() {
   });
 
   testWidgets(
+      'changing customer clears the old combo master instead of reusing another customer tooling',
+      (tester) async {
+    await TestModeController.instance.setEnabled(false);
+    const ref = ProductionComboReference(
+        id: 'combo-customer',
+        itemCode: 'COMBO-CUSTOMER',
+        name: 'Original combo',
+        revision: 1,
+        layoutFingerprint: 'signature');
+    await http.runWithClient(() async {
+      await _pumpCalculateScreen(tester,
+          template: _mixedTemplate().copyWith(
+              combo: ref,
+              itemCode: ref.itemCode,
+              name: ref.name,
+              product: ref.name,
+              customer: 'Current Customer'));
+      tester.view.physicalSize = const Size(430, 5000);
+      await tester.pumpAndSettle();
+      expect(find.text('Kombo · v1'), findsOneWidget);
+      await tester.tap(find.text('Current Customer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('New Customer'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kombo · v1'), findsNothing);
+      expect(find.text('Original combo'), findsNothing);
+      expect(find.text('New Customer'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              if (request.url.path == '/v1/mobile/admin/customers/list') {
+                return http.Response(
+                    '[{"ref":"NEW-CUSTOMER","name":"New Customer"}]', 200);
+              }
+              return http.Response('{"templates":[]}', 200);
+            }));
+  });
+
+  testWidgets(
       'combo prompt opens once and KG recalculation retains name and revision',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
@@ -149,7 +244,7 @@ void _registerComboTests() {
     await tester.tap(find.text('Hisoblash'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('combo-name-input')), findsOneWidget);
-    await _confirmComboName(tester, 'Nomlangan kombo');
+    await _confirmComboName(tester, 'Nomlangan kombo', doubleSubmit: true);
     expect(find.text('Nomlangan kombo'), findsWidgets);
     expect(find.text('Kombo · v1'), findsOneWidget);
     await tester.enterText(kg, '400');
