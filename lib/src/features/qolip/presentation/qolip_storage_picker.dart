@@ -72,15 +72,15 @@ class _MoldPickerState extends State<_MoldPicker>
     if (_scanning) return;
     final raw = await showRawMaterialScanDialog(context,
         title: _s(context, 'scan'), manualLabel: _s(context, 'scan'));
-    if (!mounted || raw == null || raw.trim().isEmpty) return;
-    final code = rawMaterialBarcodeFromQr(raw);
+    if (!mounted || _sessionExpired || raw == null || raw.trim().isEmpty) {
+      return;
+    }
+    final code = raw;
     setState(() => _scanning = true);
     try {
-      final page = await MobileApi.instance.qolipStorageMolds(query: code);
-      if (!mounted) return;
-      final mold = page.items
-          .where((m) => m.code.toLowerCase() == code.toLowerCase())
-          .firstOrNull;
+      final page = await MobileApi.instance.qolipStorageMolds(code: code);
+      if (!mounted || _sessionExpired) return;
+      final mold = page.items.singleOrNull;
       if (mold == null) {
         _message(context, _s(context, 'not_found'));
         return;
@@ -98,6 +98,72 @@ class _MoldPickerState extends State<_MoldPicker>
       });
     } catch (e) {
       if (mounted) _error(context, e);
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
+  Future<void> _selectSet() async {
+    if (_scanning) return;
+    final sets = _molds
+        .map((m) => m.setId)
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    if (sets.isEmpty) {
+      _message(context, _s(context, 'empty'));
+      return;
+    }
+    final id = await _storageDialog<String>(
+        context: context,
+        builder: (context) =>
+            SimpleDialog(title: Text(_s(context, 'choose_set')), children: [
+              for (final id in sets)
+                SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, id),
+                    child: Text(id))
+            ]));
+    if (!mounted || _sessionExpired || id == null) return;
+    setState(() => _scanning = true);
+    try {
+      final molds = await MobileApi.instance
+          .qolipStorageSet(id, warehouse: widget.warehouse);
+      if (!mounted || _sessionExpired) return;
+      if ({..._selected.keys, ...molds.map((m) => m.code.toLowerCase())}
+              .length >
+          1000) {
+        _message(context, _s(context, 'capacity_error'));
+        return;
+      }
+      if (!await _confirm(context, _s(context, 'choose_set'),
+          '$id\n\n${molds.map((m) => m.code).join('\n')}')) {
+        return;
+      }
+      if (!mounted || _sessionExpired) return;
+      setState(() {
+        for (final m in molds) {
+          _selected[m.code.toLowerCase()] = m;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        if (e is MobileApiException && e.code == 'qolip_set_unavailable') {
+          await _storageDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                      content: SingleChildScrollView(
+                          child: Text(
+                              '${_s(context, 'set_unavailable')}\n\n${e.details.join('\n')}')),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(_s(context, 'cancel')))
+                      ]));
+        } else {
+          _error(context, e);
+        }
+      }
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -140,7 +206,7 @@ class _MoldPickerState extends State<_MoldPicker>
                       child: Text(
                           '${_s(context, 'confirm')} (${_selected.length})'),
                     ))),
-            body: Column(children: [
+            body: ListView(children: [
               Padding(
                   padding: const EdgeInsets.all(12),
                   child: TextField(
@@ -166,6 +232,9 @@ class _MoldPickerState extends State<_MoldPicker>
                         }),
                     child: Text(_s(context, 'select_loaded'))),
               ]),
+              TextButton(
+                  onPressed: _scanning ? null : _selectSet,
+                  child: Text(_s(context, 'choose_set'))),
               if (_selected.isNotEmpty)
                 SizedBox(
                     height: 44,
@@ -185,37 +254,34 @@ class _MoldPickerState extends State<_MoldPicker>
                 TextButton(
                     onPressed: () => _load(),
                     child: Text(_s(context, 'retry'))),
-              Expanded(
-                  child: ListView(children: [
-                for (final m in _molds)
-                  CheckboxListTile(
-                    value: _selected.containsKey(m.code.toLowerCase()),
-                    title: Text(m.code),
-                    subtitle: Text(
-                        '${m.productNames}\n${m.setId} • ${m.warehouse} • ${_moldStatus(context, m, widget.warehouse)}'),
-                    isThreeLine: true,
-                    secondary: IconButton(
-                        icon: const Icon(Icons.info_outline),
-                        onPressed: () => _moldDetails(context, m)),
-                    onChanged: !_eligible(m)
-                        ? null
-                        : (v) => setState(() {
-                              if (v == true) {
-                                _selected[m.code.toLowerCase()] = m;
-                              } else {
-                                _selected.remove(m.code.toLowerCase());
-                              }
-                            }),
-                  ),
-                if (!_loading && _molds.isEmpty)
-                  Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(_s(context, 'empty'))),
-                if (_next != null)
-                  TextButton(
-                      onPressed: _loading ? null : () => _load(more: true),
-                      child: Text(_s(context, 'more'))),
-              ])),
+              for (final m in _molds)
+                CheckboxListTile(
+                  value: _selected.containsKey(m.code.toLowerCase()),
+                  title: Text(m.code),
+                  subtitle: Text(
+                      '${m.productNames}\n${m.setId} • ${m.warehouse} • ${_moldStatus(context, m, widget.warehouse)}'),
+                  isThreeLine: true,
+                  secondary: IconButton(
+                      icon: const Icon(Icons.info_outline),
+                      onPressed: () => _moldDetails(context, m)),
+                  onChanged: !_eligible(m)
+                      ? null
+                      : (v) => setState(() {
+                            if (v == true) {
+                              _selected[m.code.toLowerCase()] = m;
+                            } else {
+                              _selected.remove(m.code.toLowerCase());
+                            }
+                          }),
+                ),
+              if (!_loading && _molds.isEmpty)
+                Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(_s(context, 'empty'))),
+              if (_next != null)
+                TextButton(
+                    onPressed: _loading ? null : () => _load(more: true),
+                    child: Text(_s(context, 'more'))),
             ]),
           ),
         );

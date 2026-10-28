@@ -55,7 +55,12 @@ class QolipStorageMold {
   final bool archived, inUse, inRework, transferring, custodyMismatch;
   final List<Map<String, dynamic>> products;
   bool get available =>
-      !archived && !inUse && !inRework && !transferring && paddonCode.isEmpty;
+      !archived &&
+      !inUse &&
+      !inRework &&
+      !transferring &&
+      !custodyMismatch &&
+      paddonCode.isEmpty;
   String get productNames =>
       products.isEmpty ? name : products.map((e) => e['name']).join(', ');
 }
@@ -150,6 +155,7 @@ extension MobileApiQolipStorage on MobileApi {
     });
     requireScope();
     final json = await decodeJsonMapPayload(response.body);
+    requireScope();
     if (response.statusCode != 200 || json['ok'] != true) {
       throw MobileApiException(
           code: (json['error'] ?? json['code'] ?? 'qolip_storage_failed')
@@ -184,9 +190,13 @@ extension MobileApiQolipStorage on MobileApi {
       QolipPaddonDetail.fromJson(
           await _qolipStorageRequest('paddons/detail', query: {'code': code}));
   Future<QolipStoragePage<QolipStorageMold>> qolipStorageMolds(
-      {String query = '', int offset = 0}) async {
-    final json = await _qolipStorageRequest('paddons/molds',
-        query: {'q': query, 'limit': '100', 'offset': '$offset'});
+      {String query = '', String code = '', int offset = 0}) async {
+    final json = await _qolipStorageRequest('paddons/molds', query: {
+      if (code.isNotEmpty) 'code': code,
+      'q': query,
+      'limit': '100',
+      'offset': '$offset'
+    });
     return QolipStoragePage(
         (json['molds'] as List)
             .map((e) =>
@@ -195,14 +205,63 @@ extension MobileApiQolipStorage on MobileApi {
         json['has_more'] == true ? (json['next_offset'] as num).toInt() : null);
   }
 
+  Future<List<QolipStorageMold>> qolipStorageSet(String setId,
+      {String? warehouse}) async {
+    final found = <String, QolipStorageMold>{};
+    var offset = 0;
+    final scope = currentSessionReadScope();
+    while (true) {
+      final page = await qolipStorageMolds(query: setId, offset: offset);
+      if (scope != currentSessionReadScope()) {
+        throw const MobileApiException(
+            code: 'session_scope_changed', message: 'Session changed');
+      }
+      for (final mold in page.items.where((m) => m.setId == setId)) {
+        found[mold.code.toLowerCase()] = mold;
+      }
+      if (page.nextOffset == null) break;
+      if (page.nextOffset! <= offset || page.nextOffset! >= 1000) {
+        throw const MobileApiException(
+            code: 'qolip_storage_too_many_items',
+            message: 'Set selection exceeds limit');
+      }
+      offset = page.nextOffset!;
+    }
+    if (found.isEmpty) {
+      throw const MobileApiException(
+          code: 'qolip_storage_not_found', message: 'Set not found');
+    }
+    final blocked = found.values
+        .where((m) =>
+            !m.available ||
+            (warehouse != null &&
+                m.warehouse.toLowerCase() != warehouse.toLowerCase()))
+        .toList();
+    if (blocked.isNotEmpty) {
+      throw MobileApiException(
+          code: 'qolip_set_unavailable',
+          message: 'Some set members are unavailable',
+          details: blocked.map((m) => m.code).toList());
+    }
+    return found.values.toList();
+  }
+
   Future<QolipPaddonDetail> qolipPaddonAction(
           Map<String, dynamic> body) async =>
       QolipPaddonDetail.fromJson(
           await _qolipStorageRequest('paddons/action', body: body));
   Future<QolipStoragePage<QolipArchiveEntry>> qolipArchive(
-      {String status = 'open', String query = '', int offset = 0}) async {
+      {String status = 'open',
+      String query = '',
+      int offset = 0,
+      String warehouse = '',
+      DateTime? from,
+      DateTime? to}) async {
     final json = await _qolipStorageRequest('archive', query: {
       'status': status,
+      if (warehouse.isNotEmpty) 'warehouse': warehouse,
+      if (from != null) 'from': qolipStorageDate(from),
+      if (to != null) 'to': qolipStorageDate(to),
       'q': query,
       'limit': '100',
       'offset': '$offset'
@@ -233,3 +292,6 @@ String? qolipPaddonCodeFromQr(String raw) {
   final code = value.substring(prefix.length);
   return RegExp(r'^QP-[0-9]{5,}$').hasMatch(code) ? code : null;
 }
+
+String qolipStorageDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';

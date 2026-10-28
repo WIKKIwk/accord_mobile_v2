@@ -139,6 +139,15 @@ extension AppLocalizationsQolipStorage on AppLocalizations {
             'Bu paddon QR kodi emas. Paddon raqamini qidiruvga yozish ham mumkin.',
             'This is not a pallet QR. You can also search by pallet number.',
             'Это не QR поддона. Также можно искать по номеру поддона.'),
+        'choose_set' => _t('Butun komplektni tanlash', 'Select complete set',
+            'Выбрать полный комплект'),
+        'set_unavailable' => _t(
+            'Komplekt to‘liq tanlanmadi: quyidagi qoliplar band, boshqa omborda yoki arxivda. Ularning holatini tekshiring.',
+            'The complete set was not selected: these molds are unavailable, in another warehouse or archived. Check their state.',
+            'Полный комплект не выбран: эти формы заняты, на другом складе или в архиве. Проверьте их состояние.'),
+        'dates' => _t('Arxivlangan sana', 'Archive dates', 'Даты архивации'),
+        'clear_filters' =>
+          _t('Filtrlarni tozalash', 'Clear filters', 'Сбросить фильтры'),
         _ => key,
       };
 }

@@ -104,7 +104,8 @@ void main() {
       {'archived': true},
       {'is_in_use': true},
       {'is_in_rework': true},
-      {'is_transferring': true}
+      {'is_transferring': true},
+      {'is_custody_mismatch': true}
     ]) {
       expect(
           QolipStorageMold.fromJson({...mold(), ...blocked}).available, false);
@@ -298,6 +299,316 @@ void main() {
       expect(find.text('Q-ONE'), findsNothing);
       expect(find.textContaining('Account or permissions changed'),
           findsOneWidget);
+    }, () => MockClient((_) async => jsonResponse(detail())));
+  });
+  test('archive filter sends calendar dates without UTC conversion', () async {
+    await http.runWithClient(() async {
+      await MobileApi.instance.qolipArchive(
+          warehouse: 'Qolip ombori',
+          from: DateTime(2026, 10, 1),
+          to: DateTime(2026, 10, 28),
+          status: 'all');
+    },
+        () => MockClient((request) async {
+              expect(request.url.queryParameters['warehouse'], 'Qolip ombori');
+              expect(request.url.queryParameters['from'], '2026-10-01');
+              expect(request.url.queryParameters['to'], '2026-10-28');
+              expect(request.url.queryParameters['status'], 'all');
+              return jsonResponse(
+                  {'ok': true, 'entries': [], 'has_more': false});
+            }));
+  });
+  test(
+      'complete set lookup includes later pages and rejects any unavailable member',
+      () async {
+    final offsets = <String>[];
+    await http.runWithClient(() async {
+      await expectLater(
+          MobileApi.instance.qolipStorageSet('9501', warehouse: 'Qolip ombori'),
+          throwsA(isA<MobileApiException>()
+              .having((e) => e.code, 'code', 'qolip_set_unavailable')
+              .having((e) => e.details, 'blocked', ['Q-TWO'])));
+      expect(offsets, ['0', '100']);
+    },
+        () => MockClient((request) async {
+              final offset = request.url.queryParameters['offset']!;
+              offsets.add(offset);
+              return jsonResponse({
+                'ok': true,
+                'molds': [
+                  offset == '0'
+                      ? mold()
+                      : {...mold(), 'qolip_code': 'Q-TWO', 'is_in_use': true}
+                ],
+                'has_more': offset == '0',
+                'next_offset': 100
+              });
+            }));
+  });
+  test('complete set includes every distinct code across pages', () async {
+    await http.runWithClient(() async {
+      final selected = await MobileApi.instance.qolipStorageSet('9501');
+      expect(selected.map((m) => m.code), ['Q-ONE', 'Q-TWO']);
+    },
+        () => MockClient((request) async {
+              final first = request.url.queryParameters['offset'] == '0';
+              return jsonResponse({
+                'ok': true,
+                'molds': [
+                  mold(),
+                  if (!first) {...mold(), 'qolip_code': 'Q-TWO'}
+                ],
+                'has_more': first,
+                'next_offset': 100
+              });
+            }));
+  });
+  test('archive mutation resets names as well as cached mold details',
+      () async {
+    final store = QolipCatalogStore.instance;
+    store.window('').loaded = true;
+    await http.runWithClient(() async {
+      await MobileApi.instance.qolipPaddonAction(
+          {'action': 'archive', 'request_id': 'archive-reset'});
+      expect(store.window('').loaded, false);
+    },
+        () => MockClient((_) async => jsonResponse({
+              ...detail(archived: true),
+              'catalog_delta': {'reset': true}
+            })));
+  });
+  testWidgets(
+      'archive filters stay scrollable with keyboard and expire on account change',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipStorageScreen(archive: true)));
+      await tester.pumpAndSettle();
+      expect(find.text('Archive dates'), findsOneWidget);
+      await tester.tap(find.byType(TextField));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      AppSession.instance.profile = const SessionProfile(
+          role: UserRole.qolipchi,
+          ref: 'different',
+          displayName: 'Other',
+          legalName: '',
+          phone: '',
+          avatarUrl: '');
+      AppSession.instance.revision.value++;
+      await tester.pumpAndSettle();
+      expect(find.text('Archive dates'), findsNothing);
+      expect(find.textContaining('Account or permissions changed'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((_) async =>
+            jsonResponse({'ok': true, 'entries': [], 'has_more': false})));
+  });
+  test('QR mold lookup requests exact code rather than fuzzy first page',
+      () async {
+    await http.runWithClient(() async {
+      final result = await MobileApi.instance.qolipStorageMolds(code: 'Q-ONE');
+      expect(result.items.single.code, 'Q-ONE');
+    },
+        () => MockClient((request) async {
+              expect(request.url.queryParameters['code'], 'Q-ONE');
+              expect(request.url.queryParameters['q'], '');
+              return jsonResponse({
+                'ok': true,
+                'molds': [mold()],
+                'has_more': false
+              });
+            }));
+  });
+  testWidgets(
+      'definitive restore conflict rereads same archive visit with new revision',
+      (tester) async {
+    var revision = 4;
+    final writes = <Map<String, dynamic>>[];
+    final entry = QolipArchiveEntry.fromJson({
+      'id': 'same-visit',
+      'kind': 'paddon',
+      'code': 'QP-00012',
+      'warehouse': 'Qolip ombori',
+      'archived_at': '2026-10-28T10:00:00Z',
+      'snapshot': {
+        'items': [mold()]
+      }
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
+      for (var attempt = 0; attempt < 2; attempt++) {
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+        await tester.pumpAndSettle();
+      }
+      expect(writes.map((e) => e['expected_revision']), [4, 5]);
+      expect(writes[0]['request_id'], isNot(writes[1]['request_id']));
+      expect(find.text('Restored'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                writes.add(
+                    Map<String, dynamic>.from(jsonDecode(request.body) as Map));
+                if (writes.length == 1) {
+                  revision = 5;
+                  return jsonResponse({'error': 'qolip_paddon_changed'}, 409);
+                }
+                return jsonResponse(detail(revision: 6));
+              }
+              final response = detail(archived: true, revision: revision);
+              (response['paddon'] as Map)['archive_entry_id'] = 'same-visit';
+              return jsonResponse(response);
+            }));
+  });
+  testWidgets(
+      'uncertain restore failure preserves original request and does not retarget visit',
+      (tester) async {
+    var reads = 0;
+    final writes = <Map<String, dynamic>>[];
+    final entry = QolipArchiveEntry.fromJson({
+      'id': 'same-visit',
+      'kind': 'paddon',
+      'code': 'QP-00012',
+      'warehouse': 'Qolip ombori',
+      'archived_at': '2026-10-28T10:00:00Z',
+      'snapshot': {
+        'items': [mold()]
+      }
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
+      for (var attempt = 0; attempt < 2; attempt++) {
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+        await tester.pumpAndSettle();
+      }
+      expect(reads, 1);
+      expect(writes[0], writes[1]);
+      expect(find.text('Restored'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                writes.add(
+                    Map<String, dynamic>.from(jsonDecode(request.body) as Map));
+                if (writes.length == 1) {
+                  return jsonResponse({'error': 'temporary_failure'}, 500);
+                }
+                return jsonResponse(detail(revision: 5));
+              }
+              reads++;
+              final response = detail(archived: true);
+              (response['paddon'] as Map)['archive_entry_id'] = 'same-visit';
+              return jsonResponse(response);
+            }));
+  });
+  testWidgets('leaving archive detail during restore lookup sends no write',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    var writes = 0;
+    final entry = QolipArchiveEntry.fromJson({
+      'id': 'same-visit',
+      'kind': 'paddon',
+      'code': 'QP-00012',
+      'warehouse': 'Qolip ombori',
+      'archived_at': '2026-10-28T10:00:00Z',
+      'snapshot': {
+        'items': [mold()]
+      }
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.pump();
+      await tester.pumpWidget(app(const SizedBox()));
+      final response = detail(archived: true);
+      (response['paddon'] as Map)['archive_entry_id'] = 'same-visit';
+      pending.complete(jsonResponse(response));
+      await tester.pumpAndSettle();
+      expect(writes, 0);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                writes++;
+                return jsonResponse(detail());
+              }
+              return pending.future;
+            }));
+  });
+  testWidgets(
+      'discarding pending mold archive gives reselected codes a new intent',
+      (tester) async {
+    final writes = <Map<String, dynamic>>[];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipStorageScreen()));
+      for (var attempt = 0; attempt < 2; attempt++) {
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Molds: Archive'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(CheckboxListTile));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirm (1)'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+        await tester.pumpAndSettle();
+        if (attempt == 0) {
+          await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+          await tester.pumpAndSettle();
+        }
+      }
+      expect(writes.length, 2);
+      expect(writes[0]['qolip_codes'], writes[1]['qolip_codes']);
+      expect(writes[0]['request_id'], isNot(writes[1]['request_id']));
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                writes.add(
+                    Map<String, dynamic>.from(jsonDecode(request.body) as Map));
+                return jsonResponse({'error': 'temporary_failure'}, 500);
+              }
+              return jsonResponse(request.url.path.endsWith('/molds')
+                  ? {
+                      'ok': true,
+                      'molds': [mold()],
+                      'has_more': false
+                    }
+                  : {'ok': true, 'paddons': [], 'has_more': false});
+            }));
+  });
+  testWidgets('mold details overlay hides captured data after account switch',
+      (tester) async {
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Q-ONE'));
+      await tester.pumpAndSettle();
+      expect(find.text('Q-ONE'), findsWidgets);
+      AppSession.instance.profile = const SessionProfile(
+          role: UserRole.qolipchi,
+          ref: 'different',
+          displayName: 'Other',
+          legalName: '',
+          phone: '',
+          avatarUrl: '');
+      AppSession.instance.revision.value++;
+      await tester.pumpAndSettle();
+      expect(find.text('Q-ONE'), findsNothing);
+      expect(
+          find.textContaining('Account or permissions changed'), findsWidgets);
     }, () => MockClient((_) async => jsonResponse(detail())));
   });
 }

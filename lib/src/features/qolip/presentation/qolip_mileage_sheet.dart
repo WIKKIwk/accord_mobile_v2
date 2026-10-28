@@ -16,13 +16,16 @@ String qolipReworkDate(String value) {
 String qolipMileageMeter(double value) =>
     value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
 
-Future<void> showQolipMileageSheet(BuildContext context, String code) =>
+Future<void> showQolipMileageSheet(BuildContext context, String code,
+        {Widget Function(Widget child)? wrap}) =>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => _QolipMileageSheet(code: code),
+      builder: (_) =>
+          wrap?.call(_QolipMileageSheet(code: code)) ??
+          _QolipMileageSheet(code: code),
     );
 
 class _QolipMileageSheet extends StatefulWidget {

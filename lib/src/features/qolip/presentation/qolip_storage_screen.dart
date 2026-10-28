@@ -45,6 +45,30 @@ mixin _StorageSessionState<T extends StatefulWidget> on State<T> {
       body: Center(child: Text(_s(context, 'session_changed'))));
 }
 
+class _StorageOverlay extends StatelessWidget {
+  const _StorageOverlay({required this.scope, required this.child});
+  final String scope;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+      valueListenable: AppSession.instance.revision,
+      builder: (context, _, __) => scope == currentSessionReadScope()
+          ? child
+          : AlertDialog(content: Text(_s(context, 'session_changed'))));
+}
+
+Future<T?> _storageDialog<T>(
+    {required BuildContext context,
+    required WidgetBuilder builder,
+    bool barrierDismissible = true}) {
+  final scope = currentSessionReadScope();
+  return showDialog<T>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (context) =>
+          _StorageOverlay(scope: scope, child: builder(context)));
+}
+
 String _s(BuildContext context, String key) =>
     context.l10n.qolipStorageText(key);
 String _status(BuildContext context, QolipPaddon p) => _s(
@@ -100,7 +124,7 @@ void _error(BuildContext context, Object error) {
 }
 
 Future<bool> _confirm(BuildContext context, String title, String body) async =>
-    await showDialog<bool>(
+    await _storageDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
               title: Text(title),
@@ -116,7 +140,7 @@ Future<bool> _confirm(BuildContext context, String title, String body) async =>
             )) ==
     true;
 Future<void> _qr(BuildContext context, String code, {bool paddon = false}) =>
-    showDialog<void>(
+    _storageDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
               title: Text(code),
@@ -134,34 +158,40 @@ Future<void> _qr(BuildContext context, String code, {bool paddon = false}) =>
               ],
             ));
 void _moldDetails(BuildContext context, QolipStorageMold m) {
+  final scope = currentSessionReadScope();
   showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       useSafeArea: true,
       isScrollControlled: true,
-      builder: (context) => SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(m.code, style: Theme.of(context).textTheme.titleLarge),
-                Text(m.productNames),
-                Text('${_s(context, 'set')}: ${m.setId}'),
-                Text('${_s(context, 'warehouse')}: ${m.warehouse}'),
-                Text('${_s(context, 'size')}: ${m.size} • ${m.color}'),
-                Text('${_s(context, 'quantity')}: ${m.quantity}'),
-                Text(_moldStatus(context, m)),
-                Wrap(spacing: 8, children: [
-                  OutlinedButton.icon(
-                      onPressed: () => _qr(context, m.code),
-                      icon: const Icon(Icons.qr_code),
-                      label: Text(m.code)),
-                  TextButton(
-                      onPressed: () => showQolipMileageSheet(context, m.code),
-                      child: Text(_s(context, 'mileage'))),
-                ]),
-              ])));
+      builder: (context) => _StorageOverlay(
+          scope: scope,
+          child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(m.code, style: Theme.of(context).textTheme.titleLarge),
+                    Text(m.productNames),
+                    Text('${_s(context, 'set')}: ${m.setId}'),
+                    Text('${_s(context, 'warehouse')}: ${m.warehouse}'),
+                    Text('${_s(context, 'size')}: ${m.size} • ${m.color}'),
+                    Text('${_s(context, 'quantity')}: ${m.quantity}'),
+                    Text(_moldStatus(context, m)),
+                    Wrap(spacing: 8, children: [
+                      OutlinedButton.icon(
+                          onPressed: () => _qr(context, m.code),
+                          icon: const Icon(Icons.qr_code),
+                          label: Text(m.code)),
+                      TextButton(
+                          onPressed: () => showQolipMileageSheet(
+                              context, m.code,
+                              wrap: (child) =>
+                                  _StorageOverlay(scope: scope, child: child)),
+                          child: Text(_s(context, 'mileage'))),
+                    ]),
+                  ]))));
 }
 
 class QolipStorageScreen extends StatefulWidget {
@@ -183,6 +213,8 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
   int _generation = 0;
   bool _loading = false, _saving = false, _history = false;
   String _kind = 'all';
+  String _warehouseFilter = '';
+  DateTimeRange? _dateFilter;
   List<QolipStorageMold>? _pendingArchiveMolds;
   Map<String, String>? _createDraft;
   Object? _failure;
@@ -202,7 +234,7 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
   }
 
   bool _sameScope() {
-    if (_scope == currentSessionReadScope()) return true;
+    if (!_sessionExpired && _scope == currentSessionReadScope()) return true;
     _message(context, _s(context, 'session_changed'));
     return false;
   }
@@ -218,6 +250,9 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
       if (widget.archive) {
         final page = await MobileApi.instance.qolipArchive(
             status: _history ? 'all' : 'open',
+            warehouse: _warehouseFilter,
+            from: _dateFilter?.start,
+            to: _dateFilter?.end,
             query: _search.text.trim(),
             offset: more ? _next! : 0);
         if (!mounted || generation != _generation) return;
@@ -240,9 +275,46 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
   }
 
   Future<void> _open(String code) async {
+    if (!_sameScope()) return;
     await Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => QolipPaddonScreen(code: code)));
     if (mounted) await _load();
+  }
+
+  Future<void> _filterWarehouse() async {
+    try {
+      final warehouses =
+          (await MobileApi.instance.qolipBlocksData()).warehouses;
+      if (!mounted || !_sameScope()) return;
+      final selected = await _storageDialog<String>(
+          context: context,
+          builder: (context) =>
+              SimpleDialog(title: Text(_s(context, 'warehouse')), children: [
+                SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, ''),
+                    child: Text(_s(context, 'all'))),
+                for (final w in warehouses)
+                  SimpleDialogOption(
+                      onPressed: () => Navigator.pop(context, w),
+                      child: Text(w)),
+              ]));
+      if (!mounted || selected == null) return;
+      setState(() => _warehouseFilter = selected);
+      await _load();
+    } catch (e) {
+      if (mounted) _error(context, e);
+    }
+  }
+
+  Future<void> _filterDates() async {
+    final selected = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2000),
+        lastDate: DateTime.now().add(const Duration(days: 1)),
+        initialDateRange: _dateFilter);
+    if (!mounted || selected == null) return;
+    setState(() => _dateFilter = selected);
+    await _load();
   }
 
   Future<void> _scanPaddon() async {
@@ -269,7 +341,7 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
         _message(context, _s(context, 'no_warehouse'));
         return;
       }
-      final draft = await showDialog<Map<String, String>>(
+      final draft = await _storageDialog<Map<String, String>>(
           context: context,
           builder: (_) => _PaddonCreateDialog(
               warehouses: warehouses, initial: _createDraft));
@@ -322,6 +394,7 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
   }
 
   Future<void> _entry(QolipArchiveEntry entry) async {
+    if (!_sameScope()) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => QolipArchiveDetailScreen(entry: entry)));
     if (mounted) await _load();
@@ -329,99 +402,130 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_sessionExpired) return sessionExpiredPage(context);
     final rows =
         _archive.where((e) => _kind == 'all' || e.kind == _kind).toList();
     return AppShell(
-      title: _s(context, widget.archive ? 'archive' : 'paddons'),
-      subtitle: '',
-      nativeTopBar: true,
-      drawer: QolipNavigationDrawer(
-          selectedIndex: -1,
-          selectedRouteName:
-              widget.archive ? AppRoutes.qolipArchive : AppRoutes.qolipPaddons,
-          onNavigate: (route) =>
-              AdminDrawerNavigation.openRoute(context, route)),
-      bottom: const QolipDock(activeTab: null),
-      child: Column(children: [
-        TextField(
-            controller: _search,
-            decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: _s(context, 'search')),
-            onChanged: (_) {
-              _debounce?.cancel();
-              _debounce =
-                  Timer(const Duration(milliseconds: 300), () => _load());
-            }),
-        if (widget.archive) ...[
-          SwitchListTile(
-              title: Text(_s(context, 'history')),
-              subtitle: Text(_s(context, _history ? 'all' : 'current')),
-              value: _history,
-              onChanged: _saving
-                  ? null
-                  : (v) {
-                      setState(() => _history = v);
-                      _load();
-                    }),
-          Wrap(spacing: 8, children: [
-            for (final kind in ['all', 'paddon', 'qolip'])
-              ChoiceChip(
-                label: Text(_s(
-                    context,
-                    kind == 'paddon'
-                        ? 'paddons'
-                        : kind == 'qolip'
-                            ? 'molds'
-                            : 'all')),
-                selected: _kind == kind,
-                onSelected: (_) => setState(() => _kind = kind),
-              )
-          ]),
-        ],
-        Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Wrap(spacing: 8, children: [
-              if (!widget.archive)
-                FilledButton.icon(
-                    onPressed: _saving ? null : _create,
-                    icon: const Icon(Icons.add),
-                    label: Text(_s(context, 'create'))),
-              OutlinedButton.icon(
-                  onPressed: _saving ? null : _archiveMolds,
-                  icon: const Icon(Icons.archive_outlined),
-                  label: Text(
-                      '${_s(context, 'molds')}: ${_s(context, 'archive_action')}')),
-              IconButton(
-                  onPressed: _loading ? null : () => _load(),
-                  icon: const Icon(Icons.refresh)),
-            ])),
-        TextButton.icon(
-            onPressed: _saving ? null : _scanPaddon,
-            icon: const Icon(Icons.qr_code_scanner),
-            label: Text(_s(context, 'scan_paddon'))),
-        if (_pendingArchiveMolds != null)
-          ListTile(
-              title: Text(
-                  '${_s(context, 'selected')}: ${_pendingArchiveMolds!.length}'),
-              trailing: TextButton(
-                  onPressed: _saving
-                      ? null
-                      : () => setState(() => _pendingArchiveMolds = null),
-                  child: Text(_s(context, 'cancel')))),
-        if (_loading || _saving) const LinearProgressIndicator(),
-        if (_failure != null)
-          ListTile(
-              title: Text(_s(context, 'failed')),
-              trailing: TextButton(
-                  onPressed: () => _load(), child: Text(_s(context, 'retry')))),
-        Expanded(
-            child: RefreshIndicator(
-                onRefresh: () => _load(),
-                child: ListView(
+        title: _s(context, widget.archive ? 'archive' : 'paddons'),
+        subtitle: '',
+        nativeTopBar: true,
+        drawer: QolipNavigationDrawer(
+            selectedIndex: -1,
+            selectedRouteName: widget.archive
+                ? AppRoutes.qolipArchive
+                : AppRoutes.qolipPaddons,
+            onNavigate: (route) =>
+                AdminDrawerNavigation.openRoute(context, route)),
+        bottom: const QolipDock(activeTab: null),
+        child: Material(
+          color: Colors.transparent,
+          child: RefreshIndicator(
+              onRefresh: () => _load(),
+              child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
+                    TextField(
+                        controller: _search,
+                        decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search),
+                            hintText: _s(context, 'search')),
+                        onChanged: (_) {
+                          _debounce?.cancel();
+                          _debounce = Timer(
+                              const Duration(milliseconds: 300), () => _load());
+                        }),
+                    if (widget.archive) ...[
+                      Wrap(spacing: 8, children: [
+                        OutlinedButton.icon(
+                            onPressed: _filterWarehouse,
+                            icon: const Icon(Icons.warehouse_outlined),
+                            label: Text(_warehouseFilter.isEmpty
+                                ? _s(context, 'warehouse')
+                                : _warehouseFilter)),
+                        OutlinedButton.icon(
+                            onPressed: _filterDates,
+                            icon: const Icon(Icons.date_range),
+                            label: Text(_dateFilter == null
+                                ? _s(context, 'dates')
+                                : '${qolipStorageDate(_dateFilter!.start)} – ${qolipStorageDate(_dateFilter!.end)}')),
+                        if (_warehouseFilter.isNotEmpty || _dateFilter != null)
+                          TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _warehouseFilter = '';
+                                  _dateFilter = null;
+                                });
+                                _load();
+                              },
+                              child: Text(_s(context, 'clear_filters'))),
+                      ]),
+                      SwitchListTile(
+                          title: Text(_s(context, 'history')),
+                          subtitle:
+                              Text(_s(context, _history ? 'all' : 'current')),
+                          value: _history,
+                          onChanged: _saving
+                              ? null
+                              : (v) {
+                                  setState(() => _history = v);
+                                  _load();
+                                }),
+                      Wrap(spacing: 8, children: [
+                        for (final kind in ['all', 'paddon', 'qolip'])
+                          ChoiceChip(
+                            label: Text(_s(
+                                context,
+                                kind == 'paddon'
+                                    ? 'paddons'
+                                    : kind == 'qolip'
+                                        ? 'molds'
+                                        : 'all')),
+                            selected: _kind == kind,
+                            onSelected: (_) => setState(() => _kind = kind),
+                          )
+                      ]),
+                    ],
+                    Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Wrap(spacing: 8, children: [
+                          if (!widget.archive)
+                            FilledButton.icon(
+                                onPressed: _saving ? null : _create,
+                                icon: const Icon(Icons.add),
+                                label: Text(_s(context, 'create'))),
+                          OutlinedButton.icon(
+                              onPressed: _saving ? null : _archiveMolds,
+                              icon: const Icon(Icons.archive_outlined),
+                              label: Text(
+                                  '${_s(context, 'molds')}: ${_s(context, 'archive_action')}')),
+                          IconButton(
+                              onPressed: _loading ? null : () => _load(),
+                              icon: const Icon(Icons.refresh)),
+                        ])),
+                    TextButton.icon(
+                        onPressed: _saving ? null : _scanPaddon,
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: Text(_s(context, 'scan_paddon'))),
+                    if (_pendingArchiveMolds != null)
+                      ListTile(
+                          title: Text(
+                              '${_s(context, 'selected')}: ${_pendingArchiveMolds!.length}'),
+                          trailing: TextButton(
+                              onPressed: _saving
+                                  ? null
+                                  : () => setState(() {
+                                        _pendingArchiveMolds = null;
+                                        _intent.complete();
+                                      }),
+                              child: Text(_s(context, 'cancel')))),
+                    if (_loading || _saving) const LinearProgressIndicator(),
+                    if (_failure != null)
+                      ListTile(
+                          title: Text(_s(context, 'failed')),
+                          trailing: TextButton(
+                              onPressed: () => _load(),
+                              child: Text(_s(context, 'retry')))),
                     if (!_loading &&
                         (widget.archive ? rows.isEmpty : _paddons.isEmpty))
                       Padding(
@@ -457,10 +561,8 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                       TextButton(
                           onPressed: _loading ? null : () => _load(more: true),
                           child: Text(_s(context, 'more'))),
-                  ],
-                ))),
-      ]),
-    );
+                  ])),
+        ));
   }
 }
 

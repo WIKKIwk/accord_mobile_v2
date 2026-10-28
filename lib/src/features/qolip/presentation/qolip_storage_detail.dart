@@ -49,7 +49,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   }
 
   bool _sameScope() {
-    if (_scope == currentSessionReadScope()) return true;
+    if (!_sessionExpired && _scope == currentSessionReadScope()) return true;
     _message(context, _s(context, 'session_changed'));
     return false;
   }
@@ -64,7 +64,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   }
 
   Future<void> _inspect() async {
-    final codes = await showDialog<List<String>>(
+    final codes = await _storageDialog<List<String>>(
         context: context,
         barrierDismissible: false,
         builder: (_) => _InspectionDialog(
@@ -304,7 +304,7 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
   Map<String, dynamic>? _restoreBody;
   Future<void> _restore() async {
     if (_saving || _restored) return;
-    if (_scope != currentSessionReadScope()) {
+    if (_sessionExpired || _scope != currentSessionReadScope()) {
       _message(context, _s(context, 'session_changed'));
       return;
     }
@@ -312,13 +312,20 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
         '${widget.entry.code}\n${_s(context, 'restore_hint')}')) {
       return;
     }
-    if (!mounted || _scope != currentSessionReadScope()) return;
+    if (!mounted || _sessionExpired || _scope != currentSessionReadScope()) {
+      return;
+    }
     setState(() => _saving = true);
     try {
       if (widget.entry.kind == 'paddon') {
         if (_restoreBody == null) {
           final current =
               await MobileApi.instance.qolipPaddonDetail(widget.entry.code);
+          if (!mounted ||
+              _sessionExpired ||
+              _scope != currentSessionReadScope()) {
+            return;
+          }
           if (current.paddon.archiveEntryId != widget.entry.id) {
             throw const MobileApiException(
                 code: 'qolip_archive_changed',
@@ -331,6 +338,11 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
             'expected_revision': current.paddon.revision
           };
           _restoreBody!['request_id'] = _intent.keyFor(_restoreBody!);
+        }
+        if (!mounted ||
+            _sessionExpired ||
+            _scope != currentSessionReadScope()) {
+          return;
         }
         await MobileApi.instance.qolipPaddonAction(_restoreBody!);
       } else {
@@ -348,6 +360,10 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
         _message(context, _s(context, 'saved'));
       }
     } catch (e) {
+      if (e is MobileApiException && e.statusCode == 409) {
+        _restoreBody = null;
+        _intent.complete();
+      }
       if (mounted) _error(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
