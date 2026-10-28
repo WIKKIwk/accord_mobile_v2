@@ -5,10 +5,12 @@ import 'package:http/http.dart' as http;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/inventory/inventory_view_store.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_animated_list_entry.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
@@ -48,10 +50,15 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
   late final TabController _tabs;
+  late final String _inventoryReadScope;
+  InventoryViewLease<InventoryLocation>? _locationView;
+  InventoryViewLease<InventoryAsset>? _assetView;
+  final Map<String, InventoryViewLease<InventoryTransfer>> _transferViews = {};
+  final Map<String, VoidCallback> _transferViewListeners = {};
+  String _assetViewKey = '';
   int _assetsRequest = 0;
-  int _transferMutationRevision = 0;
+  int _assetMutationDepth = 0;
   final Set<String> _knownOrderAssignmentBarcodes = {};
-  final Set<String> _loadedTransferDirections = {};
   final Set<String> _loadingTransferDirections = {};
   final Map<String, String> _transferErrors = {};
   List<InventoryLocation> _locations = const [];
@@ -86,6 +93,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   @override
   void initState() {
     super.initState();
+    _inventoryReadScope = currentSessionReadScope();
     _tabs = TabController(length: _materialScoped ? 4 : 3, vsync: this)
       ..addListener(_handleInventoryTabChanged);
     unawaited(_restoreWarehouseFilterAndLoad());
@@ -93,6 +101,15 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
 
   @override
   void dispose() {
+    _locationView?.removeListener(_handleLocationViewChanged);
+    _locationView?.dispose();
+    _assetView?.removeListener(_handleAssetViewChanged);
+    _assetView?.dispose();
+    for (final entry in _transferViews.entries) {
+      final listener = _transferViewListeners[entry.key];
+      if (listener != null) entry.value.removeListener(listener);
+      entry.value.dispose();
+    }
     _tabs.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();

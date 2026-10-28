@@ -60,6 +60,8 @@ extension __InventoryMovementsScreenStateAstPart01
   }
 
   Future<void> _handleQrLookupCode(String rawValue) async {
+    final scope = currentSessionReadScope();
+    if (scope != _inventoryReadScope) return;
     final barcode = rawMaterialBarcodeFromQr(rawValue).trim();
     final lookupKey = barcode.toLowerCase();
     if (barcode.isEmpty || !_qrLookupBusyCodes.add(lookupKey)) {
@@ -94,7 +96,9 @@ extension __InventoryMovementsScreenStateAstPart01
           message: 'Bu QR bo‘yicha mahsulot topilmadi',
         );
       }
-      if (!mounted) {
+      if (!mounted ||
+          scope != currentSessionReadScope() ||
+          _locationView?.rows == null) {
         return;
       }
       _updateInventory(() {
@@ -114,7 +118,9 @@ extension __InventoryMovementsScreenStateAstPart01
         _qrLookupStatus = '${matches.length} ta mahsulot topildi';
       });
     } catch (error) {
-      if (mounted) {
+      if (mounted &&
+          scope == currentSessionReadScope() &&
+          _locationView?.rows != null) {
         final message = _message(error);
         _updateInventory(() => _qrLookupStatus = message);
         _showMessage(message);
@@ -164,87 +170,138 @@ extension __InventoryMovementsScreenStateAstPart01
     _rawMaterialOrderAssignments = next;
   }
 
-  Future<void> _loadAll() async {
+  String _warehouseForLocations(List<InventoryLocation> locations) {
+    final assigned = _assignedWarehouseNames;
+    final visible = locations.where((location) =>
+        location.isWarehouse &&
+        location.active &&
+        (_isAdmin || assigned.contains(location.name.trim().toLowerCase())));
+    return visible
+            .any((location) => location.warehouseId == _selectedWarehouseId)
+        ? _selectedWarehouseId
+        : visible.firstOrNull?.warehouseId ?? '';
+  }
+
+  void _handleLocationViewChanged() {
+    if (!mounted || _loading) return;
+    final rows = _locationView?.rows;
+    if (rows == null) {
+      _updateInventory(() {
+        _locations = const [];
+        _assets = const [];
+        _allIncoming = _allOutgoing = _incoming = _outgoing = const [];
+        _rawMaterialOrderAssignments = const {};
+        _knownOrderAssignmentBarcodes.clear();
+        _selectedAssetKeys.clear();
+        _qrScannedAssets = const [];
+        _selectedStateAssetCount = 0;
+        if (_locationView?.error != null) _error = _locationView!.error!;
+      });
+      return;
+    }
+    if (identical(rows, _locations)) return;
+    final selected = _warehouseForLocations(rows);
+    final changedWarehouse = selected != _selectedWarehouseId;
+    _updateInventory(() {
+      _locations = rows;
+      _selectedWarehouseId = selected;
+    });
+    _refreshTransferFilters();
+    if (changedWarehouse) unawaited(_loadAssets());
+  }
+
+  void _handleAssetViewChanged() {
+    if (!mounted || _loading) return;
+    final view = _assetView;
+    final rows = view?.rows;
+    if (rows != null && _assetMutationDepth > 0) return;
+    if (identical(rows, _assets) && _assetsLoading == (rows == null)) return;
+    _updateInventory(() {
+      _assets = rows ?? const [];
+      _assetsLoading = rows == null && view?.loading == true;
+      if (rows != null) _rememberAssetAssignments(rows);
+      final keys = _assets.map(_selectionKey).toSet();
+      _selectedAssetKeys.removeWhere((key) => !keys.contains(key));
+    });
+  }
+
+  Future<void> _loadAll({bool force = false}) async {
     final request = ++_assetsRequest;
-    if (mounted) {
+    if (mounted && _locations.isEmpty) {
       _updateInventory(() {
         _loading = true;
         _error = '';
       });
     }
     try {
-      final locations = await MobileApi.instance.inventoryLocations();
-      final warehouses = locations
-          .where((l) => l.isWarehouse && l.active)
-          .toList(growable: false);
-      final assigned = _assignedWarehouseNames;
-      final visible = _isAdmin
-          ? warehouses
-          : warehouses
-              .where((l) => assigned.contains(l.name.trim().toLowerCase()))
-              .toList(growable: false);
-      var selected = _selectedWarehouseId;
-      if (!visible.any((l) => l.warehouseId == selected)) {
-        selected = visible.isEmpty ? '' : visible.first.warehouseId;
+      if (_locationView == null) {
+        _locationView = InventoryViewStore.instance.locations()
+          ..addListener(_handleLocationViewChanged);
+      } else if (force) {
+        await _locationView!.refresh();
       }
-      final search = _searchController.text;
-      final assets = selected.isEmpty
-          ? const <InventoryAsset>[]
-          : await MobileApi.instance.inventoryAssets(
-              warehouseId: selected,
-              query: search,
-              includeOrderAssignment: _includeAssignmentSummary,
-            );
+      await _locationView!.ready;
       if (!mounted || request != _assetsRequest) return;
+      if (_locationView!.rows == null && _locationView!.error != null) {
+        throw StateError(_locationView!.error!);
+      }
+      final locations = _locationView!.rows ?? const <InventoryLocation>[];
       _updateInventory(() {
+        _selectedWarehouseId = _warehouseForLocations(locations);
         _locations = locations;
-        _selectedWarehouseId = selected;
-        _assets = assets;
-        _rememberAssetAssignments(assets);
-        final visibleKeys = assets.map(_selectionKey).toSet();
-        _selectedAssetKeys.removeWhere((key) => !visibleKeys.contains(key));
         _loading = false;
-        _assetsLoading = false;
-        _loadedTransferDirections.clear();
+        _error = '';
       });
+      await _loadAssets(force: force);
+      if (!mounted) return;
       _handleInventoryTabChanged();
-      if (search != _searchController.text) unawaited(_loadAssets());
     } catch (error) {
-      if (!mounted || request != _assetsRequest) return;
+      if (!mounted) return;
       _updateInventory(() {
         _loading = false;
         _assetsLoading = false;
-        _error = _message(error);
+        if (_locations.isEmpty) _error = _message(error);
       });
+      if (_locations.isNotEmpty) _showMessage(_message(error));
     }
   }
 
-  Future<void> _loadAssets() async {
-    if (_loading) return;
+  Future<void> _loadAssets({bool force = false}) async {
+    if (_loading || !mounted) return;
     final request = ++_assetsRequest;
     final warehouse = _selectedWarehouseId;
     if (warehouse.isEmpty) {
+      _assetView?.removeListener(_handleAssetViewChanged);
+      _assetView?.dispose();
+      _assetView = null;
+      _assetViewKey = '';
       _updateInventory(() {
         _assets = const [];
         _assetsLoading = false;
       });
       return;
     }
-    _updateInventory(() => _assetsLoading = true);
-    try {
-      final assets = await MobileApi.instance.inventoryAssets(
+    final search = _searchController.text.trim();
+    final key = jsonEncode([warehouse, search, _includeAssignmentSummary]);
+    var acquired = false;
+    if (_assetView == null || _assetViewKey != key) {
+      _assetView?.removeListener(_handleAssetViewChanged);
+      _assetView?.dispose();
+      _assetViewKey = key;
+      _assetView = InventoryViewStore.instance.assets(
         warehouseId: warehouse,
-        query: _searchController.text,
+        query: search,
         includeOrderAssignment: _includeAssignmentSummary,
-      );
+      )..addListener(_handleAssetViewChanged);
+      acquired = true;
+    }
+    final view = _assetView!;
+    _handleAssetViewChanged();
+    try {
+      if (force && !acquired) await view.refresh();
+      await view.ready;
       if (!mounted || request != _assetsRequest) return;
-      _updateInventory(() {
-        _assets = assets;
-        _rememberAssetAssignments(assets);
-        final visibleKeys = assets.map(_selectionKey).toSet();
-        _selectedAssetKeys.removeWhere((key) => !visibleKeys.contains(key));
-        _assetsLoading = false;
-      });
+      _handleAssetViewChanged();
     } catch (error) {
       if (!mounted || request != _assetsRequest) return;
       _updateInventory(() => _assetsLoading = false);
@@ -261,47 +318,61 @@ extension __InventoryMovementsScreenStateAstPart01
     }
   }
 
-  Future<void> _loadTransfers(String direction, {bool force = false}) async {
-    if (_loadingTransferDirections.contains(direction) ||
-        (!force && _loadedTransferDirections.contains(direction))) {
-      return;
-    }
-    final revision = _transferMutationRevision;
-    var retry = false;
+  void _handleTransferViewChanged(String direction) {
+    if (!mounted) return;
+    final view = _transferViews[direction];
+    final rows = view?.rows;
+    final warehouse = _warehouseLocationFor(_selectedWarehouseId)?.name ?? '';
     _updateInventory(() {
-      _loadingTransferDirections.add(direction);
-      _transferErrors.remove(direction);
-    });
-    try {
-      final transfers =
-          await MobileApi.instance.inventoryTransfers(direction: direction);
-      if (!mounted) return;
-      if (revision != _transferMutationRevision) {
-        retry = true;
-        return;
-      }
-      final warehouse = _warehouseLocationFor(_selectedWarehouseId)?.name ?? '';
-      _updateInventory(() {
+      if (rows != null) {
         if (direction == 'incoming') {
-          _allIncoming = transfers;
-          _incoming = _filterTransfersByWarehouse(transfers,
+          _allIncoming = rows;
+          _incoming = _filterTransfersByWarehouse(rows,
               warehouseName: warehouse, incoming: true);
         } else {
-          _allOutgoing = transfers;
-          _outgoing = _filterTransfersByWarehouse(transfers,
+          _allOutgoing = rows;
+          _outgoing = _filterTransfersByWarehouse(rows,
               warehouseName: warehouse, incoming: false);
         }
-        _loadedTransferDirections.add(direction);
-      });
+        _transferErrors.remove(direction);
+        _loadingTransferDirections.remove(direction);
+      } else if (view?.loading == true) {
+        _loadingTransferDirections.add(direction);
+      } else {
+        if (direction == 'incoming') {
+          _allIncoming = _incoming = const [];
+        } else {
+          _allOutgoing = _outgoing = const [];
+        }
+        _loadingTransferDirections.remove(direction);
+        if (view?.error != null) {
+          _transferErrors[direction] = _message(view!.error!);
+        }
+      }
+    });
+  }
+
+  Future<void> _loadTransfers(String direction, {bool force = false}) async {
+    if (!mounted) return;
+    var view = _transferViews[direction];
+    if (view == null) {
+      view = InventoryViewStore.instance.transfers(direction: direction);
+      _transferViews[direction] = view;
+      final listener = () => _handleTransferViewChanged(direction);
+      _transferViewListeners[direction] = listener;
+      view.addListener(listener);
+    }
+    _handleTransferViewChanged(direction);
+    try {
+      if (force) await view.refresh();
+      await view.ready;
+      if (mounted) _handleTransferViewChanged(direction);
     } catch (error) {
-      if (mounted) {
-        _updateInventory(() => _transferErrors[direction] = _message(error));
-      }
-    } finally {
-      if (mounted) {
-        _updateInventory(() => _loadingTransferDirections.remove(direction));
-        if (retry) unawaited(_loadTransfers(direction, force: true));
-      }
+      if (!mounted) return;
+      _updateInventory(() {
+        _loadingTransferDirections.remove(direction);
+        if (view!.rows == null) _transferErrors[direction] = _message(error);
+      });
     }
   }
 
@@ -334,6 +405,10 @@ extension __InventoryMovementsScreenStateAstPart01
   Future<void> _applyWarehouseAssetMutations(
     List<InventoryAsset> mutations,
   ) async {
+    if (_inventoryReadScope != currentSessionReadScope()) return;
+    // A live delta may precede the HTTP write receipt. Keep that canonical
+    // window rather than overwriting it with a reconstructed older receipt.
+    if (_assetView?.trusted == true) return;
     final unique = <String, InventoryAsset>{
       for (final asset in mutations) _selectionKey(asset): asset,
     };
@@ -352,7 +427,9 @@ extension __InventoryMovementsScreenStateAstPart01
     if (exitingKeys.isNotEmpty) {
       _updateInventory(() => _exitingAssetKeys.addAll(exitingKeys));
       await Future<void>.delayed(m3ListMutationAnimationDuration);
-      if (!mounted) {
+      if (!mounted ||
+          _inventoryReadScope != currentSessionReadScope() ||
+          _locationView?.rows == null) {
         return;
       }
     }
@@ -392,6 +469,9 @@ extension __InventoryMovementsScreenStateAstPart01
   }
 
   Future<void> _applyAssetMutations(List<InventoryAsset> mutations) async {
+    if (_inventoryReadScope != currentSessionReadScope() ||
+        _locationView?.rows == null) return;
+    _assetMutationDepth++;
     final stateTab = _materialStateLocationsKey.currentState;
     final unique = <String, InventoryAsset>{
       for (final asset in mutations) _selectionKey(asset): asset,
@@ -416,13 +496,22 @@ extension __InventoryMovementsScreenStateAstPart01
         _qrScannedAssets = List<InventoryAsset>.unmodifiable(next);
       });
     }
-    await Future.wait<void>([
+    final animations = Future.wait<void>([
       _applyWarehouseAssetMutations(mutations),
       if (stateTab != null) stateTab.applyAssetMutations(mutations),
     ]);
+    _reconcileInventoryAfterWrite();
+    try {
+      await animations;
+    } finally {
+      _assetMutationDepth--;
+      if (mounted) _handleAssetViewChanged();
+    }
   }
 
   Future<void> _reloadOrderAssignments() async {
+    if (_inventoryReadScope != currentSessionReadScope() ||
+        _locationView?.rows == null) return;
     // Refresh only mounted lists. Expensive execution details stay in the item
     // sheet; no all-orders/assignments/production snapshot bootstrap is needed.
     try {
@@ -434,19 +523,19 @@ extension __InventoryMovementsScreenStateAstPart01
             includeOrderAssignment: _includeAssignmentSummary,
           ),
       ]).then<void>((refreshed) {
-        if (!mounted) return;
+        if (!mounted ||
+            _inventoryReadScope != currentSessionReadScope() ||
+            _locationView?.rows == null) return;
         _updateInventory(() {
           for (final assets in refreshed) {
             _rememberAssetAssignments(assets);
           }
         });
       });
-      // A failed QR sibling must not prevent the committed item's visible
-      // product/state row from being refreshed.
+      // Trusted windows receive the committed badge delta. Compatibility
+      // reads are repaired without reopening the product or state tabs.
       await Future.wait<void>([
-        _loadAssets(),
-        if (_materialStateLocationsKey.currentState != null)
-          _materialStateLocationsKey.currentState!.reload(),
+        InventoryViewStore.instance.reconcileAfterWrite(),
         qrRefresh,
       ]);
     } catch (error) {
@@ -464,7 +553,8 @@ extension __InventoryMovementsScreenStateAstPart01
   }
 
   void _upsertTransfer(InventoryTransfer transfer) {
-    _transferMutationRevision++;
+    if (_inventoryReadScope != currentSessionReadScope() ||
+        _locationView?.rows == null) return;
     final assignedWarehouses = _assignedWarehouseNames;
     final wasKnown = _allIncoming.any((item) => item.id == transfer.id) ||
         _allOutgoing.any((item) => item.id == transfer.id);
@@ -487,18 +577,22 @@ extension __InventoryMovementsScreenStateAstPart01
       return List<InventoryTransfer>.unmodifiable(next);
     }
 
-    final incoming = reconcile(
-      _allIncoming,
-      belongs: _isAdmin ||
-          assignedWarehouses
-              .contains(transfer.destinationWarehouse.trim().toLowerCase()),
-    );
-    final outgoing = reconcile(
-      _allOutgoing,
-      belongs: _isAdmin ||
-          assignedWarehouses
-              .contains(transfer.sourceWarehouse.trim().toLowerCase()),
-    );
+    final incoming = _transferViews['incoming']?.trusted == true
+        ? _allIncoming
+        : reconcile(
+            _allIncoming,
+            belongs: _isAdmin ||
+                assignedWarehouses.contains(
+                    transfer.destinationWarehouse.trim().toLowerCase()),
+          );
+    final outgoing = _transferViews['outgoing']?.trusted == true
+        ? _allOutgoing
+        : reconcile(
+            _allOutgoing,
+            belongs: _isAdmin ||
+                assignedWarehouses
+                    .contains(transfer.sourceWarehouse.trim().toLowerCase()),
+          );
     final selected = _warehouseLocationFor(_selectedWarehouseId);
     _updateInventory(() {
       _allIncoming = incoming;
@@ -528,6 +622,16 @@ extension __InventoryMovementsScreenStateAstPart01
         }),
       );
     }
+  }
+
+  void _reconcileInventoryAfterWrite() {
+    // Older servers have no live contract. Invalidate their pending reads so
+    // a pre-write response cannot replace a committed change.
+    unawaited(InventoryViewStore.instance.reconcileAfterWrite().catchError(
+      (Object error) {
+        if (mounted) _showMessage(_message(error));
+      },
+    ));
   }
 
   List<InventoryAsset> _assetMutationsForTransfer(

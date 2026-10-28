@@ -24,6 +24,11 @@ class _TransferList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final transferIndices = <Key, int>{
+      for (var index = 0; index < transfers.length; index++)
+        ValueKey('inventory-transfer-animation-${transfers[index].id}'):
+            index + 1,
+    };
     return AppRefreshIndicator(
       onRefresh: onRefresh,
       allowRefreshOnShortContent: true,
@@ -46,6 +51,7 @@ class _TransferList extends StatelessWidget {
               physics: const TopRefreshScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
               itemCount: transfers.length + 1,
+              findChildIndexCallback: (key) => transferIndices[key],
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 if (index == 0) {

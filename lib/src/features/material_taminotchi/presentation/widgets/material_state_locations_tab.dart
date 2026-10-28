@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import '../../../../core/inventory/inventory_view_store.dart';
 import '../../../../core/formatters/quantity_formatters.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/session/session.dart';
+import '../../../../core/session/session_read_scope.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../../core/widgets/lists/m3_animated_list_entry.dart';
 import '../../../../core/widgets/lists/m3_segmented_list.dart';
@@ -25,11 +27,15 @@ part 'material_state_locations_tab_models_resplit_part_01.dart';
 class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
   late Future<_MaterialStateLocationsData> _future;
   _MaterialStateLocationsData? _data;
+  InventoryViewLease<InventoryAsset>? _assetView;
+  InventoryViewLease<InventoryLocation>? _locationView;
+  late final String _inventoryReadScope;
   Timer? _searchDebounce;
   String _query = '';
   String _selectedStateId = '';
   String _busyAssetKey = '';
   bool _filterExpanded = false;
+  int _applyingMutations = 0;
   final Set<String> _selectedAssetKeys = {};
   final Set<String> _exitingAssetKeys = {};
   final Set<String> _enteringAssetKeys = {};
@@ -44,13 +50,31 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
   @override
   void initState() {
     super.initState();
+    _inventoryReadScope = currentSessionReadScope();
     _future = _load();
   }
 
   @override
   void dispose() {
+    _assetView?.removeListener(_handleStateViewChanged);
+    _assetView?.dispose();
+    _locationView?.removeListener(_handleStateViewChanged);
+    _locationView?.dispose();
     _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant MaterialStateLocationsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.locations, oldWidget.locations) && _data != null) {
+      _data = _MaterialStateLocationsData(
+        assets: _data!.assets,
+        locations: (widget.locations ?? const <InventoryLocation>[])
+            .where((location) => location.active)
+            .toList(growable: false),
+      );
+    }
   }
 
   @override

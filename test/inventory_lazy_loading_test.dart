@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/inventory/inventory_view_store.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
@@ -20,6 +21,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    InventoryViewStore.instance.reset();
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'inventory-lazy-loading-token';
@@ -38,6 +40,7 @@ void main() {
   });
 
   tearDown(() {
+    InventoryViewStore.instance.reset();
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -215,20 +218,30 @@ class _InventoryLazyFixture {
   final requests = <Uri>[];
   final transferDirections = <String>[];
   final pendingTransferReads = <Completer<http.Response>>[];
+  final _pendingTransferPayloads =
+      <Completer<http.Response>, List<Map<String, dynamic>>>{};
   final createdTransfers = <Map<String, dynamic>>[];
   int detailReads = 0;
   int candidateReads = 0;
   bool _transfersReleased = false;
 
   Future<void> run(Future<void> Function() body) => HttpOverrides.runZoned(
-        () => http.runWithClient(body, () => MockClient(_handle)),
+        () => http.runWithClient(() async {
+          try {
+            await body();
+          } finally {
+            InventoryViewStore.instance.reset();
+          }
+        }, () => MockClient(_handle)),
         createHttpClient: (_) => _NoInventoryLiveHttpClient(),
       );
 
   void completeTransfers() {
     _transfersReleased = true;
     for (final pending in pendingTransferReads) {
-      if (!pending.isCompleted) pending.complete(_jsonResponse([]));
+      if (!pending.isCompleted) {
+        pending.complete(_jsonResponse(_pendingTransferPayloads[pending]!));
+      }
     }
   }
 
@@ -307,6 +320,7 @@ class _InventoryLazyFixture {
         if (delayTransfers && !_transfersReleased) {
           final pending = Completer<http.Response>();
           pendingTransferReads.add(pending);
+          _pendingTransferPayloads[pending] = List.of(createdTransfers);
           return pending.future;
         }
         return _jsonResponse(createdTransfers);

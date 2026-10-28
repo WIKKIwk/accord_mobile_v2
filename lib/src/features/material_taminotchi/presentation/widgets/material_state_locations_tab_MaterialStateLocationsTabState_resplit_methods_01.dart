@@ -12,46 +12,86 @@ extension MaterialStateLocationsTabStateAstPart01
     await widget.onAssetReturned?.call();
   }
 
-  Future<_MaterialStateLocationsData> _load() async {
-    final results = await Future.wait<Object>([
-      MobileApi.instance.inventoryAssets(
+  List<InventoryAsset> _stateRows(List<InventoryAsset> assets) => assets
+      .where(
+          (asset) => asset.physicalLocation.kind == InventoryLocationKind.state)
+      .toList(growable: false);
+
+  void _handleStateViewChanged() {
+    if (!mounted || _data == null) return;
+    final rows = _assetView?.rows;
+    if (rows != null && _applyingMutations > 0) return;
+    final assets = _stateRows(rows ?? const []);
+    final locations =
+        (widget.locations ?? _locationView?.rows ?? const <InventoryLocation>[])
+            .where((location) => location.active)
+            .toList(growable: false);
+    final previousSelection = _selectedAssetKeys.length;
+    setState(() {
+      _data = _MaterialStateLocationsData(assets: assets, locations: locations);
+      final keys = assets.map(_inventoryStateAssetKey).toSet();
+      _selectedAssetKeys.removeWhere((key) => !keys.contains(key));
+    });
+    if (rows != null) widget.onAssignmentsLoaded?.call(assets);
+    if (_selectedAssetKeys.length != previousSelection) {
+      widget.onSelectionChanged?.call(_selectedAssetKeys.length);
+    }
+  }
+
+  Future<_MaterialStateLocationsData> _load({bool force = false}) async {
+    if (_assetView == null) {
+      _assetView = InventoryViewStore.instance.assets(
         assetKind: InventoryAssetKind.rawMaterial,
         currentUserStatesOnly: true,
         includeOrderAssignment: AppSession.instance.can('raw_material.assign'),
         limit: 500,
-      ),
-      widget.locations != null
-          ? Future.value(widget.locations!)
-          : MobileApi.instance.inventoryLocations(),
+      )..addListener(_handleStateViewChanged);
+    } else if (force) {
+      await _assetView!.refresh();
+    }
+    if (widget.locations == null && _locationView == null) {
+      _locationView = InventoryViewStore.instance.locations()
+        ..addListener(_handleStateViewChanged);
+    }
+    await Future.wait([
+      _assetView!.ready,
+      if (_locationView != null) _locationView!.ready,
     ]);
-    final assets = (results[0] as List<InventoryAsset>)
-        .where(
-          (asset) => asset.physicalLocation.kind == InventoryLocationKind.state,
-        )
-        .toList(growable: false);
-    final locations = (results[1] as List<InventoryLocation>)
-        .where((location) => location.active)
-        .toList(growable: false);
-    widget.onAssignmentsLoaded?.call(assets);
-    return _MaterialStateLocationsData(
-      assets: assets,
-      locations: locations,
-    );
+    final assets = _stateRows(_assetView!.rows ?? const []);
+    final locations =
+        (widget.locations ?? _locationView?.rows ?? const <InventoryLocation>[])
+            .where((location) => location.active)
+            .toList(growable: false);
+    final data =
+        _MaterialStateLocationsData(assets: assets, locations: locations);
+    if (mounted) {
+      _data = data;
+      widget.onAssignmentsLoaded?.call(assets);
+    }
+    return data;
   }
 
   Future<void> reload() async {
     clearSelection();
-    final future = _load();
-    if (mounted) {
-      setState(() {
-        _data = null;
-        _future = future;
-      });
-    }
+    final future = _load(force: true);
+    if (mounted) setState(() => _future = future);
     await future;
   }
 
   Future<void> applyAssetMutations(List<InventoryAsset> mutations) async {
+    if (_assetView?.trusted == true ||
+        _inventoryReadScope != currentSessionReadScope() ||
+        _assetView?.rows == null) return;
+    _applyingMutations++;
+    try {
+      await _applyLocalAssetMutations(mutations);
+    } finally {
+      _applyingMutations--;
+      _handleStateViewChanged();
+    }
+  }
+
+  Future<void> _applyLocalAssetMutations(List<InventoryAsset> mutations) async {
     final unique = <String, InventoryAsset>{
       for (final asset in mutations) _inventoryStateAssetKey(asset): asset,
     };
@@ -59,7 +99,9 @@ extension MaterialStateLocationsTabStateAstPart01
       return;
     }
     final current = _data ?? await _future;
-    if (!mounted) {
+    if (!mounted ||
+        _inventoryReadScope != currentSessionReadScope() ||
+        _assetView?.rows == null) {
       return;
     }
     final currentKeys = current.assets.map(_inventoryStateAssetKey).toSet();
@@ -76,7 +118,9 @@ extension MaterialStateLocationsTabStateAstPart01
     if (exitingKeys.isNotEmpty) {
       setState(() => _exitingAssetKeys.addAll(exitingKeys));
       await Future<void>.delayed(m3ListMutationAnimationDuration);
-      if (!mounted) {
+      if (!mounted ||
+          _inventoryReadScope != currentSessionReadScope() ||
+          _assetView?.rows == null) {
         return;
       }
     }

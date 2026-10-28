@@ -119,8 +119,13 @@ extension __InventoryMovementsScreenStateAstPart03
     }
     final bottomPadding =
         MediaQuery.viewPaddingOf(context).bottom + (_materialScoped ? 116 : 28);
+    final assetIndices = <Key, int>{
+      for (var index = 0; index < _assets.length; index++)
+        ValueKey('inventory-asset-animation-${_selectionKey(_assets[index])}'):
+            index,
+    };
     return AppRefreshIndicator(
-      onRefresh: _loadAll,
+      onRefresh: () => _loadAll(force: true),
       allowRefreshOnShortContent: true,
       child: CustomScrollView(
         physics: const TopRefreshScrollPhysics(),
@@ -146,6 +151,7 @@ extension __InventoryMovementsScreenStateAstPart03
               padding: EdgeInsets.fromLTRB(4, 0, 4, bottomPadding),
               sliver: SliverList.builder(
                 itemCount: _assets.length,
+                findChildIndexCallback: (key) => assetIndices[key],
                 itemBuilder: (context, index) {
                   final asset = _assets[index];
                   final key = '${asset.kind.apiValue}:${asset.assetRef}';
