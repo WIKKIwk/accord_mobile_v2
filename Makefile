@@ -76,7 +76,7 @@ ifeq ($(API_URL),https://mini-rs-erp-test.wspace.sbs)
 ifneq ($(filter chrome web-server,$(RUN_DEVICE))$(filter web web-local,$(MAKECMDGOALS)),)
 DEV_WS_BROWSER_FLAG := --dart-define=ACCORD_DEV_WS_PROXY_URL=$(DEV_WS_PROXY_URL)
 RUN_BROWSER_FLAGS += $(DEV_WS_BROWSER_FLAG)
-prepare-run: dev-ws-proxy-up
+prepare-run: dev-ws-proxy-up dev-api-proxy-up
 endif
 endif
 
@@ -92,6 +92,20 @@ dev-ws-proxy-up:
 			sleep 1; \
 		done; \
 		echo 'Development WebSocket bridge failed; see garbage/dev_ws_proxy.log' >&2; exit 1; \
+	fi
+
+.PHONY: dev-api-proxy-up
+dev-api-proxy-up:
+	@mkdir -p garbage
+	@if [ "$(API_URL)" != 'https://mini-rs-erp-test.wspace.sbs' ]; then exit 0; fi; \
+	if ! curl -fsS http://127.0.0.1:39120/__accord_proxy_healthz 2>/dev/null | grep -q 'accord-dev-api-proxy-v1'; then \
+		nohup "$(DART_BIN)" tools/runtime/dev_api_proxy.dart >garbage/dev_api_proxy.log 2>&1 < /dev/null & \
+		echo $$! >garbage/.dev_api_proxy.pid; \
+		for attempt in 1 2 3 4 5; do \
+			if curl -fsS http://127.0.0.1:39120/__accord_proxy_healthz 2>/dev/null | grep -q 'accord-dev-api-proxy-v1'; then exit 0; fi; \
+			sleep 1; \
+		done; \
+		echo 'Development API bridge failed; see garbage/dev_api_proxy.log' >&2; exit 1; \
 	fi
 
 # Release APKs: arm64-v8a only (typical phones); no universal/fat APK.

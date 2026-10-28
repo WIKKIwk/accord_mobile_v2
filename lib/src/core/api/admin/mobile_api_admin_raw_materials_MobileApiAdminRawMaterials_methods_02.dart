@@ -156,6 +156,7 @@ extension MobileApiAdminRawMaterialsAstPart02 on MobileApi {
           '${MobileApi.baseUrl}/v1/mobile/admin/raw-material-assignments/candidate-orders',
         ).replace(queryParameters: {'barcode': normalizedBarcode}),
         headers: _headers(requireToken()),
+        retryTransient: true,
       ),
     );
     if (response.statusCode != 200) {

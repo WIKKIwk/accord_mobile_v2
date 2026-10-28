@@ -9,6 +9,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/session/session_read_scope.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/features/admin/models/production_map_models.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/pending_order_widgets.dart';
@@ -20,6 +21,8 @@ import 'package:accord_mobile_v2/src/features/admin/state/admin_order_page_cache
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_apparatus_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -58,6 +61,8 @@ class _OrdersHarness {
   String detailProductCode = 'FILM-ALPHA';
   int? detailCreatedAtUnix;
   bool? detailQolipInRework;
+  Map<String, dynamic>? detailCombo;
+  List<Map<String, dynamic>>? detailProducts;
   Duration detailDelay = Duration.zero;
   final detailReplies = <Future<AdminApparatusQueueSnapshot>>[];
   final rowOverrides = <String, Map<String, dynamic>>{};
@@ -186,6 +191,8 @@ class _OrdersHarness {
               'customer_name': 'Alpha customer',
               'image_id': 'image-$orderId',
               'product_code': detailProductCode,
+              if (detailCombo != null) 'combo': detailCombo,
+              if (detailProducts != null) 'products': detailProducts,
               'base_length': 15000,
               'order_kg': 200,
               'nodes': [
@@ -238,11 +245,12 @@ class _OrdersHarness {
         },
       );
 
-  Future<void> mount(WidgetTester tester) async {
+  Future<void> mount(WidgetTester tester, {ThemeData? theme}) async {
     await AdminProductionOrderPage.fromJson(
         payload(const AdminProductionOrderPageRequest(view: 'orders')));
     await AdminSequenceApparatusStore.instance.saveApparatus(_catalog);
     await tester.pumpWidget(MaterialApp(
+      theme: theme,
       navigatorObservers: [routeObserver],
       onGenerateRoute: (settings) {
         editorRoute = settings;
@@ -493,11 +501,22 @@ void main() {
 
   testWidgets('orders sheet loads the original creation date with full detail',
       (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.runAsync(() async {
+      final fonts = FontLoader(AppTheme.fontFamily)
+        ..addFont(rootBundle.load('assets/fonts/google_sans/GoogleSans-Regular.ttf'))
+        ..addFont(rootBundle.load('assets/fonts/google_sans/GoogleSans-Medium.ttf'))
+        ..addFont(rootBundle.load('assets/fonts/google_sans/GoogleSans-Bold.ttf'));
+      await fonts.load();
+    });
     final harness = _OrdersHarness()
       ..detailCreatedAtUnix =
           DateTime(2026, 10, 25, 13, 37).millisecondsSinceEpoch ~/ 1000
       ..pendingDetail = Completer<AdminApparatusQueueSnapshot>();
-    await harness.mount(tester);
+    await harness.mount(tester, theme: AppTheme.light());
     expect(harness.detailReads, isEmpty);
     expect(find.text('25.10.2026 13:37'), findsNothing);
     await tester.tap(_row('order-a'));
@@ -507,13 +526,36 @@ void main() {
     expect(find.descendant(of: createdAt, matching: find.text('Yuklanmoqda...')),
         findsOneWidget);
     harness.pendingDetail!.complete(harness.fullDetail('order-a'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    final label = find.descendant(
+        of: createdAt, matching: find.text('Tizimga kiritilgan'));
+    final date = find.descendant(
+        of: createdAt, matching: find.text('25.10.2026 13:37'));
+    expect(label, findsOneWidget);
+    expect(date, findsOneWidget);
+    final dateFade = find.descendant(
+      of: createdAt,
+      matching: find.ancestor(of: date, matching: find.byType(FadeTransition)),
+    );
+    expect(dateFade, findsOneWidget);
+    final opacity = tester.widget<FadeTransition>(dateFade).opacity.value;
+    expect(opacity, greaterThan(0));
+    expect(opacity, lessThan(1));
     await tester.pumpAndSettle();
-    expect(
-        find.descendant(
-            of: createdAt, matching: find.text('Tizimga kiritilgan')),
-        findsOneWidget);
-    expect(find.descendant(of: createdAt, matching: find.text('25.10.2026 13:37')),
-        findsOneWidget);
+    for (final width in [390.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 844);
+      await tester.pumpAndSettle();
+      final labelRender = tester.renderObject<RenderParagraph>(label);
+      expect(labelRender.maxLines, 1);
+      expect(labelRender.didExceedMaxLines, isFalse);
+      expect(tester.renderObject<RenderParagraph>(date).didExceedMaxLines,
+          isFalse);
+      expect(tester.getRect(label).right, lessThan(tester.getRect(date).left));
+      expect(tester.getRect(date).right,
+          closeTo(tester.getRect(createdAt).right, 0.1));
+    }
     expect(harness.detailReads, [(apparatus: '', orderId: 'order-a')]);
     await harness.dispose(tester);
   });
@@ -524,6 +566,8 @@ void main() {
     await harness.mount(tester);
     await tester.tap(_row('order-a'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('production-order-combo:order-a')),
+        findsNothing);
     expect(
         find.descendant(
             of: find.byKey(const ValueKey('production-order-created-at')),
@@ -531,6 +575,92 @@ void main() {
         findsOneWidget);
     await harness.dispose(tester);
   });
+
+  for (final catalogOnly in [false, true]) {
+    testWidgets('combo order details expand below the date card: '
+        '${catalogOnly ? 'catalog' : 'order products'}', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final products = <Map<String, dynamic>>[
+        {
+          'id': 'p1',
+          'item_code': 'SKU-A',
+          'product': 'Yashil',
+          'frame_product_size_mm': 120,
+          'frame_count': 2,
+        },
+        {
+          'id': 'p2',
+          'item_code': 'SKU-B',
+          'product': 'Qora',
+          'frame_product_size_mm': 120,
+          'frame_count': 1,
+        },
+      ];
+      final combo = await MobileApi.instance.adminSaveProductionCombo(
+        name: 'Vitaminlar',
+        template: CalculateOrderTemplate.fromJson({
+          'name': 'Vitaminlar',
+          'product': 'Vitaminlar',
+          'products': products,
+        }),
+      );
+      final harness = _OrdersHarness()
+        ..detailCombo = combo.toJson()
+        ..detailProducts = catalogOnly ? [] : products;
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pumpAndSettle();
+
+      final orderCard = find.byWidgetPredicate(
+          (widget) => widget.runtimeType.toString() == '_OrderStartUnifiedCard');
+      final comboCard = find.byKey(const ValueKey('production-order-combo:order-a'));
+      final date = find.byKey(const ValueKey('production-order-created-at'));
+      final toggle = find.byKey(const ValueKey('production-order-combo-toggle'));
+      expect(comboCard, findsOneWidget);
+      expect(find.descendant(of: comboCard, matching: find.text('Kombo ma’lumotlari')),
+          findsOneWidget);
+      expect(tester.getRect(orderCard).bottom,
+          lessThanOrEqualTo(tester.getRect(date).top));
+      expect(tester.getRect(date).bottom,
+          lessThanOrEqualTo(tester.getRect(comboCard).top));
+      final orderSurface = tester.widget<Material>(
+          find.descendant(of: orderCard, matching: find.byType(Material)).first);
+      final comboSurface = tester.widget<Material>(
+          find.descendant(of: comboCard, matching: find.byType(Material)).first);
+      expect(comboSurface.color, orderSurface.color);
+      expect(comboSurface.shape, orderSurface.shape);
+      expect(comboSurface.elevation, orderSurface.elevation);
+      expect(find.descendant(of: comboCard, matching: find.text('Vitaminlar')),
+          findsNothing);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      for (final text in ['Kombo · v1', 'Vitaminlar', combo.itemCode, 'Kombo tarkibi']) {
+        expect(find.descendant(of: comboCard, matching: find.text(text)),
+            findsOneWidget);
+      }
+      for (final sku in ['SKU-A', 'SKU-B']) {
+        expect(find.descendant(of: comboCard, matching: find.textContaining(sku)),
+            findsOneWidget);
+      }
+      expect(find.descendant(of: comboCard, matching: find.byType(Card)),
+          findsNothing);
+
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: comboCard, matching: find.text('Vitaminlar')),
+          findsNothing);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: comboCard, matching: find.textContaining('SKU-A')),
+          findsOneWidget);
+      await harness.dispose(tester);
+    });
+  }
 
   testWidgets('orders sheet retains State and component geometry on hydration',
       (tester) async {

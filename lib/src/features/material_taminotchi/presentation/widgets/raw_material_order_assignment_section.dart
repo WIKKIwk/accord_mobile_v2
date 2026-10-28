@@ -36,8 +36,13 @@ class _RawMaterialOrderAssignmentSectionState
   List<AdminRawMaterialAssignmentOrderCandidate> _candidateOrders = const [];
   List<AdminApparatus> _apparatusCatalog = const [];
   bool _loading = true;
+  bool _checkingCandidates = false;
   bool _saving = false;
   Object? _error;
+  Object? _candidateError;
+  Future<void>? _apparatusLoad;
+  bool _apparatusLoaded = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -56,6 +61,7 @@ class _RawMaterialOrderAssignmentSectionState
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     final barcode = widget.barcode.trim();
     if (barcode.isEmpty) {
       if (mounted) {
@@ -63,7 +69,9 @@ class _RawMaterialOrderAssignmentSectionState
           _lookup = null;
           _candidateOrders = const [];
           _loading = false;
+          _checkingCandidates = false;
           _error = null;
+          _candidateError = null;
         });
       }
       return;
@@ -71,35 +79,34 @@ class _RawMaterialOrderAssignmentSectionState
     if (mounted) {
       setState(() {
         _loading = true;
+        _checkingCandidates = false;
+        _lookup = null;
+        _candidateOrders = const [];
         _error = null;
+        _candidateError = null;
       });
     }
     try {
-      final results = await Future.wait<Object>([
-        MobileApi.instance.adminRawMaterialLookup(barcode: barcode),
-        MobileApi.instance.adminApparatus(limit: 10000),
-      ]);
-      final lookup = results[0] as AdminRawMaterialLookup;
-      final apparatus = results[1] as List<AdminApparatus>;
-      final candidateOrders = widget.allowAssignment &&
-              lookup.assignment == null
-          ? await MobileApi.instance.adminRawMaterialAssignmentCandidateOrders(
-              barcode: barcode,
-            )
-          : const <AdminRawMaterialAssignmentOrderCandidate>[];
-      if (!mounted ||
-          widget.barcode.trim().toUpperCase() != barcode.toUpperCase()) {
+      final lookup = await MobileApi.instance.adminRawMaterialLookup(
+        barcode: barcode,
+      );
+      if (!mounted || generation != _loadGeneration) {
         return;
       }
       setState(() {
         _lookup = lookup;
-        _candidateOrders = candidateOrders;
-        _apparatusCatalog = apparatus;
+        _loading = false;
+        _checkingCandidates =
+            widget.allowAssignment && lookup.assignment == null;
         _error = null;
       });
+      if (lookup.assignment != null) {
+        unawaited(_ensureApparatusCatalog());
+      } else if (widget.allowAssignment) {
+        await _loadCandidates(generation);
+      }
     } catch (error) {
-      if (!mounted ||
-          widget.barcode.trim().toUpperCase() != barcode.toUpperCase()) {
+      if (!mounted || generation != _loadGeneration) {
         return;
       }
       setState(() {
@@ -107,16 +114,73 @@ class _RawMaterialOrderAssignmentSectionState
         _candidateOrders = const [];
         _error = error;
       });
+      _reportReadFailure('lookup', error);
     } finally {
-      if (mounted &&
-          widget.barcode.trim().toUpperCase() == barcode.toUpperCase()) {
+      if (mounted && generation == _loadGeneration) {
         setState(() => _loading = false);
       }
     }
   }
 
+  Future<void> _loadCandidates(int generation) async {
+    try {
+      final orders =
+          await MobileApi.instance.adminRawMaterialAssignmentCandidateOrders(
+        barcode: widget.barcode.trim(),
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _candidateOrders = orders;
+        _candidateError = null;
+      });
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _candidateOrders = const [];
+        _candidateError = error;
+      });
+      _reportReadFailure('candidate_orders', error);
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _checkingCandidates = false);
+      }
+    }
+  }
+
+  Future<void> _ensureApparatusCatalog() {
+    if (_apparatusLoaded) return Future<void>.value();
+    return _apparatusLoad ??= _readApparatusCatalog();
+  }
+
+  Future<void> _readApparatusCatalog() async {
+    try {
+      final apparatus = await MobileApi.instance.adminApparatus(
+        limit: 10000,
+        retryTransient: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _apparatusCatalog = apparatus;
+        _apparatusLoaded = true;
+      });
+    } catch (error) {
+      // Names enrich the display; IDs and verified assignment state stay usable.
+      _reportReadFailure('apparatus_names', error);
+    } finally {
+      _apparatusLoad = null;
+    }
+  }
+
+  void _reportReadFailure(String phase, Object error) {
+    final detail = error is MobileApiException
+        ? 'code=${error.code} status=${error.statusCode}'
+        : 'type=${error.runtimeType}';
+    debugPrint('raw_material_assignment_read phase=$phase $detail');
+  }
+
   Future<void> _openOrderPicker() async {
-    if (_saving || _candidateOrders.isEmpty) {
+    if (_loading || _checkingCandidates || _candidateError != null ||
+        _saving || _candidateOrders.isEmpty) {
       return;
     }
     final selected =
@@ -131,8 +195,8 @@ class _RawMaterialOrderAssignmentSectionState
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (context) {
         return M3AsyncPickerSheet<AdminRawMaterialAssignmentOrderCandidate>(
-          title: 'Zakaz tanlang',
-          hintText: 'Zakaz qidiring',
+          title: 'Buyurtmani tanlang',
+          hintText: 'Buyurtma qidiring',
           pageSize: 50,
           loadPage: (query, offset, limit) async {
             final normalizedQuery = query.trim().toLowerCase();
@@ -173,8 +237,8 @@ class _RawMaterialOrderAssignmentSectionState
     final scheme = Theme.of(context).colorScheme;
     final confirmed = await showM3ConfirmDialog(
           context: context,
-          title: 'Orderga ulash',
-          message: '${_orderLabel(candidate.order)} zakaziga ulansinmi?',
+          title: 'Buyurtmaga ulash',
+          message: '${_orderLabel(candidate.order)} buyurtmasiga ulansinmi?',
           cancelLabel: 'Bekor qilish',
           confirmLabel: 'Ulash',
           verticalActions: true,
@@ -196,7 +260,7 @@ class _RawMaterialOrderAssignmentSectionState
       await _load();
       await widget.onAssignmentChanged?.call();
       if (mounted) {
-        _showNotice(context, 'Homashyo zakazga ulandi');
+        _showNotice(context, 'Homashyo buyurtmaga ulandi');
       }
     } on MobileApiException catch (error) {
       if (mounted) {
@@ -204,7 +268,7 @@ class _RawMaterialOrderAssignmentSectionState
       }
     } catch (_) {
       if (mounted) {
-        _showNotice(context, 'Homashyoni zakazga ulab bo‘lmadi');
+        _showNotice(context, 'Homashyoni buyurtmaga ulab bo‘lmadi');
       }
     } finally {
       if (mounted) {
@@ -220,7 +284,7 @@ class _RawMaterialOrderAssignmentSectionState
     final confirmed = await showM3ConfirmDialog(
           context: context,
           title: 'Homashyoni uzish',
-          message: 'Bu homashyoni zakazdan uzasizmi?',
+          message: 'Bu homashyoni buyurtmadan uzasizmi?',
           cancelLabel: 'Bekor qilish',
           confirmLabel: 'Uzish',
           destructive: true,
@@ -240,7 +304,7 @@ class _RawMaterialOrderAssignmentSectionState
       await _load();
       await widget.onAssignmentChanged?.call();
       if (mounted) {
-        _showNotice(context, 'Homashyo zakazdan uzildi');
+        _showNotice(context, 'Homashyo buyurtmadan uzildi');
       }
     } on MobileApiException catch (error) {
       if (mounted) {
@@ -248,7 +312,7 @@ class _RawMaterialOrderAssignmentSectionState
       }
     } catch (_) {
       if (mounted) {
-        _showNotice(context, 'Homashyoni zakazdan uzib bo‘lmadi');
+        _showNotice(context, 'Homashyoni buyurtmadan uzib bo‘lmadi');
       }
     } finally {
       if (mounted) {
@@ -264,6 +328,8 @@ class _RawMaterialOrderAssignmentSectionState
     if (options.length == 1) {
       return options.first;
     }
+    await _ensureApparatusCatalog();
+    if (!mounted) return null;
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -291,142 +357,253 @@ class _RawMaterialOrderAssignmentSectionState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Center(child: AppLoadingIndicator(size: 30, glyphSize: 18)),
-      );
-    }
-    if (_error != null) {
-      return Row(
-        children: [
-          Icon(Icons.link_off_rounded, color: scheme.error),
-          const SizedBox(width: 12),
-          const Expanded(child: UrduAwareText('Zakaz ma’lumoti yuklanmadi')),
-          IconButton(
-            key: const ValueKey('raw-material-assignment-retry'),
-            onPressed: _load,
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Qayta urinish',
-          ),
-        ],
-      );
-    }
     final assignment = _lookup?.assignment;
-    if (assignment != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            key: const ValueKey('raw-material-current-assignment'),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: scheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.link_rounded, color: scheme.onSecondaryContainer),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      UrduAwareText(
-                        'Ulangan zakaz',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: scheme.onSecondaryContainer,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _assignedOrderLabel(_lookup!, assignment),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: scheme.onSecondaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (assignment.apparatus.trim().isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          canonicalApparatusDisplayLabel(
-                            assignment.apparatus,
-                            _apparatusCatalog,
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSecondaryContainer,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+    final checking = _loading || _checkingCandidates;
+    final readError = _error ?? _candidateError;
+    final status = _loading
+        ? 'Tekshirilmoqda...'
+        : _error != null
+            ? 'Xato'
+            : assignment != null
+                ? 'Ulangan'
+                : 'Ulanmagan';
+    final statusStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: _error != null && !_loading ? scheme.error : null,
+    );
+    final detailStyle = theme.textTheme.bodySmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
+    const noCandidateMessage = 'Bu homashyoga mos faol buyurtma topilmadi';
+    const errorMessage = 'Buyurtma ma’lumoti yuklanmadi';
+    const candidateErrorMessage = 'Mos buyurtmalar yuklanmadi';
+    final showNoCandidate = !_loading &&
+        !_checkingCandidates &&
+        !_saving &&
+        readError == null &&
+        assignment == null &&
+        widget.allowAssignment &&
+        _candidateOrders.isEmpty;
+
+    // Reserve room for each status and message before the lookup completes.
+    Widget measureText(String text, TextStyle? style) => IgnorePointer(
+          child: ExcludeSemantics(
+            child: Opacity(
+              opacity: 0,
+              child: RichText(
+                text: TextSpan(text: context.l10n.uiText(text), style: style),
+                textScaler: MediaQuery.textScalerOf(context),
+                textAlign: TextAlign.end,
+              ),
             ),
           ),
-          const SizedBox(height: materialSheetActionGap),
-          OutlinedButton.icon(
-            key: const ValueKey('raw-material-unlink-button'),
-            style: materialSheetActionStyle,
-            onPressed: _saving ? null : () => _unlink(assignment),
-            icon: _saving
-                ? const AppLoadingIndicator(size: 20, glyphSize: 14)
-                : const Icon(Icons.link_off_rounded),
-            label: const UrduAwareText('Ulanishni uzish'),
-          ),
-        ],
+        );
+
+    Widget action;
+    if (!checking && readError != null) {
+      action = OutlinedButton.icon(
+        key: const ValueKey('raw-material-assignment-retry'),
+        style: materialSheetActionStyle,
+        onPressed: _load,
+        icon: const Icon(Icons.refresh_rounded),
+        label: const UrduAwareText('Qayta urinish'),
       );
+    } else if (assignment != null) {
+      action = OutlinedButton.icon(
+        key: const ValueKey('raw-material-unlink-button'),
+        style: materialSheetActionStyle,
+        onPressed: _saving ? null : () => _unlink(assignment),
+        icon: _saving
+            ? const AppLoadingIndicator(size: 20, glyphSize: 14)
+            : const Icon(Icons.link_off_rounded),
+        label: const UrduAwareText('Ulanishni uzish'),
+      );
+    } else {
+      final button = FilledButton.icon(
+        key: const ValueKey('raw-material-assign-order-button'),
+        style: materialSheetActionStyle,
+        onPressed: _loading ||
+                _checkingCandidates ||
+                readError != null ||
+                _saving ||
+                !widget.allowAssignment ||
+                _candidateOrders.isEmpty
+            ? null
+            : _openOrderPicker,
+        icon: _saving
+            ? const AppLoadingIndicator(size: 20, glyphSize: 14)
+            : const Icon(Icons.add_link_rounded),
+        label: const UrduAwareText('Buyurtmaga ulash'),
+      );
+      action = checking
+          ? _AssignmentLoadingShimmer(
+              key: const ValueKey('raw-material-assignment-loading-shimmer'),
+              child: button,
+            )
+          : button;
     }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Icon(Icons.link_off_rounded, color: scheme.onSurfaceVariant),
+            Icon(
+              !_loading && assignment == null
+                  ? Icons.link_off_rounded
+                  : Icons.link_rounded,
+              size: 20,
+              color: scheme.onSurfaceVariant,
+            ),
             const SizedBox(width: 12),
-            Expanded(
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 100),
               child: UrduAwareText(
-                'Zakaz',
+                'Buyurtma',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
               ),
             ),
-            Flexible(
-              child: UrduAwareText(
-                'Ulanmagan',
-                textAlign: TextAlign.end,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Stack(
+                alignment: AlignmentDirectional.centerEnd,
+                children: [
+                  measureText('Tekshirilmoqda...', statusStyle),
+                  measureText('Ulangan', statusStyle),
+                  measureText('Ulanmagan', statusStyle),
+                  measureText('Xato', statusStyle),
+                  UrduAwareText(
+                    status,
+                    textAlign: TextAlign.end,
+                    style: statusStyle,
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        if (widget.allowAssignment) ...[
-          const SizedBox(height: materialSheetActionGap),
-          FilledButton.icon(
-            key: const ValueKey('raw-material-assign-order-button'),
-            style: materialSheetActionStyle,
-            onPressed:
-                _saving || _candidateOrders.isEmpty ? null : _openOrderPicker,
-            icon: _saving
-                ? const AppLoadingIndicator(size: 20, glyphSize: 14)
-                : const Icon(Icons.add_link_rounded),
-            label: const UrduAwareText('Orderga ulash'),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 32),
+          child: Stack(
+            alignment: AlignmentDirectional.centerStart,
+            children: [
+              measureText('Ulangan buyurtma', detailStyle),
+              measureText(noCandidateMessage, detailStyle),
+              measureText(errorMessage, detailStyle),
+              measureText(candidateErrorMessage, detailStyle),
+              if (assignment != null)
+                SingleChildScrollView(
+                  key: const ValueKey('raw-material-current-assignment'),
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _assignedOrderLabel(_lookup!, assignment),
+                        style: detailStyle?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (assignment.apparatus.trim().isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          canonicalApparatusDisplayLabel(
+                            assignment.apparatus,
+                            _apparatusCatalog,
+                          ),
+                          style: detailStyle,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              if (showNoCandidate)
+                UrduAwareText(noCandidateMessage, style: detailStyle),
+              if (!checking && readError != null)
+                UrduAwareText(
+                  _error != null ? errorMessage : candidateErrorMessage,
+                  style: detailStyle?.copyWith(color: scheme.error),
+                ),
+            ],
           ),
-          if (_candidateOrders.isEmpty && !_saving) ...[
-            const SizedBox(height: 8),
-            UrduAwareText(
-              'Bu homashyoga mos faol zakaz topilmadi',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+        ),
+        const SizedBox(height: materialSheetActionGap),
+        action,
+      ],
+    );
+  }
+}
+
+class _AssignmentLoadingShimmer extends StatefulWidget {
+  const _AssignmentLoadingShimmer({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_AssignmentLoadingShimmer> createState() =>
+      _AssignmentLoadingShimmerState();
+}
+
+class _AssignmentLoadingShimmerState extends State<_AssignmentLoadingShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final highlight =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10);
+    return Stack(
+      children: [
+        widget.child,
+        if (!MediaQuery.of(context).disableAnimations)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    final position = _controller.value * 4 - 2;
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment(position - 0.7, -0.4),
+                          end: Alignment(position + 0.7, 0.4),
+                          colors: [
+                            Colors.transparent,
+                            highlight,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
-          ],
-        ],
+          ),
       ],
     );
   }
@@ -456,7 +633,7 @@ String _orderLabel(ProductionMapSaved order) {
       : map.orderNumber.trim().isNotEmpty
           ? map.orderNumber.trim()
           : map.id.trim();
-  final title = map.title.trim().isNotEmpty ? map.title.trim() : 'Zakaz';
+  final title = map.title.trim().isNotEmpty ? map.title.trim() : 'Buyurtma';
   return '$code · $title';
 }
 

@@ -366,6 +366,7 @@ extension MobileApiAdminItemsAstPart01 on MobileApi {
   Future<List<AdminApparatus>> adminApparatus({
     String query = '',
     int limit = 50,
+    bool retryTransient = false,
   }) async {
     final normalized = query.trim().toLowerCase();
     if (await TestModeController.instance.isEnabled()) {
@@ -387,6 +388,7 @@ extension MobileApiAdminItemsAstPart01 on MobileApi {
           },
         ),
         headers: _headers(requireToken()),
+        retryTransient: retryTransient,
       ),
     );
     if (response.statusCode != 200) {

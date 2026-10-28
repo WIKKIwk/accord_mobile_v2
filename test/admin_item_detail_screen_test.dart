@@ -105,13 +105,10 @@ void main() {
     expect(find.text('Customer One'), findsOneWidget);
     expect(find.text('CUST-001 • +998901234567'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('admin-item-detail-edit')),
-      -260,
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('admin-item-detail-edit')),
-    );
+    await tester.tap(find.byKey(const ValueKey('admin-finished-item-actions')));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('admin-finished-action-rename')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('admin-item-detail-code-field')),
@@ -203,12 +200,10 @@ void main() {
     expect(receivedGroup, 'Tayyor mahsulot / Paket');
     expect(find.text('Tayyor mahsulot / Paket'), findsOneWidget);
     expect(find.text('Item group o‘zgartirildi'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('admin-item-detail-manage-customers')),
-      260,
-    );
+    await tester.tap(find.byKey(const ValueKey('admin-finished-item-actions')));
+    await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('admin-item-detail-manage-customers')),
+      find.byKey(const ValueKey('admin-finished-action-customers')),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
@@ -273,14 +268,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final manage = find.byKey(
-      const ValueKey('admin-item-detail-manage-customers'),
-      skipOffstage: false,
-    );
-    await tester.ensureVisible(manage);
-    await tester.pumpAndSettle();
-    await tester.tap(manage);
-    await tester.pumpAndSettle();
+    Future<void> openCustomers() async {
+      await tester
+          .tap(find.byKey(const ValueKey('admin-finished-item-actions')));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('admin-finished-action-customers')));
+      await tester.pumpAndSettle();
+    }
+
+    await openCustomers();
     final customerOption =
         find.byKey(const ValueKey('admin-item-customer-option-CUST-002'));
     await tester.tap(customerOption);
@@ -291,10 +288,7 @@ void main() {
     expect(assignments, const [true]);
     expect(find.text('Customer Two', skipOffstage: false), findsOneWidget);
 
-    await tester.ensureVisible(manage);
-    await tester.pumpAndSettle();
-    await tester.tap(manage);
-    await tester.pumpAndSettle();
+    await openCustomers();
     await tester.tap(customerOption);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('admin-item-customer-done')));
@@ -305,6 +299,89 @@ void main() {
       find.text('Biriktirilmagan', skipOffstage: false),
       findsWidgets,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('finished item menu changes group and confirms deletion',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var current = const AdminItemDetail(
+      code: 'FINISHED-1',
+      name: 'Finished product',
+      uom: 'Kg',
+      itemGroup: 'Tayyor mahsulot',
+      isFinishedGoods: true,
+      createdAtUnix: 1720000000,
+      updatedAtUnix: 1720000060,
+    );
+    var deleted = false;
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      initialRoute: '/detail',
+      routes: {
+        '/': (_) => const Scaffold(body: Text('Itemlar ro‘yxati')),
+        '/detail': (_) => AdminItemDetailScreen(
+              itemCode: current.code,
+              loadDetail: (_) async => current,
+              loadItemGroups: () async =>
+                  ['Tayyor mahsulot', 'Tayyor mahsulot / Paket'],
+              updateItemGroup: ({required itemCode, required itemGroup}) async {
+                expect(itemCode, 'FINISHED-1');
+                current = current.copyWith(itemGroup: itemGroup);
+                return current;
+              },
+              deleteItem: (code) async {
+                expect(code, 'FINISHED-1');
+                deleted = true;
+              },
+            ),
+      },
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Finished product'), findsOneWidget);
+    expect(find.text('FINISHED-1'), findsOneWidget);
+    expect(find.byIcon(Icons.inventory_2_rounded), findsNothing);
+    expect(find.byKey(const ValueKey('admin-finished-item-badge')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-finished-item-information')),
+        findsOneWidget);
+    expect(find.text('Tizim ma’lumotlari'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('admin-finished-item-actions')));
+    await tester.pumpAndSettle();
+    for (final action in ['rename', 'customers', 'group', 'delete']) {
+      final tile = tester.widget<ListTile>(
+          find.byKey(ValueKey('admin-finished-action-$action')));
+      expect(tile.enabled, isTrue);
+      expect(tile.onTap, isNotNull);
+    }
+    await tester.tap(find.byKey(const ValueKey('admin-finished-action-group')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(
+        const ValueKey('admin-item-group-option-Tayyor mahsulot / Paket')));
+    await tester.tap(find.byKey(const ValueKey('admin-item-group-apply')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tayyor mahsulot / Paket'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('admin-finished-item-actions')));
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('admin-finished-action-delete')));
+    await tester.pumpAndSettle();
+    expect(deleted, isFalse);
+    await tester.tap(find.byKey(const ValueKey('admin-item-delete-confirm')));
+    await tester.pumpAndSettle();
+    expect(deleted, isTrue);
+    expect(find.text('Itemlar ro‘yxati'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

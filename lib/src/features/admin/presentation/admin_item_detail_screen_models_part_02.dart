@@ -17,14 +17,49 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
   }
 
   Future<AdminItemDetail> _load() {
-    final loader = widget.loadDetail ?? MobileApi.instance.adminItemDetail;
-    return loader(_itemCode);
+    final loader = widget.loadDetail;
+    return loader != null
+        ? loader(_itemCode)
+        : MobileApi.instance.adminItemDetail(_itemCode, includeImage: true);
   }
 
   Future<void> _reload() async {
     final future = _load();
     setState(() => _detailFuture = future);
     await future;
+  }
+
+  AdminItemDetail _retainImage(AdminItemDetail updated, AdminItemDetail previous) {
+    if (updated.orderImageOrderId.isNotEmpty || updated.code != previous.code) {
+      return updated;
+    }
+    return updated.copyWith(orderImageOrderId: previous.orderImageOrderId);
+  }
+
+  Future<void> _showFinishedItemActions(AdminItemDetail detail) async {
+    if (_saving || _changingGroup || _deleting) return;
+    final scope = currentSessionReadScope();
+    final action = await showModalBottomSheet<_ItemDetailAction>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const _ItemDetailActionsSheet(isCombo: false),
+    );
+    if (!mounted || scope != currentSessionReadScope() ||
+        _itemCode != detail.code) return;
+    switch (action) {
+      case _ItemDetailAction.rename:
+        await _edit(detail);
+      case _ItemDetailAction.customers:
+        await _manageCustomers(detail);
+      case _ItemDetailAction.group:
+        await _changeGroup(detail);
+      case _ItemDetailAction.delete:
+        await _delete(detail);
+      case null:
+        break;
+    }
   }
 
   Future<void> _edit(AdminItemDetail detail) async {
@@ -46,7 +81,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
     setState(() => _saving = true);
     try {
       final updater = widget.updateItem ?? MobileApi.instance.adminUpdateItem;
-      final updated = await updater(
+      final result = await updater(
         originalCode: detail.code,
         code: draft.code,
         name: draft.name,
@@ -54,6 +89,7 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
       if (!mounted) {
         return;
       }
+      final updated = _retainImage(result, detail);
       _changed = true;
       _itemCode = updated.code;
       setState(() {
@@ -190,13 +226,14 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
       setState(() => _changingGroup = true);
       final updater =
           widget.updateItemGroup ?? MobileApi.instance.adminUpdateItemGroup;
-      final updated = await updater(
+      final result = await updater(
         itemCode: detail.code,
         itemGroup: selected,
       );
       if (!mounted) {
         return;
       }
+      final updated = _retainImage(result, detail);
       _changed = true;
       setState(() {
         _detailFuture = Future<AdminItemDetail>.value(updated);
@@ -222,11 +259,12 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
   }) async {
     final updater = widget.updateItemCustomer ??
         MobileApi.instance.adminSetItemCustomerAssigned;
-    final updated = await updater(
+    final result = await updater(
       itemCode: detail.code,
       customer: customer,
       assigned: assigned,
     );
+    final updated = _retainImage(result, detail);
     if (mounted) {
       _changed = true;
       setState(() {
@@ -311,6 +349,16 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                 final detail = snapshot.data!;
                 final mutationBusy = _saving || _changingGroup || _deleting;
                 final l10n = context.l10n;
+                if (detail.isCombo) {
+                  return _ComboItemDetailView(detail: detail);
+                }
+                if (detail.isFinishedGoods) {
+                  return _FinishedItemDetailView(
+                    detail: detail,
+                    actionsEnabled: !mutationBusy,
+                    onActions: () => _showFinishedItemActions(detail),
+                  );
+                }
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
                   children: [
@@ -320,7 +368,6 @@ class _AdminItemDetailScreenState extends State<AdminItemDetailScreen> {
                       disabled: _changingGroup || _deleting || detail.isCombo,
                       onEdit: () => _edit(detail),
                     ),
-                    if (detail.isCombo) ProductionComboCatalogSummary(itemCode: detail.code),
                     const SizedBox(height: 10),
                     _ItemDetailSection(
                       title: l10n.adminText('detail.main_info'),

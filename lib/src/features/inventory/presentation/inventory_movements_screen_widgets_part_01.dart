@@ -230,6 +230,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
               icon: Icons.qr_code_rounded,
               label: 'Identifikator',
               value: asset.identifier,
+              fitValueOnOneLine: true,
             ),
             _AssetSheetDetail(
               icon: Icons.scale_outlined,
@@ -321,15 +322,26 @@ class _AssetSheetDetail extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.fitValueOnOneLine = false,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final bool fitValueOnOneLine;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final valueText = Text(
+      value.trim().isEmpty ? '—' : value,
+      textAlign: TextAlign.end,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+    );
+    final fitValue = fitValueOnOneLine &&
+        MediaQuery.textScalerOf(context).scale(14) <= 14;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -337,8 +349,8 @@ class _AssetSheetDetail extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: scheme.onSurfaceVariant),
           const SizedBox(width: 12),
-          SizedBox(
-            width: 116,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 100),
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -346,14 +358,15 @@ class _AssetSheetDetail extends StatelessWidget {
                   ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              value.trim().isEmpty ? '—' : value,
-              textAlign: TextAlign.end,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
+            child: fitValue
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: valueText,
+                  )
+                : valueText,
           ),
         ],
       ),

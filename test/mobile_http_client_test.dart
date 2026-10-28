@@ -13,7 +13,7 @@ void main() {
       () async {
     final client = DevApiProxyClient(MockClient((request) async {
       expect(request.url.toString(),
-          'http://127.0.0.1:52218/__accord_api/v1/mobile/auth/login');
+          'http://127.0.0.1:39120/v1/mobile/auth/login');
       expect(request.method, 'POST');
       expect(request.headers['content-type'], contains('application/json'));
       expect(jsonDecode(request.body),
@@ -34,7 +34,7 @@ void main() {
   test('retains query, auth, request options and upstream failure', () async {
     final inner = _InspectingClient((request) async {
       expect(request.url.toString(),
-          'http://127.0.0.1:52218/__accord_api/v1/mobile/items?q=a%2Bb&page=2');
+          'http://127.0.0.1:39120/v1/mobile/items?q=a%2Bb&page=2');
       expect(request.headers['Authorization'], 'Bearer test-token');
       expect(request.followRedirects, isFalse);
       expect(request.maxRedirects, 2);
@@ -108,7 +108,7 @@ void main() {
     final config = File('web_dev_config.yaml').readAsStringSync();
     expect(devApiProxyTarget, 'https://mini-rs-erp-test.wspace.sbs');
     expect(config, contains('prefix: /__accord_api/'));
-    expect(config, contains('target: http://127.0.0.1:18081/'));
+    expect(config, contains('target: http://127.0.0.1:39120/'));
     expect(config, contains('replace: /'));
   });
 

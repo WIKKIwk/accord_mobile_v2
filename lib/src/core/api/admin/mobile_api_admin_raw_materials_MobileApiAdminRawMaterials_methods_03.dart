@@ -204,6 +204,7 @@ extension MobileApiAdminRawMaterialsAstPart03 on MobileApi {
           '${MobileApi.baseUrl}/v1/mobile/admin/raw-material-assignments/lookup',
         ).replace(queryParameters: {'barcode': normalized}),
         headers: _headers(requireToken()),
+        retryTransient: true,
       ),
     );
     if (response.statusCode != 200) {

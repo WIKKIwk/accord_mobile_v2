@@ -223,6 +223,7 @@ class AdminItemDetail {
     required this.createdAtUnix,
     required this.updatedAtUnix,
     this.customers = const <CustomerDirectoryEntry>[],
+    this.orderImageOrderId = '',
   });
 
   final String code;
@@ -234,6 +235,7 @@ class AdminItemDetail {
   final int createdAtUnix;
   final int updatedAtUnix;
   final List<CustomerDirectoryEntry> customers;
+  final String orderImageOrderId;
 
   factory AdminItemDetail.fromJson(Map<String, dynamic> json) {
     final customers = json['customers'];
@@ -245,6 +247,7 @@ class AdminItemDetail {
       isFinishedGoods: json['is_finished_goods'] as bool? ?? false,
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt() ?? 0,
       updatedAtUnix: (json['updated_at_unix'] as num?)?.toInt() ?? 0,
+      orderImageOrderId: json['order_image_order_id'] as String? ?? '',
       customers: customers is List
           ? customers
               .whereType<Map>()
@@ -267,6 +270,7 @@ class AdminItemDetail {
     int? createdAtUnix,
     int? updatedAtUnix,
     List<CustomerDirectoryEntry>? customers,
+    String? orderImageOrderId,
   }) {
     return AdminItemDetail(
       code: code ?? this.code,
@@ -277,6 +281,7 @@ class AdminItemDetail {
       createdAtUnix: createdAtUnix ?? this.createdAtUnix,
       updatedAtUnix: updatedAtUnix ?? this.updatedAtUnix,
       customers: customers ?? this.customers,
+      orderImageOrderId: orderImageOrderId ?? this.orderImageOrderId,
     );
   }
 }

@@ -363,7 +363,8 @@ extension MobileApiAdminItemsAstPart04 on MobileApi {
     );
   }
 
-  Future<AdminItemDetail> adminItemDetail(String itemCode) async {
+  Future<AdminItemDetail> adminItemDetail(String itemCode,
+      {bool includeImage = false}) async {
     final code = itemCode.trim();
     if (await TestModeController.instance.isEnabled()) {
       if (_testModeDeletedAdminItemCodes.contains(code.toLowerCase())) {
@@ -413,7 +414,10 @@ extension MobileApiAdminItemsAstPart04 on MobileApi {
       () => _get(
         Uri.parse(
           '${MobileApi.baseUrl}/v1/mobile/admin/items/detail',
-        ).replace(queryParameters: {'code': code}),
+        ).replace(queryParameters: {
+          'code': code,
+          if (includeImage) 'include_image': 'true',
+        }),
         headers: _headers(requireToken()),
       ),
     );

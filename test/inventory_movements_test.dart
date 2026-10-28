@@ -897,7 +897,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Zakaz tanlang'), findsOneWidget);
+    expect(find.text('Buyurtmani tanlang'), findsOneWidget);
     await tester.tap(find.text('Z-100 · Test zakaz'));
     await tester.pumpAndSettle();
     final confirmAssignment = find.byKey(
@@ -947,7 +947,7 @@ void main() {
       find.byKey(const ValueKey('raw-material-unlink-button')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Bu homashyoni zakazdan uzasizmi?'), findsOneWidget);
+    expect(find.text('Bu homashyoni buyurtmadan uzasizmi?'), findsOneWidget);
     final confirmUnlink = find.byKey(
       const ValueKey('raw-material-confirm-unlink'),
     );

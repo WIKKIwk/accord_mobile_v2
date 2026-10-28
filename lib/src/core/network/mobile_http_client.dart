@@ -3,10 +3,11 @@ import 'package:http/http.dart' as http;
 
 import 'api_transport_policy.dart';
 
-// Only this canonical API origin may use the local preview proxy configured
-// in web_dev_config.yaml. Retain it in sessions/saved accounts, and never send
+// Only this canonical API origin may use the project loopback HTTP bridge.
+// Retain it in sessions/saved accounts, and never send
 // another server's credentials to the local core.
 const devApiProxyTarget = 'https://mini-rs-erp-test.wspace.sbs';
+const devApiBridgeOrigin = 'http://127.0.0.1:39120';
 
 http.Client createMobileHttpClient({bool useDevProxy = true}) {
   final client = http.Client();
@@ -65,7 +66,11 @@ class SecureMobileApiClient extends http.BaseClient {
               'proxy-authorization',
             }.contains(key.toLowerCase()));
       }
-      current = http.Request(current.method, destination)
+      current = http.AbortableRequest(
+        current.method,
+        destination,
+        abortTrigger: current is http.Abortable ? current.abortTrigger : null,
+      )
         ..headers.addAll(headers)
         ..persistentConnection = request.persistentConnection;
     }
@@ -75,7 +80,8 @@ class SecureMobileApiClient extends http.BaseClient {
   void close() => _inner.close();
 }
 
-/// Routes only the configured test backend through Flutter's local dev server.
+/// Routes the test backend directly through the project's local HTTP bridge.
+/// Flutter's asset server must never turn a failed API request into index.html.
 class DevApiProxyClient extends http.BaseClient {
   DevApiProxyClient(this._inner, {required this.previewOrigin});
 
@@ -84,11 +90,12 @@ class DevApiProxyClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    if (request.url.origin != devApiProxyTarget) {
+    if (request.url.origin != devApiProxyTarget ||
+        !const {'127.0.0.1', 'localhost', '::1'}.contains(previewOrigin.host)) {
       return _inner.send(request);
     }
-    final proxiedUrl = Uri.parse(previewOrigin.origin).replace(
-      path: '/__accord_api${request.url.path}',
+    final proxiedUrl = Uri.parse(devApiBridgeOrigin).replace(
+      path: request.url.path,
       query: request.url.hasQuery ? request.url.query : null,
     );
     // Finalize first so multipart headers and content length are populated.
@@ -100,9 +107,10 @@ class DevApiProxyClient extends http.BaseClient {
   void close() => _inner.close();
 }
 
-class _ProxiedRequest extends http.BaseRequest {
+class _ProxiedRequest extends http.BaseRequest with http.Abortable {
   _ProxiedRequest(http.BaseRequest original, Uri uri, this._body)
-      : super(original.method, uri) {
+      : abortTrigger = original is http.Abortable ? original.abortTrigger : null,
+        super(original.method, uri) {
     headers.addAll(original.headers);
     contentLength = original.contentLength;
     followRedirects = original.followRedirects;
@@ -111,6 +119,8 @@ class _ProxiedRequest extends http.BaseRequest {
   }
 
   final http.ByteStream _body;
+  @override
+  final Future<void>? abortTrigger;
 
   @override
   http.ByteStream finalize() {

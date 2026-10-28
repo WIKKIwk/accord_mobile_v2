@@ -90,7 +90,9 @@ void main() {
       expect(fixture.detailReads, 1);
       expect(fixture.candidateReads, 1);
       expect(
-          find.text('Bu homashyoga mos faol zakaz topilmadi'), findsOneWidget);
+        find.text('Bu homashyoga mos faol buyurtma topilmadi'),
+        findsOneWidget,
+      );
       expect(
         fixture.requests.any((uri) =>
             uri.path.endsWith('/production-maps/sequence') ||

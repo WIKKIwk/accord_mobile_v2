@@ -7,12 +7,20 @@ class _ItemDetailHeader extends StatelessWidget {
     required this.saving,
     required this.disabled,
     required this.onEdit,
+    this.comboImageUrl = '',
+    this.onComboActions,
+    this.finishedImageUrl = '',
+    this.onFinishedActions,
   });
 
   final AdminItemDetail detail;
   final bool saving;
   final bool disabled;
   final VoidCallback onEdit;
+  final String comboImageUrl;
+  final VoidCallback? onComboActions;
+  final String finishedImageUrl;
+  final VoidCallback? onFinishedActions;
 
   @override
   Widget build(BuildContext context) {
@@ -30,19 +38,30 @@ class _ItemDetailHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: detail.isCombo || detail.isFinishedGoods
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.center,
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: scheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(14),
+                if (detail.isCombo || detail.isFinishedGoods)
+                  _ItemDetailImage(
+                    key: ValueKey(detail.isCombo
+                        ? 'admin-combo-item-image'
+                        : 'admin-finished-item-image'),
+                    imageUrl: detail.isCombo ? comboImageUrl : finishedImageUrl,
+                  )
+                else
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.inventory_2_rounded,
+                      color: scheme.onSecondaryContainer,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.inventory_2_rounded,
-                    color: scheme.onSecondaryContainer,
-                  ),
-                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -54,45 +73,80 @@ class _ItemDetailHeader extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        detail.code,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                      if (!detail.isFinishedGoods ||
+                          detail.code.trim() != detail.name.trim()) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          detail.code,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
+                if (detail.isCombo || detail.isFinishedGoods)
+                  IconButton(
+                    key: ValueKey(detail.isCombo
+                        ? 'admin-combo-item-actions'
+                        : 'admin-finished-item-actions'),
+                    tooltip: l10n.adminText(detail.isCombo
+                        ? 'calculate.combo_actions'
+                        : 'detail.item_actions'),
+                    onPressed:
+                        detail.isCombo ? onComboActions : onFinishedActions,
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    visualDensity: VisualDensity.compact,
+                  ),
               ],
             ),
-            if (detail.isFinishedGoods) ...[
+            if (detail.isCombo || detail.isFinishedGoods) ...[
               const SizedBox(height: 14),
-              Chip(
-                avatar: Icon(Icons.task_alt_rounded, size: 18),
-                label: Text(l10n.adminText(detail.isCombo ? 'calculate.combo' : 'detail.finished_product')),
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: const ValueKey('admin-item-detail-edit'),
-                onPressed: saving || disabled ? null : onEdit,
-                icon: saving
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.edit_rounded),
-                label: Text(
-                  saving
-                      ? l10n.adminText('action.saving')
-                      : l10n.adminText('detail.edit_name_code'),
+              DecoratedBox(
+                key: ValueKey(detail.isCombo
+                    ? 'admin-combo-item-badge'
+                    : 'admin-finished-item-badge'),
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Text(
+                    l10n.adminText(detail.isCombo
+                        ? 'calculate.combo'
+                        : 'detail.finished_product'),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
+            if (!detail.isCombo && !detail.isFinishedGoods) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('admin-item-detail-edit'),
+                  onPressed: saving || disabled ? null : onEdit,
+                  icon: saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.edit_rounded),
+                  label: Text(
+                    saving
+                        ? l10n.adminText('action.saving')
+                        : l10n.adminText('detail.edit_name_code'),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -604,6 +604,8 @@ class UrduUiTextTranslations {
     'Bu buyurtmada formula qolmadi.': 'اس آرڈر میں کوئی فارمولہ باقی نہیں۔',
     'Bu homashyo bo‘yicha hali kirim yoki chiqim yo‘q.':
         'اس خام مال کی ابھی تک کوئی وصولی یا اجرا نہیں ہوا۔',
+    'Bu homashyoga mos faol buyurtma topilmadi':
+        'اس خام مال کے لیے کوئی فعال آرڈر نہیں ملا۔',
     'Bu homashyoga mos faol zakaz topilmadi':
         'اس خام مال کے لیے کوئی فعال آرڈر نہیں ملا۔',
     'Bu mahsulotda formula qolmadi.':
@@ -614,6 +616,9 @@ class UrduUiTextTranslations {
     'Bu receipt sizga tegishli emas.': 'یہ رسید آپ کی نہیں ہے۔',
     'Bu supplierga item biriktirilmagan.':
         'اس سپلائر کے لیے کوئی آئٹم مختص نہیں۔',
+    'Buyurtma ma’lumoti yuklanmadi': 'آرڈر کی معلومات لوڈ نہیں ہوسکیں',
+    'Mos buyurtmalar yuklanmadi': 'مطابق آرڈرز لوڈ نہیں ہوسکے',
+    'Buyurtmaga ulash': 'آرڈر کو مختص کریں',
     'Buyurtma kodi: \${widget.orderCode.isEmpty ? \'-\' : widget.orderCode}':
         'آرڈر کوڈ: \${widget.orderCode.isEmpty ? \'-\' : widget.orderCode}',
     'Buyurtma №\${orderNumber.trim()}': 'آرڈر نمبر \${orderNumber.trim()}',
@@ -871,6 +876,7 @@ class UrduUiTextTranslations {
     'USB printer aniqlanmadi: \$error': 'USB پرنٹر نہیں ملا: \$error',
     'USB printer aniqlanmoqda...': 'USB پرنٹر تلاش ہورہا ہے...',
     'USB printerni tanlash': 'USB پرنٹر منتخب کریں',
+    'Ulangan buyurtma': 'مختص کردہ آرڈر',
     'Ulangan rulonlar: \${_request.selectedBarcodes.join(\', \')}':
         'منسلک رولز: \${_request.selectedBarcodes.join(\', \')}',
     'Ulash uchun so‘rov': 'منسلک کرنے کی درخواست',

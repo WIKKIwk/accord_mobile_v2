@@ -13,38 +13,48 @@ bool get canReadProductionComboCatalog =>
 /// A combo identifies tooling for one layout; each row remains an output SKU.
 class ProductionComboSummary extends StatelessWidget {
   const ProductionComboSummary(
-      {super.key, required this.combo, required this.products});
+      {super.key,
+      required this.combo,
+      required this.products,
+      this.embedded = false});
   final ProductionComboReference combo;
   final List<OrderProduct> products;
+  final bool embedded;
   @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-            padding: const EdgeInsets.all(14),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Chip(
-                  label: Text(
-                      '${context.l10n.adminText('calculate.combo')} · v${combo.revision}')),
-              Text(combo.name, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(combo.itemCode),
-              if (products.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(context.l10n.adminText('calculate.combo_components')),
-                for (final row in products)
-                  Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                          '${row.product} · ${row.itemCode} · ${row.frameProductSizeMm} mm × ${row.frameCount}')),
-              ],
-            ])),
-      );
+  Widget build(BuildContext context) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Chip(
+            label: Text(
+                '${context.l10n.adminText('calculate.combo')} · v${combo.revision}')),
+        Text(combo.name, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text(combo.itemCode),
+        if (products.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(context.l10n.adminText('calculate.combo_components')),
+          for (final row in products)
+            Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                    '${row.product} · ${row.itemCode} · ${row.frameProductSizeMm} mm × ${row.frameCount}')),
+        ],
+      ],
+    );
+    if (embedded) return content;
+    return Card(
+      child: Padding(padding: const EdgeInsets.all(14), child: content),
+    );
+  }
 }
 
 /// Catalog metadata is fetched by immutable revision SKU, without polling.
 class ProductionComboCatalogSummary extends StatefulWidget {
-  const ProductionComboCatalogSummary({super.key, required this.itemCode});
+  const ProductionComboCatalogSummary(
+      {super.key, required this.itemCode, this.embedded = false});
   final String itemCode;
+  final bool embedded;
   @override
   State<ProductionComboCatalogSummary> createState() =>
       _ProductionComboCatalogSummaryState();
@@ -91,7 +101,9 @@ class _ProductionComboCatalogSummaryState
           final value = snapshot.data;
           if (value != null) {
             return ProductionComboSummary(
-                combo: value.combo, products: value.template.products);
+                combo: value.combo,
+                products: value.template.products,
+                embedded: widget.embedded);
           }
           if (snapshot.hasError) {
             return TextButton.icon(

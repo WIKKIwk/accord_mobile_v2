@@ -32,6 +32,7 @@ import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
 import '../network/server_endpoint_store.dart';
 import '../network/mobile_http_client.dart';
+import '../network/resilient_api_read.dart';
 import '../network/api_transport_policy.dart';
 import '../session/accounts/saved_account_runtime.dart';
 import '../session/session.dart';
@@ -334,16 +335,34 @@ class MobileApi {
       ..['idempotency-key'] = idempotencyKey;
   }
 
-  Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) {
-    if (NativeIrohTransport.canUseFor(uri)) {
-      return NativeIrohTransport.send(
-        method: 'GET',
-        fallbackClient: _httpClient,
-        uri: uri,
-        headers: headers,
-      ).timeout(_requestTimeout);
+  Future<http.Response> _get(Uri uri, {
+    Map<String, String>? headers,
+    bool retryTransient = false,
+  }) {
+    if (!retryTransient) {
+      if (NativeIrohTransport.canUseFor(uri)) {
+        return NativeIrohTransport.send(
+          method: 'GET',
+          fallbackClient: _httpClient,
+          uri: uri,
+          headers: headers,
+        ).timeout(_requestTimeout);
+      }
+      return _httpClient.get(uri, headers: headers).timeout(_requestTimeout);
     }
-    return _httpClient.get(uri, headers: headers).timeout(_requestTimeout);
+    return resilientApiRead(uri, (abortTrigger) async {
+      if (NativeIrohTransport.canUseFor(uri)) {
+        return NativeIrohTransport.send(
+          method: 'GET',
+          fallbackClient: _httpClient,
+          uri: uri,
+          headers: headers,
+        );
+      }
+      final request = http.AbortableRequest('GET', uri, abortTrigger: abortTrigger)
+        ..headers.addAll(headers ?? const {});
+      return http.Response.fromStream(await _httpClient.send(request));
+    }, attemptTimeout: _requestTimeout);
   }
 
   Future<http.Response> _post(

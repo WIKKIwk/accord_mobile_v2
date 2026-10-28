@@ -197,6 +197,14 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final createdAt = formatUnixSecondsLocalDateTime(order.createdAtUnix ?? 0);
+    final createdAtValue = detailPending
+        ? context.l10n.loading
+        : createdAt.isEmpty
+            ? context.l10n.adminText('detail.date_missing')
+            : createdAt;
+    final showAdminComboCard = !workerMode &&
+        !summaryOnlyMode &&
+        AppSession.instance.profile?.role == UserRole.admin;
     final cardUiState = presentationUiState ?? uiState;
     final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
       map: map,
@@ -229,7 +237,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
-                  if (map.combo != null)
+                  if (map.combo != null && !showAdminComboCard)
                     map.products.isEmpty && canReadProductionComboCatalog
                       ? ProductionComboCatalogSummary(itemCode: map.combo!.itemCode)
                       : ProductionComboSummary(combo: map.combo!, products: map.products),
@@ -483,16 +491,68 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       AppSession.instance.profile?.role == UserRole.admin) ...[
                     _orderDetailSurfaceCard(
                       context: context,
-                      child: AppInfoRow(
+                      child: Padding(
                         key: const ValueKey('production-order-created-at'),
-                        label: context.l10n.adminText('detail.created_at'),
-                        value: detailPending
-                            ? context.l10n.loading
-                            : createdAt.isEmpty
-                                ? context.l10n.adminText('detail.date_missing')
-                                : createdAt,
-                        icon: Icons.event_outlined,
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        child: Row(
+                          children: [
+                            Icon(Icons.event_outlined,
+                                size: 16, color: scheme.onSurfaceVariant),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                context.l10n.adminText('detail.created_at'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                switchInCurve: Curves.easeOut,
+                                switchOutCurve: Curves.easeOut,
+                                transitionBuilder: (child, animation) =>
+                                    FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                ),
+                                layoutBuilder: (currentChild, previousChildren) =>
+                                    Stack(
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  children: [
+                                    ...previousChildren,
+                                    if (currentChild != null) currentChild,
+                                  ],
+                                ),
+                                child: Text(
+                                  createdAtValue,
+                                  key: ValueKey(
+                                      '${detailPending ? 'loading' : 'loaded'}:$createdAtValue'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  if (showAdminComboCard && map.combo != null) ...[
+                    _OrderComboDetailCard(
+                      key: ValueKey('production-order-combo:${map.id}'),
+                      map: map,
                     ),
                     const SizedBox(height: 4),
                   ],
@@ -553,6 +613,82 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _OrderComboDetailCard extends StatefulWidget {
+  const _OrderComboDetailCard({super.key, required this.map});
+
+  final ProductionMapDefinition map;
+
+  @override
+  State<_OrderComboDetailCard> createState() => _OrderComboDetailCardState();
+}
+
+class _OrderComboDetailCardState extends State<_OrderComboDetailCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final combo = widget.map.combo!;
+    final content = widget.map.products.isEmpty && canReadProductionComboCatalog
+        ? ProductionComboCatalogSummary(itemCode: combo.itemCode, embedded: true)
+        : ProductionComboSummary(
+            combo: combo, products: widget.map.products, embedded: true);
+    return _orderDetailSurfaceCard(
+      context: context,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            button: true,
+            expanded: _expanded,
+            child: InkWell(
+              key: const ValueKey('production-order-combo-toggle'),
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 10, 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.adminText('calculate.combo_details'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(Icons.keyboard_arrow_down_rounded,
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Visibility(
+              visible: _expanded,
+              maintainState: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: content,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -2,6 +2,48 @@ part of 'admin_localization.dart';
 
 const _adminComboTranslations = <String, Map<String, String>>{
   'admin.calculate.combo': {'uz': 'Kombo', 'en': 'Combo', 'ru': 'Комбо'},
+  'admin.calculate.combo_details': {
+    'uz': 'Kombo ma’lumotlari',
+    'en': 'Combo details',
+    'ru': 'Информация о комбо',
+    'ur': 'کومبو کی تفصیلات',
+  },
+  'admin.calculate.combo_actions': {
+    'uz': 'Kombo amallari',
+    'en': 'Combo actions',
+    'ru': 'Действия с комбо',
+    'ur': 'کومبو کے اختیارات',
+  },
+  'admin.detail.item_actions': {
+    'uz': 'Mahsulot amallari',
+    'en': 'Product actions',
+    'ru': 'Действия с товаром',
+    'ur': 'مصنوعات کے اختیارات',
+  },
+  'admin.calculate.combo_action_rename': {
+    'uz': 'Nomni o‘zgartirish',
+    'en': 'Change name',
+    'ru': 'Изменить название',
+    'ur': 'نام تبدیل کریں',
+  },
+  'admin.calculate.combo_actions_locked': {
+    'uz': 'Kombo o‘zgarmas versiya sifatida saqlangani uchun bu amallar hozircha mavjud emas.',
+    'en': 'These actions are unavailable because the combo is stored as an immutable revision.',
+    'ru': 'Эти действия недоступны: комбо сохранено как неизменяемая версия.',
+    'ur': 'کومبو ایک غیر متغیر ورژن کے طور پر محفوظ ہے، اس لیے یہ اختیارات دستیاب نہیں ہیں۔',
+  },
+  'admin.calculate.combo_product_unnamed': {
+    'uz': 'Nomsiz mahsulot',
+    'en': 'Unnamed product',
+    'ru': 'Товар без названия',
+    'ur': 'بے نام مصنوعات',
+  },
+  'admin.calculate.combo_products_empty': {
+    'uz': 'Mahsulotlar biriktirilmagan',
+    'en': 'No products are linked',
+    'ru': 'Товары не привязаны',
+    'ur': 'کوئی مصنوعات منسلک نہیں ہیں',
+  },
   'admin.calculate.combo_name_title': {
     'uz': 'Komboga nom bering',
     'en': 'Name this combo',
