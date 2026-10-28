@@ -21,8 +21,9 @@ class _PrintState extends State<QolipPaddonPrintButton> {
     setState(() => _busy = true);
     try {
       final printer = await pickProgressPrinter(context);
-      if (printer == null || !mounted || scope != currentSessionReadScope())
+      if (printer == null || !mounted || scope != currentSessionReadScope()) {
         return;
+      }
       final job = await MobileApi.instance.qolipPrintPaddonQr(
         code: widget.code,
         driverUrl: printer.driverUrl,

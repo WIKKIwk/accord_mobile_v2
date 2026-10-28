@@ -39,7 +39,7 @@ void main() {
           code: ' qp-00012 ',
           driverUrl: 'http://printer/',
           transport: PrintTransport.offline);
-      expect(job.epc, 'QP-00012');
+      expect(job.epc, 'qolip-paddon:QP-00012');
       expect(job.isPaddonCodeLabel, isTrue);
       expect(requests, hasLength(1));
       expect(requests.single.url.path, '/v1/mobile/qolip/paddons/qr/print');
@@ -53,9 +53,9 @@ void main() {
               return http.Response(
                   jsonEncode({
                     'ok': true,
-                    'qr_payload': 'QP-00012',
+                    'qr_payload': 'qolip-paddon:QP-00012',
                     'print': {
-                      'qr_payload': 'QP-00012',
+                      'qr_payload': 'qolip-paddon:QP-00012',
                       'label_kind': 'paddon_code'
                     }
                   }),

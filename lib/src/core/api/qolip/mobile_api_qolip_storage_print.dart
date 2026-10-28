@@ -17,10 +17,15 @@ extension MobileApiQolipStoragePrint on MobileApi {
       'print_count': 1,
       if (transport.isLocal) 'print_transport': transport.clientApiValue,
     });
-    if (response['qr_payload'] != normalized || response['print'] is! Map) {
+    if (response['qr_payload'] != 'qolip-paddon:$normalized' ||
+        response['print'] is! Map) {
       throw const FormatException('Invalid mold pallet print response');
     }
-    return UsbRpsPrintRequest.fromPrintJson(
+    final job = UsbRpsPrintRequest.fromPrintJson(
         Map<String, dynamic>.from(response['print'] as Map));
+    if (job.epc != 'qolip-paddon:$normalized' || !job.isPaddonCodeLabel) {
+      throw const FormatException('Mold pallet print identity changed');
+    }
+    return job;
   }
 }
