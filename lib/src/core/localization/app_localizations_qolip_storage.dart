@@ -111,6 +111,34 @@ extension AppLocalizationsQolipStorage on AppLocalizations {
             'Ko‘rinayotgan mos qoliplarni tanlash',
             'Select loaded eligible molds',
             'Выбрать загруженные доступные формы'),
+        'locked_error' => _t('Avval paddon qulfini oching.',
+            'Unlock the pallet first.', 'Сначала разблокируйте поддон.'),
+        'archived_error' => _t(
+            'Avval arxivdan chiqaring.',
+            'Restore from the archive first.',
+            'Сначала восстановите из архива.'),
+        'in_paddon_error' => _t(
+            'Qolipni avval mavjud paddonidan chiqaring.',
+            'Remove the mold from its current pallet first.',
+            'Сначала извлеките форму из текущего поддона.'),
+        'empty_error' => _t(
+            'Avval paddonga qolip qo‘shing.',
+            'Add molds to the pallet first.',
+            'Сначала добавьте формы на поддон.'),
+        'forbidden_error' => _t(
+            'Bu ombor yoki amalga ruxsat yo‘q.',
+            'This warehouse or action is not permitted.',
+            'Нет доступа к этому складу или действию.'),
+        'capacity_error' => _t(
+            'Bir amalda ko‘pi bilan 1000 ta qolip tanlang.',
+            'Select at most 1000 molds per action.',
+            'Выберите не более 1000 форм за одну операцию.'),
+        'scan_paddon' =>
+          _t('Paddon QR kodini ochish', 'Open pallet QR', 'Открыть QR поддона'),
+        'invalid_paddon_qr' => _t(
+            'Bu paddon QR kodi emas. Paddon raqamini qidiruvga yozish ham mumkin.',
+            'This is not a pallet QR. You can also search by pallet number.',
+            'Это не QR поддона. Также можно искать по номеру поддона.'),
         _ => key,
       };
 }

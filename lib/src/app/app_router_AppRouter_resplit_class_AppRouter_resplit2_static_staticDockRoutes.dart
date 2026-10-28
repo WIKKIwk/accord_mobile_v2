@@ -61,6 +61,8 @@ const _app_router_AppRouter_resplit_class_AppRouter_staticDockRoutes_resplit2Val
   AppRoutes.qolipProducts,
   AppRoutes.qolipSets,
   AppRoutes.qolipReworks,
+  AppRoutes.qolipPaddons,
+  AppRoutes.qolipArchive,
   AppRoutes.qolipTasks,
   AppRoutes.qolipCheckouts,
   AppRoutes.qolipLocationTransfer,

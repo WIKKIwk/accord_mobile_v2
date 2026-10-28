@@ -12,17 +12,21 @@ class QolipPaddon {
         warehouse = json['warehouse'] as String,
         location = json['location'] as String? ?? '',
         note = json['note'] as String? ?? '',
+        archiveEntryId = json['archive_entry_id'] as String?,
         locked = json['locked'] as bool,
         archived = json['archived'] as bool,
         revision = (json['revision'] as num).toInt(),
+        totalQuantity = (json['total_quantity'] as num?)?.toInt() ??
+            (json['item_count'] as num).toInt(),
         itemCount = (json['item_count'] as num).toInt() {
     if (code.isEmpty || warehouse.isEmpty || revision < 0 || itemCount < 0) {
       throw const FormatException('Invalid mold pallet');
     }
   }
   final String code, warehouse, location, note;
+  final String? archiveEntryId;
   final bool locked, archived;
-  final int revision, itemCount;
+  final int revision, itemCount, totalQuantity;
   bool get editable => !locked && !archived;
 }
 
@@ -40,6 +44,7 @@ class QolipStorageMold {
         inUse = json['is_in_use'] == true,
         inRework = json['is_in_rework'] == true,
         transferring = json['is_transferring'] == true,
+        custodyMismatch = json['is_custody_mismatch'] == true,
         products = List<Map<String, dynamic>>.unmodifiable(
             (json['products'] as List? ?? const [])
                 .map((e) => Map<String, dynamic>.from(e as Map))) {
@@ -47,7 +52,7 @@ class QolipStorageMold {
   }
   final String code, setId, warehouse, name, color, paddonCode;
   final int size, quantity;
-  final bool archived, inUse, inRework, transferring;
+  final bool archived, inUse, inRework, transferring, custodyMismatch;
   final List<Map<String, dynamic>> products;
   bool get available =>
       !archived && !inUse && !inRework && !transferring && paddonCode.isEmpty;
@@ -153,8 +158,8 @@ extension MobileApiQolipStorage on MobileApi {
               .toString(),
           statusCode: response.statusCode);
     }
-    if (body != null) {
-      QolipCatalogStore.instance.invalidateDetails();
+    if (body != null && !path.endsWith('/qr/print')) {
+      QolipCatalogStore.instance.applyResponse(json, scope);
     }
     return json;
   }
@@ -218,4 +223,13 @@ extension MobileApiQolipStorage on MobileApi {
             QolipArchiveEntry.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
+}
+
+/// Typed pallet QR payloads never reinterpret an opaque mold code as a pallet.
+String? qolipPaddonCodeFromQr(String raw) {
+  final value = raw.trim();
+  const prefix = 'qolip-paddon:';
+  if (!value.startsWith(prefix)) return null;
+  final code = value.substring(prefix.length);
+  return RegExp(r'^QP-[0-9]{5,}$').hasMatch(code) ? code : null;
 }

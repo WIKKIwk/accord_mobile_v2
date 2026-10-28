@@ -614,6 +614,10 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, const QolipSetsScreen());
     case AppRoutes.qolipReworks:
       return AppRouter._buildRoute(settings, const QolipReworksScreen());
+    case AppRoutes.qolipPaddons:
+      return AppRouter._buildRoute(settings, const QolipStorageScreen());
+    case AppRoutes.qolipArchive:
+      return AppRouter._buildRoute(settings, const QolipStorageScreen(archive: true));
     case AppRoutes.qolipCheckouts:
       return AppRouter._buildRoute(settings, const QolipCheckoutsScreen());
     case AppRoutes.qolipLocationTransfer:

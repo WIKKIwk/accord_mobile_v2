@@ -70,6 +70,8 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.qolipProducts: {'qolip.manage'},
   AppRoutes.qolipSets: {'qolip.manage'},
   AppRoutes.qolipReworks: {'qolip.manage'},
+  AppRoutes.qolipPaddons: {'qolip.manage'},
+  AppRoutes.qolipArchive: {'qolip.manage'},
   AppRoutes.qolipTasks: {'qolip.manage'},
   AppRoutes.materialTasks: {'raw_material.assign'},
   AppRoutes.qolipCheckouts: {'qolip.manage'},
