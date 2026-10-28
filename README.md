@@ -32,6 +32,15 @@ The application supports saved accounts and server selection. A saved server
 selection overrides the initial endpoint configured at build time. GScale/RPS
 weighing and printing use a separate LAN connection.
 
+Named multi-product calculations create a typed combo catalog entry after a
+successful calculation and name confirmation. Existing combos can be reused
+from the finished-product catalog. The combo reference and layout revision travel
+with the order; its original component SKUs remain the cutting and warehouse
+outputs. Mold assignments belong to the combo revision. A changed layout needs
+a new revision and explicit tooling assignment; quantity-only calculations reuse
+the existing revision. This requires a backend with migration
+`0169_combo_catalog` and the combo catalog API.
+
 ## Development
 
 Requirements:
