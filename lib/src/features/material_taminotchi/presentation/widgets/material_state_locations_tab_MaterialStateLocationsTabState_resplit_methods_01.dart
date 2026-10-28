@@ -17,9 +17,12 @@ extension MaterialStateLocationsTabStateAstPart01
       MobileApi.instance.inventoryAssets(
         assetKind: InventoryAssetKind.rawMaterial,
         currentUserStatesOnly: true,
+        includeOrderAssignment: AppSession.instance.can('raw_material.assign'),
         limit: 500,
       ),
-      MobileApi.instance.inventoryLocations(),
+      widget.locations != null
+          ? Future.value(widget.locations!)
+          : MobileApi.instance.inventoryLocations(),
     ]);
     final assets = (results[0] as List<InventoryAsset>)
         .where(
@@ -29,6 +32,7 @@ extension MaterialStateLocationsTabStateAstPart01
     final locations = (results[1] as List<InventoryLocation>)
         .where((location) => location.active)
         .toList(growable: false);
+    widget.onAssignmentsLoaded?.call(assets);
     return _MaterialStateLocationsData(
       assets: assets,
       locations: locations,
@@ -344,8 +348,7 @@ extension MaterialStateLocationsTabStateAstPart01
   }) {
     final assetKey = _inventoryStateAssetKey(asset);
     final exiting = _exitingAssetKeys.contains(assetKey);
-    final orderAssignment =
-        widget.orderAssignments[rawMaterialAssetBarcode(asset)];
+    final orderAssignment = _assignmentFor(asset);
     return M3AnimatedListEntry(
       key: ValueKey('material-state-asset-animation-$assetKey'),
       visible: !exiting,

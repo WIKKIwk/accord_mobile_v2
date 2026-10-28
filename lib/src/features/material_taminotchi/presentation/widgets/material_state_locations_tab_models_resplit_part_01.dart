@@ -19,6 +19,8 @@ class MaterialStateLocationsTab extends StatefulWidget {
     this.onAssetsChanged,
     this.onAssetQrRequested,
     this.orderAssignments = const {},
+    this.locations,
+    this.onAssignmentsLoaded,
     this.onOrderAssignmentChanged,
     this.onSelectionChanged,
   }) : assert(onAssetReturned != null || onAssetsChanged != null);
@@ -28,6 +30,8 @@ class MaterialStateLocationsTab extends StatefulWidget {
   final Future<void> Function(List<InventoryAsset>)? onAssetsChanged;
   final Future<void> Function(InventoryAsset asset)? onAssetQrRequested;
   final Map<String, RawMaterialListAssignment> orderAssignments;
+  final List<InventoryLocation>? locations;
+  final ValueChanged<List<InventoryAsset>>? onAssignmentsLoaded;
   final Future<void> Function()? onOrderAssignmentChanged;
   final ValueChanged<int>? onSelectionChanged;
 

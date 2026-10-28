@@ -7,7 +7,7 @@ extension __InventoryMovementsScreenStateAstPart02
     if (!mounted) {
       return;
     }
-    setState(() {
+    _updateInventory(() {
       _selectedStateAssetCount = count;
       if (count > 0) {
         _selectedAssetKeys.clear();
@@ -63,7 +63,7 @@ extension __InventoryMovementsScreenStateAstPart02
       if (!mounted) {
         return;
       }
-      setState(() {
+      _updateInventory(() {
         _selectedAssetKeys.clear();
         _rawMaterialOrderAssignments = {
           for (final entry in _rawMaterialOrderAssignments.entries)
@@ -111,7 +111,7 @@ extension __InventoryMovementsScreenStateAstPart02
         idempotencyKey: _idempotencyKey('relocate-batch'),
       );
       if (mounted) {
-        setState(_selectedAssetKeys.clear);
+        _updateInventory(_selectedAssetKeys.clear);
       }
       _showMessage('${assets.length} ta mahsulot — ${selected.name}');
       await _applyAssetMutations(updatedAssets);
@@ -126,7 +126,7 @@ extension __InventoryMovementsScreenStateAstPart02
       return;
     }
     final warehouseName = selected.first.name;
-    setState(() {
+    _updateInventory(() {
       _incoming = _filterTransfersByWarehouse(
         _allIncoming,
         warehouseName: warehouseName,
@@ -332,6 +332,7 @@ extension __InventoryMovementsScreenStateAstPart02
                 asset.kind == InventoryAssetKind.rawMaterial &&
                 asset.isAvailable &&
                 physicallyInWarehouse &&
+                _knownOrderAssignmentBarcodes.contains(barcode) &&
                 !hasOrderAssignment &&
                 barcode.isNotEmpty &&
                 !busy

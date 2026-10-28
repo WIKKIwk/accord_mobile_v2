@@ -16,7 +16,6 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
-import '../../admin/models/production_map_models.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
@@ -43,10 +42,18 @@ part 'inventory_movements_screen_widgets_part_01.dart';
 part 'inventory_movements_screen_declarations_part_02.dart';
 part 'inventory_movements_screen_models_part_03.dart';
 
-class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
+class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
+  late final TabController _tabs;
+  int _assetsRequest = 0;
+  int _transferMutationRevision = 0;
+  final Set<String> _knownOrderAssignmentBarcodes = {};
+  final Set<String> _loadedTransferDirections = {};
+  final Set<String> _loadingTransferDirections = {};
+  final Map<String, String> _transferErrors = {};
   List<InventoryLocation> _locations = const [];
   List<InventoryAsset> _assets = const [];
   List<InventoryTransfer> _allIncoming = const [];
@@ -74,14 +81,19 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
       GlobalKey<MaterialStateLocationsTabState>();
 
+  void _updateInventory(VoidCallback update) => setState(update);
+
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(length: _materialScoped ? 4 : 3, vsync: this)
+      ..addListener(_handleInventoryTabChanged);
     unawaited(_restoreWarehouseFilterAndLoad());
   }
 
   @override
   void dispose() {
+    _tabs.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -157,170 +169,152 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
         MaterialStateLocationsTab(
           key: _materialStateLocationsKey,
           bottomPadding: MediaQuery.viewPaddingOf(context).bottom + 128,
+          locations: _locations,
+          onAssignmentsLoaded: (assets) {
+            if (mounted) setState(() => _rememberAssetAssignments(assets));
+          },
           onAssetsChanged: _applyAssetMutations,
           onAssetQrRequested: _showAssetQr,
           orderAssignments: _rawMaterialOrderAssignments,
           onOrderAssignmentChanged: _reloadOrderAssignments,
           onSelectionChanged: _handleStateSelectionChanged,
         ),
-      _TransferList(
-        transfers: _incoming,
-        emptyMessage: 'Kiruvchi transfer yo‘q',
-        header: _warehouseFilter(),
-        busyKeys: _busyKeys,
-        enteringTransferIds: _enteringTransferIds,
-        actionsFor: (_) => const [],
-        onTransferTap: _showTransferDetails,
-        onRefresh: _loadAll,
-      ),
-      _TransferList(
-        transfers: _outgoing,
-        emptyMessage: 'Chiquvchi transfer yo‘q',
-        header: _warehouseFilter(),
-        busyKeys: _busyKeys,
-        enteringTransferIds: _enteringTransferIds,
-        actionsFor: (_) => const [],
-        onTransferTap: _showTransferDetails,
-        onRefresh: _loadAll,
-      ),
+      _buildTransferTab('incoming'),
+      _buildTransferTab('outgoing'),
     ];
-    return DefaultTabController(
-      length: tabs.length,
-      child: AppShell(
-        animateOnEnter: false,
-        title: '',
-        subtitle: '',
-        nativeTopBar: true,
-        automaticallyImplyNativeLeading: false,
-        showProfileAction: !_selectionMode,
-        profileActionListenable: _searchFocusNode,
-        showProfileActionResolver: () => !_searchFocusNode.hasFocus,
-        actions: _selectionMode
-            ? [
-                if (selectedLinkedRawMaterials.isNotEmpty)
-                  IconButton(
-                    key: const ValueKey('inventory-selection-unlink'),
-                    tooltip: 'Ulangan homashyolarni uzish '
-                        '(${selectedLinkedRawMaterials.length} ta)',
-                    onPressed: selectionActionBusy
-                        ? null
-                        : _unlinkSelectedRawMaterials,
-                    icon: _busyKeys.contains('unlink-raw-material-batch')
-                        ? const AppLoadingIndicator(size: 24, glyphSize: 16)
-                        : const Icon(Icons.link_off_rounded),
-                  ),
+    return AppShell(
+      animateOnEnter: false,
+      title: '',
+      subtitle: '',
+      nativeTopBar: true,
+      automaticallyImplyNativeLeading: false,
+      showProfileAction: !_selectionMode,
+      profileActionListenable: _searchFocusNode,
+      showProfileActionResolver: () => !_searchFocusNode.hasFocus,
+      actions: _selectionMode
+          ? [
+              if (selectedLinkedRawMaterials.isNotEmpty)
                 IconButton(
-                  key: ValueKey(
-                    _stateSelectionMode
-                        ? 'material-state-selection-return'
-                        : 'inventory-selection-relocate',
-                  ),
-                  tooltip: _stateSelectionMode
-                      ? 'Omborga qaytarish'
-                      : 'State’ga ko‘chirish',
-                  onPressed: selectionActionBusy ? null : _runSelectionAction,
-                  icon: _busyKeys.contains('relocate-batch')
+                  key: const ValueKey('inventory-selection-unlink'),
+                  tooltip: 'Ulangan homashyolarni uzish '
+                      '(${selectedLinkedRawMaterials.length} ta)',
+                  onPressed:
+                      selectionActionBusy ? null : _unlinkSelectedRawMaterials,
+                  icon: _busyKeys.contains('unlink-raw-material-batch')
                       ? const AppLoadingIndicator(size: 24, glyphSize: 16)
-                      : Icon(
-                          _stateSelectionMode
-                              ? Icons.keyboard_return_rounded
-                              : Icons.swap_horiz_rounded,
-                        ),
+                      : const Icon(Icons.link_off_rounded),
                 ),
-              ]
-            : null,
-        titleWidget: _selectionMode
-            ? Row(
-                children: [
-                  IconButton(
-                    key: const ValueKey('inventory-selection-close'),
-                    tooltip: 'Tanlashni bekor qilish',
-                    onPressed: _clearSelection,
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                  const SizedBox(width: 4),
-                  UrduAwareText(
-                    '$_selectionCount ta tanlandi',
-                    key: const ValueKey('inventory-selection-count'),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ],
-              )
-            : AdminCatalogSearchField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                hintText: 'Mahsulot, kod yoki QR qidirish',
-                onChanged: (value) {
-                  _onSearchChanged(value);
-                  _materialStateLocationsKey.currentState
-                      ?.handleItemsSearchChanged(value);
-                },
-                onClear: () {
-                  _searchController.clear();
-                  _onSearchChanged('');
-                  _materialStateLocationsKey.currentState
-                      ?.handleItemsSearchChanged('');
-                },
-                onBack: _goBack,
+              IconButton(
+                key: ValueKey(
+                  _stateSelectionMode
+                      ? 'material-state-selection-return'
+                      : 'inventory-selection-relocate',
+                ),
+                tooltip: _stateSelectionMode
+                    ? 'Omborga qaytarish'
+                    : 'State’ga ko‘chirish',
+                onPressed: selectionActionBusy ? null : _runSelectionAction,
+                icon: _busyKeys.contains('relocate-batch')
+                    ? const AppLoadingIndicator(size: 24, glyphSize: 16)
+                    : Icon(
+                        _stateSelectionMode
+                            ? Icons.keyboard_return_rounded
+                            : Icons.swap_horiz_rounded,
+                      ),
               ),
-        drawer: _materialScoped
-            ? MaterialTaminotchiNavigationDrawer(
-                selectedRouteName: AppRoutes.inventoryMovements,
-                onNavigate: _openDrawerRoute,
-              )
-            : null,
-        bottom: _materialScoped
-            ? const MaterialTaminotchiDock(
-                activeTab: MaterialTaminotchiDockTab.home,
-              )
-            : null,
-        contentPadding: EdgeInsets.zero,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Column(
+            ]
+          : null,
+      titleWidget: _selectionMode
+          ? Row(
               children: [
-                TabBar(tabs: tabs),
-                Expanded(
-                  child: _loading
-                      ? const Center(child: AppLoadingIndicator())
-                      : _error.isNotEmpty
-                          ? _InventoryErrorState(
-                              message: _error,
-                              onRetry: _loadAll,
-                            )
-                          : _qrLookupOpen
-                              ? _buildQrLookupPanel()
-                              : TabBarView(children: tabViews),
+                IconButton(
+                  key: const ValueKey('inventory-selection-close'),
+                  tooltip: 'Tanlashni bekor qilish',
+                  onPressed: _clearSelection,
+                  icon: const Icon(Icons.close_rounded),
+                ),
+                const SizedBox(width: 4),
+                UrduAwareText(
+                  '$_selectionCount ta tanlandi',
+                  key: const ValueKey('inventory-selection-count'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
               ],
+            )
+          : AdminCatalogSearchField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              hintText: 'Mahsulot, kod yoki QR qidirish',
+              onChanged: (value) {
+                _onSearchChanged(value);
+                _materialStateLocationsKey.currentState
+                    ?.handleItemsSearchChanged(value);
+              },
+              onClear: () {
+                _searchController.clear();
+                _onSearchChanged('');
+                _materialStateLocationsKey.currentState
+                    ?.handleItemsSearchChanged('');
+              },
+              onBack: _goBack,
             ),
-            PositionedDirectional(
-              end: 16,
-              bottom: 16,
-              child: AdminFabActionMenu(
-                key: const ValueKey('inventory-movements-fab'),
-                open: _inventoryFabOpen,
-                actions: [
-                  AdminFabMenuAction(
-                    title: 'QR orqali izlash',
-                    icon: Icons.qr_code_scanner_rounded,
-                    onTap: _openQrLookup,
-                  ),
-                ],
-                onToggle: () {
-                  setState(() => _inventoryFabOpen = !_inventoryFabOpen);
-                },
-                closedLabel: 'Amallar',
-                openLabel: 'Yopish',
-                closedIcon: Icons.add_rounded,
-                openIcon: Icons.close_rounded,
+      drawer: _materialScoped
+          ? MaterialTaminotchiNavigationDrawer(
+              selectedRouteName: AppRoutes.inventoryMovements,
+              onNavigate: _openDrawerRoute,
+            )
+          : null,
+      bottom: _materialScoped
+          ? const MaterialTaminotchiDock(
+              activeTab: MaterialTaminotchiDockTab.home,
+            )
+          : null,
+      contentPadding: EdgeInsets.zero,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Column(
+            children: [
+              TabBar(controller: _tabs, tabs: tabs),
+              Expanded(
+                child: _loading
+                    ? const Center(child: AppLoadingIndicator())
+                    : _error.isNotEmpty
+                        ? _InventoryErrorState(
+                            message: _error,
+                            onRetry: _loadAll,
+                          )
+                        : _qrLookupOpen
+                            ? _buildQrLookupPanel()
+                            : TabBarView(controller: _tabs, children: tabViews),
               ),
+            ],
+          ),
+          PositionedDirectional(
+            end: 16,
+            bottom: 16,
+            child: AdminFabActionMenu(
+              key: const ValueKey('inventory-movements-fab'),
+              open: _inventoryFabOpen,
+              actions: [
+                AdminFabMenuAction(
+                  title: 'QR orqali izlash',
+                  icon: Icons.qr_code_scanner_rounded,
+                  onTap: _openQrLookup,
+                ),
+              ],
+              onToggle: () {
+                setState(() => _inventoryFabOpen = !_inventoryFabOpen);
+              },
+              closedLabel: 'Amallar',
+              openLabel: 'Yopish',
+              closedIcon: Icons.add_rounded,
+              openIcon: Icons.close_rounded,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

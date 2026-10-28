@@ -66,7 +66,7 @@ extension __InventoryMovementsScreenStateAstPart03
     if (_busyKeys.contains(key)) {
       return;
     }
-    setState(() => _busyKeys.add(key));
+    _updateInventory(() => _busyKeys.add(key));
     try {
       await action();
     } catch (error) {
@@ -75,7 +75,7 @@ extension __InventoryMovementsScreenStateAstPart03
       }
     } finally {
       if (mounted) {
-        setState(() => _busyKeys.remove(key));
+        _updateInventory(() => _busyKeys.remove(key));
       }
     }
   }
@@ -84,6 +84,30 @@ extension __InventoryMovementsScreenStateAstPart03
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildTransferTab(String direction) {
+    if (_loadingTransferDirections.contains(direction)) {
+      return const Center(child: AppLoadingIndicator());
+    }
+    final error = _transferErrors[direction];
+    if (error != null) {
+      return _InventoryErrorState(
+          message: error,
+          onRetry: () => _loadTransfers(direction, force: true));
+    }
+    final incoming = direction == 'incoming';
+    return _TransferList(
+      transfers: incoming ? _incoming : _outgoing,
+      emptyMessage:
+          incoming ? 'Kiruvchi transfer yo‘q' : 'Chiquvchi transfer yo‘q',
+      header: _warehouseFilter(),
+      busyKeys: _busyKeys,
+      enteringTransferIds: _enteringTransferIds,
+      actionsFor: (_) => const [],
+      onTransferTap: _showTransferDetails,
+      onRefresh: () => _loadTransfers(direction, force: true),
+    );
   }
 
   Widget _buildAssetsTab() {
@@ -308,7 +332,7 @@ extension __InventoryMovementsScreenStateAstPart03
       selectedValue: selected.isEmpty ? null : selected,
       expanded: _warehouseFilterExpanded,
       onToggle: () {
-        setState(() {
+        _updateInventory(() {
           _warehouseFilterExpanded = !_warehouseFilterExpanded;
         });
       },
@@ -334,7 +358,7 @@ extension __InventoryMovementsScreenStateAstPart03
       return;
     }
     final warehouseName = location.first.name;
-    setState(() {
+    _updateInventory(() {
       _selectedAssetKeys.clear();
       _selectedWarehouseId = selected;
       _warehouseFilterExpanded = false;

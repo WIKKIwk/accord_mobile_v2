@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import '../../../../core/formatters/quantity_formatters.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/session/session.dart';
 import '../../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../../core/widgets/lists/m3_animated_list_entry.dart';
 import '../../../../core/widgets/lists/m3_segmented_list.dart';
@@ -32,6 +33,11 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
   final Set<String> _selectedAssetKeys = {};
   final Set<String> _exitingAssetKeys = {};
   final Set<String> _enteringAssetKeys = {};
+
+  RawMaterialListAssignment? _assignmentFor(InventoryAsset asset) =>
+      asset.orderAssignmentKnown
+          ? rawMaterialListAssignmentForAsset(asset)
+          : widget.orderAssignments[rawMaterialAssetBarcode(asset)];
 
   bool get _selectionMode => _selectedAssetKeys.isNotEmpty;
 
@@ -83,8 +89,7 @@ class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
           if (_query.isEmpty) {
             return true;
           }
-          final orderAssignment =
-              widget.orderAssignments[rawMaterialAssetBarcode(asset)];
+          final orderAssignment = _assignmentFor(asset);
           return [
             asset.itemName,
             asset.itemCode,
