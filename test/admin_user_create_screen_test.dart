@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'admin_user_create_screen_test_helpers_part_01.dart';
+part 'sales_manager_customer_create_test_part.dart';
 part 'admin_user_create_screen_test_cases_resplit_part_01.dart';
 part 'admin_user_create_screen_test_cases_resplit_part_02.dart';
 
@@ -40,6 +41,7 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  _registerSalesManagerCustomerCreateTests();
   _registeradmin_user_create_screen_testCases01();
 
   _registeradmin_user_create_screen_testCases02();

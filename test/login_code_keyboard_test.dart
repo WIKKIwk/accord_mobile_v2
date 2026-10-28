@@ -8,6 +8,7 @@ void main() {
     expect(loginCodeUsesNumericKeyboard('40XXXXXXXXXX'), isTrue);
     expect(loginCodeUsesNumericKeyboard('50XXXXXXXXXX'), isTrue);
     expect(loginCodeUsesNumericKeyboard('80XXXXXXXXXX'), isTrue);
+    expect(loginCodeUsesNumericKeyboard('921234567890'), isTrue);
   });
 
   test('other role prefixes keep alphanumeric code input', () {

@@ -268,6 +268,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
   }
 
   Future<List<AdminRoleAssignment>> _loadRoleAssignments() {
+    if (_salesManager) return Future.value(const []);
     return MobileApi.instance.adminRoleAssignments();
   }
 
@@ -288,7 +289,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     bool changed = false;
     if (item.kind == AdminUserKind.worker ||
         item.kind == AdminUserKind.qolipchi ||
-        item.kind == AdminUserKind.boyoqchi || item.kind == AdminUserKind.tayyorlovMasteri || item.kind == AdminUserKind.homashyoRezkachi) {
+        item.kind == AdminUserKind.boyoqchi || item.kind == AdminUserKind.tayyorlovMasteri || item.kind == AdminUserKind.homashyoRezkachi || item.kind == AdminUserKind.salesManager) {
       final result = await Navigator.of(
         context,
       ).pushNamed(AppRoutes.adminWorkerDetail, arguments: item);

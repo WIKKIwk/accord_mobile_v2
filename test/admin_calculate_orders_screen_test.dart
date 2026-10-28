@@ -186,6 +186,21 @@ void main() {
     expect(find.byType(AdminHomeScreen), findsOneWidget);
   });
 
+  testWidgets('sales manager saved orders hide delete', (tester) async {
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(code: 'Z-SALES', name: 'Sales template'),
+    );
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.salesManager, displayName: 'Sales', legalName: 'Sales',
+      ref: 'sales_manager_test', phone: '', avatarUrl: '',
+      capabilities: ['sales.access', 'production.order.create'],
+    );
+    await _pumpScreen(tester);
+    expect(find.text('Sales template'), findsOneWidget);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('quick order image opens profile preview on long press', (
     tester,
   ) async {

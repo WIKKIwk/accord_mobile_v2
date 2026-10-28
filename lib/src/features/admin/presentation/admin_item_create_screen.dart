@@ -44,6 +44,9 @@ class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
   CustomerDirectoryEntry? selectedCustomer;
   bool saving = false;
 
+  bool get _salesManager =>
+      AppSession.instance.profile?.role == UserRole.salesManager;
+
   @override
   void initState() {
     super.initState();

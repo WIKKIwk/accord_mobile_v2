@@ -22,6 +22,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
   bool get submittingMove => _submittingMove;
 
   bool get _canSelect =>
+      AppSession.instance.profile?.role != UserRole.salesManager &&
       widget.onSelectionChanged != null &&
       AppSession.instance.can('catalog.item.bulk_move');
   bool _groupFilterExpanded = false;
@@ -453,7 +454,8 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
                     onItemSelect: _canSelect && !_moving ? _toggleItem : null,
                     onItemTap: (_canSelect && _selectedCodes.isNotEmpty) ||
                             widget.onItemTap != null ||
-                            AppSession.instance.can('admin.access')
+                            (AppSession.instance.profile?.role != UserRole.salesManager &&
+                                AppSession.instance.can('admin.access'))
                         ? _openItem
                         : null,
                   ),

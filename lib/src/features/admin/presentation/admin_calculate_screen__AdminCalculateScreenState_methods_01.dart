@@ -225,6 +225,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
   }
 
   Future<void> _openMaterialCatalogManager() async {
+    if (AppSession.instance.profile?.role == UserRole.salesManager) return;
     await Navigator.of(context).pushNamed(AppRoutes.adminCalculateMaterials);
   }
 

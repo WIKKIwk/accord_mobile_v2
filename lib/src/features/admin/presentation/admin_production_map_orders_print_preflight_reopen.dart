@@ -9,7 +9,7 @@ extension _AdminProductionMapOrdersPrintPreflightReopen
     final orderId = order.map.id.trim();
     final orderControl =
         _orderControlsByOrderId[orderId] ?? AdminOrderControlState.active;
-    if (_queueSnapshotNeedsReconcile ||
+    if (_salesManager || _queueSnapshotNeedsReconcile ||
         _queueSnapshotContractError ||
         _queueActionsInFlight.contains('${apparatus.id.trim()}|$orderId') ||
         orderId.startsWith('training-') ||

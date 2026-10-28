@@ -15,7 +15,7 @@ bool loginCodeUsesNumericKeyboard(String code) {
     return true;
   }
 
-  return const {'40', '50', '80'}.contains(trimmed.substring(0, 2));
+  return const {'40', '50', '80', '92'}.contains(trimmed.substring(0, 2));
 }
 
 class LoginScreen extends StatefulWidget {

@@ -100,6 +100,7 @@ class SessionProfile {
           'boyoqchi.access',
           'preparation.access',
           'raw_material.split',
+          'sales.access',
         ]) ||
         (role == UserRole.materialTaminotchi &&
             hasAnyCapability(materialTaminotchiWorkspaceCapabilities));
@@ -110,6 +111,9 @@ class SessionProfile {
   }
 
   UserRole? get accessRole {
+    if (role == UserRole.salesManager && hasCapability('sales.access')) {
+      return UserRole.salesManager;
+    }
     if (role == UserRole.homashyoRezkachi && hasCapability('raw_material.split')) {
       return UserRole.homashyoRezkachi;
     }

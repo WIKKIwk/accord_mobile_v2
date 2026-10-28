@@ -1,5 +1,7 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/session/session.dart';
+import '../../../shared/models/app_models.dart';
 import '../../../../core/widgets/navigation/role_navigation_drawer.dart';
 import 'package:flutter/material.dart';
 
@@ -33,7 +35,7 @@ class AdminNavigationDrawer extends StatelessWidget {
 
 String _routeForLegacyIndex(int index) {
   return switch (index) {
-    0 => AppRoutes.adminHome,
+    0 => AppSession.instance.homeRoute,
     1 => AppRoutes.adminSuppliers,
     2 => AppRoutes.adminActivity,
     3 => AppRoutes.adminRoles,
@@ -51,7 +53,9 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
       label: l10n.adminHomeNavTitle,
-      routeName: AppRoutes.adminHome,
+      routeName: AppSession.instance.profile?.role == UserRole.salesManager
+          ? AppRoutes.salesHome
+          : AppRoutes.adminHome,
     ),
     RoleNavigationDrawerDestination(
       icon: Icons.people_outline_rounded,

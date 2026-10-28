@@ -135,7 +135,7 @@ class ChatRoleDock extends StatelessWidget {
     final profile = AppSession.instance.profile;
     final role = profile?.accessRole ?? profile?.role;
     return switch (role) {
-      UserRole.admin => const AdminDock(
+      UserRole.salesManager || UserRole.admin => const AdminDock(
           activeTab: null,
           showPrimaryFab: false,
         ),

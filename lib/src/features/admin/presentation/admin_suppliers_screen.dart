@@ -35,6 +35,7 @@ const List<AdminUserKind> _adminUserTabKinds = [
   AdminUserKind.boyoqchi,
   AdminUserKind.tayyorlovMasteri,
   AdminUserKind.homashyoRezkachi,
+  AdminUserKind.salesManager,
 ];
 
 class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
@@ -72,10 +73,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
   bool _userManuallySelectedRole = false;
 
+  bool get _salesManager =>
+      AppSession.instance.profile?.role == UserRole.salesManager;
+
   @override
   void initState() {
     super.initState();
-    _selectedKind = AdminUsersRoleStore.instance.cachedRole;
+    _selectedKind = _salesManager
+        ? AdminUserKind.customer
+        : AdminUsersRoleStore.instance.cachedRole;
     _usersChanged.addListener(_handleUsersChanged);
     _bootstrap();
     unawaited(_restoreSavedRolePreference());
@@ -123,7 +129,7 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       bottom: const AdminDock(activeTab: AdminDockTab.user),
       child: Column(
         children: [
-          _AdminUserRolePicker(
+          if (!_salesManager) _AdminUserRolePicker(
             selectedKind: _selectedKind,
             expanded: _roleMenuOpen,
             onToggle: () => setState(() => _roleMenuOpen = !_roleMenuOpen),

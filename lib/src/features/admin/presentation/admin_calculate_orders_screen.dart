@@ -1,6 +1,8 @@
 import '../../../app/app_router.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/session/session.dart';
+import '../../shared/models/app_models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -68,6 +70,7 @@ class _AdminCalculateOrdersScreenState
   }
 
   Future<void> _deleteTemplate(CalculateOrderTemplate template) async {
+    if (AppSession.instance.profile?.role == UserRole.salesManager) return;
     await CalculateOrderTemplateStore.instance.delete(template.id);
     if (!mounted) {
       return;
@@ -171,7 +174,8 @@ class _AdminCalculateOrdersScreenState
                         _OrderListModule(
                           templates: visibleTemplates,
                           onTapTemplate: _openTemplate,
-                          onDeleteTemplate: _deleteTemplate,
+                          onDeleteTemplate: AppSession.instance.profile?.role == UserRole.salesManager
+                              ? null : _deleteTemplate,
                         ),
                     ],
                   );
@@ -191,7 +195,7 @@ class _OrderListModule extends StatelessWidget {
 
   final List<CalculateOrderTemplate> templates;
   final ValueChanged<CalculateOrderTemplate> onTapTemplate;
-  final ValueChanged<CalculateOrderTemplate> onDeleteTemplate;
+  final ValueChanged<CalculateOrderTemplate>? onDeleteTemplate;
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +210,8 @@ class _OrderListModule extends StatelessWidget {
             ),
             template: templates[index],
             onTap: () => onTapTemplate(templates[index]),
-            onDelete: () => onDeleteTemplate(templates[index]),
+            onDelete: onDeleteTemplate == null
+                ? null : () => onDeleteTemplate!(templates[index]),
           ),
       ],
     );
@@ -224,7 +229,7 @@ class _OrderRow extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final CalculateOrderTemplate template;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +304,7 @@ class _OrderRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
+                  if (onDelete != null) IconButton(
                     tooltip: context.l10n.adminText('action.delete'),
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline_rounded),

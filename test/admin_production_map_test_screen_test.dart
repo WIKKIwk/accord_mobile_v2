@@ -103,6 +103,7 @@ part 'admin_production_map_wip_facts_test_part.dart';
 part 'admin_production_map_admin_status_scope_test_part.dart';
 part 'admin_production_map_merge_confirmation_test_part.dart';
 part 'admin_production_map_sequence_reorder_test_part.dart';
+part 'sales_manager_work_map_test_part.dart';
 part 'admin_production_map_admin_paging_test_part.dart';
 part 'admin_production_map_early_close_test_part.dart';
 part 'admin_production_map_order_delete_test_part.dart';
@@ -189,6 +190,7 @@ void main() {
   _registerRepeatedStageToneTests();
   _registerAdminStatusScopeTests();
   _registerMergeConfirmationTests();
+  _registerSalesManagerWorkMapTests();
   _registerSequenceReorderTests();
   _registerAdminPagingTests();
   _registerEarlyCloseMenuTests();

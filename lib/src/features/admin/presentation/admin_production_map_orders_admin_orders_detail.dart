@@ -201,7 +201,7 @@ extension _AdminOrdersListDetails on _AdminProductionMapOrdersScreenState {
                                   detail?.orderControls ?? const {},
                               progressDriverUrlPicker:
                                   widget.progressDriverUrlPicker,
-                              allowWipQrReprint: !widget.supplyViewerMode,
+                              allowWipQrReprint: !widget.supplyViewerMode && !_salesManager,
                             ));
                   },
                 )),

@@ -1153,8 +1153,10 @@ void _showAssignedMaterialReprintSheet(
           assignment.stockStatus,
         ),
       ],
-      onReprint: () => _reprintAssignedMaterialStock(sheetContext, barcode,
-          orderId: assignment.orderId),
+      onReprint: AppSession.instance.profile?.role == UserRole.salesManager
+          ? null
+          : () => _reprintAssignedMaterialStock(sheetContext, barcode,
+              orderId: assignment.orderId),
       errorMessage: (error) => error is MobileApiException
           ? error.message
           : error is PlatformException &&
@@ -1467,7 +1469,8 @@ void _showAttachedQolipQrSheet(BuildContext context, QolipProduct product) {
           ),
       ],
       onReprint:
-          AppSession.instance.profile?.role == UserRole.materialTaminotchi
+          (AppSession.instance.profile?.role == UserRole.materialTaminotchi ||
+                  AppSession.instance.profile?.role == UserRole.salesManager)
               ? null
               : () => _reprintAttachedQolipCodeQr(sheetContext, product),
       errorMessage: (error) => qolipErrorMessage(

@@ -46,6 +46,9 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.salesManager && profile.hasCapability('sales.access')) {
+      return '/sales-home';
+    }
     if (profile.role == UserRole.homashyoRezkachi && profile.hasCapability('raw_material.split')) {
       return '/raw-material-split';
     }

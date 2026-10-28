@@ -362,10 +362,15 @@ class _AdminProductionMapOrdersScreenState
     }
   }
 
+  bool get _salesManager =>
+      AppSession.instance.profile?.role == UserRole.salesManager;
+
   List<_OpenedOrderModule> get _modules {
     return widget.workerMode || widget.supplyViewerMode
         ? const [_OpenedOrderModule.sequence]
-        : _OpenedOrderModule.values;
+        : _OpenedOrderModule.values
+            .where((module) => !_salesManager || module != _OpenedOrderModule.move)
+            .toList(growable: false);
   }
 
   bool get _tayyorlovOrderFilterActive =>
@@ -514,7 +519,7 @@ class _AdminProductionMapOrdersScreenState
                   return;
                 }
                 nav.pushNamedAndRemoveUntil(
-                  AppRoutes.adminHome,
+                  AppSession.instance.homeRoute,
                   (route) => false,
                 );
               },
@@ -697,9 +702,9 @@ class _AdminProductionMapOrdersScreenState
                                   searchQuery: _adminPaging ? '' : _searchQuery,
                                   apparatus: _apparatus,
                                   selectedApparatus: _selectedApparatus,
-                                  completionRequests: _completionRequests,
+                                  completionRequests: _salesManager ? const [] : _completionRequests,
                                   readOnly: widget.readOnly ||
-                                      widget.supplyViewerMode,
+                                      widget.supplyViewerMode || _salesManager,
                                   moveTopApparatus: _moveTopApparatus,
                                   moveBottomApparatus: _moveBottomApparatus,
                                   selectedMoveOrderIds: _selectedMoveOrderIds,
@@ -711,7 +716,7 @@ class _AdminProductionMapOrdersScreenState
                                   // Versioned admin moves can use cached rows
                                   // immediately while live validation continues.
                                   sequenceReorderEnabled:
-                                      (!_adminPaging || (!_queueSnapshotContractError &&
+                                      !_salesManager && (!_adminPaging || (!_queueSnapshotContractError &&
                                           _searchQuery.trim().isEmpty &&
                                           _adminModuleWindows(_OpenedOrderModule.sequence)
                                               .every((w) => w.loaded && w.error == null))) &&
@@ -724,7 +729,7 @@ class _AdminProductionMapOrdersScreenState
                                   moveOrdersForApparatus:
                                       _moveOrdersForApparatus,
                                   canMoveTo: (order, target, {required source}) =>
-                                      (!_adminPaging || (!_queueSnapshotNeedsReconcile &&
+                                      !_salesManager && (!_adminPaging || (!_queueSnapshotNeedsReconcile &&
                                           !_queueSnapshotContractError)) &&
                                       _canMoveOrderToApparatus(order, target, source: source),
                                   onSelectSequenceApparatus: (apparatus) {
@@ -1089,7 +1094,7 @@ class _AdminProductionMapOrdersScreenState
         customerName: _customerByMapId[mapId] ?? order.map.customerName,
         queueStatesByApparatus: _queueStatesByApparatus,
         stageStatesByOrderId: _stageStatesByOrderId,
-        allowWipQrReprint: !widget.supplyViewerMode,
+        allowWipQrReprint: !widget.supplyViewerMode && !_salesManager,
         queueActionControlsByApparatus: _queueActionControlsByApparatus,
         progressDriverUrlPicker: widget.progressDriverUrlPicker,
         initialOrderControls: _orderControlsByOrderId,
@@ -1266,12 +1271,12 @@ class _AdminProductionMapOrdersScreenState
                 _ordersForApparatus(apparatus)
                     .map((item) => item.map.id)
                     .toList(growable: false),
-            onQueueAction: detailPending ? null : _handleQueueAction,
-            onTemporaryPause: detailPending
+            onQueueAction: detailPending || _salesManager ? null : _handleQueueAction,
+            onTemporaryPause: detailPending || _salesManager
                 ? null
                 : (control) =>
                     _runWorkerTemporaryPause(apparatus, detailOrder, control),
-            onReclose: detailPending
+            onReclose: detailPending || _salesManager
                 ? null
                 : (control) =>
                     _runWorkerReclose(apparatus, detailOrder, control),
@@ -2433,6 +2438,7 @@ class _AdminProductionMapOrdersScreenState
             child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (!_salesManager) ...[
             if (reopenApparatus != null)
               _PrintPreflightReopenTile(
                 onTap: () => Navigator.pop(
@@ -2521,6 +2527,7 @@ class _AdminProductionMapOrdersScreenState
                 onTap: () =>
                     Navigator.pop(context, _OrderLongPressAction.closeEarly),
               ),
+            ],
             if (!closingEarly)
               ListTile(
                 leading: const Icon(Icons.account_tree_outlined),
@@ -2542,6 +2549,8 @@ class _AdminProductionMapOrdersScreenState
       ),
     );
     if (!mounted || action == null) return;
+    if (_salesManager && action != _OrderLongPressAction.editMap &&
+        action != _OrderLongPressAction.editOrder) return;
     if (action == _OrderLongPressAction.reopenPrintPreflight) {
       if (reopenApparatus != null) {
         await _confirmPrintPreflightReopen(reopenApparatus, order);
@@ -2690,6 +2699,7 @@ class _AdminProductionMapOrdersScreenState
     String apparatus = '',
     String stageNodeId = '',
   }) async {
+    if (_salesManager) return;
     final orderId = order.map.id.trim();
     if (_queueSnapshotContractError) {
       showAdminTopNotice(

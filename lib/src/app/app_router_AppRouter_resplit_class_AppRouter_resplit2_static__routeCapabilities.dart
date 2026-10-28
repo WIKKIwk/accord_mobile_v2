@@ -110,12 +110,13 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
     'rezka.split.manage',
   },
   AppRoutes.adminActivity: {'admin.activity.read'},
-  AppRoutes.adminCalculate: {'admin.access', 'production.map.manage'},
+  AppRoutes.salesHome: {'sales.access'},
+  AppRoutes.adminCalculate: {'admin.access', 'production.map.manage', 'production.order.create', 'production.order.edit'},
   AppRoutes.adminCalculateMaterials: {
     'admin.access',
     'production.map.manage',
   },
-  AppRoutes.adminCalculateOrders: {'admin.access', 'production.map.manage'},
+  AppRoutes.adminCalculateOrders: {'admin.access', 'production.map.manage', 'production.order.create'},
   AppRoutes.adminCreateHub: {
     'admin.access',
     'catalog.item.create',
@@ -133,10 +134,11 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.adminTelegram: {'admin.settings.read'},
   AppRoutes.adminRoles: {'role.capability.read'},
   AppRoutes.adminNotifications: {'admin.access', 'production.map.manage'},
-  AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage'},
+  AppRoutes.adminProductionMapTest: {'admin.access', 'production.map.manage', 'production.map.edit'},
   AppRoutes.adminProductionMapOrders: {
     'admin.access',
     'production.map.manage',
+    'production.map.read',
   },
   AppRoutes.adminOpeningWip: {
     'admin.access',

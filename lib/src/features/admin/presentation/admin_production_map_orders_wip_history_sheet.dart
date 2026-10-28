@@ -303,7 +303,8 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
   }
 
   bool _canReprintWip(AdminProgressBatch batch) {
-    if (!widget.allowWipQrReprint || !_historyScopeCurrent) return false;
+    if (!widget.allowWipQrReprint || !_historyScopeCurrent ||
+        AppSession.instance.profile?.role == UserRole.salesManager) return false;
     if (!widget.workerMode) return true;
     // Ownership, not assignment to the same machine, permits a worker reprint.
     // Opening WIP is admin-managed stock, even when its creator has this ref.

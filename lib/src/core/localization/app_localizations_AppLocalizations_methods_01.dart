@@ -201,6 +201,8 @@ extension AppLocalizationsAstPart01 on AppLocalizations {
 
   String roleLabelForCode(String code) {
     switch (code) {
+      case 'sales_manager':
+        return adminTelegramSalesManagerRoleTitle;
       case 'admin':
         return adminRoleName;
       case 'werka':
@@ -216,6 +218,8 @@ extension AppLocalizationsAstPart01 on AppLocalizations {
 
   String systemRoleLabel(String id, String fallback) {
     switch (id.trim().toLowerCase()) {
+      case 'sales_manager':
+        return adminTelegramSalesManagerRoleTitle;
       case 'admin':
         return adminRoleName;
       case 'werka':
@@ -231,6 +235,16 @@ extension AppLocalizationsAstPart01 on AppLocalizations {
 
   String adminCapabilityLabel(String code, String fallback) {
     switch (code) {
+      case 'sales.access':
+        return adminTelegramSalesManagerRoleTitle;
+      case 'production.map.read':
+        return _t('Ish xaritasini ko‘rish', 'View work map', 'Просмотр карты работ');
+      case 'production.order.create':
+        return _t('Buyurtma ochish', 'Create order', 'Создание заказа');
+      case 'production.order.edit':
+        return _t('Buyurtmani tahrirlash', 'Edit order', 'Редактирование заказа');
+      case 'production.map.edit':
+        return _t('Xaritani tahrirlash', 'Edit map', 'Редактирование карты');
       case 'admin.access':
         return _t('Admin panel', 'Admin panel', 'Панель администратора');
       case 'role.capability.read':

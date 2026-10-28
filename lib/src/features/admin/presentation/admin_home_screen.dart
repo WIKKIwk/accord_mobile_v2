@@ -2,6 +2,7 @@ import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/notifications/hub/refresh_hub.dart';
 import '../../../core/session/session.dart';
+import '../../shared/models/app_models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
@@ -89,8 +90,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AdminShell(
-      title: context.l10n.adminRoleName,
-      selectedRouteName: AppRoutes.adminHome,
+      title: AppSession.instance.profile?.role == UserRole.salesManager
+          ? userRoleLabel(UserRole.salesManager)
+          : context.l10n.adminRoleName,
+      selectedRouteName: AppSession.instance.profile?.role == UserRole.salesManager
+          ? AppRoutes.salesHome
+          : AppRoutes.adminHome,
       activeTab: AdminDockTab.home,
       bottomDockFadeStrength: null,
       child: ColoredBox(

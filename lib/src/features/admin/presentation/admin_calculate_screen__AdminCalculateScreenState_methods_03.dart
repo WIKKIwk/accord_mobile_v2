@@ -548,7 +548,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         runSpacing: 8,
         children: [
           _SectionHeader(title: l10n.adminText('calculate.layers_section')),
-          TextButton.icon(
+          if (AppSession.instance.profile?.role != UserRole.salesManager) TextButton.icon(
             onPressed: _openMaterialCatalogManager,
             icon: const Icon(Icons.tune_rounded, size: 18),
             label: Text(l10n.adminText('calculate.material_manager')),

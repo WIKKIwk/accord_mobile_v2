@@ -1,5 +1,7 @@
 import '../../../app/app_router.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/session/session.dart';
+import '../../shared/models/app_models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/display/common_widgets.dart';
@@ -12,6 +14,43 @@ class AdminCreateHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final actions = [
+      (
+        l10n.adminCreateUserTitle,
+        l10n.adminCreateUserSubtitle,
+        AppRoutes.adminUserCreate
+      ),
+      (
+        l10n.adminText('create_hub.worker_settings'),
+        l10n.adminText('create_hub.worker_settings_subtitle'),
+        AppRoutes.adminWorkerSettings
+      ),
+      (
+        l10n.adminErpSettingsTitle,
+        l10n.adminErpSettingsSubtitle,
+        AppRoutes.adminSettings
+      ),
+      (
+        l10n.adminCreateItemTitle,
+        l10n.adminCreateItemSubtitle,
+        AppRoutes.adminItemCreate
+      ),
+      (
+        l10n.adminCreateItemGroupTitle,
+        l10n.adminCreateItemGroupSubtitle,
+        AppRoutes.adminItemGroupCreate
+      ),
+      (
+        l10n.adminCreateOrderTitle,
+        l10n.adminText('create_hub.saved_order'),
+        AppRoutes.adminCalculate
+      ),
+    ]
+        .where((action) =>
+            AppSession.instance.profile?.role != UserRole.salesManager ||
+            AppRouter.canOpenRoute(action.$3))
+        .toList(growable: false);
     return AppShell(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded),
@@ -20,7 +59,8 @@ class AdminCreateHubScreen extends StatelessWidget {
           if (nav.canPop()) {
             nav.pop();
           } else {
-            nav.pushNamedAndRemoveUntil(AppRoutes.adminHome, (route) => false);
+            nav.pushNamedAndRemoveUntil(
+                AppSession.instance.homeRoute, (route) => false);
           }
         },
       ),
@@ -36,53 +76,14 @@ class AdminCreateHubScreen extends StatelessWidget {
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                _CreateHubRow(
-                  title: context.l10n.adminCreateUserTitle,
-                  subtitle: context.l10n.adminCreateUserSubtitle,
-                  onTap: () => Navigator.of(
-                    context,
-                  ).pushNamed(AppRoutes.adminUserCreate),
-                ),
-                const Divider(height: 1, thickness: 1),
-                _CreateHubRow(
-                  title: context.l10n.adminText('create_hub.worker_settings'),
-                  subtitle: context.l10n.adminText(
-                    'create_hub.worker_settings_subtitle',
+                for (var i = 0; i < actions.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, thickness: 1),
+                  _CreateHubRow(
+                    title: actions[i].$1,
+                    subtitle: actions[i].$2,
+                    onTap: () => Navigator.of(context).pushNamed(actions[i].$3),
                   ),
-                  onTap: () => Navigator.of(
-                    context,
-                  ).pushNamed(AppRoutes.adminWorkerSettings),
-                ),
-                const Divider(height: 1, thickness: 1),
-                _CreateHubRow(
-                  title: context.l10n.adminErpSettingsTitle,
-                  subtitle: context.l10n.adminErpSettingsSubtitle,
-                  onTap: () =>
-                      Navigator.of(context).pushNamed(AppRoutes.adminSettings),
-                ),
-                const Divider(height: 1, thickness: 1),
-                _CreateHubRow(
-                  title: context.l10n.adminCreateItemTitle,
-                  subtitle: context.l10n.adminCreateItemSubtitle,
-                  onTap: () => Navigator.of(
-                    context,
-                  ).pushNamed(AppRoutes.adminItemCreate),
-                ),
-                const Divider(height: 1, thickness: 1),
-                _CreateHubRow(
-                  title: context.l10n.adminCreateItemGroupTitle,
-                  subtitle: context.l10n.adminCreateItemGroupSubtitle,
-                  onTap: () => Navigator.of(
-                    context,
-                  ).pushNamed(AppRoutes.adminItemGroupCreate),
-                ),
-                const Divider(height: 1, thickness: 1),
-                _CreateHubRow(
-                  title: context.l10n.adminCreateOrderTitle,
-                  subtitle: context.l10n.adminText('create_hub.saved_order'),
-                  onTap: () =>
-                      Navigator.of(context).pushNamed(AppRoutes.adminCalculate),
-                ),
+                ],
               ],
             ),
           ),

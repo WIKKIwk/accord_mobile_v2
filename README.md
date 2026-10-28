@@ -32,6 +32,14 @@ The application supports saved accounts and server selection. A saved server
 selection overrides the initial endpoint configured at build time. GScale/RPS
 weighing and printing use a separate LAN connection.
 
+Sales managers enter a dedicated sales workspace that reuses the administrative
+home, order calculation, work map, customer creation and item creation screens.
+They can create orders and edit orders and maps. Sequence dragging, operational
+order controls and printing are hidden. User creation offers customers only;
+item creation offers finished products and their subgroups only. Sales managers
+are created by an administrator as system users, with individual access codes
+starting with `92`. This workspace requires backend migration `0172_sales_manager`.
+
 Named multi-product calculations create a typed combo catalog entry after a
 successful calculation and name confirmation. Existing combos can be reused
 from the finished-product catalog. The combo reference and layout revision travel

@@ -56,6 +56,7 @@ class AppRoutes {
   static const String pinSetupEntry = '/pin-setup-entry';
   static const String pinSetupConfirm = '/pin-setup-confirm';
   static const String adminHome = '/admin-home';
+  static const String salesHome = '/sales-home';
   static const String adminActivity = '/admin-activity';
   static const String adminCalculate = '/admin-calculate';
   static const String adminCalculateMaterials = '/admin-calculate-materials';

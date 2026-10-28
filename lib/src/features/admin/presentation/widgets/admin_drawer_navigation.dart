@@ -1,5 +1,6 @@
 import '../../../../app/app_router.dart';
 import '../../../../core/navigation/app_root_navigation.dart';
+import '../../../../core/session/session.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AdminDrawerNavigation {
@@ -18,8 +19,9 @@ abstract final class AdminDrawerNavigation {
       return;
     }
 
-    if (current != AppRoutes.adminHome &&
-        AppRootNavigation.containsRoute(AppRoutes.adminHome)) {
+    final homeRoute = AppSession.instance.homeRoute;
+    if (current != homeRoute &&
+        AppRootNavigation.containsRoute(homeRoute)) {
       navigator.pushReplacementNamed(routeName);
       return;
     }

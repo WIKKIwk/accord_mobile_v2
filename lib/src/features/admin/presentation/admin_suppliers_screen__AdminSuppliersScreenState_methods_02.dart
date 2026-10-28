@@ -44,6 +44,7 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
   }
 
   void _selectKind(AdminUserKind kind) {
+    if (_salesManager && kind != AdminUserKind.customer) return;
     _userManuallySelectedRole = true;
     unawaited(AdminUsersRoleStore.instance.saveRole(kind));
     if (_selectedKind == kind) {
@@ -69,6 +70,7 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
   }
 
   Future<void> _restoreSavedRolePreference() async {
+    if (_salesManager) return;
     final savedRole = await AdminUsersRoleStore.instance.loadSavedRole();
     if (!mounted || _userManuallySelectedRole || savedRole == null) {
       return;
@@ -219,6 +221,7 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
         kind != AdminUserKind.boyoqchi &&
         kind != AdminUserKind.tayyorlovMasteri &&
         kind != AdminUserKind.homashyoRezkachi &&
+        kind != AdminUserKind.salesManager &&
         visibleItems.isNotEmpty &&
         (_loadingMore || _hasMore);
     return AppRefreshIndicator(

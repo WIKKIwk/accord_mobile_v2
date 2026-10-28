@@ -207,6 +207,8 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   bool get _isAparatchiRole => widget.assignedRole.id == 'aparatchi';
   bool get _isQolipchiRole => widget.assignedRole.id == 'qolipchi';
   bool get _isBoyoqchiRole => widget.assignedRole.id == 'boyoqchi';
+  bool get _isSalesManagerRole =>
+      widget.assignedRole.baseRole == UserRole.salesManager;
   bool get _isPreparationRole =>
       widget.assignedRole.baseRole == UserRole.tayyorlovMasteri;
   bool get _isRawMaterialSplitRole =>
@@ -291,8 +293,11 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
       if (_isQolipchiRole ||
           _isBoyoqchiRole ||
           _isPreparationRole ||
-          _isRawMaterialSplitRole) {
-        final role = _isRawMaterialSplitRole
+          _isRawMaterialSplitRole ||
+          _isSalesManagerRole) {
+        final role = _isSalesManagerRole
+            ? UserRole.salesManager
+            : _isRawMaterialSplitRole
             ? UserRole.homashyoRezkachi
             : _isPreparationRole
                 ? UserRole.tayyorlovMasteri

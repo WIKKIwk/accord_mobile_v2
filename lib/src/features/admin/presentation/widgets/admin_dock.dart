@@ -4,6 +4,8 @@ import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/navigation/profile_route_overlay_notifier.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
+import '../../../../core/session/session.dart';
+import '../../../shared/models/app_models.dart';
 import 'admin_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 
@@ -76,7 +78,7 @@ class AdminDock extends StatelessWidget {
               final currentRoute = ModalRoute.of(context)?.settings.name;
               if (activeTab == destination.tab &&
                   !(destination.tab == AdminDockTab.home &&
-                      currentRoute != AppRoutes.adminHome)) {
+                      currentRoute != AppSession.instance.homeRoute)) {
                 return;
               }
               AppRootNavigation.replaceRootRoute(
@@ -150,7 +152,9 @@ List<_AdminDockDestination> _visibleDestinations({
       label: homeLabel,
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
-      routeName: AppRoutes.adminHome,
+      routeName: AppSession.instance.profile?.role == UserRole.salesManager
+          ? AppRoutes.salesHome
+          : AppRoutes.adminHome,
     ),
     _AdminDockDestination(
       id: 'admin-user',

@@ -182,7 +182,7 @@ extension _AdminProductionMapOrdersMoveState
     int oldIndex,
     int newIndex,
   ) async {
-    if (widget.readOnly || _searchQuery.trim().isNotEmpty ||
+    if (widget.readOnly || _salesManager || _searchQuery.trim().isNotEmpty ||
         (_adminPaging && _queueSnapshotContractError)) {
       return;
     }
@@ -495,7 +495,7 @@ extension _AdminProductionMapOrdersMoveState
   }
 
   void _toggleMoveOrderSelection(String orderId) {
-    if (widget.readOnly) {
+    if (widget.readOnly || _salesManager) {
       return;
     }
     final normalized = orderId.trim();
@@ -615,7 +615,7 @@ extension _AdminProductionMapOrdersMoveState
       await _returnOrdersToUnassigned(orders: orders, source: from);
       return;
     }
-    if (widget.readOnly ||
+    if (widget.readOnly || _salesManager ||
         from.id.trim() == to.id.trim() ||
         _isMoveUnassignedApparatus(from) ||
         _isMoveUnassignedApparatus(to) ||
@@ -746,7 +746,7 @@ extension _AdminProductionMapOrdersMoveState
     required List<ProductionMapSaved> orders,
     required AdminApparatus source,
   }) async {
-    if (widget.readOnly || orders.isEmpty) {
+    if (widget.readOnly || _salesManager || orders.isEmpty) {
       return;
     }
     final convertedMaps = _returnAssignedMapsToAlternatives(
@@ -794,7 +794,7 @@ extension _AdminProductionMapOrdersMoveState
     required List<ProductionMapSaved> orders,
     required AdminApparatus apparatus,
   }) async {
-    if (widget.readOnly || orders.isEmpty) {
+    if (widget.readOnly || _salesManager || orders.isEmpty) {
       return;
     }
     final blocked = orders.any(

@@ -20,10 +20,13 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
   late Future<List<_AdminUserCreateChoice>> _roleChoices;
   _AdminUserCreateChoice? _choice;
 
+  bool get _customerOnly => widget.customerOnly ||
+      AppSession.instance.profile?.role == UserRole.salesManager;
+
   @override
   void initState() {
     super.initState();
-    if (widget.customerOnly) {
+    if (_customerOnly) {
       _choice = _AdminUserCreateChoice.system(_AdminUserCreateKind.customer);
       _roleChoices = Future.value([_choice!]);
     } else {
@@ -140,7 +143,7 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
             children: [
               _RoleSelector(
                 choice: choice,
-                onTap: widget.customerOnly ? null : _openRolePicker,
+                onTap: _customerOnly ? null : _openRolePicker,
               ),
               if (choice != null)
                 switch (kind) {

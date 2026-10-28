@@ -122,6 +122,8 @@ UserRole _roleForUser(AdminUserListEntry user) {
     return UserRole.boyoqchi;
   }
   switch (user.kind) {
+    case AdminUserKind.salesManager:
+      return UserRole.salesManager;
     case AdminUserKind.tayyorlovMasteri:
       return UserRole.tayyorlovMasteri;
     case AdminUserKind.homashyoRezkachi:

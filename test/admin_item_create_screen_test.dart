@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'admin_item_create_screen_test_widgets_part_01.dart';
+part 'sales_manager_item_create_test_part.dart';
 part 'admin_item_create_screen_test_declarations_part_02.dart';
 part 'admin_item_create_screen_test_cases_resplit_part_01.dart';
 part 'admin_item_create_screen_test_cases_resplit_part_02.dart';
@@ -59,6 +60,7 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  _registerSalesManagerItemCreateTests();
   _registeradmin_item_create_screen_testCases01();
 
   _registeradmin_item_create_screen_testCases02();

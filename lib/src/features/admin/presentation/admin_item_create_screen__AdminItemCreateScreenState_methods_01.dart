@@ -21,7 +21,9 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     try {
       final tree = await MobileApi.instance.adminItemGroupTree();
       _itemGroupTree = tree;
-      final ordered = orderAdminItemGroupsByParent(tree);
+      final ordered = orderAdminItemGroupsByParent(tree)
+          .where((group) => !_salesManager || _requiresCustomer(group))
+          .toList(growable: false);
       if (ordered.isNotEmpty) {
         if (mounted) {
           _syncItemGroupSelection(ordered);
@@ -29,7 +31,9 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
         return ordered;
       }
     } catch (_) {}
-    final groups = await MobileApi.instance.adminItemGroups();
+    final groups = (await MobileApi.instance.adminItemGroups())
+        .where((group) => !_salesManager || _requiresCustomer(group))
+        .toList(growable: false);
     if (mounted) {
       _syncItemGroupSelection(groups);
     }
@@ -51,9 +55,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     final fallback = groups.contains('All Item Groups')
         ? 'All Item Groups'
         : (groups.isNotEmpty ? groups.first : '');
-    if (fallback.isNotEmpty) {
-      itemGroup.text = fallback;
-    }
+    itemGroup.text = fallback;
   }
 
   void _syncUomSelection(List<String> values) {
@@ -105,6 +107,11 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     uom.text = selectedUom.trim();
     final group = itemGroup.text.trim();
     final isFinishedGoods = _requiresCustomer(group);
+    if (_salesManager && !isFinishedGoods) {
+      showAdminTopNotice(context, 'Faqat tayyor mahsulot qo‘shish mumkin',
+          tone: AdminTopNoticeTone.error);
+      return null;
+    }
     if (isFinishedGoods && name.text.trim().isEmpty) {
       showAdminTopNotice(
         context,

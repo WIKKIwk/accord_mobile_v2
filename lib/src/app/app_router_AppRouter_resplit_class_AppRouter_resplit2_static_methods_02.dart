@@ -21,6 +21,22 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return false;
   }
   final profile = session.profile!;
+  if (profile.role == UserRole.salesManager &&
+      !const {
+        AppRoutes.salesHome,
+        AppRoutes.adminCreateHub,
+        AppRoutes.adminCalculate,
+        AppRoutes.adminCalculateOrders,
+        AppRoutes.adminProductionMapTest,
+        AppRoutes.adminProductionMapOrders,
+        AppRoutes.adminUserCreate,
+        AppRoutes.adminCustomerCreate,
+        AppRoutes.adminSuppliers,
+        AppRoutes.adminCustomerDetail,
+        AppRoutes.adminItemCreate,
+      }.contains(routeName)) {
+    return false;
+  }
   if (routeName == AppRoutes.qolipProductTransfer && profile.role != UserRole.qolipchi) {
     return false;
   }

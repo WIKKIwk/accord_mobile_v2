@@ -60,7 +60,7 @@ class _ProductionQueueWarmRuntimeState extends State<ProductionQueueWarmRuntime>
     final admin = enabled &&
         !preparation &&
         supplyKind == null &&
-        (session.can('admin.access') || session.can('production.map.manage'));
+        (session.can('admin.access') || session.can('production.map.manage') || session.can('production.map.read'));
     if (supplyKind != null) {
       if (_foreground) {
         unawaited(SupplyTasksWarmStore.instance.prepare(kind: supplyKind));
