@@ -28,6 +28,7 @@ class CalculateOrderProductionOptions {
 class CalculateOrderTemplate {
   const CalculateOrderTemplate({
     this.products = const [],
+    this.combo,
     this.productionOptions,
     required this.id,
     required this.code,
@@ -91,6 +92,7 @@ class CalculateOrderTemplate {
     );
     return CalculateOrderTemplate(
       products: OrderProduct.listFromJson(json['products']),
+      combo: ProductionComboReference.fromJson(json['combo']),
       productionOptions: json['production_options'] is Map
           ? CalculateOrderProductionOptions.fromJson(
               (json['production_options'] as Map).cast<String, dynamic>())
@@ -137,6 +139,7 @@ class CalculateOrderTemplate {
   }
 
   final List<OrderProduct> products;
+  final ProductionComboReference? combo;
   final String id;
   final CalculateOrderProductionOptions? productionOptions;
   final String code;
@@ -213,6 +216,7 @@ class CalculateOrderTemplate {
         ? effective[index]
         : const CalculateLayerInput();
     return {
+      if (combo != null) 'combo': combo!.toJson(),
       if (productionOptions != null)
         'production_options': productionOptions!.toJson(),
       if (id.trim().isNotEmpty) 'id': id.trim(),
@@ -258,6 +262,8 @@ class CalculateOrderTemplate {
 
   CalculateOrderTemplate copyWith({
     List<OrderProduct>? products,
+    ProductionComboReference? combo,
+    bool clearCombo = false,
     CalculateOrderProductionOptions? productionOptions,
     String? id,
     String? code,
@@ -298,6 +304,7 @@ class CalculateOrderTemplate {
   }) {
     return CalculateOrderTemplate(
       products: products ?? this.products,
+      combo: clearCombo ? null : (combo ?? this.combo),
       productionOptions: productionOptions ?? this.productionOptions,
       id: id ?? this.id,
       code: code ?? this.code,

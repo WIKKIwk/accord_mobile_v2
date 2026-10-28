@@ -1,6 +1,8 @@
 import '../../features/admin/logic/apparatus_queue_state.dart';
 import '../session/session_read_scope.dart';
 import '../models/order_product.dart';
+import '../models/production_combo.dart';
+export '../models/production_combo.dart';
 export '../models/order_product.dart';
 export 'qolip/qolip_rework_request_id.dart';
 import '../../features/admin/logic/canonical_apparatus_groups.dart';
@@ -48,6 +50,7 @@ import 'json_payload_decoder.dart';
 import '../cache/order_image_cache.dart';
 
 part 'admin/mobile_api_admin.dart';
+part 'admin/mobile_api_admin_combos.dart';
 part 'admin/mobile_api_material_link.dart';
 part 'admin/mobile_api_worker_material_use.dart';
 part 'admin/mobile_api_material_start_receipt.dart';

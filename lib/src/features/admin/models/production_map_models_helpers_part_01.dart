@@ -4,6 +4,7 @@ part of 'production_map_models.dart';
 class ProductionMapDefinition {
   const ProductionMapDefinition({
     this.products = const [],
+    this.combo,
     required this.id,
     required this.productCode,
     required this.title,
@@ -21,6 +22,7 @@ class ProductionMapDefinition {
   });
 
   final List<OrderProduct> products;
+  final ProductionComboReference? combo;
   List<double> get layoutWidths => [for (final p in products) for (var i = 0; i < p.frameCount; i++) p.frameProductSizeMm];
   final String id;
   final String productCode;
@@ -42,6 +44,7 @@ class ProductionMapDefinition {
   factory ProductionMapDefinition.fromJson(Map<String, dynamic> json) {
     return ProductionMapDefinition(
       products: OrderProduct.listFromJson(json['products']),
+      combo: ProductionComboReference.fromJson(json['combo']),
       id: json['id'] as String? ?? '',
       productCode: json['product_code'] as String? ?? '',
       title: json['title'] as String? ?? '',
@@ -69,6 +72,7 @@ class ProductionMapDefinition {
 
   Map<String, dynamic> toJson() {
     return {
+      if (combo != null) 'combo': combo!.toJson(),
       if (products.isNotEmpty) 'products': products.map((p) => p.toJson()).toList(),
       'id': id,
       'product_code': productCode,
@@ -89,6 +93,8 @@ class ProductionMapDefinition {
 
   ProductionMapDefinition copyWith({
     List<OrderProduct>? products,
+    ProductionComboReference? combo,
+    bool clearCombo = false,
     String? id,
     String? productCode,
     String? title,
@@ -107,6 +113,7 @@ class ProductionMapDefinition {
   }) {
     return ProductionMapDefinition(
       products: products ?? this.products,
+      combo: clearCombo ? null : (combo ?? this.combo),
       id: id ?? this.id,
       productCode: productCode ?? this.productCode,
       title: title ?? this.title,
