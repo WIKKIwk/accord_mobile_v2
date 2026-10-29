@@ -230,16 +230,20 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
                         ),
                       ),
                     ],
-                    PaddonSectionHeader(
-                        title: _s(context, 'contents'),
-                        count: '${detail.items.length}'),
+                    PaddonSectionHeader(title: _s(context, 'contents')),
                     if (detail.items.isEmpty)
-                      PaddonEmptyState(
-                        title: _s(context, 'empty'),
-                        message: detail.paddon.editable
-                            ? _s(context, 'paddon_molds_empty')
-                            : '',
-                        icon: Icons.layers_outlined,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          _s(context, 'empty'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant),
+                        ),
                       )
                     else
                       M3SegmentSpacedColumn(children: [
@@ -277,31 +281,6 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
                       const SizedBox(height: 16),
                       PaddonPanel(
                           child: _inspectionResult(context, _lastInspection!)),
-                    ],
-                    if (detail.history.isNotEmpty) ...[
-                      PaddonSectionHeader(title: _s(context, 'history')),
-                      PaddonPanel(
-                        child: Column(children: [
-                          for (final event in detail.history.reversed)
-                            ExpansionTile(
-                              tilePadding: EdgeInsets.zero,
-                              title: Text(_s(
-                                  context,
-                                  event['action'] == 'archive'
-                                      ? 'archive_action'
-                                      : event['action'].toString())),
-                              subtitle: Text(
-                                  '${event['actor_name'] ?? ''} • ${qolipReworkDate(event['created_at'].toString())}'),
-                              children: [
-                                if (event['payload'] is Map)
-                                  _eventPayload(
-                                      context,
-                                      Map<String, dynamic>.from(
-                                          event['payload'] as Map)),
-                              ],
-                            ),
-                        ]),
-                      ),
                     ],
                   ],
                 ),
@@ -412,24 +391,6 @@ Widget _inspectionResult(
                   '${_s(context, key)}: ${(inspection[key] as List? ?? const []).join(', ')}')
           ],
         ));
-Widget _eventPayload(BuildContext context, Map<String, dynamic> payload) {
-  if (payload.containsKey('missing')) {
-    return _inspectionResult(context, payload);
-  }
-  final codes = payload['qolip_codes'] ?? payload['codes'];
-  if (codes is List) {
-    return Padding(
-        padding: const EdgeInsets.all(12), child: Text(codes.join(', ')));
-  }
-  final items = payload['items'];
-  if (items is List) {
-    return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-            items.whereType<Map>().map((m) => m['qolip_code']).join(', ')));
-  }
-  return const SizedBox.shrink();
-}
 
 class QolipArchiveDetailScreen extends StatefulWidget {
   const QolipArchiveDetailScreen({super.key, required this.entry});
