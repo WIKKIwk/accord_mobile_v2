@@ -1053,7 +1053,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(writes, 0);
-      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
       await tester.pumpAndSettle();
       expect(writes, 0);
       await tester

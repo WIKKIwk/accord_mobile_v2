@@ -9,6 +9,7 @@ import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/paddon_widgets.dart';
@@ -739,7 +740,7 @@ class _PaddonCreateDialog extends StatefulWidget {
 
 class _PaddonCreateDialogState extends State<_PaddonCreateDialog> {
   String? _warehouse;
-  final _location = TextEditingController(), _note = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -749,54 +750,68 @@ class _PaddonCreateDialogState extends State<_PaddonCreateDialog> {
       if (widget.warehouses.contains(initial['warehouse'])) {
         _warehouse = initial['warehouse'];
       }
-      _location.text = initial['location'] ?? '';
-      _note.text = initial['note'] ?? '';
     }
   }
 
   @override
-  void dispose() {
-    _location.dispose();
-    _note.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-          title: Text(_s(context, 'create')),
-          content: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-            DropdownButtonFormField<String>(
-                initialValue: _warehouse,
-                isExpanded: true,
-                decoration:
-                    InputDecoration(labelText: _s(context, 'warehouse')),
-                items: widget.warehouses
-                    .map((w) => DropdownMenuItem(value: w, child: Text(w)))
-                    .toList(),
-                onChanged: (w) => setState(() => _warehouse = w)),
-            TextField(
-                controller: _location,
-                maxLength: 200,
-                decoration:
-                    InputDecoration(labelText: _s(context, 'location'))),
-            TextField(
-                controller: _note,
-                maxLength: 1000,
-                decoration: InputDecoration(labelText: _s(context, 'note'))),
-          ])),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(_s(context, 'cancel'))),
-            FilledButton(
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final actionStyles = m3ConfirmDialogActionStyles(context: context);
+    return AlertDialog(
+      key: const ValueKey('qolip-paddon-create-dialog'),
+      insetPadding: m3DialogInsetPadding,
+      constraints: const BoxConstraints.tightFor(width: m3DialogMaxWidth),
+      backgroundColor: scheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.65)),
+      ),
+      title: Text(_s(context, 'create')),
+      scrollable: true,
+      content: DropdownButtonFormField<String>(
+        key: const ValueKey('qolip-paddon-create-warehouse'),
+        initialValue: _warehouse,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: _s(context, 'warehouse')),
+        items: widget.warehouses
+            .map((warehouse) => DropdownMenuItem(
+                  value: warehouse,
+                  child: Text(warehouse,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ))
+            .toList(),
+        onChanged: (warehouse) => setState(() => _warehouse = warehouse),
+      ),
+      actions: [
+        SizedBox(
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FilledButton(
+                key: const ValueKey('qolip-paddon-create-submit'),
+                style: actionStyles.confirm,
                 onPressed: _warehouse == null
                     ? null
                     : () => Navigator.pop(context, {
                           'warehouse': _warehouse!,
-                          'location': _location.text.trim(),
-                          'note': _note.text.trim()
+                          'location': '',
+                          'note': '',
                         }),
-                child: Text(_s(context, 'create'))),
-          ]);
+                child: Text(_s(context, 'create')),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                key: const ValueKey('qolip-paddon-create-cancel'),
+                style: actionStyles.cancel,
+                onPressed: () => Navigator.pop(context),
+                child: Text(_s(context, 'cancel')),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
