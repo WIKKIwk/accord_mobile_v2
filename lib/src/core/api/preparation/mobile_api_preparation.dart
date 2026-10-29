@@ -390,6 +390,38 @@ extension MobileApiPreparation on MobileApi {
     return PreparationFormulaVariant.fromJson(data);
   }
 
+  Future<PreparationFormulaVariant> preparationReuseFormulaVariant({
+    required String productCode,
+    required String materialId,
+    required String sourceVariantId,
+  }) async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+      return _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-variants/reuse'),
+        headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'product_code': productCode.trim(),
+          'material_id': materialId.trim(),
+          'source_variant_id': sourceVariantId.trim(),
+        }),
+      );
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    final data = _preparationResponse(response);
+    if (data['id'] is! String || (data['id'] as String).isEmpty ||
+        data['name'] is! String || (data['name'] as String).trim().isEmpty ||
+        data['product_code'] != productCode.trim() ||
+        data['material_id'] != materialId.trim()) {
+      throw const MobileApiException(
+        code: 'preparation_invalid_response',
+        message: 'Shnek varianti qo‘shilgani tasdiqlanmadi. Ro‘yxatni yangilang',
+      );
+    }
+    return PreparationFormulaVariant.fromJson(data);
+  }
+
   /// Order qatlamlaridagi homashyolar — faqat o'ziga biriktirilganlari qaytadi.
   /// Formula tugmasi uchun: bu orderning qaysi homashyosi so'raladi.
   Future<List<PreparationResponsibility>> preparationOrderMaterials(

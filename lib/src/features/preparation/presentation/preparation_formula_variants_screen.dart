@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/urdu_aware_text.dart';
+import '../../../core/search/search_normalizer.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
 import 'preparation_order_formula_screen.dart';
@@ -38,7 +41,9 @@ class PreparationFormulaVariantsScreen extends StatefulWidget {
 class _PreparationFormulaVariantsScreenState
     extends State<PreparationFormulaVariantsScreen> {
   List<PreparationFormulaVariant> _variants = [];
-  bool _loading = true, _creating = false, _opening = false;
+  late final _scope = currentSessionReadScope();
+  bool get _sameScope => _scope == currentSessionReadScope();
+  bool _loading = true, _creating = false, _opening = false, _copying = false;
   String? _error;
 
   @override
@@ -48,6 +53,7 @@ class _PreparationFormulaVariantsScreenState
   }
 
   Future<void> _load() async {
+    if (!_sameScope) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -55,7 +61,7 @@ class _PreparationFormulaVariantsScreenState
     try {
       final variants = await MobileApi.instance.preparationFormulaVariants(
           productCode: widget.productCode, materialId: widget.materialId);
-      if (mounted) setState(() => _variants = variants);
+      if (mounted && _sameScope) setState(() => _variants = variants);
     } catch (error) {
       if (mounted) {
         setState(() => _error = preparationFormulaErrorMessage(error));
@@ -66,7 +72,7 @@ class _PreparationFormulaVariantsScreenState
   }
 
   Future<void> _open(PreparationFormulaVariant variant) async {
-    if (_opening) return;
+    if (_opening || !_sameScope) return;
     _opening = true;
     await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
       orderId: widget.orderId,
@@ -85,13 +91,13 @@ class _PreparationFormulaVariantsScreenState
   }
 
   Future<void> _create() async {
-    if (_creating || _opening) return;
+    if (_creating || _opening || !_sameScope) return;
     setState(() => _creating = true);
     final variant = await showDialog<PreparationFormulaVariant>(
         context: context,
         builder: (_) => _CreateVariantDialog(
             productCode: widget.productCode, materialId: widget.materialId));
-    if (!mounted) return;
+    if (!mounted || !_sameScope) return;
     setState(() {
       _creating = false;
       if (variant != null && !_variants.any((v) => v.id == variant.id)) {
@@ -99,6 +105,86 @@ class _PreparationFormulaVariantsScreenState
       }
     });
     if (variant != null) await _open(variant);
+  }
+
+  Future<void> _reuse() async {
+    if (_creating || _opening || !_sameScope) return;
+    setState(() => _creating = true);
+    Future<List<PreparationFormulaCatalogEntry>>? catalogRequest;
+    String subtitle(PreparationFormulaCatalogEntry entry) => [
+      if (entry.code.isNotEmpty) entry.code,
+      entry.materialName,
+      entry.productTitle,
+      if (entry.setName.isNotEmpty && entry.setName != entry.productTitle)
+        entry.setName,
+      entry.productCode,
+      if (entry.orderCodes.isNotEmpty)
+        'Buyurtmalar: ${entry.orderCodes.join(', ')}',
+    ].join(' • ');
+    try {
+      final source = await showModalBottomSheet<PreparationFormulaCatalogEntry>(
+        context: context,
+        isDismissible: true,
+        enableDrag: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        sheetAnimationStyle: kM3PickerSheetAnimation,
+        builder: (sheetContext) => M3AsyncPickerSheet<PreparationFormulaCatalogEntry>(
+          key: const ValueKey('preparation-variant-reuse-picker'),
+          title: 'Shnek formulasini tanlang',
+          hintText: 'Formula nomi, kodi yoki buyurtmani qidirish',
+          autofocus: true,
+          pageSize: 80,
+          loadPage: (query, offset, limit) async {
+            if (!_sameScope) throw StateError('Akkaunt o‘zgargan');
+            try {
+              final entries = await (catalogRequest ??=
+                  MobileApi.instance.preparationFormulaCatalog());
+              if (!_sameScope) throw StateError('Akkaunt o‘zgargan');
+              return entries.where((entry) => searchMatches(
+                query, [entry.name, subtitle(entry)],
+              )).skip(offset).take(limit).toList();
+            } catch (_) {
+              catalogRequest = null;
+              rethrow;
+            }
+          },
+          itemTitle: (entry) => entry.name,
+          itemSubtitle: subtitle,
+          itemKey: (entry) => entry.id,
+          onSelected: (entry) => Navigator.of(sheetContext).pop(entry),
+        ),
+      );
+      if (!mounted || !_sameScope || source == null) return;
+      setState(() => _copying = true);
+      final variant = await MobileApi.instance.preparationReuseFormulaVariant(
+        productCode: widget.productCode,
+        materialId: widget.materialId,
+        sourceVariantId: source.id,
+      );
+      if (!mounted || !_sameScope) return;
+      setState(() {
+        _creating = false;
+        _copying = false;
+        _variants = [..._variants.where((entry) => entry.id != variant.id), variant];
+      });
+      await _open(variant);
+    } catch (error) {
+      if (mounted && _sameScope) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(preparationFormulaErrorMessage(error))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _creating = false;
+          _copying = false;
+        });
+      }
+    }
   }
 
   @override
@@ -112,7 +198,12 @@ class _PreparationFormulaVariantsScreenState
             title: 'Variant qo‘shish',
             icon: Icons.add_rounded,
             onTap: _create,
-          )
+          ),
+          AdminFabMenuAction(
+            title: 'Qidirib variant qo‘shish',
+            icon: Icons.manage_search_rounded,
+            onTap: _reuse,
+          ),
         ]),
         child: _loading
             ? const Center(child: AppLoadingIndicator())
@@ -123,6 +214,7 @@ class _PreparationFormulaVariantsScreenState
                   physics: const TopRefreshScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
                   children: [
+                    if (_copying) const LinearProgressIndicator(),
                     Padding(
                         padding: const EdgeInsets.all(12),
                         child: UrduAwareText(
