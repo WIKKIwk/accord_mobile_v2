@@ -72,10 +72,9 @@ extension _MoldPickerProducts on _MoldPickerState {
   Future<List<QolipStorageMold>?> _loadProduct(_PickerProduct group) async {
     if (!_current || _busy || _listPending) return null;
     final generation = _generation;
-    setState(() {
-      _loadingProductKey = group.key;
-      _productErrors.remove(group.key);
-    });
+    _loadingProductKey = group.key;
+    _productErrors.remove(group.key);
+    _activityChanges.value++;
     try {
       final found = <String, QolipStorageMold>{};
       var offset = 0;
@@ -101,27 +100,30 @@ extension _MoldPickerProducts on _MoldPickerState {
       final molds = found.values.toList()
         ..sort((a, b) => _pickerMoldKey(a).compareTo(_pickerMoldKey(b)));
       var removedUnavailable = false;
-      setState(() {
-        _productMolds[group.key] = molds;
-        for (final mold in molds) {
-          final key = _pickerMoldKey(mold);
-          if (_selected.containsKey(key)) {
-            if (_eligible(mold)) {
-              _selected[key] = mold;
-            } else {
-              _selected.remove(key);
-              removedUnavailable = true;
-            }
+      final changed = <QolipStorageMold>[];
+      _productMolds[group.key] = molds;
+      for (final mold in molds) {
+        final key = _pickerMoldKey(mold);
+        final previous = _selected[key];
+        if (previous != null) {
+          changed.add(previous);
+          if (_eligible(mold)) {
+            _selected[key] = mold;
+            changed.add(mold);
+          } else {
+            _selected.remove(key);
+            removedUnavailable = true;
           }
         }
-      });
+      }
+      if (changed.isNotEmpty) _notifySelectionChanged(changed);
       if (removedUnavailable) _message(context, _s(context, 'changed'));
       return molds;
     } catch (error) {
       if (await _continueAfterDiscard() &&
           _current &&
           generation == _generation) {
-        setState(() => _productErrors[group.key] = error);
+        _productErrors[group.key] = error;
         if (!_expandedProducts.contains(group.key)) {
           _message(
               context,
@@ -134,7 +136,8 @@ extension _MoldPickerProducts on _MoldPickerState {
       return null;
     } finally {
       if (mounted && _loadingProductKey == group.key) {
-        setState(() => _loadingProductKey = null);
+        _loadingProductKey = null;
+        _activityChanges.value++;
       }
     }
   }
@@ -142,10 +145,12 @@ extension _MoldPickerProducts on _MoldPickerState {
   Future<void> _expandProduct(_PickerProduct group) async {
     if (!_current || _busy || _listPending) return;
     if (_expandedProducts.contains(group.key)) {
-      setState(() => _expandedProducts.remove(group.key));
+      _expandedProducts.remove(group.key);
+      _notifyProductChanged(group.key);
       return;
     }
-    setState(() => _expandedProducts.add(group.key));
+    _expandedProducts.add(group.key);
+    _notifyProductChanged(group.key);
     if (!_productMolds.containsKey(group.key) ||
         _productErrors.containsKey(group.key)) {
       await _loadProduct(group);
@@ -161,27 +166,26 @@ extension _MoldPickerProducts on _MoldPickerState {
     if (!await _continueAfterDiscard() || !_current || molds == null) return;
     final eligible = molds.where(_eligible).toList();
     final unavailable = molds.length - eligible.length;
-    if (!deselect && unavailable > 0) {
-      setState(() => _expandedProducts.add(group.key));
-    }
+    final opened =
+        !deselect && unavailable > 0 && _expandedProducts.add(group.key);
     if (!deselect && eligible.isEmpty) {
+      if (opened) _notifyProductChanged(group.key);
       _message(context, _s(context, 'no_available_molds'));
       return;
     }
     if (!deselect &&
         {..._selected.keys, ...eligible.map(_pickerMoldKey)}.length > 1000) {
+      if (opened) _notifyProductChanged(group.key);
       _message(context, _s(context, 'capacity_error'));
       return;
     }
-    setState(() {
-      if (deselect) {
-        _selected.removeWhere((_, mold) => group.contains(mold));
-      } else {
-        for (final mold in eligible) {
-          _selected[_pickerMoldKey(mold)] = mold;
-        }
-      }
-    });
+    if (deselect) {
+      final changed = _selected.values.where(group.contains).toList();
+      _selected.removeWhere((_, mold) => group.contains(mold));
+      _notifySelectionChanged(changed);
+    } else {
+      _selectMolds(eligible, extraProducts: opened ? [group.key] : const []);
+    }
     if (!deselect && unavailable > 0) {
       _message(context, '${_s(context, 'unavailable_molds')}: $unavailable');
     }
@@ -197,7 +201,13 @@ extension _MoldPickerProducts on _MoldPickerState {
         key: const ValueKey('qolip-picker-products'),
         children: [
           for (var i = 0; i < groups.length; i++)
-            _productGroupCard(context, groups[i], i, groups.length),
+            ListenableBuilder(
+              key: ValueKey('qolip-picker-product-listener-${groups[i].key}'),
+              listenable: Listenable.merge(
+                  [_productChanges(groups[i].key), _activityChanges]),
+              builder: (context, _) =>
+                  _productGroupCard(context, groups[i], i, groups.length),
+            ),
         ]);
   }
 

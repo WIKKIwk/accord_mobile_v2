@@ -7,6 +7,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/navigation/app_root_navigation.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart'
@@ -124,6 +125,98 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     QolipCatalogStore.instance.reset();
+  });
+
+  testWidgets('selection and expansion only rebuild the affected product',
+      (tester) async {
+    final first = mold('M-A', [alpha]);
+    final second = mold('M-B', [beta]);
+    var moldReads = 0;
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      await visibleTap(tester, expand('ITEM-A'));
+      final readsBeforeSelection = moldReads;
+      final shell = tester.widget<AppShell>(find.byType(AppShell));
+      final otherProduct = tester.widget<QolipProductContainerCard>(
+          find.byKey(const ValueKey('qolip-picker-product-product:item-b')));
+
+      await visibleTap(tester, moldRow('M-A'));
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      expect(tester.widget<AppShell>(find.byType(AppShell)), same(shell));
+      expect(
+          tester.widget<QolipProductContainerCard>(find
+              .byKey(const ValueKey('qolip-picker-product-product:item-b'))),
+          same(otherProduct));
+
+      await visibleTap(tester, selectProduct('ITEM-A'));
+      expect(find.text('Confirm (0)'), findsOneWidget);
+      expect(tester.widget<AppShell>(find.byType(AppShell)), same(shell));
+      expect(
+          tester.widget<QolipProductContainerCard>(find
+              .byKey(const ValueKey('qolip-picker-product-product:item-b'))),
+          same(otherProduct));
+
+      await visibleTap(tester, expand('ITEM-A'));
+      expect(moldRow('M-A'), findsNothing);
+      expect(tester.widget<AppShell>(find.byType(AppShell)), same(shell));
+      expect(
+          tester.widget<QolipProductContainerCard>(find
+              .byKey(const ValueKey('qolip-picker-product-product:item-b'))),
+          same(otherProduct));
+      expect(moldReads, readsBeforeSelection);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/paddons/molds')) {
+                moldReads++;
+                return jsonResponse({
+                  'ok': true,
+                  'molds': [first, second]
+                });
+              }
+              return jsonResponse(detail());
+            }));
+  });
+
+  testWidgets('product lookup keeps the screen in place while loading',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    final first = mold('M-A', [alpha]);
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      final shell = tester.widget<AppShell>(find.byType(AppShell));
+      await tester.tap(selectProduct('ITEM-A'));
+      await tester.pump();
+      expect(tester.widget<AppShell>(find.byType(AppShell)), same(shell));
+      expect(find.text('Confirm (0)'), findsOneWidget);
+      expect(
+          tester
+              .widget<QolipProductContainerCard>(find
+                  .byKey(const ValueKey('qolip-picker-product-product:item-a')))
+              .loading,
+          isTrue);
+      expect(
+          tester.widget<Checkbox>(selectProduct('ITEM-A')).onChanged, isNull);
+      pending.complete(jsonResponse({
+        'ok': true,
+        'molds': [first]
+      }));
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppShell>(find.byType(AppShell)), same(shell));
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      expect(tester.widget<Checkbox>(selectProduct('ITEM-A')).value, isTrue);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              if (request.url.queryParameters['q'] == 'ITEM-A') {
+                return pending.future;
+              }
+              return jsonResponse({
+                'ok': true,
+                'molds': [first]
+              });
+            }));
   });
 
   testWidgets('selecting a mold keeps the expanded product and scroll position',
