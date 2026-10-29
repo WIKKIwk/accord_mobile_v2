@@ -290,6 +290,7 @@ void main() {
       await tester.tap(remove);
       await tester.pumpAndSettle();
       expect(find.text('Confirm (1)'), findsOneWidget);
+      expect(_scanner(tester).statusText, 'Scan a mold QR code');
       await _confirmSelection(tester);
       expect(writes.single['qolip_codes'], ['M-B']);
       expect(tester.takeException(), isNull);

@@ -100,6 +100,9 @@ class _MoldPickerState extends State<_MoldPicker>
         _selected[key] = mold;
       } else {
         _selected.remove(key);
+        _feedbackTimer?.cancel();
+        _scanStatus = '';
+        _scanFeedback = null;
       }
     });
   }
