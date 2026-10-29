@@ -20,6 +20,7 @@ extension _MoldPickerScanning on _MoldPickerState {
   void _changeMode(bool scan) {
     if (!_current || _reviewOpen ||
         _loadingProductKey != null || scan == _scanMode) return;
+    if (scan) _searchFocus?.unfocus();
     _updatePicker(() {
       // A lookup from an earlier camera session must not enter a later one.
       _invalidateScans();

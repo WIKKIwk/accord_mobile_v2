@@ -9,6 +9,7 @@ import 'package:accord_mobile_v2/src/core/navigation/app_root_navigation.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_retry_state.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart'
@@ -107,6 +108,9 @@ Finder expand(String code) => find.byKey(
 Finder selectProduct(String code) => find.byKey(
     ValueKey('qolip-picker-product-select-product:${code.toLowerCase()}'));
 Finder moldRow(String code) => find.byKey(ValueKey('qolip-picker-mold-$code'));
+Finder pickerSearch() => find.descendant(
+    of: find.byType(AdminCatalogSearchField),
+    matching: find.byType(EditableText));
 
 Future<void> visibleTap(WidgetTester tester, Finder target) async {
   await tester.ensureVisible(target);
@@ -128,6 +132,61 @@ void main() {
     QolipCatalogStore.instance.reset();
   });
 
+  testWidgets('picker search stays in the top bar and preserves selection',
+      (tester) async {
+    final queries = <String>[];
+    final first = mold('M-A', [alpha]);
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      await tester.pumpAndSettle();
+      final search = find.byType(AdminCatalogSearchField);
+      expect(find.descendant(of: find.byType(AppBar), matching: search),
+          findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      await visibleTap(tester, selectProduct('ITEM-A'));
+      expect(find.text('Confirm (1)'), findsOneWidget);
+
+      await tester.enterText(pickerSearch(), 'Alpha');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(queries.last, 'Alpha');
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      await visibleTap(
+          tester, find.byKey(const ValueKey('qolip-picker-search-close')));
+      expect(
+          tester.widget<EditableText>(pickerSearch()).controller.text, 'Alpha');
+      await visibleTap(
+          tester,
+          find.descendant(
+              of: search, matching: find.byIcon(Icons.close_rounded)));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(queries.last, isEmpty);
+      expect(find.text('Confirm (1)'), findsOneWidget);
+
+      await visibleTap(
+          tester,
+          find.descendant(
+              of: search, matching: find.byIcon(Icons.arrow_back_rounded)));
+      expect(find.text('Discard the unsaved selection?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              queries.add(request.url.queryParameters['q'] ?? '');
+              return jsonResponse({
+                'ok': true,
+                'molds': [first]
+              });
+            }));
+  });
+
   testWidgets('scrolling loads more products without the removed buttons',
       (tester) async {
     final offsets = <int>[];
@@ -147,6 +206,7 @@ void main() {
       expect(find.text('Select loaded'), findsNothing);
       expect(find.text('Select complete set'), findsNothing);
       expect(find.text('Load more'), findsNothing);
+      final searchPosition = tester.getTopLeft(pickerSearch());
       expect(offsets, [0]);
       await visibleTap(tester, selectProduct('ITEM-0'));
       expect(find.text('Confirm (1)'), findsOneWidget);
@@ -155,6 +215,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(offsets, [0, 20]);
       expect(find.text('Z last product'), findsOneWidget);
+      expect(tester.getTopLeft(pickerSearch()), searchPosition);
       expect(find.text('Confirm (1)'), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
     },
@@ -354,6 +415,7 @@ void main() {
       await tester.tap(selectProduct('ITEM-A'));
       await tester.pump();
       expect(tester.widget<AppShell>(find.byType(AppShell)), same(shell));
+      expect(tester.widget<EditableText>(pickerSearch()).readOnly, isTrue);
       expect(find.text('Confirm (0)'), findsOneWidget);
       expect(
           tester
@@ -369,6 +431,7 @@ void main() {
       }));
       await tester.pumpAndSettle();
       expect(tester.widget<AppShell>(find.byType(AppShell)), same(shell));
+      expect(tester.widget<EditableText>(pickerSearch()).readOnly, isFalse);
       expect(find.text('Confirm (1)'), findsOneWidget);
       expect(tester.widget<Checkbox>(selectProduct('ITEM-A')).value, isTrue);
     },
@@ -721,7 +784,7 @@ void main() {
     final shared = mold('M-A', [alpha, beta]);
     await http.runWithClient(() async {
       await openPicker(tester);
-      final search = find.byType(TextField);
+      final search = pickerSearch();
       await tester.enterText(search, 'Alpha product');
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
@@ -812,7 +875,7 @@ void main() {
     final oldSearch = Completer<http.Response>();
     await http.runWithClient(() async {
       await openPicker(tester);
-      final search = find.byType(TextField);
+      final search = pickerSearch();
       await tester.enterText(search, 'Alpha');
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump();

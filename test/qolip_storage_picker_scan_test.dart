@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/foundation.dart';
@@ -286,10 +287,19 @@ void main() {
       await tester.ensureVisible(a);
       await tester.tap(a);
       await tester.pumpAndSettle();
+      final input = find.descendant(
+          of: find.byType(AdminCatalogSearchField),
+          matching: find.byType(EditableText));
+      final focus = tester.widget<EditableText>(input).focusNode;
+      await tester.tap(input);
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isTrue);
       await tester.ensureVisible(find.text('Scan QR'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Scan QR'));
       await tester.pumpAndSettle();
+      expect(find.byType(AdminCatalogSearchField), findsNothing);
+      expect(focus.hasFocus, isFalse);
       await _scanner(tester).onCodeDetected('M-B');
       await tester.pumpAndSettle();
       expect(find.text('Confirm (2)'), findsOneWidget);

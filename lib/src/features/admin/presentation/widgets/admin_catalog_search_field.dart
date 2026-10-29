@@ -18,6 +18,7 @@ class AdminCatalogSearchField extends StatelessWidget {
     this.leadingTooltip,
     this.showLeading = true,
     this.searchCloseKey,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
@@ -32,6 +33,7 @@ class AdminCatalogSearchField extends StatelessWidget {
   final String? leadingTooltip;
   final bool showLeading;
   final Key? searchCloseKey;
+  final bool enabled;
 
   void _handleBack(BuildContext context) {
     if (onBackWithContext != null) {
@@ -90,7 +92,8 @@ class AdminCatalogSearchField extends StatelessWidget {
                             child: EditableText(
                               controller: controller,
                               focusNode: focusNode,
-                              onChanged: onChanged,
+                              onChanged: enabled ? onChanged : null,
+                              readOnly: !enabled,
                               textAlign: TextAlign.start,
                               textInputAction: TextInputAction.search,
                               maxLines: 1,
@@ -147,7 +150,7 @@ class AdminCatalogSearchField extends StatelessWidget {
                   dimension: 48,
                   child: IconButton(
                     tooltip: context.l10n.adminText('action.clear'),
-                    onPressed: onClear,
+                    onPressed: enabled ? onClear : null,
                     icon: Icon(
                       Icons.close_rounded,
                       color: scheme.onSurfaceVariant,

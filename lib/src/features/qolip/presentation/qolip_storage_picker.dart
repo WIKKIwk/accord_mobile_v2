@@ -14,6 +14,8 @@ class _MoldPickerState extends State<_MoldPicker>
     with _StorageSessionState<_MoldPicker> {
   final _scope = currentSessionReadScope();
   final _search = TextEditingController();
+  FocusNode? _searchFocus;
+  FocusNode get _searchFocusNode => _searchFocus ??= FocusNode();
   final _selected = <String, QolipStorageMold>{};
   final _queuedCodes = <String>{};
   List<QolipStorageMold> _molds = [];
@@ -136,6 +138,7 @@ class _MoldPickerState extends State<_MoldPicker>
   void dispose() {
     _debounce?.cancel();
     _feedbackTimer?.cancel();
+    _searchFocus?.dispose();
     _search.dispose();
     _listScrollController?.dispose();
     _generation++;
@@ -209,6 +212,17 @@ class _MoldPickerState extends State<_MoldPicker>
         _scheduleMoreIfNeeded();
       }
     }
+  }
+
+  void _searchChanged(String _) {
+    if (!_current || _scanMode || _busy) return;
+    _debounce?.cancel();
+    setState(() {
+      _searchPending = true;
+      _generation++;
+      _loading = false;
+    });
+    _debounce = Timer(const Duration(milliseconds: 300), () => _load());
   }
 
   void _toggle(QolipStorageMold mold, bool selected) {
@@ -338,6 +352,25 @@ class _MoldPickerState extends State<_MoldPicker>
         title: _s(context, 'select_molds'),
         subtitle: '',
         nativeTopBar: true,
+        automaticallyImplyNativeLeading: _scanMode,
+        titleWidget: _scanMode
+            ? null
+            : ListenableBuilder(
+                listenable: _activityChanges,
+                builder: (context, _) => AdminCatalogSearchField(
+                  controller: _search,
+                  focusNode: _searchFocusNode,
+                  hintText: _s(context, 'search'),
+                  enabled: !_busy,
+                  onChanged: _searchChanged,
+                  onClear: () {
+                    _search.clear();
+                    _searchChanged('');
+                  },
+                  onBack: () => unawaited(_leave()),
+                  searchCloseKey: const ValueKey('qolip-picker-search-close'),
+                ),
+              ),
         showProfileAction: false,
         contentPadding: EdgeInsets.zero,
         appBarBottomLoading: _loading || _pendingScans > 0,
@@ -434,32 +467,6 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   List<Widget> _listWidgets(BuildContext context) => [
-        ListenableBuilder(
-          listenable: _activityChanges,
-          builder: (context, _) => TextField(
-            controller: _search,
-            enabled: !_busy,
-            decoration: InputDecoration(
-              hintText: _s(context, 'search'),
-              prefixIcon: const Icon(Icons.search_rounded),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none),
-            ),
-            onChanged: (_) {
-              _debounce?.cancel();
-              setState(() {
-                _searchPending = true;
-                _generation++;
-                _loading = false;
-              });
-              _debounce =
-                  Timer(const Duration(milliseconds: 300), () => _load());
-            },
-          ),
-        ),
         SizedBox(
           key: const ValueKey('qolip-picker-selected-strip'),
           height: 44,
@@ -501,8 +508,7 @@ class _MoldPickerState extends State<_MoldPicker>
         if (_molds.isNotEmpty) _productGroupList(context),
         if (_failure != null && _moreFailure == true)
           AppRetryState(
-              onRetry: () => _load(more: true),
-              message: _s(context, 'failed')),
+              onRetry: () => _load(more: true), message: _s(context, 'failed')),
         if (_loading && _molds.isNotEmpty)
           const Padding(
               padding: EdgeInsets.all(16),
