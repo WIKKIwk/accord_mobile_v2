@@ -40,6 +40,34 @@ extension AppLocalizationsQolipStorage on AppLocalizations {
           _t('Hozir arxivda', 'Currently archived', 'Сейчас в архиве'),
         'all' => _t('Barchasi', 'All', 'Все'),
         'add' => _t('Qolip qo‘shish', 'Add molds', 'Добавить формы'),
+        'select_molds' =>
+          _t('Qoliplarni tanlash', 'Select molds', 'Выбрать формы'),
+        'picker_hint' => _t(
+            'Ro‘yxatdan tanlang yoki QR kodlarini ketma-ket skanerlang. Tanlovni tekshirib, keyin tasdiqlang.',
+            'Select from the list or scan QR codes one after another. Review your selection before confirming.',
+            'Выбирайте из списка или сканируйте QR-коды подряд. Проверьте выбор перед подтверждением.'),
+        'list_mode' => _t('Ro‘yxat', 'List', 'Список'),
+        'scan_mode' => _t('QR skanerlash', 'Scan QR', 'Сканировать QR'),
+        'scan_add' => _t('QR skanerlash orqali qo‘shish', 'Add by scanning QR',
+            'Добавить сканированием QR'),
+        'scan_ready' => _t('Qolip QR kodini skanerlang', 'Scan a mold QR code',
+            'Сканируйте QR-код формы'),
+        'scan_accepted' =>
+          _t('Qolip tanlandi', 'Mold selected', 'Форма выбрана'),
+        'scan_pending' => _t(
+            'Kodlar tekshirilmoqda. Hammasi tekshirilgach tasdiqlang.',
+            'Checking codes. Confirm after every code has been checked.',
+            'Проверяем коды. Подтвердите после проверки всех кодов.'),
+        'invalid_mold_qr' => _t(
+            'Bu paddon QR kodi. Qolipning o‘z QR kodini skanerlang.',
+            'This is a pallet QR. Scan the mold’s own QR code.',
+            'Это QR поддона. Сканируйте QR самой формы.'),
+        'selection_review' =>
+          _t('Tanlangan qoliplar', 'Selected molds', 'Выбранные формы'),
+        'selected_empty' => _t('Hali qolip tanlanmagan',
+            'No molds selected yet', 'Формы ещё не выбраны'),
+        'select_loaded_short' => _t('Ko‘rinayotganlarni tanlash',
+            'Select loaded', 'Выбрать загруженные'),
         'remove' =>
           _t('Paddondan chiqarish', 'Remove from pallet', 'Убрать с поддона'),
         'lock' => _t('Qulflash', 'Lock', 'Заблокировать'),
@@ -58,6 +86,10 @@ extension AppLocalizationsQolipStorage on AppLocalizations {
           _t('Ma’lumot topilmadi', 'No records found', 'Записи не найдены'),
         'retry' => _t('Qayta urinish', 'Retry', 'Повторить'),
         'selected' => _t('Tanlangan', 'Selected', 'Выбрано'),
+        'deselect' =>
+          _t('Tanlovdan chiqarish', 'Deselect mold', 'Убрать из выбора'),
+        'mold_details' =>
+          _t('Qolip ma’lumotlari', 'Mold details', 'Информация о форме'),
         'available' => _t('Bo‘sh qolip', 'Available mold', 'Свободная форма'),
         'in_use' => _t('Ishlab chiqarishga berilgan', 'Issued to production',
             'Выдана в производство'),

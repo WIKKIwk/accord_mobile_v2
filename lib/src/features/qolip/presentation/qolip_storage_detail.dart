@@ -54,11 +54,19 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
     return false;
   }
 
-  Future<void> _add() async {
-    if (_saving || !_sameScope()) return;
+  Future<void> _add({bool scan = false}) async {
+    if (_saving ||
+        _loading ||
+        _detail?.paddon.editable != true ||
+        !_sameScope()) {
+      return;
+    }
     final selected = await Navigator.of(context).push<List<QolipStorageMold>>(
         MaterialPageRoute(
-            builder: (_) => _MoldPicker(warehouse: _detail!.paddon.warehouse)));
+            builder: (_) => _MoldPicker(
+                warehouse: _detail!.paddon.warehouse,
+                paddonCode: widget.code,
+                scanInitially: scan)));
     if (!mounted || selected == null || selected.isEmpty) return;
     await _act('add', codes: selected.map((e) => e.code).toList());
   }
@@ -163,6 +171,13 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
       bottom: QolipDock(
         activeTab: null,
         primaryActions: [
+          if (detail?.paddon.editable == true)
+            AdminFabMenuAction(
+              title: _s(context, 'scan_add'),
+              icon: Icons.qr_code_scanner_rounded,
+              enabled: enabled,
+              onTap: () => unawaited(_add(scan: true)),
+            ),
           if (detail?.paddon.editable == true)
             AdminFabMenuAction(
               title: _s(context, 'add'),

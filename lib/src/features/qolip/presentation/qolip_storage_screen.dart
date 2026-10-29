@@ -24,6 +24,7 @@ import 'widgets/qolip_navigation_drawer.dart';
 
 part 'qolip_storage_detail.dart';
 part 'qolip_storage_picker.dart';
+part 'qolip_storage_picker_scanning.dart';
 
 mixin _StorageSessionState<T extends StatefulWidget> on State<T> {
   final _initialScope = currentSessionReadScope();
@@ -103,7 +104,7 @@ String _moldStatus(BuildContext context, QolipStorageMold m,
 
 void _message(BuildContext context, String text) =>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-void _error(BuildContext context, Object error) {
+String _storageErrorMessage(BuildContext context, Object error) {
   final code = error is MobileApiException ? error.code : '';
   final key = switch (code) {
     'session_scope_changed' => 'session_changed',
@@ -126,8 +127,11 @@ void _error(BuildContext context, Object error) {
         ? 'changed'
         : 'failed',
   };
-  _message(context, _s(context, key));
+  return _s(context, key);
 }
+
+void _error(BuildContext context, Object error) =>
+    _message(context, _storageErrorMessage(context, error));
 
 Future<bool> _confirm(BuildContext context, String title, String body) async =>
     await _storageDialog<bool>(
@@ -163,9 +167,9 @@ Future<void> _qr(BuildContext context, String code, {bool paddon = false}) =>
                     child: Text(_s(context, 'copy'))),
               ],
             ));
-void _moldDetails(BuildContext context, QolipStorageMold m) {
+Future<void> _moldDetails(BuildContext context, QolipStorageMold m) {
   final scope = currentSessionReadScope();
-  showModalBottomSheet<void>(
+  return showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       useSafeArea: true,

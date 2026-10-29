@@ -563,6 +563,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Molds: Archive'));
         await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byType(CheckboxListTile));
+        await tester.pumpAndSettle();
         await tester.tap(find.byType(CheckboxListTile));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Confirm (1)'));
