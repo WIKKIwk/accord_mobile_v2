@@ -575,93 +575,112 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
             'snapshot': item,
           }),
     ];
-    return Scaffold(
-      appBar: AppBar(title: Text(entry.code), actions: [
+    return AppShell(
+      title: entry.code,
+      subtitle: '',
+      nativeTopBar: true,
+      showProfileAction: false,
+      appBarBottomLoading: _saving,
+      contentPadding: EdgeInsets.zero,
+      actions: [
         IconButton(
+            tooltip: _s(context, 'scan_paddon'),
             onPressed: () => _qr(context, entry.code, paddon: true),
-            icon: const Icon(Icons.qr_code))
-      ]),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        if (_saving) const LinearProgressIndicator(),
-        PaddonPanel(
-          key: const ValueKey('qolip-archive-paddon-summary'),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(entry.code,
-                style: style.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
-            Row(children: [
-              const Icon(Icons.warehouse_outlined, size: 20),
-              const SizedBox(width: 8),
-              Expanded(child: Text(entry.warehouse)),
-            ]),
-            if (location.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Row(children: [
-                const Icon(Icons.place_outlined, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text(location)),
-              ]),
-            ],
-            const SizedBox(height: 10),
-            Text('${_s(context, 'archived_by')}: ${entry.archivedBy}'),
-            Text(qolipReworkDate(entry.archivedAt)),
-            if (entry.restoredAt != null)
-              Text(
-                  '${_s(context, 'restored_by')}: ${entry.restoredBy}\n${qolipReworkDate(entry.restoredAt!)}'),
-            if (entry.note.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(entry.note),
-            ],
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              Chip(
-                avatar: Icon(
-                    isArchived
-                        ? Icons.archive_outlined
-                        : Icons.unarchive_outlined,
-                    size: 18),
-                label: Text(_s(context, isArchived ? 'archived' : 'returned')),
+            icon: const Icon(Icons.qr_code_2_rounded))
+      ],
+      bottom: const QolipDock(activeTab: null),
+      child: ColoredBox(
+        color: AppTheme.shellStart(context),
+        child: ListView(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
+            children: [
+              PaddonPanel(
+                key: const ValueKey('qolip-archive-paddon-summary'),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(entry.code,
+                          style: style.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        const Icon(Icons.warehouse_outlined, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(entry.warehouse)),
+                      ]),
+                      if (location.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          const Icon(Icons.place_outlined, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(location)),
+                        ]),
+                      ],
+                      const SizedBox(height: 10),
+                      Text(
+                          '${_s(context, 'archived_by')}: ${entry.archivedBy}'),
+                      Text(qolipReworkDate(entry.archivedAt)),
+                      if (entry.restoredAt != null)
+                        Text(
+                            '${_s(context, 'restored_by')}: ${entry.restoredBy}\n${qolipReworkDate(entry.restoredAt!)}'),
+                      if (entry.note.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(entry.note),
+                      ],
+                      const SizedBox(height: 12),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        Chip(
+                          avatar: Icon(
+                              isArchived
+                                  ? Icons.archive_outlined
+                                  : Icons.unarchive_outlined,
+                              size: 18),
+                          label: Text(_s(
+                              context, isArchived ? 'archived' : 'returned')),
+                        ),
+                        PaddonMetric(
+                            label: _s(context, 'molds'),
+                            value: '${molds.length}'),
+                      ]),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        if (isArchived)
+                          OutlinedButton.icon(
+                              onPressed: _saving ? null : _restore,
+                              icon: const Icon(Icons.unarchive_outlined,
+                                  size: 18),
+                              label: Text(_s(context, 'restore'))),
+                        OutlinedButton.icon(
+                            onPressed: _saving
+                                ? null
+                                : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                        builder: (_) => QolipPaddonScreen(
+                                            code: entry.code))),
+                            icon: const Icon(Icons.inventory_2_outlined,
+                                size: 18),
+                            label: Text(_s(context, 'current_detail'))),
+                      ]),
+                    ]),
               ),
-              PaddonMetric(
-                  label: _s(context, 'molds'), value: '${molds.length}'),
+              PaddonSectionHeader(title: _s(context, 'snapshot')),
+              if (molds.isEmpty)
+                Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(child: Text(_s(context, 'empty'))))
+              else
+                _ArchiveMoldList(
+                  entries: molds,
+                  showStatus: false,
+                  onEntry: (mold) => _moldDetails(
+                      context, QolipStorageMold.fromJson(mold.snapshot),
+                      archivedSnapshot: true),
+                ),
             ]),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              if (isArchived)
-                OutlinedButton.icon(
-                    onPressed: _saving ? null : _restore,
-                    icon: const Icon(Icons.unarchive_outlined, size: 18),
-                    label: Text(_s(context, 'restore'))),
-              OutlinedButton.icon(
-                  onPressed: _saving
-                      ? null
-                      : () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  QolipPaddonScreen(code: entry.code))),
-                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                  label: Text(_s(context, 'current_detail'))),
-            ]),
-          ]),
-        ),
-        PaddonSectionHeader(title: _s(context, 'snapshot')),
-        if (molds.isEmpty)
-          Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(child: Text(_s(context, 'empty'))))
-        else
-          _ArchiveMoldList(
-            entries: molds,
-            showStatus: false,
-            onEntry: (mold) => _moldDetails(
-                context, QolipStorageMold.fromJson(mold.snapshot),
-                archivedSnapshot: true),
-          ),
-      ]),
+      ),
     );
   }
 

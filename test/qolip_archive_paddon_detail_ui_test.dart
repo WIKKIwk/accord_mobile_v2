@@ -1,19 +1,24 @@
 import 'dart:convert';
 
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/navigation/app_root_navigation.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart'
     show QolipProductContainerCard;
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
+import 'package:accord_mobile_v2/src/features/qolip/presentation/widgets/qolip_dock.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Map<String, dynamic> archivedPallet({bool restored = false}) => {
@@ -90,6 +95,133 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     QolipCatalogStore.instance.reset();
+  });
+
+  testWidgets('archive pallet uses the standard shell, dock and back button',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => QolipArchiveDetailScreen(
+                    entry: QolipArchiveEntry.fromJson(archivedPallet()),
+                  ),
+                ),
+              ),
+              child: const Text('Open archive'),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open archive'));
+      await tester.pumpAndSettle();
+
+      final shell = tester.widget<AppShell>(find.byType(AppShell));
+      expect(shell.nativeTopBar, isTrue);
+      expect(shell.showProfileAction, isFalse);
+      expect(shell.bottom, isA<QolipDock>());
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byTooltip('Back'), findsOneWidget);
+      final summary =
+          find.byKey(const ValueKey('qolip-archive-paddon-summary'));
+      final clips = tester.widgetList<ClipRRect>(
+          find.ancestor(of: summary, matching: find.byType(ClipRRect)));
+      expect(
+          clips.any((clip) =>
+              clip.borderRadius ==
+              const BorderRadius.vertical(
+                  top: Radius.circular(18), bottom: Radius.circular(18))),
+          isTrue);
+
+      final group = find
+          .byKey(const ValueKey('qolip-archive-product-expand-product:item-a'));
+      await tester.ensureVisible(group);
+      await tester.tap(group);
+      await tester.pumpAndSettle();
+      final lastMold =
+          find.byKey(const ValueKey('qolip-archive-mold-visit-1-Q-TWO'));
+      await tester.ensureVisible(lastMold);
+      await tester.pumpAndSettle();
+      final dock = find.byKey(const ValueKey('app-navigation-bar-shell'));
+      expect(tester.getRect(lastMold).bottom,
+          lessThanOrEqualTo(tester.getRect(dock).top));
+
+      await tester.tap(find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.qr_code_2_rounded)));
+      await tester.pumpAndSettle();
+      expect(find.byType(QrImageView), findsOneWidget);
+      final dialog = find.byType(AlertDialog);
+      expect(find.descendant(of: dialog, matching: find.text('QP-00012')),
+          findsOneWidget);
+      Navigator.of(tester.element(dialog)).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open archive'), findsOneWidget);
+    },
+        () => MockClient((request) async =>
+            response({'ok': true, 'items': [], 'has_more': false})));
+  });
+
+  testWidgets('archive pallet dock navigates to every role destination',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const destinations = <String, String>{
+      'Home': AppRoutes.qolipHome,
+      'Molds': AppRoutes.qolipProducts,
+      'Tasks': AppRoutes.qolipTasks,
+      'Chat': AppRoutes.chat,
+    };
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        navigatorObservers: [AppRootNavigation.navigatorObserver],
+        routes: {
+          for (final destination in destinations.entries)
+            destination.value: (_) => Scaffold(
+                appBar: AppBar(), body: Text('${destination.key} destination')),
+        },
+        home: QolipArchiveDetailScreen(
+            entry: QolipArchiveEntry.fromJson(archivedPallet())),
+      ));
+      await tester.pumpAndSettle();
+      for (final destination in destinations.keys) {
+        final tab = find.descendant(
+            of: find.byType(NavigationBar), matching: find.text(destination));
+        await tester.tap(tab);
+        await tester.pumpAndSettle();
+        expect(find.text('$destination destination'), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(QolipDock), findsOneWidget);
+      }
+    },
+        () => MockClient((request) async =>
+            response({'ok': true, 'items': [], 'has_more': false})));
   });
 
   testWidgets(
