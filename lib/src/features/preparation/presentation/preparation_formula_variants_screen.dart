@@ -4,6 +4,8 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 import '../../../core/search/search_normalizer.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/feedback/spring_bottom_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -44,6 +46,7 @@ class _PreparationFormulaVariantsScreenState
   late final _scope = currentSessionReadScope();
   bool get _sameScope => _scope == currentSessionReadScope();
   bool _loading = true, _creating = false, _opening = false, _copying = false;
+  bool _removing = false;
   String? _error;
 
   @override
@@ -53,14 +56,15 @@ class _PreparationFormulaVariantsScreenState
   }
 
   Future<void> _load() async {
-    if (!_sameScope) return;
+    if (!_sameScope || _removing) return;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final variants = await MobileApi.instance.preparationFormulaVariants(
-          productCode: widget.productCode, materialId: widget.materialId);
+          productCode: widget.productCode, materialId: widget.materialId,
+          orderId: widget.orderId);
       if (mounted && _sameScope) setState(() => _variants = variants);
     } catch (error) {
       if (mounted) {
@@ -71,7 +75,7 @@ class _PreparationFormulaVariantsScreenState
     }
   }
 
-  Future<void> _open(PreparationFormulaVariant variant) async {
+  Future<void> _open(PreparationFormulaVariant variant, {bool edit = false}) async {
     if (_opening || !_sameScope) return;
     _opening = true;
     await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
@@ -85,13 +89,14 @@ class _PreparationFormulaVariantsScreenState
       variantId: variant.id,
       variantName: variant.name,
       variantCode: variant.code,
+      openEditorOnLoad: edit,
     ));
     _opening = false;
     if (mounted) await _load();
   }
 
   Future<void> _create() async {
-    if (_creating || _opening || !_sameScope) return;
+    if (_creating || _opening || _removing || !_sameScope) return;
     setState(() => _creating = true);
     final variant = await showDialog<PreparationFormulaVariant>(
         context: context,
@@ -108,7 +113,7 @@ class _PreparationFormulaVariantsScreenState
   }
 
   Future<void> _reuse() async {
-    if (_creating || _opening || !_sameScope) return;
+    if (_creating || _opening || _removing || !_sameScope) return;
     setState(() => _creating = true);
     Future<List<PreparationFormulaCatalogEntry>>? catalogRequest;
     String subtitle(PreparationFormulaCatalogEntry entry) => [
@@ -163,6 +168,7 @@ class _PreparationFormulaVariantsScreenState
         productCode: widget.productCode,
         materialId: widget.materialId,
         sourceVariantId: source.id,
+        orderId: widget.orderId,
       );
       if (!mounted || !_sameScope) return;
       setState(() {
@@ -184,6 +190,61 @@ class _PreparationFormulaVariantsScreenState
           _copying = false;
         });
       }
+    }
+  }
+
+  Future<void> _actions(PreparationFormulaVariant variant) async {
+    if (_loading || _creating || _opening || _removing || !_sameScope) return;
+    setState(() => _creating = true);
+    final action = await showSpringBottomSheet<String>(
+      context: context,
+      builder: (_) => AppActionSheet<String>(
+        title: variant.name,
+        subtitle: variant.code,
+        actions: const [
+          AppActionSheetAction(title: 'Tahrirlash', icon: Icons.edit_outlined, value: 'edit'),
+          AppActionSheetAction(title: 'O‘chirish', icon: Icons.delete_outline_rounded,
+              value: 'delete', destructive: true),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _creating = false);
+    if (!_sameScope) return;
+    if (action == 'edit') await _open(variant, edit: true);
+    if (action == 'delete') await _remove(variant);
+  }
+
+  Future<void> _remove(PreparationFormulaVariant variant) async {
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: 'Shnek formulasini olib tashlash',
+      message: '${variant.name} shnek formulasi ${widget.orderCode} buyurtmasidan olib tashlanadi.',
+      cancelLabel: 'Bekor qilish',
+      confirmLabel: 'O‘chirish',
+      confirmButtonKey: const ValueKey('preparation-variant-remove-confirm'),
+      destructive: true,
+    );
+    if (confirmed != true || !mounted || !_sameScope || _removing) return;
+    setState(() => _removing = true);
+    try {
+      await MobileApi.instance.preparationRemoveFormulaVariantFromOrder(
+        orderId: widget.orderId, productCode: widget.productCode,
+        materialId: widget.materialId, variantId: variant.id,
+      );
+      if (!mounted || !_sameScope) return;
+      setState(() => _variants = _variants.where((entry) => entry.id != variant.id).toList());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${variant.name} buyurtmadan olib tashlandi')),
+      );
+    } catch (error) {
+      if (mounted && _sameScope) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(preparationFormulaErrorMessage(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _removing = false);
     }
   }
 
@@ -214,7 +275,7 @@ class _PreparationFormulaVariantsScreenState
                   physics: const TopRefreshScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
                   children: [
-                    if (_copying) const LinearProgressIndicator(),
+                    if (_copying || _removing) const LinearProgressIndicator(),
                     Padding(
                         padding: const EdgeInsets.all(12),
                         child: UrduAwareText(
@@ -249,9 +310,12 @@ class _PreparationFormulaVariantsScreenState
                                 ? 'Tarkib hali kiritilmagan'
                                 : '${_variants[i].formulaCount} ta ichki formula • ${_variants[i].sharesComplete ? 'jami 100%' : 'ulushlar belgilanmagan'}',
                           ].join(' • '),
-                          onTap: _creating || _opening
+                          onTap: _creating || _opening || _removing
                               ? null
                               : () => _open(_variants[i]),
+                          onLongPress: _creating || _opening || _removing
+                              ? null
+                              : () => _actions(_variants[i]),
                         ),
                     ]),
                   ],

@@ -105,6 +105,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     this.variantName = '',
     this.variantCode = '',
     this.allowAddingFormula = false,
+    this.openEditorOnLoad = false,
   });
 
   final String orderId;
@@ -118,6 +119,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
   final bool manageSavedFormula;
   final String variantId, variantName, variantCode;
   final bool allowAddingFormula;
+  final bool openEditorOnLoad;
 
   static Route<void> route({
     required String orderId,
@@ -133,6 +135,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     String variantName = '',
     String variantCode = '',
     bool allowAddingFormula = false,
+    bool openEditorOnLoad = false,
   }) {
     return PreparationOrderFormulaRoute(
       builder: (_) => PreparationOrderFormulaScreen(
@@ -149,6 +152,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
         variantName: variantName,
         variantCode: variantCode,
         allowAddingFormula: allowAddingFormula,
+        openEditorOnLoad: openEditorOnLoad,
       ),
     );
   }
@@ -221,12 +225,15 @@ class _PreparationOrderFormulaScreenState
         _formulas = formulas;
         _estimatedMaterialKg = estimatedKg;
       });
-      if (!_initialEditorOpened && widget.initialFormulaName != null) {
+      if (!_initialEditorOpened &&
+          (widget.initialFormulaName != null || widget.openEditorOnLoad)) {
         final formula = formulas
             .where((f) => f.name == widget.initialFormulaName)
             .firstOrNull;
         _initialEditorOpened = true;
-        if (formula != null) {
+        if (widget.initialFormulaName == null) {
+          _openEditor(existing: formulas.firstOrNull);
+        } else if (formula != null) {
           _openEditor(existing: formula);
         } else {
           setState(() => _error = 'Formula topilmadi. Ro‘yxatni yangilang');

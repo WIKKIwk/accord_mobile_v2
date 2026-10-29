@@ -55,6 +55,7 @@ class _ReuseApi extends variants.VariantApi {
       });
     }
     if (request.url.path.endsWith('/formula-variants/reuse')) {
+      expect(request.url.queryParameters['order_id'], 'order-1');
       final body = Map<String, dynamic>.from(jsonDecode(request.body) as Map);
       reuses.add(body);
       expect(body, {

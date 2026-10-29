@@ -350,11 +350,13 @@ extension MobileApiPreparation on MobileApi {
 
   Future<List<PreparationFormulaVariant>> preparationFormulaVariants({
     required String productCode, required String materialId, bool savedOnly = false,
+    String orderId = '',
   }) async {
     final key = _preparationStorageKey();
     final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-variants').replace(queryParameters: {
       'product_code': productCode.trim(), 'material_id': materialId.trim(),
       if (savedOnly) 'saved_only': 'true',
+      if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
     });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
@@ -394,12 +396,16 @@ extension MobileApiPreparation on MobileApi {
     required String productCode,
     required String materialId,
     required String sourceVariantId,
+    String orderId = '',
   }) async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
       return _post(
-        Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-variants/reuse'),
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-variants/reuse')
+            .replace(queryParameters: {
+              if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
+            }),
         headers: _headers(requireToken())..['Content-Type'] = 'application/json',
         body: jsonEncode({
           'product_code': productCode.trim(),
@@ -420,6 +426,31 @@ extension MobileApiPreparation on MobileApi {
       );
     }
     return PreparationFormulaVariant.fromJson(data);
+  }
+
+  Future<void> preparationRemoveFormulaVariantFromOrder({
+    required String orderId,
+    required String productCode,
+    required String materialId,
+    required String variantId,
+  }) async {
+    final key = _preparationStorageKey();
+    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-variants/order')
+        .replace(queryParameters: {
+          'order_id': orderId.trim(), 'product_code': productCode.trim(),
+          'material_id': materialId.trim(), 'variant_id': variantId.trim(),
+        });
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+      return _delete(uri, headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    final data = _preparationResponse(response);
+    if (data['removed'] != true || data['order_id'] != orderId.trim() ||
+        data['variant_id'] != variantId.trim()) {
+      throw const MobileApiException(code: 'preparation_invalid_response',
+          message: 'Shnek varianti olib tashlangani tasdiqlanmadi. Ro‘yxatni yangilang');
+    }
   }
 
   /// Order qatlamlaridagi homashyolar — faqat o'ziga biriktirilganlari qaytadi.

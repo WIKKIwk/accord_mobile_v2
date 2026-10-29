@@ -42,7 +42,7 @@ class VariantApi {
     if (path.endsWith('/formula-variants')) {
       if (request.method == 'GET') {
         expect(request.url.queryParameters,
-            {'product_code': 'P', 'material_id': 'pe-pr'});
+            {'product_code': 'P', 'material_id': 'pe-pr', 'order_id': 'order-1'});
         return fixtures.response({
           'product_code': 'P',
           'material_id': 'pe-pr',
@@ -151,6 +151,7 @@ void main() {
           find.byType(PreparationOrderFormulaScreen));
       expect(screen.variantId, 'legacy');
       expect(screen.variantName, 'Asosiy');
+      expect(screen.openEditorOnLoad, isFalse);
       expect(find.text('≈ 1000.00 kg'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, () => MockClient(api.respond)).whenComplete(semantics.dispose);
