@@ -97,9 +97,12 @@ class QolipArchiveEntry {
         restoredAt = json['restored_at'] as String?,
         archivedBy = json['archived_by_name'] as String? ?? '',
         restoredBy = json['restored_by_name'] as String? ?? '',
+        parentPaddonCode = json['parent_paddon_code'] as String? ?? '',
         note = json['note'] as String? ?? '',
         snapshot = Map<String, dynamic>.from(json['snapshot'] as Map) {
-    if (id.isEmpty || !const ['qolip', 'paddon'].contains(kind)) {
+    if (id.isEmpty ||
+        !const ['qolip', 'paddon', 'paddon_mold'].contains(kind) ||
+        (kind == 'paddon_mold' && parentPaddonCode.isEmpty)) {
       throw const FormatException('Invalid archive entry');
     }
   }
@@ -110,6 +113,7 @@ class QolipArchiveEntry {
       archivedAt,
       archivedBy,
       restoredBy,
+      parentPaddonCode,
       note;
   final String? restoredAt;
   final Map<String, dynamic> snapshot;
@@ -255,6 +259,7 @@ extension MobileApiQolipStorage on MobileApi {
           await _qolipStorageRequest('paddons/action', body: body));
   Future<QolipStoragePage<QolipArchiveEntry>> qolipArchive(
       {String status = 'open',
+      String view = '',
       String query = '',
       int offset = 0,
       String warehouse = '',
@@ -262,6 +267,7 @@ extension MobileApiQolipStorage on MobileApi {
       DateTime? to}) async {
     final json = await _qolipStorageRequest('archive', query: {
       'status': status,
+      if (view.isNotEmpty) 'view': view,
       if (warehouse.isNotEmpty) 'warehouse': warehouse,
       if (from != null) 'from': qolipStorageDate(from),
       if (to != null) 'to': qolipStorageDate(to),

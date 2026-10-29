@@ -485,7 +485,7 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
   bool _saving = false, _restored = false;
   Map<String, dynamic>? _restoreBody;
   Future<void> _restore() async {
-    if (_saving || _restored) return;
+    if (_saving || _restored || widget.entry.kind == 'paddon_mold') return;
     if (_sessionExpired || _scope != currentSessionReadScope()) {
       _message(context, _s(context, 'session_changed'));
       return;
@@ -584,7 +584,7 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
           Text(
               '${_s(context, 'restored_by')}: ${entry.restoredBy}\n${qolipReworkDate(entry.restoredAt!)}'),
         if (entry.note.isNotEmpty) Text(entry.note),
-        if (entry.isOpen && !_restored)
+        if (entry.isOpen && !_restored && entry.kind != 'paddon_mold')
           FilledButton.icon(
               onPressed: _saving ? null : _restore,
               icon: const Icon(Icons.unarchive_outlined),
