@@ -34,16 +34,16 @@ http.Response _json(Map<String, dynamic> data, [int status = 200]) =>
     http.Response(jsonEncode(data), status,
         headers: {'content-type': 'application/json'});
 
-Widget _app() => const MaterialApp(
-      locale: Locale('en'),
+Widget _app({Widget home = const QolipStorageScreen()}) => MaterialApp(
+      locale: const Locale('en'),
       supportedLocales: AppLocalizations.supportedLocales,
-      localizationsDelegates: [
+      localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: QolipStorageScreen(),
+      home: home,
     );
 
 Future<void> _openMenu(WidgetTester tester) async {
@@ -324,4 +324,144 @@ void main() {
               });
             }));
   });
+
+  testWidgets('back during detail loading cancels the deferred mold picker',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    var writes = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await _openMenu(tester);
+      await tester.tap(find.byKey(_add));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      pending.complete(_json({
+        'ok': true,
+        'paddon': _paddon(),
+        'items': [],
+        'history': [],
+      }));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('qolip-picker-list')), findsNothing);
+      expect(find.byKey(_card), findsOneWidget);
+      expect(writes, 0);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') writes++;
+              if (request.url.path.endsWith('/paddons/detail')) {
+                return pending.future;
+              }
+              if (request.url.path.endsWith('/paddons/molds')) {
+                return _json({'ok': true, 'molds': [], 'has_more': false});
+              }
+              return _json({
+                'ok': true,
+                'paddons': [_paddon()],
+                'has_more': false
+              });
+            }));
+  });
+
+  testWidgets('back during deletion check cancels the late confirmation',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    var writes = 0;
+    await http.runWithClient(() async {
+      await tester
+          .pumpWidget(_app(home: const Scaffold(body: Text('Previous page'))));
+      await tester.pumpAndSettle();
+      final navigator =
+          tester.state<NavigatorState>(find.byType(Navigator).first);
+      navigator.push(
+          MaterialPageRoute<void>(builder: (_) => const QolipStorageScreen()));
+      await tester.pumpAndSettle();
+      await _openMenu(tester);
+      await tester.tap(find.byKey(_delete));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      navigator.pop();
+      pending.complete(_json({
+        'ok': true,
+        'paddon': _paddon(),
+        'items': [],
+        'history': [],
+      }));
+      await tester.pumpAndSettle();
+      expect(find.byKey(_confirm), findsNothing);
+      expect(find.text('Previous page'), findsOneWidget);
+      expect(writes, 0);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') writes++;
+              if (request.url.path.endsWith('/paddons/detail')) {
+                return pending.future;
+              }
+              return _json({
+                'ok': true,
+                'paddons': [_paddon()],
+                'has_more': false
+              });
+            }));
+  });
+
+  for (final duringMutation in [false, true]) {
+    for (final refreshFails in [false, true]) {
+      testWidgets(
+          '404 during ${duringMutation ? 'deletion' : 'preflight'} removes the card, refresh fails: $refreshFails',
+          (tester) async {
+        var listReads = 0;
+        var writes = 0;
+        await http.runWithClient(() async {
+          await tester.pumpWidget(_app());
+          await tester.pumpAndSettle();
+          await _openMenu(tester);
+          await tester.tap(find.byKey(_delete));
+          await tester.pumpAndSettle();
+          if (duringMutation) {
+            await tester.tap(find.byKey(_confirm));
+            await tester.pumpAndSettle();
+          }
+          expect(find.byKey(_card), findsNothing);
+          expect(find.byKey(_confirm), findsNothing);
+          expect(find.text('Paddon data was not found'), findsOneWidget);
+          expect(listReads, 2);
+          expect(writes, duringMutation ? 1 : 0);
+          expect(tester.takeException(), isNull);
+        },
+            () => MockClient((request) async {
+                  if (request.method == 'POST') {
+                    writes++;
+                    return _json(
+                        {'ok': false, 'error': 'qolip_storage_not_found'}, 404);
+                  }
+                  if (request.url.path.endsWith('/paddons/detail')) {
+                    return duringMutation
+                        ? _json({
+                            'ok': true,
+                            'paddon': _paddon(),
+                            'items': [],
+                            'history': [],
+                          })
+                        : _json(
+                            {'ok': false, 'error': 'qolip_storage_not_found'},
+                            404);
+                  }
+                  listReads++;
+                  if (listReads > 1 && refreshFails) {
+                    return _json(
+                        {'ok': false, 'error': 'connection_lost'}, 503);
+                  }
+                  return _json({
+                    'ok': true,
+                    'paddons': [if (listReads == 1) _paddon()],
+                    'has_more': false,
+                  });
+                }));
+      });
+    }
+  }
 }

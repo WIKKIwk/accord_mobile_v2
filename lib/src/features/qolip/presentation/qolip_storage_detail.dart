@@ -72,12 +72,14 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
           _productImages.request();
           if (_openAddPending) {
             _openAddPending = false;
-            if (_detail?.paddon.editable == true) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) unawaited(_add());
-              });
-            } else {
-              _message(context, _s(context, 'locked_error'));
+            if (ModalRoute.of(context)?.isCurrent == true) {
+              if (_detail?.paddon.editable == true) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && generation == _generation) unawaited(_add());
+                });
+              } else {
+                _message(context, _s(context, 'locked_error'));
+              }
             }
           }
         }
@@ -94,6 +96,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   Future<void> _add({bool scan = false}) async {
     if (_saving ||
         _loading ||
+        ModalRoute.of(context)?.isCurrent != true ||
         _detail?.paddon.editable != true ||
         !_sameScope()) {
       return;
