@@ -159,6 +159,7 @@ extension _MoldPickerProducts on _MoldPickerState {
       if (mounted && _loadingProductKey == group.key) {
         _loadingProductKey = null;
         _activityChanges.value++;
+        _scheduleMoreIfNeeded();
       }
     }
   }

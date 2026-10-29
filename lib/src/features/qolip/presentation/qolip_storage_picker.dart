@@ -21,11 +21,12 @@ class _MoldPickerState extends State<_MoldPicker>
   Future<void> _scanQueue = Future<void>.value();
   int? _next;
   int _generation = 0, _scanGeneration = 0, _pendingScans = 0;
-  bool _loading = false, _selectingSet = false, _leaving = false;
+  bool _loading = false, _leaving = false;
   bool _scanMode = false, _reviewOpen = false;
   String _scanStatus = '';
   ProductionQuickScanFeedback? _scanFeedback;
   Object? _failure;
+  bool? _moreFailure;
   String? _loadingProductKey;
   bool? _searchPending;
   Completer<bool>? _discardDecision;
@@ -34,6 +35,9 @@ class _MoldPickerState extends State<_MoldPicker>
   Map<String, Object>? _productLoadErrors;
   ValueNotifier<int>? _selectionNotifier, _activityNotifier;
   Map<String, ValueNotifier<int>>? _productNotifiers;
+  ScrollController? _listScrollController;
+  ScrollController get _listScroll => _listScrollController ??=
+      ScrollController()..addListener(_scheduleMoreIfNeeded);
   ValueNotifier<int> get _selectionChanges =>
       _selectionNotifier ??= ValueNotifier<int>(0);
   ValueNotifier<int> get _activityChanges =>
@@ -54,8 +58,7 @@ class _MoldPickerState extends State<_MoldPicker>
       !_sessionExpired &&
       !_leaving &&
       _scope == currentSessionReadScope();
-  bool get _busy =>
-      _selectingSet || _loadingProductKey != null || _pendingScans > 0;
+  bool get _busy => _loadingProductKey != null || _pendingScans > 0;
   bool get _listPending =>
       _loading || _searchPending == true || _failure != null;
   bool _eligible(QolipStorageMold mold) =>
@@ -63,6 +66,24 @@ class _MoldPickerState extends State<_MoldPicker>
       (widget.warehouse == null ||
           mold.warehouse.toLowerCase() == widget.warehouse!.toLowerCase());
   void _updatePicker(VoidCallback update) => setState(update);
+
+  void _loadMoreIfNeeded() {
+    final scroll = _listScrollController;
+    if (!_current ||
+        _scanMode ||
+        _busy ||
+        _reviewOpen ||
+        _listPending ||
+        _next == null ||
+        scroll == null ||
+        !scroll.hasClients ||
+        !scroll.position.hasContentDimensions) return;
+    if (scroll.position.extentAfter < 240) unawaited(_load(more: true));
+  }
+
+  void _scheduleMoreIfNeeded() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMoreIfNeeded());
+  }
 
   void _notifySelectionChanged(Iterable<QolipStorageMold> molds,
       {Iterable<String> extraProducts = const []}) {
@@ -116,6 +137,7 @@ class _MoldPickerState extends State<_MoldPicker>
     _debounce?.cancel();
     _feedbackTimer?.cancel();
     _search.dispose();
+    _listScrollController?.dispose();
     _generation++;
     _invalidateScans();
     final decision = _discardDecision;
@@ -130,11 +152,22 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   Future<void> _load({bool more = false}) async {
-    if (!_current || (more && (_loading || _next == null))) return;
+    if (!_current ||
+        (more &&
+            (_loading ||
+                _searchPending == true ||
+                _busy ||
+                _reviewOpen ||
+                _scanMode ||
+                _next == null))) {
+      return;
+    }
+    final offset = more ? _next! : 0;
     final generation = ++_generation;
     setState(() {
       _loading = true;
       _failure = null;
+      _moreFailure = false;
       _searchPending = false;
       if (!more) {
         _expandedProducts.clear();
@@ -143,9 +176,16 @@ class _MoldPickerState extends State<_MoldPicker>
       }
     });
     try {
-      final page = await MobileApi.instance.qolipStorageMolds(
-          query: _search.text.trim(), offset: more ? _next! : 0);
-      if (!_current || generation != _generation) return;
+      final page = await MobileApi.instance
+          .qolipStorageMolds(query: _search.text.trim(), offset: offset);
+      if ((more && !await _continueAfterDiscard()) ||
+          !_current ||
+          generation != _generation) return;
+      if (page.nextOffset != null &&
+          (page.nextOffset! <= offset || page.items.isEmpty)) {
+        throw const MobileApiException(
+            code: 'qolip_storage_invalid_page', message: 'Invalid mold page');
+      }
       _molds = [if (more) ..._molds, ...page.items];
       _next = page.nextOffset;
       for (final mold in page.items) {
@@ -159,17 +199,20 @@ class _MoldPickerState extends State<_MoldPicker>
         }
       }
     } catch (e) {
-      if (_current && generation == _generation) _failure = e;
+      if (_current && generation == _generation) {
+        _failure = e;
+        _moreFailure = more;
+      }
     } finally {
       if (_current && generation == _generation) {
         setState(() => _loading = false);
+        _scheduleMoreIfNeeded();
       }
     }
   }
 
   void _toggle(QolipStorageMold mold, bool selected) {
     if (!_current ||
-        _selectingSet ||
         _loadingProductKey != null ||
         (!_scanMode && _listPending) ||
         !_eligible(mold)) return;
@@ -192,83 +235,16 @@ class _MoldPickerState extends State<_MoldPicker>
     if (_scanMode) setState(() {});
   }
 
-  void _selectLoaded() {
-    if (!_current || _busy || _listPending) return;
-    final eligible = _molds.where(_eligible).toList();
-    if ({..._selected.keys, ...eligible.map(_pickerMoldKey)}.length > 1000) {
-      _message(context, _s(context, 'capacity_error'));
-      return;
-    }
-    _selectMolds(eligible);
-  }
-
-  Future<void> _selectSet() async {
-    if (!_current || _busy || _listPending) return;
-    final sets = _molds
-        .map((m) => m.setId)
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-    if (sets.isEmpty) {
-      _message(context, _s(context, 'empty'));
-      return;
-    }
-    final id = await _storageDialog<String>(
-        context: context,
-        builder: (context) =>
-            SimpleDialog(title: Text(_s(context, 'choose_set')), children: [
-              for (final id in sets)
-                SimpleDialogOption(
-                    onPressed: () => Navigator.pop(context, id),
-                    child: Text(id))
-            ]));
-    if (!mounted || !_current || id == null) return;
-    setState(() => _selectingSet = true);
-    try {
-      final molds = await MobileApi.instance
-          .qolipStorageSet(id, warehouse: widget.warehouse);
-      if (!await _continueAfterDiscard() || !_current) return;
-      if ({..._selected.keys, ...molds.map(_pickerMoldKey)}.length > 1000) {
-        _message(context, _s(context, 'capacity_error'));
-        return;
-      }
-      if (!await _confirm(context, _s(context, 'choose_set'),
-              '$id\n\n${molds.map((m) => m.code).join('\n')}') ||
-          !_current) {
-        return;
-      }
-      _selectMolds(molds);
-    } catch (e) {
-      if (await _continueAfterDiscard() && mounted && _current) {
-        if (e is MobileApiException && e.code == 'qolip_set_unavailable') {
-          await _storageDialog<void>(
-              context: context,
-              builder: (context) => AlertDialog(
-                      content: SingleChildScrollView(
-                          child: Text(
-                              '${_s(context, 'set_unavailable')}\n\n${e.details.join('\n')}')),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(_s(context, 'cancel')))
-                      ]));
-        } else {
-          _error(context, e);
-        }
-      }
-    } finally {
-      if (_current) setState(() => _selectingSet = false);
-    }
-  }
-
   Future<void> _reviewMold(QolipStorageMold mold) async {
     if (!_current || _busy || _reviewOpen) return;
     setState(() => _reviewOpen = true);
     try {
       await _moldDetails(context, mold);
     } finally {
-      if (_current) setState(() => _reviewOpen = false);
+      if (_current) {
+        setState(() => _reviewOpen = false);
+        _scheduleMoreIfNeeded();
+      }
     }
   }
 
@@ -299,6 +275,7 @@ class _MoldPickerState extends State<_MoldPicker>
           '${_s(context, 'selected')}: ${_selected.length}');
       if (!_current) return false;
       setState(() => _reviewOpen = false);
+      if (!confirmed) _scheduleMoreIfNeeded();
       return confirmed;
     } finally {
       if (identical(_discardDecision, decision)) _discardDecision = null;
@@ -363,7 +340,7 @@ class _MoldPickerState extends State<_MoldPicker>
         nativeTopBar: true,
         showProfileAction: false,
         contentPadding: EdgeInsets.zero,
-        appBarBottomLoading: _loading || _selectingSet || _pendingScans > 0,
+        appBarBottomLoading: _loading || _pendingScans > 0,
         bottom: QolipDock(
           activeTab: null,
           onTabSelected: _onDockTab,
@@ -386,6 +363,7 @@ class _MoldPickerState extends State<_MoldPicker>
           color: AppTheme.shellStart(context),
           child: ListView(
             key: const ValueKey('qolip-picker-list'),
+            controller: _listScroll,
             padding: EdgeInsets.fromLTRB(
                 4, 4, 4, MediaQuery.viewPaddingOf(context).bottom + 140),
             children: [
@@ -438,10 +416,9 @@ class _MoldPickerState extends State<_MoldPicker>
                         label: Text(_s(context, 'scan_mode'))),
                   ],
                   selected: {_scanMode},
-                  onSelectionChanged:
-                      _selectingSet || _reviewOpen || _loadingProductKey != null
-                          ? null
-                          : (values) => _changeMode(values.single),
+                  onSelectionChanged: _reviewOpen || _loadingProductKey != null
+                      ? null
+                      : (values) => _changeMode(values.single),
                 ),
               ),
               const SizedBox(height: 12),
@@ -483,19 +460,6 @@ class _MoldPickerState extends State<_MoldPicker>
             },
           ),
         ),
-        ListenableBuilder(
-          listenable: _activityChanges,
-          builder: (context, _) => Wrap(spacing: 8, runSpacing: 4, children: [
-            TextButton.icon(
-                onPressed: _busy || _listPending ? null : _selectLoaded,
-                icon: const Icon(Icons.done_all_rounded, size: 18),
-                label: Text(_s(context, 'select_loaded_short'))),
-            TextButton.icon(
-                onPressed: _busy || _listPending ? null : _selectSet,
-                icon: const Icon(Icons.layers_outlined, size: 18),
-                label: Text(_s(context, 'choose_set'))),
-          ]),
-        ),
         SizedBox(
           key: const ValueKey('qolip-picker-selected-strip'),
           height: 44,
@@ -525,7 +489,7 @@ class _MoldPickerState extends State<_MoldPicker>
         PaddonSectionHeader(
             title: _s(context, 'loaded_products'),
             count: '${_groupProducts().length}'),
-        if (_failure != null)
+        if (_failure != null && _moreFailure != true)
           AppRetryState(onRetry: _load, message: _s(context, 'failed')),
         if (_loading && _molds.isEmpty)
           const Padding(
@@ -535,10 +499,14 @@ class _MoldPickerState extends State<_MoldPicker>
           PaddonEmptyState(
               title: _s(context, 'empty'), icon: Icons.layers_outlined),
         if (_molds.isNotEmpty) _productGroupList(context),
-        if (_next != null)
-          TextButton(
-              onPressed: _loading ? null : () => _load(more: true),
-              child: Text(_s(context, 'more'))),
+        if (_failure != null && _moreFailure == true)
+          AppRetryState(
+              onRetry: () => _load(more: true),
+              message: _s(context, 'failed')),
+        if (_loading && _molds.isNotEmpty)
+          const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: AppLoadingIndicator())),
       ];
 }
 

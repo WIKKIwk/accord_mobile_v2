@@ -5,7 +5,6 @@ extension _MoldPickerScanning on _MoldPickerState {
       _current &&
       _scanMode &&
       !_reviewOpen &&
-      !_selectingSet &&
       generation == _scanGeneration;
 
   void _invalidateScans() {
@@ -19,7 +18,7 @@ extension _MoldPickerScanning on _MoldPickerState {
   }
 
   void _changeMode(bool scan) {
-    if (!_current || _reviewOpen || _selectingSet ||
+    if (!_current || _reviewOpen ||
         _loadingProductKey != null || scan == _scanMode) return;
     _updatePicker(() {
       // A lookup from an earlier camera session must not enter a later one.
@@ -187,7 +186,7 @@ extension _MoldPickerScanning on _MoldPickerState {
         onTap: () => unawaited(_reviewMold(mold)),
         trailing: IconButton(
           tooltip: _s(context, 'deselect'),
-          onPressed: _selectingSet ? null : () => _toggle(mold, false),
+          onPressed: () => _toggle(mold, false),
           icon: const Icon(Icons.close_rounded),
         ),
       );

@@ -7,6 +7,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/navigation/app_root_navigation.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_retry_state.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
@@ -125,6 +126,172 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     QolipCatalogStore.instance.reset();
+  });
+
+  testWidgets('scrolling loads more products without the removed buttons',
+      (tester) async {
+    final offsets = <int>[];
+    final firstPage = List.generate(
+        20,
+        (i) => mold('M-$i', [
+              {
+                'code': 'ITEM-$i',
+                'name': 'Product ${i.toString().padLeft(2, '0')}'
+              }
+            ]));
+    final last = mold('M-LAST', [
+      {'code': 'ITEM-LAST', 'name': 'Z last product'}
+    ]);
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      expect(find.text('Select loaded'), findsNothing);
+      expect(find.text('Select complete set'), findsNothing);
+      expect(find.text('Load more'), findsNothing);
+      expect(offsets, [0]);
+      await visibleTap(tester, selectProduct('ITEM-0'));
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+          const Offset(0, -2200));
+      await tester.pumpAndSettle();
+      expect(offsets, [0, 20]);
+      expect(find.text('Z last product'), findsOneWidget);
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              final query = request.url.queryParameters['q'] ?? '';
+              if (query == 'ITEM-0') {
+                return jsonResponse({
+                  'ok': true,
+                  'molds': [firstPage.first]
+                });
+              }
+              final offset =
+                  int.parse(request.url.queryParameters['offset'] ?? '0');
+              offsets.add(offset);
+              return jsonResponse({
+                'ok': true,
+                'molds': offset == 0 ? firstPage : [last],
+                'has_more': offset == 0,
+                if (offset == 0) 'next_offset': 20,
+              });
+            }));
+  });
+
+  testWidgets('a short first page automatically loads the next page',
+      (tester) async {
+    final offsets = <int>[];
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      expect(offsets, [0, 1]);
+      expect(find.text('Alpha product'), findsOneWidget);
+      expect(find.text('Beta product'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              final offset =
+                  int.parse(request.url.queryParameters['offset'] ?? '0');
+              offsets.add(offset);
+              return jsonResponse({
+                'ok': true,
+                'molds': [
+                  offset == 0 ? mold('M-A', [alpha]) : mold('M-B', [beta])
+                ],
+                'has_more': offset == 0,
+                if (offset == 0) 'next_offset': 1,
+              });
+            }));
+  });
+
+  testWidgets('automatic pagination stops on an error and allows retry',
+      (tester) async {
+    final offsets = <int>[];
+    final firstPage = List.generate(
+        20,
+        (i) => mold('M-$i', [
+              {
+                'code': 'ITEM-$i',
+                'name': 'Product ${i.toString().padLeft(2, '0')}'
+              }
+            ]));
+    var fail = true;
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      await visibleTap(tester, selectProduct('ITEM-0'));
+      await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+          const Offset(0, -2200));
+      await tester.pumpAndSettle();
+      expect(offsets, [0, 20]);
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(offsets, [0, 20]);
+
+      fail = false;
+      final retry = find.descendant(
+          of: find.byType(AppRetryState), matching: find.byType(TextButton));
+      await visibleTap(tester, retry);
+      expect(offsets, [0, 20, 20]);
+      expect(find.text('Beta product'), findsOneWidget);
+      expect(find.text('Confirm (1)'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              if (request.url.queryParameters['q'] == 'ITEM-0') {
+                return jsonResponse({
+                  'ok': true,
+                  'molds': [firstPage.first]
+                });
+              }
+              final offset =
+                  int.parse(request.url.queryParameters['offset'] ?? '0');
+              offsets.add(offset);
+              if (offset == 20 && fail) {
+                return jsonResponse({'ok': false, 'error': 'unavailable'}, 500);
+              }
+              return jsonResponse({
+                'ok': true,
+                'molds': offset == 0
+                    ? firstPage
+                    : [
+                        mold('M-B', [beta])
+                      ],
+                'has_more': offset == 0,
+                if (offset == 0) 'next_offset': 20,
+              });
+            }));
+  });
+
+  testWidgets('automatic pagination rejects a nonadvancing offset',
+      (tester) async {
+    var reads = 0;
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      expect(find.byType(AppRetryState), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(reads, 1);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              reads++;
+              return jsonResponse({
+                'ok': true,
+                'molds': [
+                  mold('M-A', [alpha])
+                ],
+                'has_more': true,
+                'next_offset': 0,
+              });
+            }));
   });
 
   testWidgets('selection and expansion only rebuild the affected product',
@@ -445,8 +612,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add molds'));
       await tester.pumpAndSettle();
-      await visibleTap(
-          tester, find.widgetWithText(TextButton, 'Select loaded'));
+      await visibleTap(tester, selectProduct('ITEM-A'));
       await tester.tap(find.descendant(
           of: find.byType(NavigationBar), matching: find.text('Home')));
       await tester.pumpAndSettle();
@@ -471,12 +637,11 @@ void main() {
       'canceling dock navigation during a product lookup preserves selection',
       (tester) async {
     final pending = Completer<http.Response>();
-    final first = mold('M-A', [alpha]);
+    final first = mold('M-A', [alpha, beta]);
     final second = mold('M-B', [alpha]);
     await http.runWithClient(() async {
       await openPicker(tester);
-      await visibleTap(
-          tester, find.widgetWithText(TextButton, 'Select loaded'));
+      await visibleTap(tester, selectProduct('ITEM-B'));
       expect(find.text('Confirm (1)'), findsOneWidget);
       await tester.ensureVisible(selectProduct('ITEM-A'));
       await tester.tap(selectProduct('ITEM-A'));
@@ -512,13 +677,12 @@ void main() {
   testWidgets('confirmed dock navigation discards a late product lookup',
       (tester) async {
     final pending = Completer<http.Response>();
-    final first = mold('M-A', [alpha]);
+    final first = mold('M-A', [alpha, beta]);
     final second = mold('M-B', [alpha]);
     var writes = 0;
     await http.runWithClient(() async {
       await openPicker(tester);
-      await visibleTap(
-          tester, find.widgetWithText(TextButton, 'Select loaded'));
+      await visibleTap(tester, selectProduct('ITEM-B'));
       await tester.ensureVisible(selectProduct('ITEM-A'));
       await tester.tap(selectProduct('ITEM-A'));
       await tester.pump();
