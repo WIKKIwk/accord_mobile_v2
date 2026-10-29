@@ -19,13 +19,15 @@ extension _MoldPickerScanning on _MoldPickerState {
   }
 
   void _changeMode(bool scan) {
-    if (!_current || _reviewOpen || _selectingSet || scan == _scanMode) return;
+    if (!_current || _reviewOpen || _selectingSet ||
+        _loadingProductKey != null || scan == _scanMode) return;
     _updatePicker(() {
       // A lookup from an earlier camera session must not enter a later one.
       _invalidateScans();
       _scanMode = scan;
       _generation++;
       _loading = false;
+      _searchPending = false;
       _debounce?.cancel();
     });
     if (!scan) unawaited(_load());
@@ -83,7 +85,7 @@ extension _MoldPickerScanning on _MoldPickerState {
         if (!mounted || !_currentScan(generation)) return;
         final mold = page.items.singleOrNull;
         if (mold == null ||
-            mold.code.toLowerCase() != key ||
+            _pickerMoldKey(mold) != key ||
             page.nextOffset != null) {
           _scanMessage('$code — ${_s(context, 'not_found')}',
               ProductionQuickScanFeedback.rejected);
@@ -95,12 +97,12 @@ extension _MoldPickerScanning on _MoldPickerState {
               ProductionQuickScanFeedback.rejected);
           return;
         }
-        if (_selected.containsKey(mold.code.toLowerCase())) {
+        if (_selected.containsKey(_pickerMoldKey(mold))) {
           _scanMessage('${mold.code} — ${_s(context, 'duplicate')}',
               ProductionQuickScanFeedback.none);
           return;
         }
-        _updatePicker(() => _selected[mold.code.toLowerCase()] = mold);
+        _updatePicker(() => _selected[_pickerMoldKey(mold)] = mold);
         _scanMessage('${mold.code} — ${_s(context, 'scan_accepted')}',
             ProductionQuickScanFeedback.accepted);
       } catch (error) {

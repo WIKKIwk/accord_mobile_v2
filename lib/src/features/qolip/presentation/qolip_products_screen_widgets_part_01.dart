@@ -143,8 +143,8 @@ class _QolipProductContainerBuilder {
   final List<QolipProduct> children = [];
 }
 
-class _QolipProductContainerCard extends StatelessWidget {
-  const _QolipProductContainerCard({
+class QolipProductContainerCard extends StatelessWidget {
+  const QolipProductContainerCard({
     super.key,
     required this.loading,
     required this.errorMessage,
@@ -168,6 +168,11 @@ class _QolipProductContainerCard extends StatelessWidget {
     required this.onEditQolip,
     required this.onAdd,
     this.imageProviderCache,
+    this.selectionControl,
+    this.expandKey,
+    this.codeRowBuilder,
+    this.emptyContent,
+    this.showMoldCount = true,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -185,13 +190,18 @@ class _QolipProductContainerCard extends StatelessWidget {
   final Set<String> reworkCodes;
   final bool sharing;
   final ValueChanged<BuildContext>? onShare;
-  final VoidCallback onToggle;
-  final VoidCallback onLongPress;
+  final VoidCallback? onToggle;
+  final VoidCallback? onLongPress;
   final ValueChanged<QolipProduct> onToggleQolip;
   final ValueChanged<QolipProduct> onPrintCodeQr;
   final ValueChanged<QolipProduct> onCopyCode;
   final ValueChanged<QolipProduct> onEditQolip;
   final VoidCallback onAdd;
+  final Widget? selectionControl;
+  final Key? expandKey;
+  final Widget Function(QolipProduct product)? codeRowBuilder;
+  final Widget? emptyContent;
+  final bool showMoldCount;
 
   @override
   Widget build(BuildContext context) {
@@ -226,6 +236,7 @@ class _QolipProductContainerCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 InkWell(
+                  key: expandKey,
                   onTap: onToggle,
                   onLongPress: onLongPress,
                   child: ConstrainedBox(
@@ -235,10 +246,14 @@ class _QolipProductContainerCard extends StatelessWidget {
                           const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
                       child: Row(
                         children: [
-                          if (containerSelectionMode) ...[
+                          if (selectionControl != null) ...[
+                            selectionControl!,
+                            const SizedBox(width: 8),
+                          ] else if (containerSelectionMode) ...[
                             Checkbox(
                               value: selectedContainer,
-                              onChanged: (_) => onToggle(),
+                              onChanged:
+                                  onToggle == null ? null : (_) => onToggle!(),
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -256,7 +271,7 @@ class _QolipProductContainerCard extends StatelessWidget {
                                   theme: Theme.of(context),
                                   scheme: scheme,
                                 ),
-                                if (hasDetails) ...[
+                                if (hasDetails && showMoldCount) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     selectionDisabled
@@ -375,6 +390,8 @@ class _QolipProductContainerCard extends StatelessWidget {
                                       color: scheme.outlineVariant
                                           .withValues(alpha: 0.65),
                                     ),
+                                    if (sets.isEmpty && emptyContent != null)
+                                      emptyContent!,
                                     for (final entry in sets.entries) ...[
                                       if (entry.key == 'extensions')
                                         Padding(
@@ -439,7 +456,8 @@ class _QolipProductContainerCard extends StatelessWidget {
                                         Padding(
                                           padding: const EdgeInsets.fromLTRB(
                                               14, 9, 14, 0),
-                                          child: QolipCodeRow(
+                                          child: codeRowBuilder?.call(child) ??
+                                              QolipCodeRow(
                                             product: child,
                                             isInRework: reworkCodes.contains(
                                                 child.qolipCode.trim().toLowerCase()),
@@ -493,6 +511,7 @@ class _QolipProductContainerCard extends StatelessWidget {
 
 class QolipCodeRow extends StatelessWidget {
   const QolipCodeRow({
+    super.key,
     required this.product,
     required this.selectionMode,
     required this.selected,
@@ -502,6 +521,9 @@ class QolipCodeRow extends StatelessWidget {
     required this.onEdit,
     this.trailing,
     this.isInRework = false,
+    this.enabled = true,
+    this.subtitle,
+    this.codeTooltip,
   });
 
   final QolipProduct product;
@@ -513,14 +535,17 @@ class QolipCodeRow extends StatelessWidget {
   final VoidCallback onEdit;
   final Widget? trailing;
   final bool isInRework;
+  final bool enabled;
+  final String? subtitle;
+  final String? codeTooltip;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
+      onTap: enabled ? onTap : null,
+      onLongPress: enabled ? onLongPress : null,
       borderRadius: BorderRadius.circular(8),
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -579,9 +604,9 @@ class QolipCodeRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Tooltip(
-                      message: l10n.adminText('action.copy'),
+                      message: codeTooltip ?? l10n.adminText('action.copy'),
                       child: InkWell(
-                        onTap: onCodeTap,
+                        onTap: enabled ? onCodeTap : null,
                         borderRadius: BorderRadius.circular(4),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -603,14 +628,17 @@ class QolipCodeRow extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      isInRework ? l10n.qolipReworkText('open') : product.isInUse
-                          ? l10n.qolipText('products.issued')
-                          : product.qolipSize > 0
-                              ? l10n.qolipText(
-                                  'products.size_value',
-                                  values: {'size': product.qolipSize},
-                                )
-                              : '',
+                      subtitle ??
+                          (isInRework
+                              ? l10n.qolipReworkText('open')
+                              : product.isInUse
+                                  ? l10n.qolipText('products.issued')
+                                  : product.qolipSize > 0
+                                      ? l10n.qolipText(
+                                          'products.size_value',
+                                          values: {'size': product.qolipSize},
+                                        )
+                                      : ''),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),

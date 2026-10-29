@@ -11,6 +11,7 @@ import 'package:accord_mobile_v2/src/core/widgets/paddon_widgets.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
+import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart' show QolipCodeRow;
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_code_details_sheet.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_home_screen.dart';
 import 'package:flutter/material.dart';
@@ -632,9 +633,14 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Molds: Archive'));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.byType(CheckboxListTile));
+        await tester.ensureVisible(find.byKey(
+            const ValueKey('qolip-picker-product-expand-unlinked')));
+        await tester.tap(find.byKey(
+            const ValueKey('qolip-picker-product-expand-unlinked')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byType(CheckboxListTile));
+        await tester.ensureVisible(find.byType(QolipCodeRow));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(QolipCodeRow));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Confirm (1)'));
         await tester.pumpAndSettle();
@@ -848,7 +854,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add molds'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(CheckboxListTile));
+      await tester.ensureVisible(find.byKey(
+          const ValueKey('qolip-picker-product-expand-unlinked')));
+      await tester.tap(find.byKey(
+          const ValueKey('qolip-picker-product-expand-unlinked')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(QolipCodeRow));
+      await tester.drag(find.byType(ListView).last, const Offset(0, -180));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(QolipCodeRow));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm (1)'));
       await tester.pumpAndSettle();

@@ -271,10 +271,14 @@ void main() {
     final writes = <Map<String, dynamic>>[];
     await http.runWithClient(() async {
       await _openPicker(tester, scan: false);
+      await tester.ensureVisible(find.byKey(
+          const ValueKey('qolip-picker-product-expand-unlinked')));
+      await tester.tap(find.byKey(
+          const ValueKey('qolip-picker-product-expand-unlinked')));
+      await tester.pumpAndSettle();
       final a = find.byKey(const ValueKey('qolip-picker-mold-M-A'));
       await tester.ensureVisible(a);
-      await tester
-          .tap(find.descendant(of: a, matching: find.byType(CheckboxListTile)));
+      await tester.tap(a);
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Scan QR'));
       await tester.pumpAndSettle();

@@ -7,6 +7,18 @@ extension AppLocalizationsQolipStorage on AppLocalizations {
           _t('Paddon qidirish', 'Search pallets', 'Поиск поддонов'),
         'archive' => _t('Arxiv', 'Archive', 'Архив'),
         'molds' => _t('Qoliplar', 'Molds', 'Формы'),
+        'loaded_products' => _t('Ko‘rsatilgan mahsulotlar', 'Loaded products',
+            'Показанные товары'),
+        'unlinked_molds' => _t('Mahsulotga bog‘lanmagan qoliplar',
+            'Molds without a linked product', 'Формы без связанного товара'),
+        'no_available_molds' => _t('Tanlash uchun bo‘sh qolip yo‘q',
+            'No available molds to select', 'Нет доступных форм для выбора'),
+        'unavailable_molds' => _t('Tanlab bo‘lmaydigan qoliplar',
+            'Unavailable molds', 'Недоступные формы'),
+        'product_load_limit' => _t(
+            'Qoliplar juda ko‘p. Ularni qidirib, ko‘rinayotganlarini tanlang.',
+            'There are too many molds. Search and select the loaded results.',
+            'Слишком много форм. Найдите их и выберите загруженные.'),
         'create' => _t('Yangi paddon', 'New pallet', 'Новый поддон'),
         'paddon_summary' =>
           _t('Qoliplarni saqlash', 'Mold storage', 'Хранение форм'),

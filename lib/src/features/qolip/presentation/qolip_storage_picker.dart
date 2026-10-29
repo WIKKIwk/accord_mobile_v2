@@ -26,13 +26,25 @@ class _MoldPickerState extends State<_MoldPicker>
   String _scanStatus = '';
   ProductionQuickScanFeedback? _scanFeedback;
   Object? _failure;
+  String? _loadingProductKey;
+  bool? _searchPending;
+  Set<String>? _expandedProductKeys;
+  Map<String, List<QolipStorageMold>>? _productMoldCache;
+  Map<String, Object>? _productLoadErrors;
+  Set<String> get _expandedProducts => _expandedProductKeys ??= <String>{};
+  Map<String, List<QolipStorageMold>> get _productMolds =>
+      _productMoldCache ??= <String, List<QolipStorageMold>>{};
+  Map<String, Object> get _productErrors =>
+      _productLoadErrors ??= <String, Object>{};
 
   bool get _current =>
       mounted &&
       !_sessionExpired &&
       !_leaving &&
       _scope == currentSessionReadScope();
-  bool get _busy => _selectingSet || _pendingScans > 0;
+  bool get _busy =>
+      _selectingSet || _loadingProductKey != null || _pendingScans > 0;
+  bool get _listPending => _loading || _searchPending == true || _failure != null;
   bool _eligible(QolipStorageMold mold) =>
       mold.available &&
       (widget.warehouse == null ||
@@ -62,6 +74,12 @@ class _MoldPickerState extends State<_MoldPicker>
     setState(() {
       _loading = true;
       _failure = null;
+      _searchPending = false;
+      if (!more) {
+        _expandedProducts.clear();
+        _productMolds.clear();
+        _productErrors.clear();
+      }
     });
     try {
       final page = await MobileApi.instance.qolipStorageMolds(
@@ -70,7 +88,7 @@ class _MoldPickerState extends State<_MoldPicker>
       _molds = [if (more) ..._molds, ...page.items];
       _next = page.nextOffset;
       for (final mold in page.items) {
-        final key = mold.code.toLowerCase();
+        final key = _pickerMoldKey(mold);
         if (_selected.containsKey(key)) {
           if (_eligible(mold)) {
             _selected[key] = mold;
@@ -89,8 +107,9 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   void _toggle(QolipStorageMold mold, bool selected) {
-    if (!_current || _selectingSet || !_eligible(mold)) return;
-    final key = mold.code.toLowerCase();
+    if (!_current || _selectingSet || _loadingProductKey != null ||
+        (!_scanMode && _listPending) || !_eligible(mold)) return;
+    final key = _pickerMoldKey(mold);
     if (selected && !_selected.containsKey(key) && _selected.length >= 1000) {
       _message(context, _s(context, 'capacity_error'));
       return;
@@ -108,9 +127,9 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   void _selectLoaded() {
-    if (!_current || _busy) return;
+    if (!_current || _busy || _listPending) return;
     final eligible = _molds.where(_eligible).toList();
-    if ({..._selected.keys, ...eligible.map((m) => m.code.toLowerCase())}
+    if ({..._selected.keys, ...eligible.map(_pickerMoldKey)}
             .length >
         1000) {
       _message(context, _s(context, 'capacity_error'));
@@ -118,13 +137,13 @@ class _MoldPickerState extends State<_MoldPicker>
     }
     setState(() {
       for (final m in eligible) {
-        _selected[m.code.toLowerCase()] = m;
+        _selected[_pickerMoldKey(m)] = m;
       }
     });
   }
 
   Future<void> _selectSet() async {
-    if (!_current || _busy) return;
+    if (!_current || _busy || _listPending) return;
     final sets = _molds
         .map((m) => m.setId)
         .where((id) => id.isNotEmpty)
@@ -150,7 +169,7 @@ class _MoldPickerState extends State<_MoldPicker>
       final molds = await MobileApi.instance
           .qolipStorageSet(id, warehouse: widget.warehouse);
       if (!mounted || !_current) return;
-      if ({..._selected.keys, ...molds.map((m) => m.code.toLowerCase())}
+      if ({..._selected.keys, ...molds.map(_pickerMoldKey)}
               .length >
           1000) {
         _message(context, _s(context, 'capacity_error'));
@@ -163,7 +182,7 @@ class _MoldPickerState extends State<_MoldPicker>
       }
       setState(() {
         for (final m in molds) {
-          _selected[m.code.toLowerCase()] = m;
+          _selected[_pickerMoldKey(m)] = m;
         }
       });
     } catch (e) {
@@ -200,7 +219,7 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   Future<void> _finish() async {
-    if (!_current || _busy || _loading || _selected.isEmpty) return;
+    if (!_current || _busy || _loading || _searchPending == true || _selected.isEmpty) return;
     final result = _selected.values.toList();
     setState(() {
       _leaving = true;
@@ -211,7 +230,7 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   Future<void> _leave() async {
-    if (!_current || _reviewOpen || _selectingSet) return;
+    if (!_current || _reviewOpen || _selectingSet || _loadingProductKey != null) return;
     setState(() => _reviewOpen = true);
     final confirmed = await _confirm(context, _s(context, 'leave'),
         '${_s(context, 'selected')}: ${_selected.length}');
@@ -258,7 +277,7 @@ class _MoldPickerState extends State<_MoldPicker>
                     width: double.infinity,
                     child: FilledButton.icon(
                       key: const ValueKey('qolip-picker-confirm'),
-                      onPressed: _selected.isEmpty || _busy || _loading
+                      onPressed: _selected.isEmpty || _busy || _loading || _searchPending == true
                           ? null
                           : _finish,
                       icon: const Icon(Icons.check_rounded),
@@ -302,10 +321,6 @@ class _MoldPickerState extends State<_MoldPicker>
                         PaddonMetric(
                             label: _s(context, 'selected'),
                             value: '${_selected.length}'),
-                        PaddonMetric(
-                            label: _s(context, 'quantity'),
-                            value:
-                                '${_selected.values.fold<int>(0, (n, m) => n + m.quantity)}'),
                       ]),
                     ]),
               ),
@@ -323,7 +338,7 @@ class _MoldPickerState extends State<_MoldPicker>
                       label: Text(_s(context, 'scan_mode'))),
                 ],
                 selected: {_scanMode},
-                onSelectionChanged: _selectingSet || _reviewOpen
+                onSelectionChanged: _selectingSet || _reviewOpen || _loadingProductKey != null
                     ? null
                     : (values) => _changeMode(values.single),
               ),
@@ -342,6 +357,7 @@ class _MoldPickerState extends State<_MoldPicker>
   List<Widget> _listWidgets(BuildContext context) => [
         TextField(
           controller: _search,
+          enabled: !_busy,
           decoration: InputDecoration(
             hintText: _s(context, 'search'),
             prefixIcon: const Icon(Icons.search_rounded),
@@ -353,16 +369,21 @@ class _MoldPickerState extends State<_MoldPicker>
           ),
           onChanged: (_) {
             _debounce?.cancel();
+            setState(() {
+              _searchPending = true;
+              _generation++;
+              _loading = false;
+            });
             _debounce = Timer(const Duration(milliseconds: 300), () => _load());
           },
         ),
         Wrap(spacing: 8, runSpacing: 4, children: [
           TextButton.icon(
-              onPressed: _busy ? null : _selectLoaded,
+              onPressed: _busy || _listPending ? null : _selectLoaded,
               icon: const Icon(Icons.done_all_rounded, size: 18),
               label: Text(_s(context, 'select_loaded_short'))),
           TextButton.icon(
-              onPressed: _busy ? null : _selectSet,
+              onPressed: _busy || _listPending ? null : _selectSet,
               icon: const Icon(Icons.layers_outlined, size: 18),
               label: Text(_s(context, 'choose_set'))),
         ]),
@@ -379,7 +400,7 @@ class _MoldPickerState extends State<_MoldPicker>
                       )),
               ])),
         PaddonSectionHeader(
-            title: _s(context, 'molds'), count: '${_molds.length}'),
+            title: _s(context, 'loaded_products'), count: '${_groupProducts().length}'),
         if (_failure != null)
           AppRetryState(onRetry: _load, message: _s(context, 'failed')),
         if (_loading && _molds.isEmpty)
@@ -389,38 +410,7 @@ class _MoldPickerState extends State<_MoldPicker>
         if (!_loading && _failure == null && _molds.isEmpty)
           PaddonEmptyState(
               title: _s(context, 'empty'), icon: Icons.layers_outlined),
-        if (_molds.isNotEmpty)
-          M3SegmentSpacedColumn(children: [
-            for (var i = 0; i < _molds.length; i++)
-              M3SegmentFilledSurface(
-                key: ValueKey('qolip-picker-mold-${_molds[i].code}'),
-                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                    i, _molds.length),
-                cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(
-                    M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        i, _molds.length)),
-                child: CheckboxListTile(
-                  value: _selected.containsKey(_molds[i].code.toLowerCase()),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(_molds[i].code,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text([
-                    if (_molds[i].productNames.isNotEmpty)
-                      _molds[i].productNames,
-                    '${_s(context, 'set')}: ${_molds[i].setId} • ${_molds[i].warehouse}',
-                    _moldStatus(context, _molds[i], widget.warehouse)
-                  ].join('\n')),
-                  isThreeLine: true,
-                  secondary: IconButton(
-                      tooltip: _s(context, 'mold_details'),
-                      icon: const Icon(Icons.info_outline),
-                      onPressed: () => _reviewMold(_molds[i])),
-                  onChanged: !_eligible(_molds[i]) || _busy
-                      ? null
-                      : (v) => _toggle(_molds[i], v == true),
-                ),
-              ),
-          ]),
+        if (_molds.isNotEmpty) _productGroupList(context),
         if (_next != null)
           TextButton(
               onPressed: _loading ? null : () => _load(more: true),

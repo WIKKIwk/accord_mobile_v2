@@ -23,11 +23,14 @@ import '../state/qolip_data_revision.dart';
 import 'qolip_code_details_sheet.dart';
 import 'qolip_mileage_sheet.dart';
 import 'qolip_paddon_print.dart';
+import 'qolip_products_screen.dart'
+    show QolipProductContainer, QolipProductContainerCard, QolipCodeRow;
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
 part 'qolip_storage_detail.dart';
 part 'qolip_storage_picker.dart';
+part 'qolip_storage_picker_products.dart';
 part 'qolip_storage_picker_scanning.dart';
 
 mixin _StorageSessionState<T extends StatefulWidget> on State<T> {

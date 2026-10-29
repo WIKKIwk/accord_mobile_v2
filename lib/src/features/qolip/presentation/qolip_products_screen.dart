@@ -196,7 +196,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                   }
                   final container = containers[index];
                   final orderImageOrderId = container.orderImageOrderId;
-                  return _QolipProductContainerCard(
+                  return QolipProductContainerCard(
                     key: ValueKey('qolip-catalog-${container.key}'),
                     loading: _detailRequests.containsKey(container.key),
                     errorMessage: _detailErrors[container.key] == null
