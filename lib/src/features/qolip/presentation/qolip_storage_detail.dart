@@ -524,7 +524,8 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
               subtitle:
                   Text('${mold.productNames}\n${mold.size} • ${mold.color}'),
               isThreeLine: true,
-              onTap: () => _moldDetails(context, mold)),
+              onTap: () =>
+                  _moldDetails(context, mold, archivedSnapshot: true)),
       ]),
     );
   }

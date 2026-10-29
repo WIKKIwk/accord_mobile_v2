@@ -190,38 +190,5 @@ extension __QolipProductsScreenStateAstPart02 on _QolipProductsScreenState {
   Future<void> _printQolipCodeQrWithOption(
     QolipProduct product,
     QolipPrinterOption option,
-  ) async {
-    final code = product.qolipCode.trim();
-    final printer = option.transport.isLocal
-        ? option.transport.isBluetooth
-            ? option.bluetoothPrinter!.printer
-            : option.offlinePrinter!.printer
-        : qolipPrinterChoiceForDriver(
-            kind: option.printerKind,
-            label: option.printerLabel,
-          );
-    final result = await MobileApi.instance.qolipPrintCodeQr(
-      qolipCode: code,
-      driverUrl: option.driverUrl,
-      printer: printer,
-      printMode: option.transport.isLocal
-          ? option.transport.isBluetooth
-              ? option.bluetoothPrinter!.printMode
-              : option.offlinePrinter!.printMode
-          : printer == 'godex'
-              ? 'label'
-              : 'rfid',
-      customerName: product.customerNames.join(', '),
-      qolipColor: product.qolipColor,
-      printTransport: option.transport,
-    );
-    if (option.transport.isLocal) {
-      await PrintService.printRps(
-        result.printJob,
-        printerProfile: option.offlinePrinter,
-        bluetoothPrinter: option.bluetoothPrinter,
-        transport: option.transport,
-      );
-    }
-  }
+  ) => printQolipCodeQrWithOption(product, option);
 }

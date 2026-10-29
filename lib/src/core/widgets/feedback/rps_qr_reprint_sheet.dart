@@ -25,6 +25,7 @@ class RpsQrReprintSheet extends StatefulWidget {
     this.title = 'Chop etilgan QR',
     this.itemHeader,
     this.detailsContent,
+    this.afterDetails,
     this.showPayload = true,
     this.onPayloadTap,
     this.payloadTapTooltip = 'Nusxalash',
@@ -48,6 +49,7 @@ class RpsQrReprintSheet extends StatefulWidget {
   final String itemName;
   final Widget? itemHeader;
   final Widget? detailsContent;
+  final Widget? afterDetails;
   final List<RpsQrDetail> details;
   final Future<String?> Function()? onReprint;
   final String Function(Object error) errorMessage;
@@ -260,6 +262,7 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
               else
                 for (final detail in widget.details)
                   _RpsQrDetailLine(label: detail.label, value: detail.value),
+              if (widget.afterDetails != null) widget.afterDetails!,
               if (_errorText != null) ...[
                 const SizedBox(height: 12),
                 Text(

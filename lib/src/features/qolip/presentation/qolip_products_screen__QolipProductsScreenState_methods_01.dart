@@ -323,70 +323,11 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   }
 
   Future<void> _showQolipCodeQr(QolipProduct product) async {
-    final code = product.qolipCode.trim();
-    if (code.isEmpty) {
-      return;
-    }
-    final itemName = product.name.trim().isEmpty ? code : product.name.trim();
-    final l10n = context.l10n;
-    Future<QolipMileage>? mileageFuture;
-    await showModalBottomSheet<void>(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (_) => FutureBuilder<QolipMileage>(
-        future: mileageFuture ??= MobileApi.instance.qolipMileage(code),
-        builder: (_, snapshot) {
-          final mileage = snapshot.data;
-          return RpsQrReprintSheet(
-            title: l10n.qolipText('products.qr_title'),
-            payload: code,
-            onPayloadTap: () => _copyQolipCode(product),
-            payloadTapTooltip: l10n.adminText('action.copy'),
-            payloadTapKey: ValueKey('qolip-code-qr-payload-$code'),
-            itemName: itemName,
-            previewKey: ValueKey('qolip-code-qr-preview-$code'),
-            reprintButtonKey: ValueKey('qolip-code-qr-reprint-$code'),
-            details: [
-              if (product.code.trim().isNotEmpty)
-                RpsQrDetail(
-                  l10n.qolipText('products.product_code'),
-                  product.code,
-                ),
-              if (product.qolipSize > 0)
-                RpsQrDetail(
-                  l10n.qolipText('products.size'),
-                  '${product.qolipSize}',
-                ),
-              if (product.customerNames.isNotEmpty)
-                RpsQrDetail(
-                  l10n.qolipText('products.customer'),
-                  product.customerNames.join(', '),
-                ),
-              if (mileage != null &&
-                  mileage.trackingEnabled &&
-                  mileage.currentMeter != null)
-                RpsQrDetail(
-                  l10n.qolipReworkText('distance'),
-                  l10n.qolipReworkText(
-                    'cycle',
-                    values: {'meter': qolipMileageMeter(mileage.currentMeter!)},
-                  ),
-                ),
-            ],
-            onReprint: () => _reprintQolipCodeQr(product),
-            errorMessage: (error) => qolipErrorMessage(
-              error,
-              fallback: l10n.qolipText('products.qr_failed'),
-              l10n: l10n,
-            ),
-          );
-        },
-      ),
+    await showQolipCodeDetailsSheet(
+      context,
+      product: product,
+      onPayloadTap: () => _copyQolipCode(product),
+      onReprint: () => _reprintQolipCodeQr(product),
     );
   }
 

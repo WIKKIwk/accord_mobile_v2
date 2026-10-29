@@ -34,6 +34,7 @@ class QolipStorageMold {
   QolipStorageMold.fromJson(Map<String, dynamic> json)
       : code = json['qolip_code'] as String,
         setId = json['qolip_set_id'] as String? ?? '',
+        _itemCode = json['item_code'] as String?,
         warehouse = json['warehouse'] as String? ?? '',
         name = json['item_name'] as String? ?? '',
         color = json['color'] as String? ?? '',
@@ -51,6 +52,8 @@ class QolipStorageMold {
     if (code.trim().isEmpty) throw const FormatException('Invalid mold');
   }
   final String code, setId, warehouse, name, color, paddonCode;
+  final String? _itemCode;
+  String get itemCode => _itemCode ?? '';
   final int size, quantity;
   final bool archived, inUse, inRework, transferring, custodyMismatch;
   final List<Map<String, dynamic>> products;

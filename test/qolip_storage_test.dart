@@ -4,10 +4,15 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/session/session_read_scope.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/core/widgets/paddon_widgets.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
+import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_code_details_sheet.dart';
+import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -113,6 +118,69 @@ void main() {
           QolipStorageMold.fromJson({...mold(), ...blocked}).available, false);
     }
     expect(QolipStorageMold.fromJson(mold()).available, true);
+  });
+  test('mold reprinting sends the selected mold QR to the printer', () async {
+    await TestModeController.instance.setEnabled(false);
+    var requests = 0;
+    await http.runWithClient(() async {
+      await printQolipCodeQrWithOption(
+        const QolipProduct(
+            code: 'ITEM', name: 'Mold', itemGroup: '', qolipCode: 'Q-ONE'),
+        const QolipPrinterOption(
+            server: null,
+            driverUrl: 'http://printer',
+            printerKind: 'godex',
+            printerLabel: ''),
+        scope: currentSessionReadScope(),
+      );
+      expect(requests, 1);
+    }, () => MockClient((request) async {
+          requests++;
+          expect(request.method, 'POST');
+          expect(request.url.path, '/v1/mobile/qolip/code-qr/print');
+          expect(jsonDecode(request.body), containsPair('qolip_code', 'Q-ONE'));
+          return jsonResponse({
+            'qolip_qr': {
+              'qolip_code': 'Q-ONE',
+              'qr_payload': 'Q-ONE',
+              'item_code': 'ITEM',
+              'item_name': 'Mold',
+              'item_group': '',
+              'size': 40,
+            },
+          });
+        }));
+  });
+  test('mold reprinting cannot start after an account switch', () async {
+    final scope = currentSessionReadScope();
+    AppSession.instance.profile = const SessionProfile(
+        role: UserRole.qolipchi,
+        ref: 'different',
+        displayName: 'Other',
+        legalName: '',
+        phone: '',
+        avatarUrl: '');
+    AppSession.instance.revision.value++;
+    var requests = 0;
+    await http.runWithClient(() async {
+      await expectLater(
+        printQolipCodeQrWithOption(
+          const QolipProduct(
+              code: 'ITEM', name: 'Mold', itemGroup: '', qolipCode: 'Q-ONE'),
+          const QolipPrinterOption(
+              server: null,
+              driverUrl: 'http://printer',
+              printerKind: 'godex',
+              printerLabel: ''),
+          scope: scope,
+        ),
+        throwsA(isA<RpsQrReprintCancelled>()),
+      );
+      expect(requests, 0);
+    }, () => MockClient((request) async {
+          requests++;
+          return jsonResponse({});
+        }));
   });
   test('API sends revision and request id and honors pagination', () async {
     await http.runWithClient(() async {
@@ -813,6 +881,120 @@ void main() {
               }
               return jsonResponse(current());
             }));
+  });
+
+  testWidgets('pallet opens the shared mold QR details with storage data',
+      (tester) async {
+    var mileageReads = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Q-ONE'));
+      await tester.pumpAndSettle();
+
+      final sheet = tester.widget<RpsQrReprintSheet>(
+          find.byType(RpsQrReprintSheet));
+      expect(sheet.payload, 'Q-ONE');
+      expect(sheet.itemName, 'First product, Second product');
+      expect(sheet.details.map((detail) => detail.value), containsAll([
+        'ITEM-1, ITEM-2',
+        '40',
+        '9501',
+        'Qolip ombori',
+        '#FFFFFF',
+        'QP-00012',
+      ]));
+      expect(sheet.details.map((detail) => detail.label), isNot(contains('Quantity')));
+      expect(sheet.onReprint, isNotNull);
+      expect(find.byKey(const ValueKey('qolip-code-qr-preview-Q-ONE')),
+          findsOneWidget);
+      expect(find.text('Mileage and rework history'), findsOneWidget);
+      expect(mileageReads, 1);
+    }, () => MockClient((request) async {
+          expect(request.method, 'GET');
+          if (request.url.path.endsWith('/mileage')) {
+            mileageReads++;
+            return jsonResponse({
+              'mileage': {
+                'qolip_code': 'Q-ONE',
+                'tracking_enabled': false,
+                'cycles': [],
+              }
+            });
+          }
+          final response = detail();
+          response['items'] = [
+            {
+              ...mold(),
+              'color': '#FFFFFF',
+              'paddon_code': 'QP-00012',
+              'products': [
+                {'code': 'ITEM-1', 'name': 'First product'},
+                {'code': 'ITEM-2', 'name': 'Second product'},
+              ],
+            }
+          ];
+          return jsonResponse(response);
+        }));
+  });
+
+  testWidgets('archive mold details use the saved snapshot without live reads',
+      (tester) async {
+    var reads = 0;
+    final entry = QolipArchiveEntry.fromJson({
+      'id': 'historical-visit',
+      'kind': 'paddon',
+      'code': 'QP-00012',
+      'warehouse': 'Qolip ombori',
+      'archived_at': '2026-10-28T10:00:00Z',
+      'snapshot': {
+        'items': [
+          {...mold(), 'item_code': 'SNAPSHOT-ITEM', 'item_name': 'Old name'}
+        ]
+      }
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Q-ONE'));
+      await tester.pumpAndSettle();
+
+      final sheet = tester.widget<RpsQrReprintSheet>(
+          find.byType(RpsQrReprintSheet));
+      expect(sheet.payload, 'Q-ONE');
+      expect(sheet.itemName, 'Old name');
+      expect(sheet.details.map((detail) => detail.value),
+          contains('SNAPSHOT-ITEM'));
+      expect(sheet.onReprint, isNull);
+      expect(reads, 0);
+    }, () => MockClient((request) async {
+          reads++;
+          return jsonResponse({});
+        }));
+  });
+
+  testWidgets('switching accounts before details open prevents mileage reads',
+      (tester) async {
+    var mileageReads = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Q-ONE'));
+      AppSession.instance.profile = const SessionProfile(
+          role: UserRole.qolipchi,
+          ref: 'different',
+          displayName: 'Other',
+          legalName: '',
+          phone: '',
+          avatarUrl: '');
+      AppSession.instance.revision.value++;
+      await tester.pumpAndSettle();
+      expect(mileageReads, 0);
+      expect(find.text('Q-ONE'), findsNothing);
+    }, () => MockClient((request) async {
+          if (request.url.path.endsWith('/mileage')) mileageReads++;
+          return jsonResponse(detail());
+        }));
   });
 
   testWidgets('mold details overlay hides captured data after account switch',

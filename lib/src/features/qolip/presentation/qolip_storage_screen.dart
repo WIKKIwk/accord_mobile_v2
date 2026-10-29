@@ -8,6 +8,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/paddon_widgets.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
@@ -17,7 +18,9 @@ import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../shared/models/app_models.dart';
 import '../state/qolip_data_revision.dart';
+import 'qolip_code_details_sheet.dart';
 import 'qolip_mileage_sheet.dart';
 import 'qolip_paddon_print.dart';
 import 'widgets/qolip_dock.dart';
@@ -168,41 +171,58 @@ Future<void> _qr(BuildContext context, String code, {bool paddon = false}) =>
                     child: Text(_s(context, 'copy'))),
               ],
             ));
-Future<void> _moldDetails(BuildContext context, QolipStorageMold m) {
+Future<void> _moldDetails(BuildContext context, QolipStorageMold m,
+    {bool archivedSnapshot = false}) {
   final scope = currentSessionReadScope();
-  return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (context) => _StorageOverlay(
-          scope: scope,
-          child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(m.code, style: Theme.of(context).textTheme.titleLarge),
-                    Text(m.productNames),
-                    Text('${_s(context, 'set')}: ${m.setId}'),
-                    Text('${_s(context, 'warehouse')}: ${m.warehouse}'),
-                    Text('${_s(context, 'size')}: ${m.size} • ${m.color}'),
-                    Text('${_s(context, 'quantity')}: ${m.quantity}'),
-                    Text(_moldStatus(context, m)),
-                    Wrap(spacing: 8, children: [
-                      OutlinedButton.icon(
-                          onPressed: () => _qr(context, m.code),
-                          icon: const Icon(Icons.qr_code),
-                          label: Text(m.code)),
-                      TextButton(
-                          onPressed: () => showQolipMileageSheet(
-                              context, m.code,
-                              wrap: (child) =>
-                                  _StorageOverlay(scope: scope, child: child)),
-                          child: Text(_s(context, 'mileage'))),
-                    ]),
-                  ]))));
+  final productCodes = m.products
+      .map((product) => (product['code']?.toString() ?? '').trim())
+      .where((code) => code.isNotEmpty)
+      .toList();
+  final product = QolipProduct(
+    code: productCodes.isEmpty ? m.itemCode : productCodes.join(', '),
+    name: m.productNames,
+    itemGroup: '',
+    qolipCode: m.code,
+    qolipSetId: m.setId,
+    warehouse: m.warehouse,
+    qolipSize: m.size,
+    qolipColor: m.color,
+  );
+  return showQolipCodeDetailsSheet(
+    context,
+    product: product,
+    loadMileage: !archivedSnapshot,
+    wrap: (child) => _StorageOverlay(scope: scope, child: child),
+    onPayloadTap: () async {
+      if (scope == currentSessionReadScope()) {
+        await Clipboard.setData(ClipboardData(text: m.code));
+      }
+    },
+    onReprint: archivedSnapshot || m.archived
+        ? null
+        : () => reprintQolipCodeQr(context, product, scope: scope),
+    additionalDetails: [
+      if (m.setId.isNotEmpty) RpsQrDetail(_s(context, 'set'), m.setId),
+      if (m.warehouse.isNotEmpty)
+        RpsQrDetail(_s(context, 'warehouse'), m.warehouse),
+      if (m.color.isNotEmpty)
+        RpsQrDetail(context.l10n.qolipText('products.color'), m.color),
+      if (m.paddonCode.isNotEmpty)
+        RpsQrDetail(_s(context, 'in_paddon'), m.paddonCode),
+    ],
+    afterDetails: (sheetContext) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!archivedSnapshot && (m.paddonCode.isEmpty || m.archived))
+          Text(_moldStatus(sheetContext, m)),
+        TextButton(
+          onPressed: () => showQolipMileageSheet(sheetContext, m.code,
+              wrap: (child) => _StorageOverlay(scope: scope, child: child)),
+          child: Text(_s(sheetContext, 'mileage')),
+        ),
+      ],
+    ),
+  );
 }
 
 class QolipStorageScreen extends StatefulWidget {
