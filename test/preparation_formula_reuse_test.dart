@@ -25,6 +25,8 @@ class _ReuseApi extends variants.VariantApi {
   @override
   Future<http.Response> respond(http.Request request) async {
     if (request.url.path.endsWith('/formula-catalog')) {
+      expect(request.url.queryParameters,
+          {'product_code': 'P', 'material_id': 'pe-pr', 'order_id': 'order-1'});
       catalogReads++;
       return fixtures.response({
         'formulas': [

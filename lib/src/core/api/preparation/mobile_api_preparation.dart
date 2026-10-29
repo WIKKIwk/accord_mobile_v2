@@ -193,14 +193,23 @@ extension MobileApiPreparation on MobileApi {
     return PreparationFormula.listFromJson(_preparationResponse(response));
   }
 
-  Future<List<PreparationFormulaCatalogEntry>> preparationFormulaCatalog() async {
+  Future<List<PreparationFormulaCatalogEntry>> preparationFormulaCatalog({
+    String productCode = '',
+    String materialId = '',
+    String orderId = '',
+  }) async {
     final key = _preparationStorageKey();
+    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-catalog')
+        .replace(queryParameters: {
+          if (productCode.trim().isNotEmpty) 'product_code': productCode.trim(),
+          if (materialId.trim().isNotEmpty) 'material_id': materialId.trim(),
+          if (orderId.trim().isNotEmpty) 'order_id': orderId.trim(),
+        });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
         throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
       }
-      return _get(Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-catalog'),
-          headers: _headers(requireToken()));
+      return _get(uri, headers: _headers(requireToken()));
     });
     if (_preparationStorageKey() != key) {
       throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');

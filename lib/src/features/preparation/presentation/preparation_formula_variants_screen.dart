@@ -146,7 +146,11 @@ class _PreparationFormulaVariantsScreenState
             if (!_sameScope) throw StateError('Akkaunt o‘zgargan');
             try {
               final entries = await (catalogRequest ??=
-                  MobileApi.instance.preparationFormulaCatalog());
+                  MobileApi.instance.preparationFormulaCatalog(
+                    productCode: widget.productCode,
+                    materialId: widget.materialId,
+                    orderId: widget.orderId,
+                  ));
               if (!_sameScope) throw StateError('Akkaunt o‘zgargan');
               return entries.where((entry) => searchMatches(
                 query, [entry.name, subtitle(entry)],
