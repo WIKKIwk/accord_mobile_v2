@@ -360,17 +360,44 @@ class ProductionMapEdge {
   }
 }
 
+class ProductionOrderCreator {
+  const ProductionOrderCreator({
+    required this.role,
+    required this.ref,
+    required this.displayName,
+  });
+
+  final String role;
+  final String ref;
+  final String displayName;
+
+  factory ProductionOrderCreator.fromJson(Map<String, dynamic> json) =>
+      ProductionOrderCreator(
+        role: (json['role'] as String? ?? '').trim(),
+        ref: (json['ref'] as String? ?? '').trim(),
+        displayName: (json['display_name'] as String? ?? '').trim(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'ref': ref,
+        'display_name': displayName,
+      };
+}
+
 class ProductionMapSaved {
   const ProductionMapSaved({
     required this.map,
     required this.program,
     this.createdAtUnix,
+    this.createdBy,
     this.qolipInRework = false,
   });
 
   final ProductionMapDefinition map;
   final ProductionMapProgram program;
   final int? createdAtUnix;
+  final ProductionOrderCreator? createdBy;
   final bool qolipInRework;
 
   factory ProductionMapSaved.fromJson(Map<String, dynamic> json) {
@@ -382,6 +409,10 @@ class ProductionMapSaved {
         json['program'] as Map<String, dynamic>,
       ),
       createdAtUnix: (json['created_at_unix'] as num?)?.toInt(),
+      createdBy: json['created_by'] is Map<String, dynamic>
+          ? ProductionOrderCreator.fromJson(
+              json['created_by'] as Map<String, dynamic>)
+          : null,
       qolipInRework: json['qolip_in_rework'] == true,
     );
   }

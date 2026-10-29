@@ -137,6 +137,36 @@ const _admin_localization_adminTranslations_resplitPart18 = {
     'en': 'Created in the system',
     'ru': 'Создано в системе',
   },
+  'admin.detail.created_by': {
+    'uz': 'Buyurtmani ochgan',
+    'en': 'Created by',
+    'ru': 'Заказ создал',
+  },
+  'admin.detail.creator_missing': {
+    'uz': 'Ma’lumot saqlanmagan',
+    'en': 'Not recorded',
+    'ru': 'Не сохранено',
+  },
+  'admin.detail.creator_role.admin': {
+    'uz': 'Admin',
+    'en': 'Admin',
+    'ru': 'Администратор',
+  },
+  'admin.detail.creator_role.brigader': {
+    'uz': 'Brigader',
+    'en': 'Brigadier',
+    'ru': 'Бригадир',
+  },
+  'admin.detail.creator_role.sales_manager': {
+    'uz': 'Sotuv manageri',
+    'en': 'Sales manager',
+    'ru': 'Менеджер по продажам',
+  },
+  'admin.detail.creator_role.telegram': {
+    'uz': 'Telegram',
+    'en': 'Telegram',
+    'ru': 'Telegram',
+  },
   'admin.detail.updated_at': {
     'uz': 'Oxirgi o‘zgartirish',
     'en': 'Last updated',

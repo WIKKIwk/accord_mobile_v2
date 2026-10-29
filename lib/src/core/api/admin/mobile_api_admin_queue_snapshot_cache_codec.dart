@@ -183,6 +183,8 @@ Map<String, dynamic> _cachedQueueActionContract(
 }
 
 Map<String, dynamic> encodeCachedProductionMap(ProductionMapSaved saved) => {
+      'created_at_unix': saved.createdAtUnix,
+      'created_by': saved.createdBy?.toJson(),
       'map': {
         ...saved.map.toJson(),
         // The edit serializer trims labels. A cache must preserve what the

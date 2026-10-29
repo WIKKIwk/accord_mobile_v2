@@ -60,6 +60,7 @@ class _OrdersHarness {
   String detailTitle = 'Full detail package';
   String detailProductCode = 'FILM-ALPHA';
   int? detailCreatedAtUnix;
+  Map<String, dynamic>? detailCreatedBy;
   bool? detailQolipInRework;
   Map<String, dynamic>? detailCombo;
   List<Map<String, dynamic>>? detailProducts;
@@ -182,6 +183,7 @@ class _OrdersHarness {
         maps: [
           ProductionMapSaved.fromJson({
             'created_at_unix': detailCreatedAtUnix,
+            'created_by': detailCreatedBy,
             if (detailQolipInRework != null)
               'qolip_in_rework': detailQolipInRework,
             'map': {
@@ -521,10 +523,10 @@ void main() {
     expect(find.text('25.10.2026 13:37'), findsNothing);
     await tester.tap(_row('order-a'));
     await tester.pumpAndSettle();
-    final createdAt =
-        find.byKey(const ValueKey('production-order-created-at'));
-    expect(find.descendant(of: createdAt, matching: find.text('Yuklanmoqda...')),
-        findsOneWidget);
+    final createdAt = find.byKey(const ValueKey('production-order-created-at'));
+    expect(
+        find.descendant(of: createdAt, matching: find.text('Yuklanmoqda...')),
+        findsNWidgets(2));
     harness.pendingDetail!.complete(harness.fullDetail('order-a'));
     await tester.pump();
     await tester.pump();
@@ -572,6 +574,67 @@ void main() {
         find.descendant(
             of: find.byKey(const ValueKey('production-order-created-at')),
             matching: find.text('Sana mavjud emas')),
+        findsOneWidget);
+    await harness.dispose(tester);
+  });
+
+  for (final (role, label) in [
+    ('admin', 'Admin'),
+    ('brigader', 'Brigader'),
+    ('sales_manager', 'Sotuv manageri'),
+  ]) {
+    testWidgets(
+        'orders sheet shows $role creator beneath creation date in the same card',
+        (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final harness = _OrdersHarness()
+        ..detailCreatedBy = {
+          'role': role,
+          'ref': 'original-user',
+          'display_name': 'Ali Valiyev',
+        };
+      await harness.mount(tester);
+      await tester.tap(_row('order-a'));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const ValueKey('production-order-created-at'));
+      final creator = find.descendant(
+        of: card,
+        matching: find.byKey(const ValueKey('production-order-created-by')),
+      );
+      expect(creator, findsOneWidget);
+      expect(
+          find.descendant(
+              of: creator, matching: find.text('Buyurtmani ochgan')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: creator, matching: find.text('$label · Ali Valiyev')),
+          findsOneWidget);
+      expect(
+          tester.getRect(creator).top,
+          greaterThan(tester
+              .getRect(find.descendant(
+                  of: card, matching: find.text('Tizimga kiritilgan')))
+              .bottom));
+      expect(tester.takeException(), isNull);
+      await harness.dispose(tester);
+    });
+  }
+
+  testWidgets(
+      'orders sheet does not attribute legacy orders to the viewing admin',
+      (tester) async {
+    final harness = _OrdersHarness();
+    await harness.mount(tester);
+    await tester.tap(_row('order-a'));
+    await tester.pumpAndSettle();
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('production-order-created-by')),
+            matching: find.text('Ma’lumot saqlanmagan')),
         findsOneWidget);
     await harness.dispose(tester);
   });

@@ -202,6 +202,22 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
         : createdAt.isEmpty
             ? context.l10n.adminText('detail.date_missing')
             : createdAt;
+    final creator = order.createdBy;
+    final creatorRole = creator == null
+        ? ''
+        : switch (creator.role) {
+            'admin' ||
+            'brigader' ||
+            'sales_manager' ||
+            'telegram' =>
+              context.l10n.adminText('detail.creator_role.${creator.role}'),
+            _ => creator.role,
+          };
+    final createdByValue = detailPending
+        ? context.l10n.loading
+        : creator == null || creatorRole.isEmpty || creator.displayName.isEmpty
+            ? context.l10n.adminText('detail.creator_missing')
+            : '$creatorRole · ${creator.displayName}';
     final cardUiState = presentationUiState ?? uiState;
     final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
       map: map,
@@ -487,54 +503,93 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       child: Padding(
                         key: const ValueKey('production-order-created-at'),
                         padding: const EdgeInsets.symmetric(vertical: 7),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Icon(Icons.event_outlined,
-                                size: 16, color: scheme.onSurfaceVariant),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                context.l10n.adminText('detail.created_at'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: scheme.onSurfaceVariant),
-                              ),
+                            Row(
+                              children: [
+                                Icon(Icons.event_outlined,
+                                    size: 16, color: scheme.onSurfaceVariant),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    context.l10n.adminText('detail.created_at'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                            color: scheme.onSurfaceVariant),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    switchInCurve: Curves.easeOut,
+                                    switchOutCurve: Curves.easeOut,
+                                    transitionBuilder: (child, animation) =>
+                                        FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    ),
+                                    layoutBuilder:
+                                        (currentChild, previousChildren) =>
+                                            Stack(
+                                      alignment: AlignmentDirectional.centerEnd,
+                                      children: [
+                                        ...previousChildren,
+                                        if (currentChild != null) currentChild,
+                                      ],
+                                    ),
+                                    child: Text(
+                                      createdAtValue,
+                                      key: ValueKey(
+                                          '${detailPending ? 'loading' : 'loaded'}:$createdAtValue'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.end,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                switchInCurve: Curves.easeOut,
-                                switchOutCurve: Curves.easeOut,
-                                transitionBuilder: (child, animation) =>
-                                    FadeTransition(
-                                  opacity: animation,
-                                  child: child,
+                            const SizedBox(height: 10),
+                            Row(
+                              key:
+                                  const ValueKey('production-order-created-by'),
+                              children: [
+                                Icon(Icons.person_outline,
+                                    size: 16, color: scheme.onSurfaceVariant),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    context.l10n.adminText('detail.created_by'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                            color: scheme.onSurfaceVariant),
+                                  ),
                                 ),
-                                layoutBuilder: (currentChild, previousChildren) =>
-                                    Stack(
-                                  alignment: AlignmentDirectional.centerEnd,
-                                  children: [
-                                    ...previousChildren,
-                                    if (currentChild != null) currentChild,
-                                  ],
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    createdByValue,
+                                    textAlign: TextAlign.end,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
                                 ),
-                                child: Text(
-                                  createdAtValue,
-                                  key: ValueKey(
-                                      '${detailPending ? 'loading' : 'loaded'}:$createdAtValue'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.end,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                              ),
+                              ],
                             ),
                           ],
                         ),

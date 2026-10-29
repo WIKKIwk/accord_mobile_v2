@@ -282,6 +282,24 @@ void main() {
         encodeCachedProductionMap(restored), encodeCachedProductionMap(saved));
   });
 
+  test('cached order keeps the original creator and creation time', () {
+    final raw = Map<String, dynamic>.from((_wire()['maps'] as List).single);
+    raw['created_at_unix'] = 1793083020;
+    raw['created_by'] = {
+      'role': 'sales_manager',
+      'ref': 'original-user',
+      'display_name': 'Ali Valiyev',
+    };
+    final saved = ProductionMapSaved.fromJson(raw);
+    final restored =
+        ProductionMapSaved.fromJson(encodeCachedProductionMap(saved));
+    expect(restored.createdAtUnix, 1793083020);
+    expect(restored.createdBy!.toJson(), raw['created_by']);
+    expect(
+        ProductionMapSaved.fromJson((_wire()['maps'] as List).single).createdBy,
+        isNull);
+  });
+
   test('delta cursor and independently updated history are saved together',
       () async {
     final before =
