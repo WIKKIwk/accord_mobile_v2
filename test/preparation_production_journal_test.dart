@@ -3,9 +3,12 @@ import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
+import 'package:accord_mobile_v2/src/core/printing/session_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_list_row.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
@@ -16,6 +19,7 @@ import 'package:accord_mobile_v2/src/features/preparation/presentation/preparati
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -411,6 +415,76 @@ void main() {
       expect(tester.takeException(), isNull);
     }, (request) => _route(request));
   });
+
+  for (final printFails in [false, true]) {
+    testWidgets('production roll QR reprints the existing label (failure: $printFails)',
+        (tester) async {
+      SessionBluetoothPrinter.remember(const BluetoothPrinterProfile(
+        name: 'XP-P323B', address: 'preparation-printer',
+      ));
+      const channel = MethodChannel('accord/bluetooth_printer');
+      final printCalls = <MethodCall>[];
+      var confirmed = false;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
+          (call) async {
+        printCalls.add(call);
+        if (printFails) {
+          throw PlatformException(code: 'printer_error', message: 'Printer ulanmagan');
+        }
+        return {'ok': true};
+      });
+      addTearDown(() {
+        SessionBluetoothPrinter.forget();
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
+      });
+      await _withApp(tester, () async {
+        await tester.pumpWidget(
+            _app(const PreparationProductionBatchScreen(batchId: 'batch-lg')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('production-roll:$_epc')));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(RpsQrReprintSheet);
+        expect(sheet, findsOneWidget);
+        expect(find.descendant(of: sheet, matching: find.byTooltip('Yopish')),
+            findsNothing);
+        expect(find.byKey(const ValueKey('rps-qr-drag-handle')), findsOneWidget);
+        final route = ModalRoute.of(tester.element(sheet)) as ModalBottomSheetRoute;
+        expect(route.showDragHandle, isFalse);
+        expect(route.backgroundColor, Colors.transparent);
+        final reprint = find.byKey(const ValueKey('production-roll-reprint-$_epc'));
+        await tester.ensureVisible(reprint);
+        await tester.tap(reprint);
+        await tester.pumpAndSettle();
+        expect(printCalls, hasLength(1));
+        expect(printCalls.single.method, 'printLabel');
+        expect((printCalls.single.arguments as Map)['epc'], _epc);
+        expect(confirmed, !printFails);
+        if (printFails) expect(find.text('Printer ulanmagan'), findsOneWidget);
+        await tester.ensureVisible(find.byKey(const ValueKey('rps-qr-drag-handle')));
+        await tester.drag(find.byKey(const ValueKey('rps-qr-drag-handle')),
+            const Offset(0, 700));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+      }, (request) {
+        if (request.url.path.endsWith('/reprint/prepare')) {
+          expect(jsonDecode(request.body), {'barcode': _epc, 'order_id': 'zakaz-0317'});
+          return _json({
+            'reprint_id': 'raw_label_test',
+            'stock': {'barcode': _epc, 'item_code': 'PE PR', 'qty': 23,
+              'source_receipt_id': 'MAT-TRACE-1'},
+            'print': {'epc': _epc, 'item_code': 'PE PR', 'item_name': 'PE PR',
+              'gross_qty': 23, 'label_kind': 'material_product', 'printer': 'godex'},
+          });
+        }
+        if (request.url.path.endsWith('/reprint/confirm')) {
+          expect(jsonDecode(request.body), {'barcode': _epc, 'reprint_id': 'raw_label_test'});
+          confirmed = true;
+          return _json({'ok': true});
+        }
+        return _route(request);
+      });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  }
 
   testWidgets('paging appends orders and searching starts a fresh result',
       (tester) async {

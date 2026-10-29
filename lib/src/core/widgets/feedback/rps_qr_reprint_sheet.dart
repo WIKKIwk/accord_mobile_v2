@@ -39,6 +39,7 @@ class RpsQrReprintSheet extends StatefulWidget {
     this.onDelete,
     this.deleteButtonKey,
     this.deleteButtonLabel = 'QRni o‘chirish',
+    this.showCloseButton = true,
   });
 
   final String title;
@@ -65,6 +66,7 @@ class RpsQrReprintSheet extends StatefulWidget {
   final Future<void> Function()? onDelete;
   final Key? deleteButtonKey;
   final String deleteButtonLabel;
+  final bool showCloseButton;
 
   @override
   State<RpsQrReprintSheet> createState() => _RpsQrReprintSheetState();
@@ -177,6 +179,7 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
             children: [
               Center(
                 child: Container(
+                  key: const ValueKey('rps-qr-drag-handle'),
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
@@ -203,13 +206,14 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                       tooltip: 'WIPni o‘zgartirish',
                       icon: const Icon(Icons.edit_rounded),
                     ),
-                  IconButton(
-                    onPressed: _printing || _deleting
-                        ? null
-                        : () => Navigator.pop(context),
-                    tooltip: 'Yopish',
-                    icon: const Icon(Icons.close_rounded),
-                  ),
+                  if (widget.showCloseButton)
+                    IconButton(
+                      onPressed: _printing || _deleting
+                          ? null
+                          : () => Navigator.pop(context),
+                      tooltip: 'Yopish',
+                      icon: const Icon(Icons.close_rounded),
+                    ),
                 ],
               ),
               const SizedBox(height: 16),

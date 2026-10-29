@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/urdu_aware_text.dart';
+import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
@@ -13,6 +17,7 @@ import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
+import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
@@ -527,7 +532,7 @@ class _ProductionBatchState extends _JournalState<
                   subtitle: '${_date(roll.printedAt)} • ${roll.warehouse}',
                   metrics:
                       '${preparationDisplay(roll.netKg)} kg${roll.lengthM == null ? '' : ' • ${preparationDisplay(roll.lengthM!)} m'}${roll.widthMm == null ? '' : ' • ${preparationDisplay(roll.widthMm!)} mm'}${roll.micron == null ? '' : ' • ${preparationDisplay(roll.micron!)} mkm'}',
-                  onTap: () => _showRoll(context, roll),
+                  onTap: () => _showRoll(context, roll, _batch?.orderId ?? ''),
                 ),
             ]),
           ],
@@ -638,31 +643,118 @@ String _date(String raw) {
   return '${two(value.day)}.${two(value.month)}.${value.year} ${two(value.hour)}:${two(value.minute)}';
 }
 
-Future<void> _showRoll(BuildContext context, PreparationProductionRoll roll) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => RpsQrReprintSheet(
-        payload: roll.epc,
-        itemName: roll.itemName.isEmpty ? roll.itemCode : roll.itemName,
-        onReprint: null,
-        errorMessage: (_) => 'QRni ko‘rsatib bo‘lmadi',
-        detailsContent: _ProductionRecipe(formula: roll.formula),
-        details: [
-          RpsQrDetail('Kirim raqami', roll.receiptName),
-          RpsQrDetail('Netto', '${preparationDisplay(roll.netKg)} kg'),
-          if (roll.grossKg != null)
-            RpsQrDetail('Brutto', '${preparationDisplay(roll.grossKg!)} kg'),
-          if (roll.lengthM != null)
-            RpsQrDetail('Metraj', '${preparationDisplay(roll.lengthM!)} m'),
-          if (roll.widthMm != null)
-            RpsQrDetail('Eni', '${preparationDisplay(roll.widthMm!)} mm'),
-          if (roll.micron != null)
-            RpsQrDetail('Mikron', '${preparationDisplay(roll.micron!)} mkm'),
-          RpsQrDetail('Ombor', roll.warehouse),
-          RpsQrDetail('Chop etilgan', _date(roll.printedAt)),
-        ],
-      ),
+Future<void> _showRoll(
+  BuildContext context,
+  PreparationProductionRoll roll,
+  String orderId,
+) {
+  final scope = currentSessionReadScope();
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: false,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => RpsQrReprintSheet(
+      payload: roll.epc,
+      itemName: roll.itemName.isEmpty ? roll.itemCode : roll.itemName,
+      showCloseButton: false,
+      reprintButtonKey: ValueKey('production-roll-reprint-${roll.epc}'),
+      onReprint: () => _reprintRoll(sheetContext, roll, orderId, scope),
+      errorMessage: (error) => error is MobileApiException
+          ? error.message
+          : error is PlatformException && error.message?.isNotEmpty == true
+              ? error.message!
+              : error.toString().replaceFirst('Bad state: ', ''),
+      detailsContent: _ProductionRecipe(formula: roll.formula),
+      details: [
+        RpsQrDetail('Kirim raqami', roll.receiptName),
+        RpsQrDetail('Netto', '${preparationDisplay(roll.netKg)} kg'),
+        if (roll.grossKg != null)
+          RpsQrDetail('Brutto', '${preparationDisplay(roll.grossKg!)} kg'),
+        if (roll.lengthM != null)
+          RpsQrDetail('Metraj', '${preparationDisplay(roll.lengthM!)} m'),
+        if (roll.widthMm != null)
+          RpsQrDetail('Eni', '${preparationDisplay(roll.widthMm!)} mm'),
+        if (roll.micron != null)
+          RpsQrDetail('Mikron', '${preparationDisplay(roll.micron!)} mkm'),
+        RpsQrDetail('Ombor', roll.warehouse),
+        RpsQrDetail('Chop etilgan', _date(roll.printedAt)),
+      ],
+    ),
+  );
+}
+
+Future<String?> _reprintRoll(
+  BuildContext context,
+  PreparationProductionRoll roll,
+  String orderId,
+  String scope,
+) async {
+  bool currentSession() =>
+      context.mounted && scope == currentSessionReadScope();
+  if (!currentSession()) throw const RpsQrReprintCancelled();
+  final prepared = await MobileApi.instance.adminPrepareRawMaterialStockReprint(
+    barcode: roll.epc,
+    orderId: orderId,
+  );
+  final barcode = roll.epc.trim().toUpperCase();
+  if (prepared.reprintId.trim().isEmpty ||
+      prepared.stock.barcode.trim().toUpperCase() != barcode ||
+      prepared.printRequest.epc.trim().toUpperCase() != barcode ||
+      (roll.receiptName.trim().isNotEmpty &&
+          prepared.stock.sourceReceiptId.trim() != roll.receiptName.trim())) {
+    throw const MobileApiException(
+      code: 'raw_material_stock_reprint_identity_mismatch',
+      message: 'Serverdagi QR identifikatori mos kelmadi',
     );
+  }
+  if (!currentSession()) throw const RpsQrReprintCancelled();
+  final printer = await pickProgressPrinter(context);
+  if (!currentSession() || printer == null) {
+    throw const RpsQrReprintCancelled();
+  }
+  if (printer.transport.isLocal) {
+    final result = await PrintService.printRps(
+      prepared.printRequest,
+      printerProfile: printer.offlinePrinter,
+      bluetoothPrinter: printer.bluetoothPrinter,
+      transport: printer.transport,
+    );
+    if (!result.ok) throw StateError('Printer QR kodini chop etmadi');
+  } else {
+    final server = printer.server;
+    if (server == null) throw StateError('Printer serveri tanlanmadi');
+    final response = await http.post(
+      Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        ...prepared.printRequest.toJson(),
+        if (printer.printer.isNotEmpty) 'printer': printer.printer,
+        if (printer.printMode.isNotEmpty) 'print_mode': printer.printMode,
+      }),
+    ).timeout(const Duration(seconds: 15));
+    final payload = jsonDecode(response.body);
+    if (response.statusCode < 200 ||
+        response.statusCode > 299 ||
+        payload is! Map || payload['ok'] != true) {
+      final detail = payload is Map
+          ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
+          : '';
+      throw StateError(
+          detail.isEmpty ? 'Printer QR kodini chop etmadi' : detail);
+    }
+  }
+  if (!currentSession()) {
+    return 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
+  }
+  try {
+    await MobileApi.instance.adminConfirmRawMaterialStockReprint(
+      barcode: prepared.stock.barcode,
+      reprintId: prepared.reprintId,
+    );
+    return null;
+  } catch (_) {
+    return 'QR chop etildi, lekin server tasdig‘i saqlanmadi';
+  }
+}
