@@ -2147,10 +2147,11 @@ class _AdminProductionMapOrdersScreenState
     final temporaryPause =
         _workerTemporaryPauseControl(apparatus, order, control);
     final rePause = _workerRePauseControl(apparatus, order, control);
+    final cancelStart = _workerCancelStartControl(apparatus, order, control);
     final reclose = _workerRecloseControl(apparatus, order, control);
     if (stageWork?.astatkaAvailable == true &&
         operation != 'laminate' &&
-        temporaryPause == null && rePause == null && reclose == null) {
+        temporaryPause == null && rePause == null && reclose == null && cancelStart == null) {
       _showWatchOrderDetail(
           apparatus: apparatus, order: order, startAstatkaOnOpen: true);
       return;
@@ -2244,6 +2245,7 @@ class _AdminProductionMapOrdersScreenState
               startAstatkaOnOpen: true,
             );
           case _LaminatsiyaWorkerLongPressChoice.temporaryPause:
+          case _LaminatsiyaWorkerLongPressChoice.cancelStart:
           case _LaminatsiyaWorkerLongPressChoice.rePause:
           case _LaminatsiyaWorkerLongPressChoice.reclose:
           case null:
@@ -2267,9 +2269,14 @@ class _AdminProductionMapOrdersScreenState
           canTemporaryPause: temporaryPause != null,
           canRePause: rePause != null,
           canReclose: reclose != null,
+          canCancelStart: cancelStart != null,
         ),
       );
       if (!mounted || scope != currentSessionReadScope() || choice == null) return;
+      if (choice == _LaminatsiyaWorkerLongPressChoice.cancelStart) {
+        if (cancelStart != null) await _runWorkerCancelStart(apparatus, order, cancelStart);
+        return;
+      }
       if (choice == _LaminatsiyaWorkerLongPressChoice.temporaryPause) {
         if (temporaryPause != null) {
           await _runWorkerTemporaryPause(apparatus, order, temporaryPause);

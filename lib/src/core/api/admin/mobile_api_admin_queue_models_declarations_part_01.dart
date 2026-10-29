@@ -207,6 +207,8 @@ class AdminApparatusQueueOrderActionControl {
     this.lastWorkedAtUnix = 0,
     this.rePause,
     this.temporaryPause,
+    this.cancelStart,
+    this.hasValidCancelStartState = true,
     this.temporarilyPaused = false,
     this.hasValidTemporaryPauseState = true,
     this.reclose,
@@ -238,6 +240,8 @@ class AdminApparatusQueueOrderActionControl {
   final int lastWorkedAtUnix;
   final AdminResumePauseControl? rePause;
   final AdminTemporaryPauseControl? temporaryPause;
+  final AdminCancelStartControl? cancelStart;
+  final bool hasValidCancelStartState;
   final bool temporarilyPaused;
   final bool hasValidTemporaryPauseState;
   final AdminReactivationRecloseControl? reclose;
@@ -277,6 +281,7 @@ class AdminApparatusQueueOrderActionControl {
         !hasRequiredFields ||
         !hasValidRezkaMergeState ||
         !hasValidTemporaryPauseState ||
+        !hasValidCancelStartState ||
         !_knownApparatusQueueStates.contains(normalizedState) ||
         !_queueInteractionModeMatchesState(value.mode, normalizedState)) {
       return false;
@@ -285,6 +290,10 @@ class AdminApparatusQueueOrderActionControl {
         (normalizedState != 'in_progress' ||
             value.mode != AdminQueueInteractionMode.inProgress ||
             temporarilyPaused)) {
+      return false;
+    }
+    if (cancelStart != null && (normalizedState != 'in_progress' ||
+        value.mode != AdminQueueInteractionMode.inProgress || temporarilyPaused)) {
       return false;
     }
     if (temporarilyPaused &&
@@ -569,11 +578,14 @@ class AdminApparatusQueueOrderActionControl {
     final temporaryPause = AdminTemporaryPauseControl.tryFromJson(
       json['temporary_pause'],
     );
+    final cancelStart = AdminCancelStartControl.tryFromJson(json['cancel_start']);
     final hasValidTemporaryPauseState =
         (json['temporary_pause'] == null || temporaryPause != null) &&
         (!json.containsKey('temporarily_paused') ||
             json['temporarily_paused'] is bool);
     return AdminApparatusQueueOrderActionControl(
+      cancelStart: cancelStart,
+      hasValidCancelStartState: json['cancel_start'] == null || cancelStart != null,
       temporaryPause: temporaryPause,
       temporarilyPaused: json['temporarily_paused'] == true,
       hasValidTemporaryPauseState: hasValidTemporaryPauseState,

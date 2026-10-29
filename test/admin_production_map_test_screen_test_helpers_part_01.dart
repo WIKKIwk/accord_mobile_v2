@@ -11,6 +11,7 @@ String _fixtureApparatusName(String apparatusId) => switch (apparatusId) {
       _lamination2Id => 'Laminatsiya 2',
       _rezkaId => 'Rezka',
       _coldGlueId => 'Holodniy kley aparat',
+      _extruderId => 'Extruder laminatsiya',
       _ => throw ArgumentError.value(
           apparatusId,
           'apparatusId',

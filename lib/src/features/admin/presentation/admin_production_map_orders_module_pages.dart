@@ -1115,6 +1115,7 @@ class _AparatchiWatchSequencePage extends StatelessWidget {
 }
 
 enum _LaminatsiyaWorkerLongPressChoice {
+  cancelStart,
   finishWork,
   continueRoll,
   removeRoll,
@@ -1201,6 +1202,7 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
     this.canTemporaryPause = false,
     this.canRePause = false,
     this.canReclose = false,
+    this.canCancelStart = false,
   });
 
   final bool canRePause;
@@ -1208,6 +1210,7 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
   final bool isRezka;
   final bool canReclose;
   final bool isLamination;
+  final bool canCancelStart;
 
   @override
   Widget build(BuildContext context) {
@@ -1242,6 +1245,9 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (canCancelStart)
+              _WorkerCancelStartButton(onPressed: () => Navigator.of(context)
+                  .pop(_LaminatsiyaWorkerLongPressChoice.cancelStart)),
             if (canTemporaryPause)
               _WorkerTemporaryPauseButton(
                 onPressed: () => Navigator.of(context)

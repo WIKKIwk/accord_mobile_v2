@@ -125,6 +125,7 @@ part 'admin_production_map_lamination_astatka_scope_test_part.dart';
 part 'admin_production_map_qolip_alternative_sets_test_part.dart';
 part 'admin_production_map_resume_wip_test_part.dart';
 part 'admin_production_map_re_pause_test_part.dart';
+part 'admin_production_map_cancel_start_test_part.dart';
 part 'admin_production_map_temporary_pause_test_part.dart';
 part 'admin_production_map_print_preflight_reopen_test_part.dart';
 part 'admin_production_map_reactivation_reclose_test_part.dart';
@@ -139,6 +140,7 @@ const _flexoId = 'apparatus:default:asset-005';
 const _lamination1Id = 'apparatus:default:asset-007';
 const _lamination2Id = 'apparatus:default:asset-008';
 const _coldGlueId = 'apparatus:default:holodniy_kley';
+const _extruderId = 'apparatus:default:asset-004';
 const _rezkaId = 'apparatus:default:asset-010';
 
 void main() {
@@ -216,6 +218,7 @@ void main() {
   _registerResumeWipTests();
   _registerRePauseTests();
   _registerTemporaryPauseTests();
+  _registerCancelStartTests();
   _registerPrintPreflightReopenTests();
   _registerRecloseTests();
   _registerReactivationTests();
