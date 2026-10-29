@@ -3,6 +3,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
+import '../../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 
 enum QolipDockTab { home, products, tasks }
@@ -16,6 +17,7 @@ class QolipDock extends StatelessWidget {
     this.tightToEdges = true,
     this.showPrimaryFab = false,
     this.onPrimaryFabTap,
+    this.primaryActions,
   });
 
   final QolipDockTab? activeTab;
@@ -24,6 +26,7 @@ class QolipDock extends StatelessWidget {
   final bool tightToEdges;
   final bool showPrimaryFab;
   final VoidCallback? onPrimaryFabTap;
+  final List<AdminFabMenuAction>? primaryActions;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +35,9 @@ class QolipDock extends StatelessWidget {
       builder: (context, _) {
         final l10n = context.l10n;
         final bool selectionVisible = activeTab != null;
+        final hasActions = primaryActions?.isNotEmpty ?? false;
+        final hasPrimary =
+            hasActions || (showPrimaryFab && onPrimaryFabTap != null);
 
         void selectTab(QolipDockTab tab, String route) {
           if (activeTab == tab) {
@@ -66,15 +72,20 @@ class QolipDock extends StatelessWidget {
             onTap: () =>
                 selectTab(QolipDockTab.products, AppRoutes.qolipProducts),
           ),
-          if (showPrimaryFab && onPrimaryFabTap != null)
+          if (hasPrimary)
             RoleDockDestination(
               id: 'qolip-create',
-              label: l10n.qolipText('action.add'),
+              label: hasActions
+                  ? l10n.productionText('worker.actions')
+                  : l10n.qolipText('action.add'),
               icon: Icons.add_rounded,
               selectedIcon: Icons.add_rounded,
               active: false,
               primary: true,
-              onTap: onPrimaryFabTap!,
+              onTap: hasActions
+                  ? () =>
+                      showAdminCreateHubSheet(context, actions: primaryActions!)
+                  : onPrimaryFabTap!,
             ),
           RoleDockDestination(
             id: 'qolip-tasks',
@@ -91,13 +102,16 @@ class QolipDock extends StatelessWidget {
             ? 0
             : destinations.indexWhere((destination) => destination.active);
 
-        return RoleDock(
-          compact: compact,
-          tightToEdges: tightToEdges,
-          selectionVisible: selectionVisible,
-          selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-          primaryVisible: showPrimaryFab && onPrimaryFabTap != null,
-          destinations: destinations,
+        return ValueListenableBuilder<bool>(
+          valueListenable: adminCreateHubMenuOpen,
+          builder: (context, menuOpen, _) => RoleDock(
+            compact: compact,
+            tightToEdges: tightToEdges,
+            selectionVisible: selectionVisible,
+            selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+            primaryVisible: hasPrimary && !menuOpen,
+            destinations: destinations,
+          ),
         );
       },
     );

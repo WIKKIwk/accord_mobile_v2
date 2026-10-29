@@ -7,8 +7,15 @@ import '../../admin/presentation/progress_printer_picker.dart';
 
 /// Printing never changes package membership, lock or archive state.
 class QolipPaddonPrintButton extends StatefulWidget {
-  const QolipPaddonPrintButton({super.key, required this.code});
+  const QolipPaddonPrintButton({
+    super.key,
+    required this.code,
+    this.filled = false,
+    this.enabled = true,
+  });
   final String code;
+  final bool filled;
+  final bool enabled;
   @override
   State<QolipPaddonPrintButton> createState() => _PrintState();
 }
@@ -16,7 +23,7 @@ class QolipPaddonPrintButton extends StatefulWidget {
 class _PrintState extends State<QolipPaddonPrintButton> {
   bool _busy = false;
   Future<void> _print() async {
-    if (_busy) return;
+    if (_busy || !widget.enabled) return;
     final scope = currentSessionReadScope();
     setState(() => _busy = true);
     try {
@@ -56,12 +63,29 @@ class _PrintState extends State<QolipPaddonPrintButton> {
   }
 
   @override
-  Widget build(BuildContext context) => IconButton(
-        tooltip: context.l10n.productionText('worker.paddon.print'),
-        onPressed: _busy ? null : _print,
-        icon: _busy
-            ? const SizedBox.square(
-                dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.print_outlined),
+  Widget build(BuildContext context) {
+    final icon = _busy
+        ? const SizedBox.square(
+            dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+        : const Icon(Icons.qr_code_2_rounded, size: 18);
+    if (widget.filled) {
+      return FilledButton.icon(
+        key: const ValueKey('qolip-paddon-print-qr'),
+        onPressed: _busy || !widget.enabled ? null : _print,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        icon: icon,
+        label: Text(context.l10n.productionText('worker.paddon.print.short')),
       );
+    }
+    return IconButton(
+      tooltip: context.l10n.productionText('worker.paddon.print'),
+      onPressed: _busy || !widget.enabled ? null : _print,
+      icon: icon,
+    );
+  }
 }

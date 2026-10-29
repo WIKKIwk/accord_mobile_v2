@@ -140,120 +140,248 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   Widget build(BuildContext context) {
     if (_sessionExpired) return sessionExpiredPage(context);
     final detail = _detail;
-    return Scaffold(
-        appBar: AppBar(title: Text(widget.code), actions: [
-          QolipPaddonPrintButton(code: widget.code),
-          IconButton(
-              onPressed: () => _qr(context, widget.code, paddon: true),
-              icon: const Icon(Icons.qr_code)),
-          IconButton(
-              onPressed: _saving || _loading ? null : _load,
-              icon: const Icon(Icons.refresh)),
-        ]),
-        body: Column(children: [
-          if (_saving || _loading) const LinearProgressIndicator(),
-          if (_failure != null)
-            ListTile(
-                title: Text(_s(context, 'failed')),
-                trailing: TextButton(
-                    onPressed: _load, child: Text(_s(context, 'retry')))),
-          if (detail != null)
-            Expanded(
-                child: ListView(padding: const EdgeInsets.all(16), children: [
-              Text(_status(context, detail.paddon),
-                  style: Theme.of(context).textTheme.titleLarge),
-              Text('${detail.paddon.warehouse} • ${detail.paddon.location}'),
-              if (detail.paddon.note.isNotEmpty) Text(detail.paddon.note),
-              Text(
-                  '${_s(context, 'molds')}: ${detail.items.length} • ${_s(context, 'quantity')}: ${detail.paddon.totalQuantity}'),
-              Wrap(spacing: 8, children: [
-                if (detail.paddon.editable)
-                  FilledButton.icon(
-                      onPressed: _saving ? null : _add,
-                      icon: const Icon(Icons.add),
-                      label: Text(_s(context, 'add'))),
-                if (!detail.paddon.archived)
-                  OutlinedButton.icon(
-                      onPressed: _saving
-                          ? null
-                          : () =>
-                              _act(detail.paddon.locked ? 'unlock' : 'lock'),
-                      icon: Icon(detail.paddon.locked
-                          ? Icons.lock_open
-                          : Icons.lock_outline),
-                      label: Text(_s(
-                          context, detail.paddon.locked ? 'unlock' : 'lock'))),
-                OutlinedButton.icon(
-                    onPressed: _saving
-                        ? null
-                        : () => _act(
-                            detail.paddon.archived ? 'restore' : 'archive'),
-                    icon: Icon(detail.paddon.archived
-                        ? Icons.unarchive_outlined
-                        : Icons.archive_outlined),
-                    label: Text(_s(
-                        context,
-                        detail.paddon.archived
-                            ? 'restore'
-                            : 'archive_action'))),
-                TextButton.icon(
-                    onPressed: _saving ? null : _inspect,
-                    icon: const Icon(Icons.fact_check_outlined),
-                    label: Text(_s(context, 'inspect'))),
-              ]),
-              if (_pendingAction != null)
-                Card(
-                    child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_s(context, 'failed')),
-                              Text(_pendingCodes.join(', ')),
-                              TextButton(
-                                  onPressed: _saving
-                                      ? null
-                                      : () => _act(_pendingAction!,
-                                          codes: _pendingCodes),
-                                  child: Text(_s(context, 'retry'))),
-                            ]))),
-              for (final mold in detail.items)
-                ListTile(
-                    title: Text(mold.code),
-                    subtitle: Text(
-                        '${mold.productNames}\n${mold.size} • ${mold.color}'),
-                    onTap: () => _moldDetails(context, mold),
-                    isThreeLine: true,
-                    trailing: detail.paddon.editable
-                        ? IconButton(
-                            tooltip: _s(context, 'remove'),
-                            onPressed: _saving
-                                ? null
-                                : () => _act('remove', codes: [mold.code]),
-                            icon: const Icon(Icons.remove_circle_outline))
-                        : const Icon(Icons.chevron_right)),
-              if (_lastInspection != null)
-                _inspectionResult(context, _lastInspection!),
-              const Divider(),
-              Text(_s(context, 'history'),
-                  style: Theme.of(context).textTheme.titleLarge),
-              for (final event in detail.history.reversed)
-                ExpansionTile(
-                  title: Text(_s(
-                      context,
-                      event['action'] == 'archive'
-                          ? 'archive_action'
-                          : event['action'].toString())),
-                  subtitle: Text(
-                      '${event['actor_name'] ?? ''} • ${qolipReworkDate(event['created_at'].toString())}'),
+    final enabled = !_saving && !_loading && detail != null;
+    return AppShell(
+      title: widget.code,
+      subtitle: '',
+      nativeTopBar: true,
+      showProfileAction: false,
+      appBarBottomLoading: _saving || _loading,
+      contentPadding: EdgeInsets.zero,
+      actions: [
+        IconButton(
+          tooltip: _s(context, 'scan_paddon'),
+          onPressed: () => _qr(context, widget.code, paddon: true),
+          icon: const Icon(Icons.qr_code_2_rounded),
+        ),
+        IconButton(
+          tooltip: _s(context, 'refresh'),
+          onPressed: _saving || _loading ? null : _load,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
+      bottom: QolipDock(
+        activeTab: null,
+        primaryActions: [
+          if (detail?.paddon.editable == true)
+            AdminFabMenuAction(
+              title: _s(context, 'add'),
+              icon: Icons.playlist_add_rounded,
+              enabled: enabled,
+              onTap: () => unawaited(_add()),
+            ),
+          AdminFabMenuAction(
+            title: _s(context, 'inspect'),
+            icon: Icons.fact_check_outlined,
+            enabled: enabled,
+            onTap: () => unawaited(_inspect()),
+          ),
+        ],
+      ),
+      child: ColoredBox(
+        color: AppTheme.shellStart(context),
+        child: detail == null
+            ? _failure != null
+                ? AppRetryState(onRetry: _load, message: _s(context, 'failed'))
+                : const Center(child: AppLoadingIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                      4, 4, 4, MediaQuery.viewPaddingOf(context).bottom + 120),
                   children: [
-                    if (event['payload'] is Map)
-                      _eventPayload(context,
-                          Map<String, dynamic>.from(event['payload'] as Map))
+                    _header(context, detail, enabled: enabled),
+                    if (_failure != null)
+                      AppRetryState(
+                          onRetry: _load, message: _s(context, 'failed')),
+                    if (_pendingAction != null) ...[
+                      const SizedBox(height: 12),
+                      PaddonPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_s(context, 'failed')),
+                            if (_pendingCodes.isNotEmpty)
+                              Text(_pendingCodes.join(', ')),
+                            TextButton(
+                              onPressed: !enabled
+                                  ? null
+                                  : () => _act(_pendingAction!,
+                                      codes: _pendingCodes),
+                              child: Text(_s(context, 'retry')),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    PaddonSectionHeader(
+                        title: _s(context, 'contents'),
+                        count: '${detail.items.length}'),
+                    if (detail.items.isEmpty)
+                      PaddonEmptyState(
+                        title: _s(context, 'empty'),
+                        message: detail.paddon.editable
+                            ? _s(context, 'paddon_molds_empty')
+                            : '',
+                        icon: Icons.layers_outlined,
+                      )
+                    else
+                      M3SegmentSpacedColumn(children: [
+                        for (var i = 0; i < detail.items.length; i++)
+                          PaddonListCard(
+                            key: ValueKey(
+                                'qolip-paddon-mold-${detail.items[i].code}'),
+                            slot: M3SegmentedListGeometry
+                                .standaloneListSlotForIndex(
+                                    i, detail.items.length),
+                            code: detail.items[i].code,
+                            countLabel:
+                                '${_s(context, 'quantity')}: ${detail.items[i].quantity}',
+                            subtitle: [
+                              if (detail.items[i].productNames.isNotEmpty)
+                                detail.items[i].productNames,
+                              '${detail.items[i].size} • ${detail.items[i].color}',
+                            ].join('\n'),
+                            icon: Icons.layers_outlined,
+                            onTap: () => _moldDetails(context, detail.items[i]),
+                            trailing: detail.paddon.editable
+                                ? IconButton(
+                                    tooltip: _s(context, 'remove'),
+                                    onPressed: !enabled
+                                        ? null
+                                        : () => _act('remove',
+                                            codes: [detail.items[i].code]),
+                                    icon: const Icon(
+                                        Icons.remove_circle_outline_rounded),
+                                  )
+                                : null,
+                          ),
+                      ]),
+                    if (_lastInspection != null) ...[
+                      const SizedBox(height: 16),
+                      PaddonPanel(
+                          child: _inspectionResult(context, _lastInspection!)),
+                    ],
+                    if (detail.history.isNotEmpty) ...[
+                      PaddonSectionHeader(title: _s(context, 'history')),
+                      PaddonPanel(
+                        child: Column(children: [
+                          for (final event in detail.history.reversed)
+                            ExpansionTile(
+                              tilePadding: EdgeInsets.zero,
+                              title: Text(_s(
+                                  context,
+                                  event['action'] == 'archive'
+                                      ? 'archive_action'
+                                      : event['action'].toString())),
+                              subtitle: Text(
+                                  '${event['actor_name'] ?? ''} • ${qolipReworkDate(event['created_at'].toString())}'),
+                              children: [
+                                if (event['payload'] is Map)
+                                  _eventPayload(
+                                      context,
+                                      Map<String, dynamic>.from(
+                                          event['payload'] as Map)),
+                              ],
+                            ),
+                        ]),
+                      ),
+                    ],
                   ],
                 ),
-            ])),
-        ]));
+              ),
+      ),
+    );
+  }
+
+  Widget _header(BuildContext context, QolipPaddonDetail detail,
+      {required bool enabled}) {
+    final p = detail.paddon;
+    final style = Theme.of(context).textTheme;
+    final compactButton = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 36),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+    return PaddonPanel(
+      key: const ValueKey('qolip-paddon-summary'),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text(p.code,
+                  style:
+                      style.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+          const SizedBox(width: 8),
+          QolipPaddonPrintButton(code: p.code, filled: true, enabled: enabled),
+        ]),
+        const SizedBox(height: 12),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.warehouse_outlined, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(p.warehouse)),
+        ]),
+        if (p.location.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.place_outlined, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(p.location)),
+          ]),
+        ],
+        if (p.note.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(p.note, style: style.bodyMedium),
+        ],
+        const SizedBox(height: 14),
+        Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Chip(
+                avatar: Icon(
+                    p.archived
+                        ? Icons.archive_outlined
+                        : p.locked
+                            ? Icons.lock_outline_rounded
+                            : Icons.lock_open_rounded,
+                    size: 18),
+                label: Text(_status(context, p)),
+              ),
+              PaddonMetric(
+                  label: _s(context, 'molds'), value: '${detail.items.length}'),
+              PaddonMetric(
+                  label: _s(context, 'quantity'), value: '${p.totalQuantity}'),
+            ]),
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          if (!p.archived)
+            OutlinedButton.icon(
+              style: compactButton,
+              onPressed:
+                  !enabled ? null : () => _act(p.locked ? 'unlock' : 'lock'),
+              icon: Icon(
+                  p.locked
+                      ? Icons.lock_open_rounded
+                      : Icons.lock_outline_rounded,
+                  size: 18),
+              label: Text(_s(context, p.locked ? 'unlock' : 'lock')),
+            ),
+          OutlinedButton.icon(
+            style: compactButton,
+            onPressed: !enabled
+                ? null
+                : () => _act(p.archived ? 'restore' : 'archive'),
+            icon: Icon(
+                p.archived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                size: 18),
+            label: Text(_s(context, p.archived ? 'restore' : 'archive_action')),
+          ),
+        ]),
+      ]),
+    );
   }
 }
 

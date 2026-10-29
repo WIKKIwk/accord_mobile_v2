@@ -57,6 +57,7 @@ class PaddonListCard extends StatelessWidget {
     this.subtitle = '',
     this.icon = Icons.inventory_2_rounded,
     this.onLongPress,
+    this.trailing,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -66,6 +67,7 @@ class PaddonListCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +122,7 @@ class PaddonListCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded),
+              trailing ?? const Icon(Icons.chevron_right_rounded),
             ],
           ),
         ),

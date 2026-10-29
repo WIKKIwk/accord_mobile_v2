@@ -7,9 +7,15 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/session/session.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/paddon_widgets.dart';
+import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_mileage_sheet.dart';
 import 'qolip_paddon_print.dart';
@@ -406,163 +412,249 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
     final rows =
         _archive.where((e) => _kind == 'all' || e.kind == _kind).toList();
     return AppShell(
-        title: _s(context, widget.archive ? 'archive' : 'paddons'),
-        subtitle: '',
-        nativeTopBar: true,
-        drawer: QolipNavigationDrawer(
-            selectedIndex: -1,
-            selectedRouteName: widget.archive
-                ? AppRoutes.qolipArchive
-                : AppRoutes.qolipPaddons,
-            onNavigate: (route) =>
-                AdminDrawerNavigation.openRoute(context, route)),
-        bottom: const QolipDock(activeTab: null),
-        child: Material(
-          color: Colors.transparent,
-          child: RefreshIndicator(
-              onRefresh: () => _load(),
-              child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 100),
-                  children: [
-                    TextField(
-                        controller: _search,
-                        decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.search),
-                            hintText: _s(context, 'search')),
-                        onChanged: (_) {
-                          _debounce?.cancel();
-                          _debounce = Timer(
-                              const Duration(milliseconds: 300), () => _load());
-                        }),
-                    if (widget.archive) ...[
-                      Wrap(spacing: 8, children: [
-                        OutlinedButton.icon(
-                            onPressed: _filterWarehouse,
-                            icon: const Icon(Icons.warehouse_outlined),
-                            label: Text(_warehouseFilter.isEmpty
-                                ? _s(context, 'warehouse')
-                                : _warehouseFilter)),
-                        OutlinedButton.icon(
-                            onPressed: _filterDates,
-                            icon: const Icon(Icons.date_range),
-                            label: Text(_dateFilter == null
-                                ? _s(context, 'dates')
-                                : '${qolipStorageDate(_dateFilter!.start)} – ${qolipStorageDate(_dateFilter!.end)}')),
-                        if (_warehouseFilter.isNotEmpty || _dateFilter != null)
-                          TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _warehouseFilter = '';
-                                  _dateFilter = null;
-                                });
-                                _load();
-                              },
-                              child: Text(_s(context, 'clear_filters'))),
-                      ]),
-                      SwitchListTile(
-                          title: Text(_s(context, 'history')),
-                          subtitle:
-                              Text(_s(context, _history ? 'all' : 'current')),
-                          value: _history,
-                          onChanged: _saving
-                              ? null
-                              : (v) {
-                                  setState(() => _history = v);
-                                  _load();
-                                }),
-                      Wrap(spacing: 8, children: [
-                        for (final kind in ['all', 'paddon', 'qolip'])
-                          ChoiceChip(
-                            label: Text(_s(
-                                context,
-                                kind == 'paddon'
-                                    ? 'paddons'
-                                    : kind == 'qolip'
-                                        ? 'molds'
-                                        : 'all')),
-                            selected: _kind == kind,
-                            onSelected: (_) => setState(() => _kind = kind),
-                          )
+      title: _s(context, widget.archive ? 'archive' : 'paddons'),
+      subtitle: '',
+      nativeTopBar: true,
+      appBarBottomLoading: _loading || _saving,
+      contentPadding: EdgeInsets.zero,
+      actions: [
+        IconButton(
+          tooltip: _s(context, 'refresh'),
+          onPressed: _loading || _saving ? null : () => _load(),
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
+      drawer: QolipNavigationDrawer(
+        selectedIndex: -1,
+        selectedRouteName:
+            widget.archive ? AppRoutes.qolipArchive : AppRoutes.qolipPaddons,
+        onNavigate: (route) => AdminDrawerNavigation.openRoute(context, route),
+      ),
+      bottom: QolipDock(
+        activeTab: null,
+        primaryActions: widget.archive
+            ? null
+            : [
+                AdminFabMenuAction(
+                  title: _s(context, 'create'),
+                  icon: Icons.add_rounded,
+                  enabled: !_saving,
+                  onTap: () => unawaited(_create()),
+                ),
+                AdminFabMenuAction(
+                  title: _s(context, 'scan_paddon'),
+                  icon: Icons.qr_code_scanner_rounded,
+                  enabled: !_saving,
+                  onTap: () => unawaited(_scanPaddon()),
+                ),
+                AdminFabMenuAction(
+                  title:
+                      '${_s(context, 'molds')}: ${_s(context, 'archive_action')}',
+                  icon: Icons.archive_outlined,
+                  enabled: !_saving,
+                  onTap: () => unawaited(_archiveMolds()),
+                ),
+              ],
+      ),
+      child: Material(
+        color: AppTheme.shellStart(context),
+        child: RefreshIndicator(
+          onRefresh: () => _load(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+                4, 4, 4, MediaQuery.viewPaddingOf(context).bottom + 120),
+            children: [
+              if (!widget.archive) ...[
+                PaddonPanel(
+                  key: const ValueKey('qolip-paddons-summary'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_s(context, 'paddon_summary'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(_s(context, 'paddons_hint')),
+                      const SizedBox(height: 14),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        PaddonMetric(
+                            label: _s(context, 'loaded_paddons'),
+                            value: '${_paddons.length}'),
+                        PaddonMetric(
+                            label: _s(context, 'molds'),
+                            value:
+                                '${_paddons.fold<int>(0, (n, p) => n + p.itemCount)}'),
                       ]),
                     ],
-                    Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Wrap(spacing: 8, children: [
-                          if (!widget.archive)
-                            FilledButton.icon(
-                                onPressed: _saving ? null : _create,
-                                icon: const Icon(Icons.add),
-                                label: Text(_s(context, 'create'))),
-                          OutlinedButton.icon(
-                              onPressed: _saving ? null : _archiveMolds,
-                              icon: const Icon(Icons.archive_outlined),
-                              label: Text(
-                                  '${_s(context, 'molds')}: ${_s(context, 'archive_action')}')),
-                          IconButton(
-                              onPressed: _loading ? null : () => _load(),
-                              icon: const Icon(Icons.refresh)),
-                        ])),
-                    TextButton.icon(
-                        onPressed: _saving ? null : _scanPaddon,
-                        icon: const Icon(Icons.qr_code_scanner),
-                        label: Text(_s(context, 'scan_paddon'))),
-                    if (_pendingArchiveMolds != null)
-                      ListTile(
-                          title: Text(
-                              '${_s(context, 'selected')}: ${_pendingArchiveMolds!.length}'),
-                          trailing: TextButton(
-                              onPressed: _saving
-                                  ? null
-                                  : () => setState(() {
-                                        _pendingArchiveMolds = null;
-                                        _intent.complete();
-                                      }),
-                              child: Text(_s(context, 'cancel')))),
-                    if (_loading || _saving) const LinearProgressIndicator(),
-                    if (_failure != null)
-                      ListTile(
-                          title: Text(_s(context, 'failed')),
-                          trailing: TextButton(
-                              onPressed: () => _load(),
-                              child: Text(_s(context, 'retry')))),
-                    if (!_loading &&
-                        (widget.archive ? rows.isEmpty : _paddons.isEmpty))
-                      Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(_s(context, 'empty'))),
-                    if (widget.archive)
-                      for (final e in rows)
-                        ListTile(
-                          leading: Icon(e.kind == 'paddon'
-                              ? Icons.inventory_2_outlined
-                              : Icons.layers_outlined),
-                          title: Text(e.code),
-                          subtitle: Text(
-                              '${e.warehouse} • ${qolipReworkDate(e.archivedAt)}\n${_s(context, e.isOpen ? 'archived' : 'returned')}'),
-                          isThreeLine: true,
-                          onTap: () => _entry(e),
-                          trailing: const Icon(Icons.chevron_right),
-                        )
-                    else
-                      for (final p in _paddons)
-                        ListTile(
-                          leading: Icon(p.locked
-                              ? Icons.lock_outline
-                              : Icons.inventory_2_outlined),
-                          title: Text(p.code),
-                          subtitle: Text(
-                              '${_status(context, p)} • ${p.itemCount} • ${p.warehouse}\n${p.location}'),
-                          isThreeLine: true,
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => _open(p.code),
-                        ),
-                    if (_next != null)
-                      TextButton(
-                          onPressed: _loading ? null : () => _load(more: true),
-                          child: Text(_s(context, 'more'))),
-                  ])),
-        ));
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: _search,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: _s(context, 'search'),
+                  filled: true,
+                  fillColor:
+                      Theme.of(context).colorScheme.surfaceContainerLowest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (_) {
+                  _debounce?.cancel();
+                  _debounce =
+                      Timer(const Duration(milliseconds: 300), () => _load());
+                },
+              ),
+              if (widget.archive) ...[
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  OutlinedButton.icon(
+                    onPressed: _filterWarehouse,
+                    icon: const Icon(Icons.warehouse_outlined),
+                    label: Text(_warehouseFilter.isEmpty
+                        ? _s(context, 'warehouse')
+                        : _warehouseFilter),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _filterDates,
+                    icon: const Icon(Icons.date_range),
+                    label: Text(_dateFilter == null
+                        ? _s(context, 'dates')
+                        : '${qolipStorageDate(_dateFilter!.start)} – ${qolipStorageDate(_dateFilter!.end)}'),
+                  ),
+                  if (_warehouseFilter.isNotEmpty || _dateFilter != null)
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _warehouseFilter = '';
+                          _dateFilter = null;
+                        });
+                        _load();
+                      },
+                      child: Text(_s(context, 'clear_filters')),
+                    ),
+                ]),
+                SwitchListTile(
+                  title: Text(_s(context, 'history')),
+                  subtitle: Text(_s(context, _history ? 'all' : 'current')),
+                  value: _history,
+                  onChanged: _saving
+                      ? null
+                      : (v) {
+                          setState(() => _history = v);
+                          _load();
+                        },
+                ),
+                Wrap(spacing: 8, children: [
+                  for (final kind in ['all', 'paddon', 'qolip'])
+                    ChoiceChip(
+                      label: Text(_s(
+                          context,
+                          kind == 'paddon'
+                              ? 'paddons'
+                              : kind == 'qolip'
+                                  ? 'molds'
+                                  : 'all')),
+                      selected: _kind == kind,
+                      onSelected: (_) => setState(() => _kind = kind),
+                    ),
+                ]),
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : _archiveMolds,
+                  icon: const Icon(Icons.archive_outlined),
+                  label: Text(
+                      '${_s(context, 'molds')}: ${_s(context, 'archive_action')}'),
+                ),
+                TextButton.icon(
+                  onPressed: _saving ? null : _scanPaddon,
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: Text(_s(context, 'scan_paddon')),
+                ),
+              ],
+              if (_pendingArchiveMolds != null)
+                ListTile(
+                  title: Text(
+                      '${_s(context, 'selected')}: ${_pendingArchiveMolds!.length}'),
+                  trailing: TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () => setState(() {
+                              _pendingArchiveMolds = null;
+                              _intent.complete();
+                            }),
+                    child: Text(_s(context, 'cancel')),
+                  ),
+                ),
+              PaddonSectionHeader(
+                title: _s(context, widget.archive ? 'archive' : 'paddon_list'),
+                count: '${widget.archive ? rows.length : _paddons.length}',
+              ),
+              if (_failure != null)
+                AppRetryState(
+                    onRetry: () => _load(), message: _s(context, 'failed')),
+              if (_loading &&
+                  (widget.archive ? rows.isEmpty : _paddons.isEmpty))
+                const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: AppLoadingIndicator())),
+              if (!_loading &&
+                  _failure == null &&
+                  (widget.archive ? rows.isEmpty : _paddons.isEmpty))
+                PaddonEmptyState(
+                  title: _s(context, 'empty'),
+                  message: widget.archive ? '' : _s(context, 'paddons_empty'),
+                ),
+              if (widget.archive)
+                for (final e in rows)
+                  ListTile(
+                    leading: Icon(e.kind == 'paddon'
+                        ? Icons.inventory_2_outlined
+                        : Icons.layers_outlined),
+                    title: Text(e.code),
+                    subtitle: Text(
+                        '${e.warehouse} • ${qolipReworkDate(e.archivedAt)}\n${_s(context, e.isOpen ? 'archived' : 'returned')}'),
+                    isThreeLine: true,
+                    onTap: () => _entry(e),
+                    trailing: const Icon(Icons.chevron_right),
+                  )
+              else if (_paddons.isNotEmpty)
+                M3SegmentSpacedColumn(children: [
+                  for (var i = 0; i < _paddons.length; i++)
+                    PaddonListCard(
+                      key: ValueKey('qolip-paddon-card-${_paddons[i].code}'),
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          i, _paddons.length),
+                      code: _paddons[i].code,
+                      countLabel:
+                          '${_s(context, 'molds')}: ${_paddons[i].itemCount}',
+                      subtitle: [
+                        _status(context, _paddons[i]),
+                        _paddons[i].warehouse,
+                        if (_paddons[i].location.isNotEmpty)
+                          _paddons[i].location,
+                      ].join(' • '),
+                      icon: _paddons[i].locked
+                          ? Icons.lock_outline_rounded
+                          : Icons.inventory_2_rounded,
+                      onTap: () => _open(_paddons[i].code),
+                    ),
+                ]),
+              if (_next != null)
+                TextButton(
+                  onPressed: _loading ? null : () => _load(more: true),
+                  child: Text(_s(context, 'more')),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

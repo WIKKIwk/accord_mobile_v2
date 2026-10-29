@@ -4,6 +4,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/widgets/paddon_widgets.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
 import 'package:flutter/material.dart';
@@ -557,7 +558,10 @@ void main() {
       await tester.pumpWidget(app(const QolipStorageScreen()));
       for (var attempt = 0; attempt < 2; attempt++) {
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(OutlinedButton, 'Molds: Archive'));
+        await tester
+            .tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Molds: Archive'));
         await tester.pumpAndSettle();
         await tester.tap(find.byType(CheckboxListTile));
         await tester.pumpAndSettle();
@@ -589,6 +593,122 @@ void main() {
                   : {'ok': true, 'paddons': [], 'has_more': false});
             }));
   });
+  testWidgets('pallet list shares production cards and opens create from dock',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var writes = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipStorageScreen()));
+      await tester.pumpAndSettle();
+      expect(find.byType(PaddonListCard), findsNWidgets(2));
+      expect(
+          find.byKey(const ValueKey('qolip-paddons-summary')), findsOneWidget);
+      expect(find.text('Molds: 3'), findsOneWidget);
+      expect(find.text('New pallet'), findsNothing);
+      await tester
+          .tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('New pallet'));
+      // Creation stays busy while its review dialog is open.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(writes, 0);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(writes, 0);
+      await tester
+          .tap(find.byKey(const ValueKey('qolip-paddon-card-QP-00012')));
+      await tester.pumpAndSettle();
+      expect(
+          find.byKey(const ValueKey('qolip-paddon-summary')), findsOneWidget);
+      expect(find.text('Q-ONE'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.method != 'GET') writes++;
+              if (request.url.path.endsWith('/paddons/detail')) {
+                return jsonResponse(detail());
+              }
+              if (request.url.path.endsWith('/qolip/blocks')) {
+                return jsonResponse({
+                  'warehouses': ['Qolip ombori'],
+                  'blocks': []
+                });
+              }
+              return jsonResponse({
+                'ok': true,
+                'paddons': [
+                  pallet(),
+                  {
+                    ...pallet(locked: false),
+                    'code': 'QP-00013',
+                    'item_count': 2
+                  },
+                ]
+              });
+            }));
+  });
+
+  testWidgets('dock add reviews selected molds before writing on small screen',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 780));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var added = false;
+    var writes = 0;
+    Map<String, dynamic> current() => {
+          ...detail(locked: false, revision: added ? 5 : 4),
+          'paddon': {
+            ...pallet(locked: false, revision: added ? 5 : 4),
+            'item_count': added ? 1 : 0
+          },
+          'items': [if (added) mold()],
+        };
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      expect(find.text('Open'), findsOneWidget);
+      await tester
+          .tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add molds'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm (1)'));
+      await tester.pumpAndSettle();
+      expect(writes, 0);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.textContaining('Q-ONE'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(find.byKey(const ValueKey('qolip-paddon-mold-Q-ONE')),
+          findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Lock'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse({
+                  'ok': true,
+                  'molds': [mold()]
+                });
+              }
+              if (request.method == 'POST') {
+                final body = jsonDecode(request.body) as Map;
+                expect(body['action'], 'add');
+                expect(body['code'], 'QP-00012');
+                expect(body['expected_revision'], 4);
+                expect(body['qolip_codes'], ['Q-ONE']);
+                writes++;
+                added = true;
+              }
+              return jsonResponse(current());
+            }));
+  });
+
   testWidgets('mold details overlay hides captured data after account switch',
       (tester) async {
     await http.runWithClient(() async {

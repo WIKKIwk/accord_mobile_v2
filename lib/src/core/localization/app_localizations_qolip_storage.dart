@@ -6,6 +6,26 @@ extension AppLocalizationsQolipStorage on AppLocalizations {
         'archive' => _t('Arxiv', 'Archive', 'Архив'),
         'molds' => _t('Qoliplar', 'Molds', 'Формы'),
         'create' => _t('Yangi paddon', 'New pallet', 'Новый поддон'),
+        'paddon_summary' =>
+          _t('Qoliplarni saqlash', 'Mold storage', 'Хранение форм'),
+        'paddons_hint' => _t(
+            'Qoliplarni paddonga joylang, tarkibni tekshiring va qulflang.',
+            'Pack molds into a pallet, check the contents and lock it.',
+            'Разместите формы на поддоне, проверьте состав и заблокируйте его.'),
+        'loaded_paddons' =>
+          _t('Ko‘rsatilgan paddonlar', 'Loaded pallets', 'Загруженные поддоны'),
+        'paddon_list' => _t(
+            'Saqlanayotgan paddonlar', 'Stored pallets', 'Поддоны на хранении'),
+        'paddons_empty' => _t(
+            'Yangi paddon yaratish yoki QR ochish uchun pastdagi + tugmasini bosing.',
+            'Use the + button below to create a pallet or open its QR.',
+            'Нажмите + внизу, чтобы создать поддон или открыть его QR.'),
+        'paddon_molds_empty' => _t(
+            'Pastdagi + tugmasi orqali mavjud qoliplarni tanlang yoki QR kodini skanerlang.',
+            'Use the + button below to select existing molds or scan their QR codes.',
+            'Нажмите + внизу, чтобы выбрать формы или сканировать их QR.'),
+        'refresh' => _t('Yangilash', 'Refresh', 'Обновить'),
+        'contents' => _t('Paddon tarkibi', 'Pallet contents', 'Состав поддона'),
         'warehouse' => _t('Ombor', 'Warehouse', 'Склад'),
         'location' => _t('Saqlash joyi', 'Storage location', 'Место хранения'),
         'note' => _t('Izoh', 'Note', 'Примечание'),
