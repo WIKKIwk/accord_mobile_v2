@@ -18,6 +18,10 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   Object? _failure;
   String? _pendingAction;
   List<String> _pendingCodes = [];
+  Map<String, ValueNotifier<bool>>? _expandedProductNotifiers;
+  ValueNotifier<bool> _productExpanded(String key) =>
+      (_expandedProductNotifiers ??= <String, ValueNotifier<bool>>{})
+          .putIfAbsent(key, () => ValueNotifier<bool>(false));
   @override
   void initState() {
     super.initState();
@@ -27,6 +31,10 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   @override
   void dispose() {
     _generation++;
+    for (final notifier
+        in _expandedProductNotifiers?.values ?? <ValueNotifier<bool>>[]) {
+      notifier.dispose();
+    }
     super.dispose();
   }
 
@@ -246,36 +254,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
                         ),
                       )
                     else
-                      M3SegmentSpacedColumn(children: [
-                        for (var i = 0; i < detail.items.length; i++)
-                          PaddonListCard(
-                            key: ValueKey(
-                                'qolip-paddon-mold-${detail.items[i].code}'),
-                            slot: M3SegmentedListGeometry
-                                .standaloneListSlotForIndex(
-                                    i, detail.items.length),
-                            code: detail.items[i].code,
-                            countLabel: '',
-                            subtitle: [
-                              if (detail.items[i].productNames.isNotEmpty)
-                                detail.items[i].productNames,
-                              '${detail.items[i].size} • ${detail.items[i].color}',
-                            ].join('\n'),
-                            icon: Icons.layers_outlined,
-                            onTap: () => _moldDetails(context, detail.items[i]),
-                            trailing: detail.paddon.editable
-                                ? IconButton(
-                                    tooltip: _s(context, 'remove'),
-                                    onPressed: !enabled
-                                        ? null
-                                        : () => _act('remove',
-                                            codes: [detail.items[i].code]),
-                                    icon: const Icon(
-                                        Icons.remove_circle_outline_rounded),
-                                  )
-                                : null,
-                          ),
-                      ]),
+                      _contents(context, detail, enabled: enabled),
                     if (_lastInspection != null) ...[
                       const SizedBox(height: 16),
                       PaddonPanel(
@@ -284,6 +263,93 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _contents(BuildContext context, QolipPaddonDetail detail,
+      {required bool enabled}) {
+    final groups = _groupStorageProducts(detail.items);
+    return M3SegmentSpacedColumn(children: [
+      for (var i = 0; i < groups.length; i++)
+        _productCard(context, groups[i], i, groups.length,
+            editable: detail.paddon.editable, enabled: enabled),
+    ]);
+  }
+
+  Widget _productCard(
+      BuildContext context, _StorageProductGroup group, int index, int count,
+      {required bool editable, required bool enabled}) {
+    final expanded = _productExpanded(group.key);
+    final byCode = <String, QolipStorageMold>{
+      for (final mold in group.visibleMolds) _pickerMoldKey(mold): mold,
+    };
+    final products = _storageProductRows(group, byCode.values);
+    return ValueListenableBuilder<bool>(
+      key: ValueKey('qolip-paddon-product-listener-${group.key}'),
+      valueListenable: expanded,
+      builder: (context, isExpanded, _) => QolipProductContainerCard(
+        key: ValueKey('qolip-paddon-product-${group.key}'),
+        expandKey: ValueKey('qolip-paddon-product-expand-${group.key}'),
+        slot: M3SegmentedListGeometry.standaloneListSlotForIndex(index, count),
+        container: QolipProductContainer(
+          code: group.code,
+          name: group.unlinked ? _s(context, 'unlinked_molds') : group.name,
+          itemGroup: '',
+          children: products,
+        ),
+        imageUrl: '',
+        loading: false,
+        errorMessage: null,
+        onRetry: () async {},
+        expanded: isExpanded,
+        containerSelectionMode: false,
+        qolipSelectionMode: true,
+        selectedContainer: false,
+        selectedQolipCodes: const {},
+        reworkCodes: {
+          for (final mold in byCode.values)
+            if (mold.inRework) _pickerMoldKey(mold),
+        },
+        sharing: false,
+        onShare: null,
+        onToggle: () => expanded.value = !expanded.value,
+        onLongPress: null,
+        onToggleQolip: (_) {},
+        onPrintCodeQr: (_) {},
+        onCopyCode: (_) {},
+        onEditQolip: (_) {},
+        onAdd: () {},
+        codeRowBuilder: (product) {
+          final mold = byCode[_productKey(product.qolipCode)]!;
+          void showDetails() => unawaited(_moldDetails(context, mold));
+          return QolipCodeRow(
+            key: ValueKey('qolip-paddon-mold-${mold.code}'),
+            product: product,
+            selectionMode: false,
+            selected: false,
+            isInRework: mold.inRework,
+            onTap: showDetails,
+            onCodeTap: showDetails,
+            onLongPress: null,
+            onEdit: () {},
+            codeTooltip: _s(context, 'mold_details'),
+            subtitle: [
+              if (group.unlinked && mold.name.isNotEmpty) mold.name,
+              if (mold.size > 0) '${mold.size}',
+              if (mold.color.isNotEmpty) mold.color,
+            ].join(' • '),
+            trailing: editable
+                ? IconButton(
+                    tooltip: _s(context, 'remove'),
+                    onPressed: enabled
+                        ? () => _act('remove', codes: [mold.code])
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline_rounded),
+                  )
+                : const SizedBox.shrink(),
+          );
+        },
       ),
     );
   }
@@ -524,8 +590,7 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
               subtitle:
                   Text('${mold.productNames}\n${mold.size} • ${mold.color}'),
               isThreeLine: true,
-              onTap: () =>
-                  _moldDetails(context, mold, archivedSnapshot: true)),
+              onTap: () => _moldDetails(context, mold, archivedSnapshot: true)),
       ]),
     );
   }

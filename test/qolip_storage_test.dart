@@ -11,7 +11,8 @@ import 'package:accord_mobile_v2/src/core/widgets/paddon_widgets.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
-import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart' show QolipCodeRow;
+import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart'
+    show QolipCodeRow, QolipProductContainerCard;
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_code_details_sheet.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_home_screen.dart';
 import 'package:flutter/material.dart';
@@ -63,6 +64,18 @@ Widget app(Widget home) => MaterialApp(
     ],
     home: home);
 
+Finder paddonProduct(String key) =>
+    find.byKey(ValueKey('qolip-paddon-product-$key'));
+Finder expandPaddonProduct(String key) =>
+    find.byKey(ValueKey('qolip-paddon-product-expand-$key'));
+
+Future<void> tapVisible(WidgetTester tester, Finder target) async {
+  await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
+  await tester.tap(target);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() async {
@@ -85,6 +98,110 @@ void main() {
     AppSession.instance.profile = null;
     QolipCatalogStore.instance.reset();
   });
+
+  testWidgets('pallet groups shared molds by product and removes one mold',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final shared = {
+      ...mold(),
+      'products': [
+        {'code': 'ITEM-A', 'name': 'Alpha'},
+        {'code': 'ITEM-B', 'name': 'Beta'},
+      ],
+    };
+    final alpha = {
+      ...mold(),
+      'qolip_code': 'Q-TWO',
+      'products': [
+        {'code': 'ITEM-A', 'name': 'Alpha'},
+      ],
+    };
+    final unlinked = {...mold(), 'qolip_code': 'Q-LOOSE'};
+    var removed = false;
+    var reads = 0;
+    final writes = <Map<String, dynamic>>[];
+    Map<String, dynamic> current() {
+      final items = [if (!removed) shared, alpha, unlinked];
+      return {
+        ...detail(locked: false, revision: removed ? 5 : 4),
+        'paddon': {
+          ...pallet(locked: false, revision: removed ? 5 : 4),
+          'item_count': items.length,
+        },
+        'items': items,
+      };
+    }
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      expect(find.text('Molds: 3'), findsOneWidget);
+      expect(find.byType(QolipProductContainerCard), findsNWidgets(3));
+      expect(find.text('Q-ONE'), findsNothing);
+      final otherProduct = tester.widget<QolipProductContainerCard>(
+          paddonProduct('product:item-b'));
+      final readsBeforeExpansion = reads;
+
+      await tapVisible(tester, expandPaddonProduct('product:item-a'));
+      expect(tester.widget<QolipProductContainerCard>(
+          paddonProduct('product:item-b')), same(otherProduct));
+      expect(find.text('Q-ONE'), findsOneWidget);
+      expect(find.text('Q-TWO'), findsOneWidget);
+      await tapVisible(tester, expandPaddonProduct('product:item-b'));
+      expect(find.text('Q-ONE'), findsNWidgets(2));
+      await tapVisible(tester, expandPaddonProduct('unlinked'));
+      expect(find.text('Q-LOOSE'), findsOneWidget);
+      expect(find.textContaining('Shared mold'), findsOneWidget);
+      expect(reads, readsBeforeExpansion);
+
+      final sharedRow = find.descendant(
+          of: paddonProduct('product:item-a'),
+          matching: find.byKey(const ValueKey('qolip-paddon-mold-Q-ONE')));
+      final remove = find.descendant(
+          of: sharedRow,
+          matching: find.byIcon(Icons.remove_circle_outline_rounded));
+      await tapVisible(tester, remove);
+      expect(writes, isEmpty);
+      expect(find.textContaining('Q-ONE'), findsWidgets);
+      await tapVisible(tester, find.widgetWithText(FilledButton, 'Confirm'));
+      expect(writes, hasLength(1));
+      expect(writes.single['action'], 'remove');
+      expect(writes.single['expected_revision'], 4);
+      expect(writes.single['qolip_codes'], ['Q-ONE']);
+      expect(find.text('Molds: 2'), findsOneWidget);
+      expect(find.text('Q-ONE'), findsNothing);
+      expect(paddonProduct('product:item-b'), findsNothing);
+      expect(find.text('Q-TWO'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.method == 'POST') {
+                writes.add(Map<String, dynamic>.from(jsonDecode(request.body)));
+                removed = true;
+              } else {
+                reads++;
+              }
+              return jsonResponse(current());
+            }));
+  });
+
+  for (final archived in [false, true]) {
+    testWidgets('locked or archived pallet does not offer mold removal: $archived',
+        (tester) async {
+      await http.runWithClient(() async {
+        await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+        await tester.pumpAndSettle();
+        await tapVisible(tester, expandPaddonProduct('unlinked'));
+        expect(find.byKey(const ValueKey('qolip-paddon-mold-Q-ONE')),
+            findsOneWidget);
+        expect(find.byIcon(Icons.remove_circle_outline_rounded), findsNothing);
+        expect(find.byIcon(Icons.edit_outlined), findsNothing);
+        expect(tester.takeException(), isNull);
+      }, () => MockClient((_) async => jsonResponse(
+          detail(archived: archived, locked: !archived))));
+    });
+  }
 
   test('typed pallet QR cannot collide with an existing mold code', () {
     expect(qolipPaddonCodeFromQr('qolip-paddon:QP-00012'), 'QP-00012');
@@ -357,6 +474,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
       await tester.pumpAndSettle();
+      await tapVisible(tester, expandPaddonProduct('unlinked'));
       expect(find.text('Q-ONE'), findsOneWidget);
       AppSession.instance.profile = const SessionProfile(
           role: UserRole.qolipchi,
@@ -806,6 +924,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
           find.byKey(const ValueKey('qolip-paddon-summary')), findsOneWidget);
+      await tapVisible(tester, expandPaddonProduct('unlinked'));
       expect(find.text('Q-ONE'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -878,6 +997,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
       expect(writes, 1);
+      await tapVisible(tester, expandPaddonProduct('unlinked'));
       expect(find.byKey(const ValueKey('qolip-paddon-mold-Q-ONE')),
           findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, 'Lock'), findsOneWidget);
@@ -909,6 +1029,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
       await tester.pumpAndSettle();
+      await tapVisible(tester, expandPaddonProduct('product:item-1'));
       await tester.tap(find.text('Q-ONE'));
       await tester.pumpAndSettle();
 
@@ -999,6 +1120,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
       await tester.pumpAndSettle();
+      await tapVisible(tester, expandPaddonProduct('unlinked'));
       await tester.tap(find.text('Q-ONE'));
       AppSession.instance.profile = const SessionProfile(
           role: UserRole.qolipchi,
@@ -1022,6 +1144,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
       await tester.pumpAndSettle();
+      await tapVisible(tester, expandPaddonProduct('unlinked'));
       await tester.tap(find.text('Q-ONE'));
       await tester.pumpAndSettle();
       expect(find.text('Q-ONE'), findsWidgets);

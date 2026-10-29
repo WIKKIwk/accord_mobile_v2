@@ -149,6 +149,12 @@ void main() {
       expect(writes.single['qolip_codes'], ['M-A', 'Milano Premium 30/40']);
       expect(writes.single['request_id'], isNotEmpty);
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      final product =
+          find.byKey(const ValueKey('qolip-paddon-product-expand-unlinked'));
+      await tester.ensureVisible(product);
+      await tester.pumpAndSettle();
+      await tester.tap(product);
+      await tester.pumpAndSettle();
       expect(
           find.byKey(const ValueKey('qolip-paddon-mold-M-A')), findsOneWidget);
       expect(tester.takeException(), isNull);

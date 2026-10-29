@@ -5,8 +5,8 @@ String _pickerMoldKey(QolipStorageMold mold) => mold.code.trim().toLowerCase();
 bool _hasLinkedProduct(QolipStorageMold mold) => mold.products
     .any((product) => (product['code']?.toString() ?? '').trim().isNotEmpty);
 
-class _PickerProduct {
-  _PickerProduct({required this.code, required this.name});
+class _StorageProductGroup {
+  _StorageProductGroup({required this.code, required this.name});
 
   final String code;
   final String name;
@@ -21,44 +21,64 @@ class _PickerProduct {
           _productKey(product['code']?.toString() ?? '') == _productKey(code));
 }
 
-extension _MoldPickerProducts on _MoldPickerState {
-  List<_PickerProduct> _groupProducts() {
-    final groups = <String, _PickerProduct>{};
-    final query = _search.text.trim().toLowerCase();
-    for (final mold in _molds) {
-      final codeMatches = query.isEmpty ||
-          mold.code.toLowerCase().contains(query) ||
-          mold.setId.toLowerCase().contains(query);
-      final products = !_hasLinkedProduct(mold)
-          ? <Map<String, dynamic>>[{}]
-          : mold.products.where((product) =>
-              (product['code']?.toString() ?? '').trim().isNotEmpty);
-      for (final item in products) {
-        final code = (item['code']?.toString() ?? '').trim();
-        final name = (item['name']?.toString() ?? '').trim();
-        if (!codeMatches &&
-            !code.toLowerCase().contains(query) &&
-            !name.toLowerCase().contains(query) &&
-            !(code.isEmpty && mold.name.toLowerCase().contains(query))) {
-          continue;
-        }
-        final candidate = _PickerProduct(code: code, name: name);
-        groups
-            .putIfAbsent(candidate.key, () => candidate)
-            .visibleMolds
-            .add(mold);
+List<_StorageProductGroup> _groupStorageProducts(
+    Iterable<QolipStorageMold> molds,
+    {String query = ''}) {
+  final groups = <String, _StorageProductGroup>{};
+  query = query.trim().toLowerCase();
+  for (final mold in molds) {
+    final codeMatches = query.isEmpty ||
+        mold.code.toLowerCase().contains(query) ||
+        mold.setId.toLowerCase().contains(query);
+    final products = !_hasLinkedProduct(mold)
+        ? <Map<String, dynamic>>[{}]
+        : mold.products.where(
+            (product) => (product['code']?.toString() ?? '').trim().isNotEmpty);
+    for (final item in products) {
+      final code = (item['code']?.toString() ?? '').trim();
+      final name = (item['name']?.toString() ?? '').trim();
+      if (!codeMatches &&
+          !code.toLowerCase().contains(query) &&
+          !name.toLowerCase().contains(query) &&
+          !(code.isEmpty && mold.name.toLowerCase().contains(query))) {
+        continue;
       }
+      final candidate = _StorageProductGroup(code: code, name: name);
+      groups.putIfAbsent(candidate.key, () => candidate).visibleMolds.add(mold);
     }
-    final sorted = groups.values.toList();
-    sorted.sort((a, b) {
-      if (a.unlinked != b.unlinked) return a.unlinked ? 1 : -1;
-      final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      return byName != 0 ? byName : a.code.compareTo(b.code);
-    });
-    return sorted;
   }
+  final sorted = groups.values.toList();
+  sorted.sort((a, b) {
+    if (a.unlinked != b.unlinked) return a.unlinked ? 1 : -1;
+    final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    return byName != 0 ? byName : a.code.compareTo(b.code);
+  });
+  return sorted;
+}
 
-  bool? _productSelection(_PickerProduct group) {
+List<QolipProduct> _storageProductRows(
+        _StorageProductGroup group, Iterable<QolipStorageMold> molds) =>
+    [
+      for (final mold in molds)
+        QolipProduct(
+          code: group.code,
+          name: group.name,
+          itemGroup: '',
+          qolipCode: mold.code,
+          qolipSetId: mold.setId,
+          warehouse: mold.warehouse,
+          qolipSize: mold.size,
+          qolipColor: mold.color,
+          isInUse: mold.inUse,
+          isInRework: mold.inRework,
+        ),
+    ];
+
+extension _MoldPickerProducts on _MoldPickerState {
+  List<_StorageProductGroup> _groupProducts() =>
+      _groupStorageProducts(_molds, query: _search.text);
+
+  bool? _productSelection(_StorageProductGroup group) {
     final selected = _selected.values.where(group.contains).toList();
     if (selected.isEmpty) return false;
     final complete = _productMolds[group.key];
@@ -69,7 +89,8 @@ extension _MoldPickerProducts on _MoldPickerState {
         : null;
   }
 
-  Future<List<QolipStorageMold>?> _loadProduct(_PickerProduct group) async {
+  Future<List<QolipStorageMold>?> _loadProduct(
+      _StorageProductGroup group) async {
     if (!_current || _busy || _listPending) return null;
     final generation = _generation;
     _loadingProductKey = group.key;
@@ -142,7 +163,7 @@ extension _MoldPickerProducts on _MoldPickerState {
     }
   }
 
-  Future<void> _expandProduct(_PickerProduct group) async {
+  Future<void> _expandProduct(_StorageProductGroup group) async {
     if (!_current || _busy || _listPending) return;
     if (_expandedProducts.contains(group.key)) {
       _expandedProducts.remove(group.key);
@@ -157,7 +178,7 @@ extension _MoldPickerProducts on _MoldPickerState {
     }
   }
 
-  Future<void> _toggleProduct(_PickerProduct group) async {
+  Future<void> _toggleProduct(_StorageProductGroup group) async {
     if (!_current || _busy || _listPending) return;
     final deselect = _productSelection(group) == true;
     final molds = _productErrors.containsKey(group.key)
@@ -212,7 +233,7 @@ extension _MoldPickerProducts on _MoldPickerState {
   }
 
   Widget _productGroupCard(
-      BuildContext context, _PickerProduct group, int index, int count) {
+      BuildContext context, _StorageProductGroup group, int index, int count) {
     final expanded = _expandedProducts.contains(group.key);
     final loading = _loadingProductKey == group.key;
     final molds = _productMolds[group.key];
@@ -226,21 +247,7 @@ extension _MoldPickerProducts on _MoldPickerState {
     final byCode = <String, QolipStorageMold>{
       for (final mold in displayMolds) _pickerMoldKey(mold): mold,
     };
-    final products = [
-      for (final mold in byCode.values)
-        QolipProduct(
-          code: group.code,
-          name: group.name,
-          itemGroup: '',
-          qolipCode: mold.code,
-          qolipSetId: mold.setId,
-          warehouse: mold.warehouse,
-          qolipSize: mold.size,
-          qolipColor: mold.color,
-          isInUse: mold.inUse,
-          isInRework: mold.inRework,
-        ),
-    ];
+    final products = _storageProductRows(group, byCode.values);
     final slot =
         M3SegmentedListGeometry.standaloneListSlotForIndex(index, count);
     return QolipProductContainerCard(
