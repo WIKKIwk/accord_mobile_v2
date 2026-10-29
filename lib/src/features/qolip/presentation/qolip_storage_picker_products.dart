@@ -78,6 +78,64 @@ extension _MoldPickerProducts on _MoldPickerState {
   List<_StorageProductGroup> _groupProducts() =>
       _groupStorageProducts(_molds, query: _search.text);
 
+  void _requestProductImages() {
+    if (!_current || _scanMode) return;
+    _productImagesRequested = true;
+    if (_productImagesTask != null) return;
+    final task = _loadProductImages();
+    _productImagesTask = task;
+    unawaited(task.whenComplete(() {
+      if (!identical(_productImagesTask, task)) return;
+      _productImagesTask = null;
+      if (_productImagesRequested == true && _current && !_scanMode) {
+        _requestProductImages();
+      }
+    }));
+  }
+
+  Future<void> _loadProductImages() async {
+    try {
+      while (_productImagesRequested == true && _current && !_scanMode) {
+        _productImagesRequested = false;
+        await _resolveProductImages();
+      }
+    } catch (_) {
+      // Product images are optional; the picker must remain usable offline.
+    }
+  }
+
+  Future<void> _resolveProductImages() async {
+    final store = QolipCatalogStore.instance;
+    final seenCursors = <String>{};
+    while (_current && !_scanMode) {
+      final groups =
+          _groupProducts().where((group) => !group.unlinked).toList();
+      if (groups.isEmpty) return;
+      final window = store.window('');
+      final byId = {for (final item in window.items) item.id: item};
+      var missing = false;
+      for (final group in groups) {
+        final item = byId[qolipCatalogId(group.code)];
+        if (item == null) {
+          if (!_imageOrders.containsKey(group.key)) missing = true;
+          continue;
+        }
+        final imageOrder = item.orderImageOrderId.trim();
+        final previous = _imageOrders[group.key] ?? '';
+        _imageOrders[group.key] = imageOrder;
+        if (previous != imageOrder) _notifyProductChanged(group.key);
+      }
+      if (!missing) return;
+      if (!window.loaded) {
+        await store.first();
+        continue;
+      }
+      final cursor = window.nextCursor;
+      if (cursor == null || !seenCursors.add(cursor)) return;
+      await store.more('');
+    }
+  }
+
   bool? _productSelection(_StorageProductGroup group) {
     final selected = _selected.values.where(group.contains).toList();
     if (selected.isEmpty) return false;
@@ -249,6 +307,7 @@ extension _MoldPickerProducts on _MoldPickerState {
       for (final mold in displayMolds) _pickerMoldKey(mold): mold,
     };
     final products = _storageProductRows(group, byCode.values);
+    final imageOrder = _imageOrders[group.key] ?? '';
     final slot =
         M3SegmentedListGeometry.standaloneListSlotForIndex(index, count);
     return QolipProductContainerCard(
@@ -261,7 +320,10 @@ extension _MoldPickerProducts on _MoldPickerState {
         itemGroup: '',
         children: products,
       ),
-      imageUrl: '',
+      imageUrl: imageOrder.isEmpty
+          ? ''
+          : MobileApi.instance.adminProductionMapOrderImageUrl(imageOrder),
+      imageProviderCache: _coverImageProviders,
       expanded: expanded,
       loading: loading,
       errorMessage: error == null

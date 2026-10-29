@@ -19,6 +19,7 @@ import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_order_image_thumb.dart';
 import '../../shared/models/app_models.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_code_details_sheet.dart';

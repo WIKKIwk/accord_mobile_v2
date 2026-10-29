@@ -7,6 +7,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/navigation/app_root_navigation.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_retry_state.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
@@ -21,6 +22,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'order_image_test_data.dart';
 
 const alpha = {'code': 'ITEM-A', 'name': 'Alpha product'};
 const beta = {'code': 'ITEM-B', 'name': 'Beta product'};
@@ -130,6 +133,169 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     QolipCatalogStore.instance.reset();
+  });
+
+  testWidgets('pagination shows one loading indicator at the list end',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    final molds = List.generate(
+        20,
+        (i) => mold('M-$i', [
+              {'code': 'ITEM-$i', 'name': 'Product $i'}
+            ]));
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+          const Offset(0, -2200));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.widget<AppShell>(find.byType(AppShell)).appBarBottomLoading,
+          isFalse);
+      expect(find.byType(AppLoadingIndicator), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      pending.complete(jsonResponse({'ok': true, 'molds': []}));
+      await tester.pumpAndSettle();
+      expect(find.byType(AppLoadingIndicator), findsNothing);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/products/page')) {
+                return jsonResponse(
+                    {'ok': true, 'items': [], 'has_more': false});
+              }
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              if (request.url.queryParameters['offset'] == '20') {
+                return pending.future;
+              }
+              return jsonResponse({
+                'ok': true,
+                'molds': molds,
+                'has_more': true,
+                'next_offset': 20,
+              });
+            }));
+  });
+
+  testWidgets('picker displays the catalog images for each linked product',
+      (tester) async {
+    final png = await tester.runAsync(() => orderImageTestPng(48, 48));
+    final laterPage = Completer<http.Response>();
+    final requests = <String>[];
+    final shared = mold('M-A', [alpha, beta]);
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      final firstCard =
+          find.byKey(const ValueKey('qolip-picker-product-product:item-a'));
+      final secondCard =
+          find.byKey(const ValueKey('qolip-picker-product-product:item-b'));
+      expect(tester.widget<QolipProductContainerCard>(firstCard).imageUrl,
+          contains('order_id=picker-alpha-image'));
+      expect(tester.widget<QolipProductContainerCard>(secondCard).imageUrl, '');
+      final firstWidget = tester.widget<QolipProductContainerCard>(firstCard);
+      laterPage.complete(jsonResponse({
+        'ok': true,
+        'items': [
+          {
+            'id': qolipCatalogId('ITEM-B'),
+            'name': 'Beta product',
+            'order_image_order_id': 'picker-beta-image'
+          },
+        ],
+        'has_more': false,
+      }));
+      await tester.pumpAndSettle();
+      expect(tester.widget<QolipProductContainerCard>(secondCard).imageUrl,
+          contains('order_id=picker-beta-image'));
+      expect(tester.widget<QolipProductContainerCard>(firstCard),
+          same(firstWidget));
+      bool hasImage(Finder card) => tester
+          .widgetList<RawImage>(
+              find.descendant(of: card, matching: find.byType(RawImage)))
+          .any((image) => image.image?.width == 48);
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 25)));
+        await tester.pump();
+        if (hasImage(firstCard) && hasImage(secondCard)) break;
+      }
+      expect(
+          requests, containsAll(['picker-alpha-image', 'picker-beta-image']));
+      expect(hasImage(firstCard), isTrue);
+      expect(hasImage(secondCard), isTrue);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/products/page')) {
+                if (request.url.queryParameters.containsKey('cursor')) {
+                  return laterPage.future;
+                }
+                return jsonResponse({
+                  'ok': true,
+                  'items': [
+                    {
+                      'id': qolipCatalogId('ITEM-A'),
+                      'name': 'Alpha product',
+                      'order_image_order_id': 'picker-alpha-image'
+                    },
+                  ],
+                  'has_more': true,
+                  'next_cursor': 'next',
+                });
+              }
+              if (request.url.path.endsWith('/order-image/view')) {
+                requests.add(request.url.queryParameters['order_id']!);
+                return http.Response.bytes(png!, 200,
+                    headers: {'content-type': 'image/png'});
+              }
+              return jsonResponse(request.url.path.endsWith('/paddons/molds')
+                  ? {
+                      'ok': true,
+                      'molds': [shared]
+                    }
+                  : detail());
+            }));
+  });
+
+  testWidgets('late catalog image data is ignored after an account switch',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    var imageReads = 0;
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      session('another-worker');
+      pending.complete(jsonResponse({
+        'ok': true,
+        'items': [
+          {
+            'id': qolipCatalogId('ITEM-A'),
+            'name': 'Alpha product',
+            'order_image_order_id': 'old-session-image',
+          }
+        ],
+        'has_more': false,
+      }));
+      await tester.pumpAndSettle();
+      expect(
+          find.textContaining('Account or permissions changed'), findsWidgets);
+      expect(imageReads, 0);
+      expect(find.byType(QolipProductContainerCard), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/products/page')) {
+                return pending.future;
+              }
+              if (request.url.path.endsWith('/order-image/view')) imageReads++;
+              return jsonResponse(request.url.path.endsWith('/paddons/molds')
+                  ? {
+                      'ok': true,
+                      'molds': [
+                        mold('M-A', [alpha])
+                      ]
+                    }
+                  : detail());
+            }));
   });
 
   testWidgets('picker search stays in the top bar and preserves selection',
