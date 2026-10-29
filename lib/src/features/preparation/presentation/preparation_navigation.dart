@@ -133,7 +133,7 @@ class PreparationDrawer extends StatelessWidget {
           const RoleNavigationDrawerDestination(
             icon: Icons.swap_horiz_outlined,
             selectedIcon: Icons.swap_horiz_rounded,
-            label: 'Joylashtirish va transfer',
+            label: 'Ishlab chiqarilgan homashyolar',
             routeName: AppRoutes.inventoryMovements,
             push: true,
           ),

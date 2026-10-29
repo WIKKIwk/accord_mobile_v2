@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../session/state/app_session.dart';
+import '../../features/shared/models/app_models.dart';
 import 'inventory_view_store.dart';
 
 /// Keeps visited inventory windows current while their route is closed.
@@ -30,7 +31,10 @@ class _InventoryLiveRuntimeState extends State<InventoryLiveRuntime>
 
   void _synchronize() {
     final session = AppSession.instance;
-    if (session.isLoggedIn && session.can('inventory.movement.manage')) {
+    if (session.isLoggedIn &&
+        (session.can('inventory.movement.manage') ||
+            (session.profile?.role == UserRole.tayyorlovMasteri &&
+                session.can('preparation.access')))) {
       InventoryViewStore.instance.configure(foreground: _foreground);
     } else {
       InventoryViewStore.instance.reset();

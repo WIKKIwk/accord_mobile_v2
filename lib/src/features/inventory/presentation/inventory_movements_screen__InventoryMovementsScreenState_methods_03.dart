@@ -117,8 +117,8 @@ extension __InventoryMovementsScreenStateAstPart03
         message: 'Sizga biriktirilgan ombor topilmadi',
       );
     }
-    final bottomPadding =
-        MediaQuery.viewPaddingOf(context).bottom + (_materialScoped ? 116 : 28);
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom +
+        ((_materialScoped || _preparationScoped) ? 116 : 28);
     final assetIndices = <Key, int>{
       for (var index = 0; index < _assets.length; index++)
         ValueKey('inventory-asset-animation-${_selectionKey(_assets[index])}'):
@@ -213,8 +213,8 @@ extension __InventoryMovementsScreenStateAstPart03
   }
 
   Widget _buildQrLookupPanel() {
-    final bottomPadding =
-        MediaQuery.viewPaddingOf(context).bottom + (_materialScoped ? 116 : 28);
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom +
+        ((_materialScoped || _preparationScoped) ? 116 : 28);
     return CustomScrollView(
       key: const ValueKey('inventory-qr-lookup-panel'),
       physics: const TopRefreshScrollPhysics(),
@@ -318,7 +318,7 @@ extension __InventoryMovementsScreenStateAstPart03
   }
 
   List<InventoryLocation> _visibleWarehouseLocations() {
-    if (_isAdmin) {
+    if (_isAdmin || _preparationScoped) {
       return _warehouseLocations;
     }
     final assigned = _assignedWarehouseNames;
@@ -333,7 +333,7 @@ extension __InventoryMovementsScreenStateAstPart03
       key: const ValueKey('inventory-warehouse-filter'),
       chipKey: const ValueKey('inventory-warehouse-filter-chip'),
       label: 'Ombor',
-      emptyLabel: 'Tanlanmagan',
+      emptyLabel: _preparationScoped ? 'Barcha omborlar' : 'Tanlanmagan',
       icon: Icons.warehouse_outlined,
       selectedValue: selected.isEmpty ? null : selected,
       expanded: _warehouseFilterExpanded,
@@ -345,6 +345,11 @@ extension __InventoryMovementsScreenStateAstPart03
       onSelect: _selectWarehouse,
       optionKeyPrefix: 'inventory-warehouse-option-chip',
       options: [
+        if (_preparationScoped)
+          const AdminFilterChipOption<String>(
+            value: '',
+            label: 'Barcha omborlar',
+          ),
         for (final location in _visibleWarehouseLocations())
           AdminFilterChipOption<String>(
             value: location.warehouseId,
@@ -360,10 +365,11 @@ extension __InventoryMovementsScreenStateAstPart03
     final location = _warehouseLocations.where(
       (item) => item.warehouseId == selected,
     );
-    if (selected.isEmpty || location.isEmpty) {
+    if ((selected.isEmpty && !_preparationScoped) ||
+        (selected.isNotEmpty && location.isEmpty)) {
       return;
     }
-    final warehouseName = location.first.name;
+    final warehouseName = location.firstOrNull?.name ?? '';
     _updateInventory(() {
       _selectedAssetKeys.clear();
       _selectedWarehouseId = selected;
@@ -392,7 +398,8 @@ extension __InventoryMovementsScreenStateAstPart03
     final query = _searchController.text.trim().toLowerCase();
     return transfers.where(
       (transfer) {
-        final matchesWarehouse = (incoming
+        final matchesWarehouse = (_preparationScoped && normalizedWarehouse.isEmpty) ||
+            (incoming
                     ? transfer.destinationWarehouse
                     : transfer.sourceWarehouse)
                 .trim()

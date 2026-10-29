@@ -113,6 +113,9 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
   const _InventoryAssetDetailsSheet({
     required this.asset,
     required this.busy,
+    required this.showRelocation,
+    required this.showTransfer,
+    this.orderLabel,
     required this.transferRequiresWarehouseLocation,
     required this.showOrderAssignment,
     required this.allowOrderAssignment,
@@ -125,6 +128,9 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
 
   final InventoryAsset asset;
   final bool busy;
+  final bool showRelocation;
+  final bool showTransfer;
+  final String? orderLabel;
   final bool transferRequiresWarehouseLocation;
   final bool showOrderAssignment;
   final bool allowOrderAssignment;
@@ -242,6 +248,12 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
               label: 'Fizik joy',
               value: asset.physicalLocation.name,
             ),
+            if (orderLabel != null && orderLabel!.isNotEmpty)
+              _AssetSheetDetail(
+                icon: Icons.receipt_long_outlined,
+                label: 'Buyurtma',
+                value: orderLabel!,
+              ),
             if (showOrderAssignment) ...[
               const SizedBox(height: 10),
               RawMaterialOrderAssignmentSection(
@@ -264,35 +276,41 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: materialSheetActionGap),
-            if (busy)
-              const Center(child: AppLoadingIndicator())
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: materialSheetActionStyle,
-                      onPressed: onRelocate == null
-                          ? null
-                          : () => unawaited(onRelocate!()),
-                      icon: const Icon(Icons.pin_drop_outlined),
-                      label: const UrduAwareText('Joylashtirish'),
-                    ),
-                  ),
-                  const SizedBox(width: materialSheetActionGap),
-                  Expanded(
-                    child: FilledButton.icon(
-                      style: materialSheetActionStyle,
-                      onPressed: onTransfer == null
-                          ? null
-                          : () => unawaited(onTransfer!()),
-                      icon: const Icon(Icons.swap_horiz_rounded),
-                      label: const UrduAwareText('Transfer'),
-                    ),
-                  ),
-                ],
-              ),
+            if (showRelocation || showTransfer) ...[
+              const SizedBox(height: materialSheetActionGap),
+              if (busy)
+                const Center(child: AppLoadingIndicator())
+              else
+                Row(
+                  children: [
+                    if (showRelocation) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: materialSheetActionStyle,
+                          onPressed: onRelocate == null
+                              ? null
+                              : () => unawaited(onRelocate!()),
+                          icon: const Icon(Icons.pin_drop_outlined),
+                          label: const UrduAwareText('Joylashtirish'),
+                        ),
+                      ),
+                      if (showTransfer)
+                        const SizedBox(width: materialSheetActionGap),
+                    ],
+                    if (showTransfer)
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: materialSheetActionStyle,
+                          onPressed: onTransfer == null
+                              ? null
+                              : () => unawaited(onTransfer!()),
+                          icon: const Icon(Icons.swap_horiz_rounded),
+                          label: const UrduAwareText('Transfer'),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
             if (onDelete != null) ...[
               const SizedBox(height: materialSheetActionGap),
               OutlinedButton.icon(

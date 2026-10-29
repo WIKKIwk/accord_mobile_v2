@@ -155,7 +155,11 @@ extension __InventoryMovementsScreenStateAstPart02
       return;
     }
     nav.pushReplacementNamed(
-      _materialScoped ? AppRoutes.materialHome : AppRoutes.adminHome,
+      _preparationScoped
+          ? AppRoutes.preparation
+          : _materialScoped
+              ? AppRoutes.materialHome
+              : AppRoutes.adminHome,
     );
   }
 
@@ -311,6 +315,13 @@ extension __InventoryMovementsScreenStateAstPart02
       builder: (sheetContext) => _InventoryAssetDetailsSheet(
         asset: asset,
         busy: busy,
+        showRelocation: !_preparationScoped,
+        showTransfer: !_preparationScoped ||
+            _assignedWarehouseNames
+                .contains(asset.custodyWarehouse.trim().toLowerCase()),
+        orderLabel: _preparationScoped
+            ? _rawMaterialOrderAssignments[barcode]?.orderLabel
+            : null,
         transferRequiresWarehouseLocation: !physicallyInWarehouse,
         showOrderAssignment:
             _materialScoped && asset.kind == InventoryAssetKind.rawMaterial,
@@ -341,13 +352,18 @@ extension __InventoryMovementsScreenStateAstPart02
                 await _deleteRawMaterial(asset);
               }
             : null,
-        onRelocate: asset.isAvailable && !busy
+        onRelocate: !_preparationScoped && asset.isAvailable && !busy
             ? () async {
                 Navigator.of(sheetContext).pop();
                 await _relocate(asset);
               }
             : null,
-        onTransfer: asset.isAvailable && physicallyInWarehouse && !busy
+        onTransfer: asset.isAvailable &&
+                physicallyInWarehouse &&
+                !busy &&
+                (!_preparationScoped ||
+                    _assignedWarehouseNames
+                        .contains(asset.custodyWarehouse.trim().toLowerCase()))
             ? () async {
                 Navigator.of(sheetContext).pop();
                 await _requestTransfer(asset);

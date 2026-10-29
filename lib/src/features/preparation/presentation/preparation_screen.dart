@@ -479,6 +479,20 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           elevation: 4,
                         ),
                         AdminSummaryCard(
+                          slot: M3SegmentVerticalSlot.middle,
+                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
+                          backgroundColor: scheme.surfaceContainerLowest,
+                          title: 'Ishlab chiqarilgan homashyolar',
+                          titleStyle: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          value: '',
+                          showChevron: false,
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(AppRoutes.inventoryMovements),
+                          elevation: 4,
+                        ),
+                        AdminSummaryCard(
                           slot: M3SegmentVerticalSlot.bottom,
                           cornerRadius: M3SegmentedListGeometry.cornerLarge,
                           backgroundColor: scheme.surfaceContainerLowest,

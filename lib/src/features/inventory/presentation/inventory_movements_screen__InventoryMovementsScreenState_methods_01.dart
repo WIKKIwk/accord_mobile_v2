@@ -73,6 +73,7 @@ extension __InventoryMovementsScreenStateAstPart01
     try {
       final assets = await MobileApi.instance.inventoryAssets(
         query: barcode,
+        assetKind: _preparationScoped ? InventoryAssetKind.rawMaterial : null,
         limit: 100,
         includeOrderAssignment: _includeAssignmentSummary,
       );
@@ -134,7 +135,8 @@ extension __InventoryMovementsScreenStateAstPart01
       '${asset.kind.apiValue}:${asset.assetRef.toLowerCase()}';
 
   bool _canBulkRelocate(InventoryAsset asset, {bool fromQrLookup = false}) {
-    if (!asset.isAvailable ||
+    if (_preparationScoped ||
+        !asset.isAvailable ||
         asset.physicalLocation.kind != InventoryLocationKind.warehouse) {
       return false;
     }
@@ -148,7 +150,8 @@ extension __InventoryMovementsScreenStateAstPart01
   }
 
   bool get _includeAssignmentSummary =>
-      _materialScoped && AppSession.instance.can('raw_material.assign');
+      _preparationScoped ||
+      (_materialScoped && AppSession.instance.can('raw_material.assign'));
 
   void _rememberAssetAssignments(List<InventoryAsset> assets) {
     final next =
@@ -175,11 +178,15 @@ extension __InventoryMovementsScreenStateAstPart01
     final visible = locations.where((location) =>
         location.isWarehouse &&
         location.active &&
-        (_isAdmin || assigned.contains(location.name.trim().toLowerCase())));
+        (_preparationScoped ||
+            _isAdmin ||
+            assigned.contains(location.name.trim().toLowerCase())));
     return visible
             .any((location) => location.warehouseId == _selectedWarehouseId)
         ? _selectedWarehouseId
-        : visible.firstOrNull?.warehouseId ?? '';
+        : _preparationScoped
+            ? ''
+            : visible.firstOrNull?.warehouseId ?? '';
   }
 
   void _handleLocationViewChanged() {
@@ -270,7 +277,7 @@ extension __InventoryMovementsScreenStateAstPart01
     if (_loading || !mounted) return;
     final request = ++_assetsRequest;
     final warehouse = _selectedWarehouseId;
-    if (warehouse.isEmpty) {
+    if (warehouse.isEmpty && !_preparationScoped) {
       _assetView?.removeListener(_handleAssetViewChanged);
       _assetView?.dispose();
       _assetView = null;
@@ -291,6 +298,7 @@ extension __InventoryMovementsScreenStateAstPart01
       _assetView = InventoryViewStore.instance.assets(
         warehouseId: warehouse,
         query: search,
+        assetKind: _preparationScoped ? InventoryAssetKind.rawMaterial : null,
         includeOrderAssignment: _includeAssignmentSummary,
       )..addListener(_handleAssetViewChanged);
       acquired = true;
@@ -395,6 +403,7 @@ extension __InventoryMovementsScreenStateAstPart01
         !_assetMatchesSearch(asset)) {
       return false;
     }
+    if (_preparationScoped && _selectedWarehouseId.isEmpty) return true;
     return _warehouseLocations.any(
       (location) =>
           location.warehouseId == _selectedWarehouseId &&

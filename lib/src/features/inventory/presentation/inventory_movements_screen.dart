@@ -31,6 +31,7 @@ import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../material_taminotchi/presentation/widgets/raw_material_list_assignment.dart';
 import '../../material_taminotchi/presentation/widgets/raw_material_order_assignment_section.dart';
+import '../../preparation/presentation/preparation_navigation.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
@@ -131,10 +132,12 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
           .where((name) => name.isNotEmpty)
           .toSet();
 
-  bool get _isAdmin => AppSession.instance.canUseAdminComponents;
+  bool get _isAdmin => !_preparationScoped && AppSession.instance.canUseAdminComponents;
 
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
+  bool get _preparationScoped =>
+      AppSession.instance.profile?.role == UserRole.tayyorlovMasteri;
 
   bool get _stateSelectionMode => _selectedStateAssetCount > 0;
 
@@ -277,17 +280,22 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
               },
               onBack: _goBack,
             ),
-      drawer: _materialScoped
-          ? MaterialTaminotchiNavigationDrawer(
-              selectedRouteName: AppRoutes.inventoryMovements,
-              onNavigate: _openDrawerRoute,
-            )
-          : null,
-      bottom: _materialScoped
-          ? const MaterialTaminotchiDock(
-              activeTab: MaterialTaminotchiDockTab.home,
-            )
-          : null,
+      drawer: _preparationScoped
+          ? const PreparationDrawer(
+              selectedRouteName: AppRoutes.inventoryMovements)
+          : _materialScoped
+              ? MaterialTaminotchiNavigationDrawer(
+                  selectedRouteName: AppRoutes.inventoryMovements,
+                  onNavigate: _openDrawerRoute,
+                )
+              : null,
+      bottom: _preparationScoped
+          ? const PreparationDock(showPrimaryFab: false)
+          : _materialScoped
+              ? const MaterialTaminotchiDock(
+                  activeTab: MaterialTaminotchiDockTab.home,
+                )
+              : null,
       contentPadding: EdgeInsets.zero,
       child: Stack(
         fit: StackFit.expand,

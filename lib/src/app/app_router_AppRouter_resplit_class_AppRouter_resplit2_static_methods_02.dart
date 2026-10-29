@@ -21,6 +21,10 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return false;
   }
   final profile = session.profile!;
+  if (routeName == AppRoutes.inventoryMovements &&
+      profile.role == UserRole.tayyorlovMasteri) {
+    return profile.hasCapability('preparation.access');
+  }
   // The brigader workspace reuses the selected admin surfaces, including their
   // detail and action routes, while its backend enforces the same boundary.
   if (profile.role == UserRole.brigader) {
