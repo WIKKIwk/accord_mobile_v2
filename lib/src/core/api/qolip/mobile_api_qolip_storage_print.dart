@@ -22,10 +22,31 @@ extension MobileApiQolipStoragePrint on MobileApi {
       throw const FormatException('Invalid mold pallet print response');
     }
     final job = UsbRpsPrintRequest.fromPrintJson(
-        Map<String, dynamic>.from(response['print'] as Map));
+      Map<String, dynamic>.from(response['print'] as Map),
+      paddonLabelLines: transport.isBluetooth
+          ? _qolipPaddonBluetoothLabelLines(normalized, response['paddon'])
+          : const [],
+    );
     if (job.epc != 'qolip-paddon:$normalized' || !job.isPaddonCodeLabel) {
       throw const FormatException('Mold pallet print identity changed');
     }
     return job;
   }
+}
+
+List<String> _qolipPaddonBluetoothLabelLines(String code, Object? rawPaddon) {
+  final paddon = rawPaddon is Map ? rawPaddon : null;
+  final responseCode = paddon?['code']?.toString().trim().toUpperCase();
+  if (responseCode != null && responseCode.isNotEmpty && responseCode != code) {
+    throw const FormatException('Mold pallet summary identity changed');
+  }
+  final rawCount =
+      responseCode == code && paddon != null ? paddon['item_count'] : null;
+  final count = rawCount is num &&
+          rawCount.isFinite &&
+          rawCount >= 0 &&
+          rawCount == rawCount.toInt()
+      ? rawCount.toInt().toString()
+      : '—';
+  return ['Qolip paddoni: $code', 'Qoliplar soni: $count'];
 }

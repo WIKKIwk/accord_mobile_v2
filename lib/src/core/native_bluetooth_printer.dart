@@ -61,6 +61,10 @@ class NativeBluetoothPrinter {
 
 Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
   final payload = request.toJson();
+  if (request.isPaddonCodeLabel &&
+      request.epc.trim().startsWith('qolip-paddon:')) {
+    payload['epc'] = request.epc.trim();
+  }
   if (request.isProgressLabel && request.completedAtUnix > 0) {
     payload['completed_at_label'] =
         formatUnixSecondsLocalDateTime(request.completedAtUnix);

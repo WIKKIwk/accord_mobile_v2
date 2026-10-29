@@ -814,9 +814,26 @@ class BluetoothPrinterChannel(
             .coerceAtMost(LABEL_HEIGHT_DOTS - 24)
     }
 
+    private fun progressLayoutPayload(label: BluetoothLabelRequest, payload: String): String {
+        val prefix = "qolip-paddon:"
+        return if (label.materialDataMatrix && label.labelKind == "paddon_code" &&
+            payload.startsWith(prefix, ignoreCase = true)
+        ) {
+            val code = payload.substring(prefix.length)
+            val digits = code.drop(3)
+            // Position from the pallet number, while printing the complete typed payload.
+            if (code.startsWith("QP-", ignoreCase = true) &&
+                digits.isNotEmpty() && digits.all { it in '0'..'9' }
+            ) digits else code.ifBlank { payload }
+        } else {
+            payload
+        }
+    }
+
     private fun progressCodeY(label: BluetoothLabelRequest, payload: String): Int {
         return if (label.materialDataMatrix) {
-            progressEpcY(payload) - PROGRESS_PACK_EPC_GAP_DOTS - MATERIAL_DATA_MATRIX_SIZE_DOTS
+            progressEpcY(progressLayoutPayload(label, payload)) -
+                PROGRESS_PACK_EPC_GAP_DOTS - MATERIAL_DATA_MATRIX_SIZE_DOTS
         } else {
             PROGRESS_PACK_QR_Y
         }
@@ -842,7 +859,7 @@ class BluetoothPrinterChannel(
             qrY + (if (label.materialDataMatrix) MATERIAL_DATA_MATRIX_SIZE_DOTS
                 else qrSymbolSizeDots(payload, qrCellSize)) + PROGRESS_PACK_EPC_GAP_DOTS
         } else {
-            progressEpcY(payload)
+            progressEpcY(progressLayoutPayload(label, payload))
         }
         if (label.materialDataMatrix) {
             sdkMaterialDataMatrixRow(

@@ -929,9 +929,26 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     )
   }
 
+  private func progressLayoutPayload(_ label: BluetoothLabelRequest, payload: String) -> String {
+    let prefix = "qolip-paddon:"
+    guard label.materialDataMatrix, label.labelKind == "paddon_code",
+      payload.lowercased().hasPrefix(prefix) else {
+      return payload
+    }
+    let code = String(payload.dropFirst(prefix.count))
+    let digits = code.dropFirst(3)
+    // Position from the pallet number, while printing the complete typed payload.
+    if code.uppercased().hasPrefix("QP-"), !digits.isEmpty,
+      digits.allSatisfy({ $0 >= "0" && $0 <= "9" }) {
+      return String(digits)
+    }
+    return code.isEmpty ? payload : code
+  }
+
   private func progressCodeY(_ label: BluetoothLabelRequest, payload: String) -> Int {
     label.materialDataMatrix
-      ? progressEpcY(payload) - Self.progressPackEpcGapDots - Self.materialDataMatrixSizeDots
+      ? progressEpcY(progressLayoutPayload(label, payload: payload)) -
+        Self.progressPackEpcGapDots - Self.materialDataMatrixSizeDots
       : Self.progressPackQrY
   }
 
@@ -954,7 +971,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       ? Self.materialDataMatrixSizeDots
       : qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
     let epcY = codeY == nil
-      ? progressEpcY(payload)
+      ? progressEpcY(progressLayoutPayload(label, payload: payload))
       : qrY + codeSize + Self.progressPackEpcGapDots
     if label.materialDataMatrix {
       result = materialDataMatrixRow(
