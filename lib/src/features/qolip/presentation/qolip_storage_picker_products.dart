@@ -4,6 +4,11 @@ String _productKey(String code) => code.trim().toLowerCase();
 String _pickerMoldKey(QolipStorageMold mold) => mold.code.trim().toLowerCase();
 bool _hasLinkedProduct(QolipStorageMold mold) => mold.products
     .any((product) => (product['code']?.toString() ?? '').trim().isNotEmpty);
+bool _moldBelongsToProduct(QolipStorageMold mold, String key) =>
+    key == 'unlinked'
+        ? !_hasLinkedProduct(mold)
+        : mold.products.any((product) =>
+            'product:${_productKey(product['code']?.toString() ?? '')}' == key);
 
 class _StorageProductGroup {
   _StorageProductGroup({required this.code, required this.name});
@@ -15,10 +20,7 @@ class _StorageProductGroup {
   bool get unlinked => code.isEmpty;
   String get key => unlinked ? 'unlinked' : 'product:${_productKey(code)}';
 
-  bool contains(QolipStorageMold mold) => unlinked
-      ? !_hasLinkedProduct(mold)
-      : mold.products.any((product) =>
-          _productKey(product['code']?.toString() ?? '') == _productKey(code));
+  bool contains(QolipStorageMold mold) => _moldBelongsToProduct(mold, key);
 }
 
 List<_StorageProductGroup> _groupStorageProducts(
@@ -161,7 +163,9 @@ class _StorageProductImages {
 
 extension _MoldPickerProducts on _MoldPickerState {
   List<_StorageProductGroup> _groupProducts() =>
-      _groupStorageProducts(_molds, query: _search.text);
+      _groupStorageProducts(_molds.where(_eligible), query: _search.text)
+          .where((group) => _productMolds[group.key]?.any(_eligible) ?? true)
+          .toList();
 
   bool? _productSelection(_StorageProductGroup group) {
     final selected = _selected.values.where(group.contains).toList();
@@ -205,9 +209,11 @@ extension _MoldPickerProducts on _MoldPickerState {
       }
       final molds = found.values.toList()
         ..sort((a, b) => _pickerMoldKey(a).compareTo(_pickerMoldKey(b)));
+      final previousGroups = _groupProducts().map((group) => group.key).toSet();
       var removedUnavailable = false;
       final changed = <QolipStorageMold>[];
       _productMolds[group.key] = molds;
+      _rememberMolds(molds);
       for (final mold in molds) {
         final key = _pickerMoldKey(mold);
         final previous = _selected[key];
@@ -221,6 +227,11 @@ extension _MoldPickerProducts on _MoldPickerState {
             removedUnavailable = true;
           }
         }
+      }
+      final currentGroups = _groupProducts().map((group) => group.key).toSet();
+      if (previousGroups.length != currentGroups.length ||
+          !previousGroups.containsAll(currentGroups)) {
+        _updatePicker(() {});
       }
       if (changed.isNotEmpty) _notifySelectionChanged(changed);
       if (removedUnavailable) _message(context, _s(context, 'changed'));
@@ -272,17 +283,12 @@ extension _MoldPickerProducts on _MoldPickerState {
         : _productMolds[group.key] ?? await _loadProduct(group);
     if (!await _continueAfterDiscard() || !_current || molds == null) return;
     final eligible = molds.where(_eligible).toList();
-    final unavailable = molds.length - eligible.length;
-    final opened =
-        !deselect && unavailable > 0 && _expandedProducts.add(group.key);
     if (!deselect && eligible.isEmpty) {
-      if (opened) _notifyProductChanged(group.key);
-      _message(context, _s(context, 'no_available_molds'));
+      _message(context, _s(context, 'changed'));
       return;
     }
     if (!deselect &&
         {..._selected.keys, ...eligible.map(_pickerMoldKey)}.length > 1000) {
-      if (opened) _notifyProductChanged(group.key);
       _message(context, _s(context, 'capacity_error'));
       return;
     }
@@ -291,19 +297,12 @@ extension _MoldPickerProducts on _MoldPickerState {
       _selected.removeWhere((_, mold) => group.contains(mold));
       _notifySelectionChanged(changed);
     } else {
-      _selectMolds(eligible, extraProducts: opened ? [group.key] : const []);
-    }
-    if (!deselect && unavailable > 0) {
-      _message(context, '${_s(context, 'unavailable_molds')}: $unavailable');
+      _selectMolds(eligible);
     }
   }
 
-  Widget _productGroupList(BuildContext context) {
-    final groups = _groupProducts();
-    if (groups.isEmpty) {
-      return PaddonEmptyState(
-          title: _s(context, 'empty'), icon: Icons.layers_outlined);
-    }
+  Widget _productGroupList(
+      BuildContext context, List<_StorageProductGroup> groups) {
     return M3SegmentSpacedColumn(
         key: const ValueKey('qolip-picker-products'),
         children: [
@@ -332,7 +331,8 @@ extension _MoldPickerProducts on _MoldPickerState {
         (molds == null ||
             molds.any(_eligible) ||
             _productSelection(group) != false);
-    final displayMolds = molds ?? group.visibleMolds;
+    final displayMolds =
+        (molds ?? _molds.where(group.contains)).where(_eligible).toList();
     final byCode = <String, QolipStorageMold>{
       for (final mold in displayMolds) _pickerMoldKey(mold): mold,
     };

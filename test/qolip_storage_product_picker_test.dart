@@ -14,7 +14,7 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_c
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_order_image_thumb.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_products_screen.dart'
-    show QolipCodeRow, QolipProductContainerCard;
+    show QolipProductContainerCard;
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -133,6 +133,190 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     QolipCatalogStore.instance.reset();
+  });
+
+  testWidgets('picker hides unavailable molds and blocked-only product groups',
+      (tester) async {
+    const blockedProduct = {'code': 'BLOCKED', 'name': 'Unavailable product'};
+    final blocked = <String, Map<String, Object>>{
+      'PACKED': {'paddon_code': 'QP-00013'},
+      'SAME-PADDON': {'paddon_code': 'QP-00012'},
+      'USED': {'is_in_use': true},
+      'REWORK': {'is_in_rework': true},
+      'ARCHIVED': {'archived': true},
+      'TRANSFER': {'is_transferring': true},
+      'CUSTODY': {'is_custody_mismatch': true},
+      'FOREIGN': {'warehouse': 'Other warehouse'},
+    };
+    final molds = [
+      mold('FREE', [alpha]),
+      for (final entry in blocked.entries)
+        {
+          ...mold(entry.key, [alpha, blockedProduct]),
+          ...entry.value
+        },
+      {...mold('UNLINKED-PACKED', []), 'paddon_code': 'QP-00013'},
+    ];
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      expect(find.byType(QolipProductContainerCard), findsOneWidget);
+      expect(expand('BLOCKED'), findsNothing);
+      expect(find.byKey(const ValueKey('qolip-picker-product-expand-unlinked')),
+          findsNothing);
+      await visibleTap(tester, expand('ITEM-A'));
+      expect(moldRow('FREE'), findsOneWidget);
+      for (final code in blocked.keys) {
+        expect(moldRow(code), findsNothing);
+      }
+      expect(
+          tester
+              .widget<QolipProductContainerCard>(find
+                  .byKey(const ValueKey('qolip-picker-product-product:item-a')))
+              .container
+              .children,
+          hasLength(1));
+      await tester.enterText(pickerSearch(), 'PACKED');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.byType(QolipProductContainerCard), findsNothing);
+      expect(find.text('Confirm (0)'), findsOneWidget);
+    },
+        () => MockClient((request) async => jsonResponse(
+            request.url.path.endsWith('/paddons/molds')
+                ? {'ok': true, 'molds': molds}
+                : detail())));
+  });
+
+  testWidgets('unavailable-only pages still reach the next available mold',
+      (tester) async {
+    final offsets = <int>[];
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      expect(offsets, [0, 1]);
+      expect(expand('ITEM-A'), findsNothing);
+      expect(expand('ITEM-B'), findsOneWidget);
+      await visibleTap(tester, expand('ITEM-B'));
+      expect(moldRow('FREE'), findsOneWidget);
+      expect(moldRow('PACKED'), findsNothing);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              if (request.url.queryParameters['q'] == 'ITEM-B') {
+                return jsonResponse({
+                  'ok': true,
+                  'molds': [
+                    mold('FREE', [beta])
+                  ]
+                });
+              }
+              final offset =
+                  int.parse(request.url.queryParameters['offset'] ?? '0');
+              offsets.add(offset);
+              return jsonResponse({
+                'ok': true,
+                'molds': offset == 0
+                    ? [
+                        {
+                          ...mold('PACKED', [alpha]),
+                          'paddon_code': 'QP-00013'
+                        }
+                      ]
+                    : [
+                        mold('FREE', [beta])
+                      ],
+                'has_more': offset == 0,
+                if (offset == 0) 'next_offset': 1,
+              });
+            }));
+  });
+
+  testWidgets('a newly packed shared mold disappears from all product groups',
+      (tester) async {
+    final shared = mold('SHARED', [alpha, beta]);
+    final free = mold('FREE', [beta]);
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      await visibleTap(tester, expand('ITEM-B'));
+      await visibleTap(tester, moldRow('SHARED'));
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      await visibleTap(tester, expand('ITEM-A'));
+      expect(expand('ITEM-A'), findsNothing);
+      expect(moldRow('SHARED'), findsNothing);
+      expect(moldRow('FREE'), findsOneWidget);
+      expect(find.text('Confirm (0)'), findsOneWidget);
+      expect(
+          tester
+              .widget<QolipProductContainerCard>(find
+                  .byKey(const ValueKey('qolip-picker-product-product:item-b')))
+              .container
+              .children,
+          hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              final query = request.url.queryParameters['q'] ?? '';
+              return jsonResponse({
+                'ok': true,
+                'molds': query == 'ITEM-A'
+                    ? [
+                        {...shared, 'paddon_code': 'QP-00013'}
+                      ]
+                    : [shared, free],
+              });
+            }));
+  });
+
+  testWidgets(
+      'a later available mold makes a previously blocked product visible',
+      (tester) async {
+    const product = {'code': 'ITEM-A', 'name': 'Alpha'};
+    final first = mold('BECAME-PACKED', [product]);
+    final later = mold('LATER-FREE', [product]);
+    final initial = [
+      first,
+      for (var i = 0; i < 20; i++)
+        mold('FILLER-$i', [
+          {'code': 'FILLER-$i', 'name': 'Other $i'}
+        ]),
+    ];
+    await http.runWithClient(() async {
+      await openPicker(tester);
+      await visibleTap(tester, expand('ITEM-A'));
+      expect(expand('ITEM-A'), findsNothing);
+      await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+          const Offset(0, -2400));
+      await tester.pumpAndSettle();
+      expect(expand('ITEM-A'), findsOneWidget);
+      expect(moldRow('LATER-FREE'), findsOneWidget);
+      expect(moldRow('BECAME-PACKED'), findsNothing);
+      await visibleTap(tester, selectProduct('ITEM-A'));
+      expect(find.text('Confirm (1)'), findsOneWidget);
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/paddons/molds')) {
+                return jsonResponse(detail());
+              }
+              if (request.url.queryParameters['q'] == 'ITEM-A') {
+                return jsonResponse({
+                  'ok': true,
+                  'molds': [
+                    {...first, 'paddon_code': 'QP-00013'}
+                  ],
+                });
+              }
+              final more = request.url.queryParameters['offset'] == '21';
+              return jsonResponse({
+                'ok': true,
+                'molds': more ? [later] : initial,
+                'has_more': !more,
+                if (!more) 'next_offset': 21,
+              });
+            }));
   });
 
   testWidgets('pagination shows one loading indicator at the list end',
@@ -677,8 +861,8 @@ void main() {
       expect(moldRow('M-A'), findsOneWidget);
       expect(moldRow('M-B'), findsOneWidget);
       expect(moldRow('ITEM-A-UNRELATED'), findsNothing);
-      expect(tester.widget<QolipCodeRow>(moldRow('M-USED')).enabled, isFalse);
-      expect(tester.widget<QolipCodeRow>(moldRow('M-OTHER')).enabled, isFalse);
+      expect(moldRow('M-USED'), findsNothing);
+      expect(moldRow('M-OTHER'), findsNothing);
 
       await visibleTap(tester, moldRow('M-A'));
       expect(tester.widget<Checkbox>(selectProduct('ITEM-A')).value, isNull);
@@ -1010,7 +1194,7 @@ void main() {
             }));
   });
 
-  testWidgets('bulk selection shows why unavailable molds were skipped',
+  testWidgets('bulk selection only shows and selects available molds',
       (tester) async {
     final free = mold('M-A', [alpha]);
     final inUse = mold('M-USED', [alpha], inUse: true);
@@ -1018,10 +1202,11 @@ void main() {
       await openPicker(tester);
       await visibleTap(tester, selectProduct('ITEM-A'));
       expect(find.text('Confirm (1)'), findsOneWidget);
-      expect(find.text('Unavailable molds: 1'), findsOneWidget);
-      expect(moldRow('M-USED'), findsOneWidget);
-      expect(tester.widget<QolipCodeRow>(moldRow('M-USED')).enabled, isFalse);
-      expect(find.textContaining('Issued to production'), findsOneWidget);
+      expect(find.text('Unavailable molds: 1'), findsNothing);
+      await visibleTap(tester, expand('ITEM-A'));
+      expect(moldRow('M-A'), findsOneWidget);
+      expect(moldRow('M-USED'), findsNothing);
+      expect(find.textContaining('Issued to production'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('qolip-picker-confirm')));
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsOneWidget);

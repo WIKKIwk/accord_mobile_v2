@@ -84,16 +84,17 @@ class _MoldPickerState extends State<_MoldPicker>
         scroll == null ||
         !scroll.hasClients ||
         !scroll.position.hasContentDimensions) return;
-    if (scroll.position.extentAfter < 240) unawaited(_load(more: true));
+    if (_groupProducts().isEmpty || scroll.position.extentAfter < 240) {
+      unawaited(_load(more: true));
+    }
   }
 
   void _scheduleMoreIfNeeded() {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadMoreIfNeeded());
   }
 
-  void _notifySelectionChanged(Iterable<QolipStorageMold> molds,
-      {Iterable<String> extraProducts = const []}) {
-    final keys = <String>{...extraProducts};
+  void _notifySelectionChanged(Iterable<QolipStorageMold> molds) {
+    final keys = <String>{};
     for (final mold in molds) {
       if (!_hasLinkedProduct(mold)) {
         keys.add('unlinked');
@@ -116,8 +117,22 @@ class _MoldPickerState extends State<_MoldPicker>
     if (notifier != null) notifier.value++;
   }
 
-  void _selectMolds(Iterable<QolipStorageMold> molds,
-      {Iterable<String> extraProducts = const []}) {
+  void _rememberMolds(List<QolipStorageMold> molds, {bool replace = false}) {
+    final latest = {for (final mold in molds) _pickerMoldKey(mold): mold};
+    _molds = {
+      if (!replace)
+        for (final mold in _molds) _pickerMoldKey(mold): mold,
+      ...latest,
+    }.values.toList();
+    for (final key in _productMolds.keys.toList()) {
+      _productMolds[key] = {
+        for (final mold in _productMolds[key]!) _pickerMoldKey(mold): mold,
+        ...latest,
+      }.values.where((mold) => _moldBelongsToProduct(mold, key)).toList();
+    }
+  }
+
+  void _selectMolds(Iterable<QolipStorageMold> molds) {
     final changed = <QolipStorageMold>[];
     for (final mold in molds) {
       final key = _pickerMoldKey(mold);
@@ -126,8 +141,8 @@ class _MoldPickerState extends State<_MoldPicker>
       _selected[key] = mold;
       changed.add(mold);
     }
-    if (changed.isNotEmpty || extraProducts.isNotEmpty) {
-      _notifySelectionChanged(changed, extraProducts: extraProducts);
+    if (changed.isNotEmpty) {
+      _notifySelectionChanged(changed);
     }
   }
 
@@ -194,7 +209,7 @@ class _MoldPickerState extends State<_MoldPicker>
         throw const MobileApiException(
             code: 'qolip_storage_invalid_page', message: 'Invalid mold page');
       }
-      _molds = [if (more) ..._molds, ...page.items];
+      _rememberMolds(page.items, replace: !more);
       _next = page.nextOffset;
       for (final mold in page.items) {
         final key = _pickerMoldKey(mold);
@@ -472,54 +487,56 @@ class _MoldPickerState extends State<_MoldPicker>
     );
   }
 
-  List<Widget> _listWidgets(BuildContext context) => [
-        SizedBox(
-          key: const ValueKey('qolip-picker-selected-strip'),
-          height: 44,
-          child: ListenableBuilder(
-            listenable: _pickerChanges,
-            builder: (context, _) => _selected.isEmpty
-                ? Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Text(_s(context, 'selected_empty'),
-                        style: Theme.of(context).textTheme.bodySmall),
-                  )
-                : ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (final m in _selected.values)
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 6),
-                          child: InputChip(
-                            label: Text(m.code),
-                            onDeleted: _busy ? null : () => _toggle(m, false),
-                          ),
+  List<Widget> _listWidgets(BuildContext context) {
+    final groups = _groupProducts();
+    return [
+      SizedBox(
+        key: const ValueKey('qolip-picker-selected-strip'),
+        height: 44,
+        child: ListenableBuilder(
+          listenable: _pickerChanges,
+          builder: (context, _) => _selected.isEmpty
+              ? Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(_s(context, 'selected_empty'),
+                      style: Theme.of(context).textTheme.bodySmall),
+                )
+              : ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final m in _selected.values)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 6),
+                        child: InputChip(
+                          label: Text(m.code),
+                          onDeleted: _busy ? null : () => _toggle(m, false),
                         ),
-                    ],
-                  ),
-          ),
+                      ),
+                  ],
+                ),
         ),
-        PaddonSectionHeader(
-            title: _s(context, 'loaded_products'),
-            count: '${_groupProducts().length}'),
-        if (_failure != null && _moreFailure != true)
-          AppRetryState(onRetry: _load, message: _s(context, 'failed')),
-        if (_loading && _molds.isEmpty)
-          const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: AppLoadingIndicator())),
-        if (!_loading && _failure == null && _molds.isEmpty)
-          PaddonEmptyState(
-              title: _s(context, 'empty'), icon: Icons.layers_outlined),
-        if (_molds.isNotEmpty) _productGroupList(context),
-        if (_failure != null && _moreFailure == true)
-          AppRetryState(
-              onRetry: () => _load(more: true), message: _s(context, 'failed')),
-        if (_loading && _molds.isNotEmpty)
-          const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: AppLoadingIndicator())),
-      ];
+      ),
+      PaddonSectionHeader(
+          title: _s(context, 'loaded_products'), count: '${groups.length}'),
+      if (_failure != null && _moreFailure != true)
+        AppRetryState(onRetry: _load, message: _s(context, 'failed')),
+      if (groups.isEmpty && _failure == null && (_loading || _next != null))
+        const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: AppLoadingIndicator())),
+      if (!_loading && _failure == null && groups.isEmpty && _next == null)
+        PaddonEmptyState(
+            title: _s(context, 'empty'), icon: Icons.layers_outlined),
+      if (groups.isNotEmpty) _productGroupList(context, groups),
+      if (_failure != null && _moreFailure == true)
+        AppRetryState(
+            onRetry: () => _load(more: true), message: _s(context, 'failed')),
+      if (_loading && groups.isNotEmpty)
+        const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: AppLoadingIndicator())),
+    ];
+  }
 }
 
 class _InspectionDialog extends StatefulWidget {
