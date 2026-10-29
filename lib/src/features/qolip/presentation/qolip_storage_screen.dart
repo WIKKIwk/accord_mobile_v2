@@ -31,6 +31,7 @@ import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
 part 'qolip_storage_detail.dart';
+part 'qolip_storage_archive_mold_list.dart';
 part 'qolip_storage_picker.dart';
 part 'qolip_storage_picker_products.dart';
 part 'qolip_storage_picker_scanning.dart';

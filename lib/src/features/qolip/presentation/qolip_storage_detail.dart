@@ -552,6 +552,119 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
     }
   }
 
+  Widget _paddonSnapshot(BuildContext context, QolipArchiveEntry entry,
+      List<Map<String, dynamic>> snapshotItems) {
+    final style = Theme.of(context).textTheme;
+    final savedPaddon = entry.snapshot['paddon'];
+    final location = savedPaddon is Map
+        ? (savedPaddon['location'] as String? ?? '').trim()
+        : '';
+    final isArchived = entry.isOpen && !_restored;
+    final molds = <QolipArchiveEntry>[
+      for (final item in snapshotItems)
+        if (item['qolip_code'] is String &&
+            (item['qolip_code'] as String).trim().isNotEmpty)
+          QolipArchiveEntry.fromJson({
+            'id': entry.id,
+            'kind': 'paddon_mold',
+            'code': item['qolip_code'],
+            'warehouse': entry.warehouse,
+            'archived_at': entry.archivedAt,
+            'restored_at': entry.restoredAt,
+            'parent_paddon_code': entry.code,
+            'snapshot': item,
+          }),
+    ];
+    return Scaffold(
+      appBar: AppBar(title: Text(entry.code), actions: [
+        IconButton(
+            onPressed: () => _qr(context, entry.code, paddon: true),
+            icon: const Icon(Icons.qr_code))
+      ]),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        if (_saving) const LinearProgressIndicator(),
+        PaddonPanel(
+          key: const ValueKey('qolip-archive-paddon-summary'),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(entry.code,
+                style: style.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
+            Row(children: [
+              const Icon(Icons.warehouse_outlined, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(entry.warehouse)),
+            ]),
+            if (location.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                const Icon(Icons.place_outlined, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(location)),
+              ]),
+            ],
+            const SizedBox(height: 10),
+            Text('${_s(context, 'archived_by')}: ${entry.archivedBy}'),
+            Text(qolipReworkDate(entry.archivedAt)),
+            if (entry.restoredAt != null)
+              Text(
+                  '${_s(context, 'restored_by')}: ${entry.restoredBy}\n${qolipReworkDate(entry.restoredAt!)}'),
+            if (entry.note.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(entry.note),
+            ],
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              Chip(
+                avatar: Icon(
+                    isArchived
+                        ? Icons.archive_outlined
+                        : Icons.unarchive_outlined,
+                    size: 18),
+                label: Text(_s(context, isArchived ? 'archived' : 'returned')),
+              ),
+              PaddonMetric(
+                  label: _s(context, 'molds'), value: '${molds.length}'),
+            ]),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              if (isArchived)
+                OutlinedButton.icon(
+                    onPressed: _saving ? null : _restore,
+                    icon: const Icon(Icons.unarchive_outlined, size: 18),
+                    label: Text(_s(context, 'restore'))),
+              OutlinedButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  QolipPaddonScreen(code: entry.code))),
+                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                  label: Text(_s(context, 'current_detail'))),
+            ]),
+          ]),
+        ),
+        PaddonSectionHeader(title: _s(context, 'snapshot')),
+        if (molds.isEmpty)
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(child: Text(_s(context, 'empty'))))
+        else
+          _ArchiveMoldList(
+            entries: molds,
+            showStatus: false,
+            onEntry: (mold) => _moldDetails(
+                context, QolipStorageMold.fromJson(mold.snapshot),
+                archivedSnapshot: true),
+          ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_sessionExpired) return sessionExpiredPage(context);
@@ -562,6 +675,15 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
             : entry.snapshot.containsKey('qolip_code')
                 ? [entry.snapshot]
                 : const []);
+    if (entry.kind == 'paddon') {
+      return _paddonSnapshot(
+          context,
+          entry,
+          rawItems
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList());
+    }
     final items = rawItems
         .whereType<Map>()
         .map((m) => QolipStorageMold.fromJson(Map<String, dynamic>.from(m)))

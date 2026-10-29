@@ -568,7 +568,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Restore'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
@@ -771,7 +771,7 @@ void main() {
       await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
       for (var attempt = 0; attempt < 2; attempt++) {
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Restore'));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
         await tester.pumpAndSettle();
@@ -814,7 +814,7 @@ void main() {
       await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
       for (var attempt = 0; attempt < 2; attempt++) {
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+        await tester.tap(find.widgetWithText(OutlinedButton, 'Restore'));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
         await tester.pumpAndSettle();
@@ -855,7 +855,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Restore'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pump();
@@ -1234,6 +1234,8 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(QolipArchiveDetailScreen(entry: entry)));
       await tester.pumpAndSettle();
+      await tapVisible(tester, find.byKey(
+          const ValueKey('qolip-archive-product-expand-unlinked')));
       await tester.tap(find.text('Q-ONE'));
       await tester.pumpAndSettle();
 
