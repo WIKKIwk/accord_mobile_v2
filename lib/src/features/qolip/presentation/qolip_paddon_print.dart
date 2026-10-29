@@ -5,6 +5,34 @@ import '../../../core/print_service.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 
+/// Returns false when printer selection or the originating session is cancelled.
+Future<bool> printQolipPaddonQr(BuildContext context,
+    {required String code, required String scope}) async {
+  if (!context.mounted || scope != currentSessionReadScope()) return false;
+  final printer = await pickProgressPrinter(context);
+  if (printer == null ||
+      !context.mounted ||
+      scope != currentSessionReadScope()) {
+    return false;
+  }
+  final job = await MobileApi.instance.qolipPrintPaddonQr(
+    code: code,
+    driverUrl: printer.driverUrl,
+    printer: printer.printer,
+    printMode: printer.printMode,
+    transport: printer.transport,
+  );
+  if (!context.mounted || scope != currentSessionReadScope()) return false;
+  if (printer.transport.isLocal) {
+    final result = await PrintService.printRps(job,
+        printerProfile: printer.offlinePrinter,
+        bluetoothPrinter: printer.bluetoothPrinter,
+        transport: printer.transport);
+    if (!result.ok) throw StateError('Printer rejected label');
+  }
+  return context.mounted && scope == currentSessionReadScope();
+}
+
 /// Printing never changes package membership, lock or archive state.
 class QolipPaddonPrintButton extends StatefulWidget {
   const QolipPaddonPrintButton({
@@ -27,24 +55,8 @@ class _PrintState extends State<QolipPaddonPrintButton> {
     final scope = currentSessionReadScope();
     setState(() => _busy = true);
     try {
-      final printer = await pickProgressPrinter(context);
-      if (printer == null || !mounted || scope != currentSessionReadScope()) {
+      if (!await printQolipPaddonQr(context, code: widget.code, scope: scope)) {
         return;
-      }
-      final job = await MobileApi.instance.qolipPrintPaddonQr(
-        code: widget.code,
-        driverUrl: printer.driverUrl,
-        printer: printer.printer,
-        printMode: printer.printMode,
-        transport: printer.transport,
-      );
-      if (!mounted || scope != currentSessionReadScope()) return;
-      if (printer.transport.isLocal) {
-        final result = await PrintService.printRps(job,
-            printerProfile: printer.offlinePrinter,
-            bluetoothPrinter: printer.bluetoothPrinter,
-            transport: printer.transport);
-        if (!result.ok) throw StateError('Printer rejected label');
       }
       if (mounted && scope == currentSessionReadScope()) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

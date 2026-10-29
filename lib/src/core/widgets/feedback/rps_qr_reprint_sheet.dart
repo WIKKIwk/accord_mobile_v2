@@ -27,6 +27,7 @@ class RpsQrReprintSheet extends StatefulWidget {
     this.detailsContent,
     this.afterDetails,
     this.showPayload = true,
+    this.displayPayload,
     this.onPayloadTap,
     this.payloadTapTooltip = 'Nusxalash',
     this.payloadTapKey,
@@ -42,6 +43,9 @@ class RpsQrReprintSheet extends StatefulWidget {
 
   final String title;
   final String payload;
+
+  /// Optional readable code; the QR preview always encodes [payload].
+  final String? displayPayload;
   final bool showPayload;
   final Future<void> Function()? onPayloadTap;
   final String payloadTapTooltip;
@@ -158,6 +162,7 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final displayPayload = widget.displayPayload ?? widget.payload;
     return Material(
       color: scheme.surfaceContainer,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
@@ -228,7 +233,7 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                 const SizedBox(height: 4),
                 if (widget.onPayloadTap == null)
                   SelectableText(
-                    widget.payload,
+                    displayPayload,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,
@@ -245,7 +250,7 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Text(
-                          widget.payload,
+                          displayPayload,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,

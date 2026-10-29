@@ -552,6 +552,61 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
     }
   }
 
+  Future<void> _showPaddonQr(QolipArchiveEntry entry, int moldCount) async {
+    if (_sessionExpired || _scope != currentSessionReadScope()) {
+      _message(context, _s(context, 'session_changed'));
+      return;
+    }
+    final code = entry.code.trim();
+    if (code.isEmpty) return;
+    final scope = _scope;
+    final l10n = context.l10n;
+    final name = _s(context, 'paddon');
+    final warehouseLabel = _s(context, 'warehouse');
+    final moldsLabel = _s(context, 'molds');
+    final copyLabel = _s(context, 'copy');
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => _StorageOverlay(
+        scope: scope,
+        child: RpsQrReprintSheet(
+          title: '$name QR',
+          payload: 'qolip-paddon:${code.toUpperCase()}',
+          displayPayload: code,
+          itemName: name,
+          payloadTapTooltip: copyLabel,
+          payloadTapKey: ValueKey('qolip-archive-paddon-qr-copy-$code'),
+          previewKey: ValueKey('qolip-archive-paddon-qr-preview-$code'),
+          reprintButtonKey: ValueKey('qolip-archive-paddon-qr-print-$code'),
+          details: [
+            RpsQrDetail(warehouseLabel, entry.warehouse),
+            RpsQrDetail(moldsLabel, '$moldCount'),
+          ],
+          onPayloadTap: () async {
+            if (sheetContext.mounted && scope == currentSessionReadScope()) {
+              await Clipboard.setData(ClipboardData(text: code));
+            }
+          },
+          onReprint: () async {
+            if (!await printQolipPaddonQr(sheetContext,
+                code: code, scope: scope)) {
+              throw const RpsQrReprintCancelled();
+            }
+            return null;
+          },
+          errorMessage: (_) =>
+              l10n.productionText('worker.paddon.print_failed'),
+          successMessage: l10n
+              .productionText('worker.paddon.printed', values: {'qr': code}),
+        ),
+      ),
+    );
+  }
+
   Widget _paddonSnapshot(BuildContext context, QolipArchiveEntry entry,
       List<Map<String, dynamic>> snapshotItems) {
     final style = Theme.of(context).textTheme;
@@ -585,7 +640,8 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
       actions: [
         IconButton(
             tooltip: _s(context, 'scan_paddon'),
-            onPressed: () => _qr(context, entry.code, paddon: true),
+            onPressed:
+                _saving ? null : () => _showPaddonQr(entry, molds.length),
             icon: const Icon(Icons.qr_code_2_rounded))
       ],
       bottom: const QolipDock(activeTab: null),
