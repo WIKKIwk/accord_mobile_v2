@@ -285,10 +285,12 @@ class AppShellDrawerScope extends InheritedWidget {
   const AppShellDrawerScope({
     super.key,
     required this.openDrawer,
+    required this.isDrawerOpen,
     required super.child,
   });
 
   final VoidCallback openDrawer;
+  final bool Function() isDrawerOpen;
 
   static AppShellDrawerScope? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<AppShellDrawerScope>();

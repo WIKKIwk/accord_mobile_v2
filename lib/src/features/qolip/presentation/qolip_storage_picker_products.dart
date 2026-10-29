@@ -182,6 +182,9 @@ extension _MoldPickerProducts on _MoldPickerState {
       _StorageProductGroup group) async {
     if (!_current || _busy || _listPending) return null;
     final generation = _generation;
+    final selectedAtStart = _inlineScanner
+        ? Map<String, QolipStorageMold>.of(_selected)
+        : null;
     _loadingProductKey = group.key;
     _productErrors.remove(group.key);
     _activityChanges.value++;
@@ -217,7 +220,7 @@ extension _MoldPickerProducts on _MoldPickerState {
       for (final mold in molds) {
         final key = _pickerMoldKey(mold);
         final previous = _selected[key];
-        if (previous != null) {
+        if (previous != null && _selectionUnchanged(selectedAtStart, key)) {
           changed.add(previous);
           if (_eligible(mold)) {
             _selected[key] = mold;
@@ -228,6 +231,7 @@ extension _MoldPickerProducts on _MoldPickerState {
           }
         }
       }
+      _rememberConcurrentScans(selectedAtStart, molds);
       final currentGroups = _groupProducts().map((group) => group.key).toSet();
       if (previousGroups.length != currentGroups.length ||
           !previousGroups.containsAll(currentGroups)) {
@@ -235,7 +239,7 @@ extension _MoldPickerProducts on _MoldPickerState {
       }
       if (changed.isNotEmpty) _notifySelectionChanged(changed);
       if (removedUnavailable) _message(context, _s(context, 'changed'));
-      return molds;
+      return _inlineScanner ? _productMolds[group.key] : molds;
     } catch (error) {
       if (await _continueAfterDiscard() &&
           _current &&
@@ -380,6 +384,7 @@ extension _MoldPickerProducts on _MoldPickerState {
       onEditQolip: (_) {},
       onAdd: () {},
       showMoldCount: molds != null,
+      showExpandIcon: !_inlineScanner,
       emptyContent: Padding(
           padding: const EdgeInsets.all(16), child: Text(_s(context, 'empty'))),
       selectionControl: Checkbox(

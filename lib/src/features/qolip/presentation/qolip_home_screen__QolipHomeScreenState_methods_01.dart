@@ -7,7 +7,8 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     if (existing != null && existing.length == length) {
       return existing;
     }
-    final previousIndex = existing?.index ?? 0;
+    final previousIndex = _pendingTabIndex ?? existing?.index ?? 0;
+    _pendingTabIndex = null;
     final initialIndex = previousIndex < 0
         ? 0
         : previousIndex >= length
@@ -28,6 +29,11 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     if (!mounted) {
       return;
     }
+    if (_preserveHome && _homeDataReady) {
+      _quietRefreshGeneration++;
+      _requestQuietRefresh(force: true);
+      return;
+    }
     setState(() {
       for (final key in _locationGenerations.keys.toList(growable: false)) {
         _locationGenerations[key] = _locationGenerations[key]! + 1;
@@ -38,26 +44,33 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
   }
 
   Future<QolipBlocksResult> _loadBlocks() async {
+    final scope = _homeScope;
     final result = await MobileApi.instance.qolipBlocksData();
     final blocks = result.blocks
         .where((block) => block.name.trim().isNotEmpty)
         .toList(growable: false);
     final orderedBlocks = await _applySavedBlockOrder(blocks);
-    _orderedBlocks = orderedBlocks;
-    _supportsCrossBlockMove = result.supportsCrossBlockMove;
-    if (_searchQuery.isNotEmpty) {
-      _refreshSearchMatches();
-    }
-    return QolipBlocksResult(
+    final snapshot = QolipBlocksResult(
       warehouses: result.warehouses
           .where((warehouse) => warehouse.trim().isNotEmpty)
           .toList(growable: false),
       blocks: orderedBlocks,
       supportsCrossBlockMove: result.supportsCrossBlockMove,
     );
+    if (mounted && scope == _homeScope && scope == currentSessionReadScope()) {
+      _orderedBlocks = orderedBlocks;
+      _homeBlocksSnapshot = snapshot;
+      _supportsCrossBlockMove = result.supportsCrossBlockMove;
+      _homeDataReady = true;
+      if (_preserveHome) _startQuietRefreshCooldown();
+      if (_searchQuery.isNotEmpty) _refreshSearchMatches();
+    }
+    return snapshot;
   }
 
   Future<void> _reloadBlocks() async {
+    _quietRefreshGeneration++;
+    _quietRefreshQueued = false;
     _searchGeneration++;
     _searchDebounce?.cancel();
     setState(() {
@@ -128,7 +141,17 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     final reordered = [..._orderedBlocks];
     final block = reordered.removeAt(oldIndex);
     reordered.insert(insertionIndex, block);
-    setState(() => _orderedBlocks = reordered);
+    setState(() {
+      _orderedBlocks = reordered;
+      final snapshot = _homeBlocksSnapshot;
+      if (snapshot != null) {
+        _homeBlocksSnapshot = QolipBlocksResult(
+          warehouses: snapshot.warehouses,
+          blocks: reordered,
+          supportsCrossBlockMove: snapshot.supportsCrossBlockMove,
+        );
+      }
+    });
     unawaited(_saveBlockOrder(reordered));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && controller.index != nextIndex) {
@@ -159,10 +182,12 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     String key,
     int generation,
   ) async {
+    final scope = _homeScope;
     final locations = List<QolipLocationEntry>.unmodifiable(
       await MobileApi.instance.qolipLocations(block),
     );
-    if (_locationGenerations[key] == generation) {
+    if (scope == _homeScope && scope == currentSessionReadScope() &&
+        _locationGenerations[key] == generation) {
       _resolvedLocations[key] = locations;
     }
     return locations;
@@ -227,7 +252,12 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     if (current == route) {
       return;
     }
-    Navigator.of(context).pushReplacementNamed(route);
+    final navigator = Navigator.of(context);
+    if (AppSession.instance.profile?.role == UserRole.qolipchi) {
+      navigator.pushNamed(route);
+    } else {
+      navigator.pushReplacementNamed(route);
+    }
   }
 
   void _clearSearchCounts() {

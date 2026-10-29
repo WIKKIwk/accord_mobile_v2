@@ -3,6 +3,7 @@ part of 'qolip_home_screen.dart';
 
 class _QolipBlockGrid extends StatelessWidget {
   const _QolipBlockGrid({
+    super.key,
     required this.block,
     required this.future,
     required this.initialLocations,

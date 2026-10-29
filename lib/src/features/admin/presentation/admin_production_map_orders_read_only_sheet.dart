@@ -1768,7 +1768,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
               printMode: printMode,
               completionRequestNote: completionRequestNote,
               qolipCodes: qolipCodes,
-              qolipConfirmation: action == 'start'
+              qolipConfirmation: const {'start', 'resume'}.contains(action)
                   ? _automaticQolipConfirmation : null,
               workerHandoff: workerHandoff,
               removeRollFromApparatus: removeRollFromApparatus,
@@ -1804,7 +1804,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           _startInputProgressBatch = null;
           _startInputOpeningWipBatch = null;
         }
-        if (action == 'start' && states != null) {
+        if (const {'start', 'resume'}.contains(action) && states != null) {
           _clearAutomaticQolips();
           _scannedQolipCodes.clear();
           _requiredQolips.clear();
@@ -1920,8 +1920,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           error is MobileApiException && error.code == 'qolip_scan_incomplete';
       setState(() {
         _actionInFlight = false;
-        if (action == 'start') _clearAutomaticQolips();
-        if (action == 'start' && _queueActionShouldClearQolipScan(error)) {
+        if (const {'start', 'resume'}.contains(action)) {
+          _clearAutomaticQolips();
+        }
+        if (const {'start', 'resume'}.contains(action) && _queueActionShouldClearQolipScan(error)) {
           _scannedQolipCodes.clear();
           if (requirementsChanged) {
             _requiredQolips.clear();
@@ -2016,7 +2018,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
             AdminQueueQolipMode.scanRequired) {
       return const [];
     }
-    if (action == 'start' && _automaticQolipMode) {
+    if (_automaticQolipMode) {
       if (_automaticQolipsReady) return const [];
       _showSheetNotice(_automaticQolipBlockingText);
       return null;

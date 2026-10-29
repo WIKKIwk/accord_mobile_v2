@@ -3,6 +3,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/navigation/role_navigation_drawer.dart';
 import '../../../../core/session/session.dart';
 import '../../../shared/models/app_models.dart';
+import '../qolip_home_navigation.dart';
 import 'package:flutter/material.dart';
 
 class QolipNavigationDrawer extends StatelessWidget {
@@ -23,7 +24,14 @@ class QolipNavigationDrawer extends StatelessWidget {
     return RoleNavigationDrawer(
       selectedIndex: selectedIndex,
       selectedRouteName: selectedRouteName,
-      onNavigate: onNavigate,
+      onNavigate: (route) {
+        if (route == AppRoutes.qolipHome &&
+            AppSession.instance.profile?.role == UserRole.qolipchi) {
+          QolipHomeNavigation.open(context);
+        } else {
+          onNavigate(route);
+        }
+      },
       destinations: [
         RoleNavigationDrawerDestination(
           icon: Icons.grid_view_outlined,

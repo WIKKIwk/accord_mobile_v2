@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_list_row.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
@@ -45,6 +46,11 @@ Map<String, dynamic> snapshot() => {
 Finder formulaCard() =>
     find.byKey(const ValueKey('preparation-order-formula-mat-a-A'));
 
+MockClient legacyClient(Future<http.Response> Function(http.Request) handler) =>
+    MockClient((request) => request.url.path.endsWith('/formula-catalog')
+        ? Future.value(fixtures.response({'formulas': []}))
+        : handler(request));
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() async {
@@ -60,6 +66,158 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('product lists recipes once and opens their own internal formulas',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var deleted = false;
+
+    Map<String, dynamic> recipe(String id, String product, String material,
+            {bool canCreate = true}) =>
+        {
+          'id': id,
+          'formula_code': '95040000000${id.substring(1)}',
+          'name': 'LG',
+          'product_code': product,
+          'product_title': 'Test product',
+          'set_name': 'Test product',
+          'material_id': material,
+          'material_name': material == 'mat-a' ? 'PE PR' : 'PE',
+          'order_codes': ['O-1'],
+          'can_create': canCreate,
+        };
+
+    Map<String, dynamic> part(String name) => {
+          'name': name,
+          'share_percent': '30.000000',
+          'lines': lines,
+        };
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+          fixtures.app(home: const PreparationFormulaOrdersScreen()));
+      await tester.pumpAndSettle();
+      final product = find.byKey(
+          const ValueKey('preparation-formula-set-950200000001'));
+      expect(tester.widget<AdminCatalogListRow>(product).value, '2 ta formula');
+      await tester.tap(product);
+      await tester.pumpAndSettle();
+
+      final lg = find.byKey(const ValueKey('preparation-product-recipe-v1'));
+      final shell = tester.widget<AppShell>(
+          find.ancestor(of: lg, matching: find.byType(AppShell)).first);
+      expect(shell.title, 'Test product');
+      expect(shell.subtitle, '950200000001');
+      final otherMaterial =
+          find.byKey(const ValueKey('preparation-product-recipe-v2'));
+      expect(lg, findsOneWidget);
+      expect(otherMaterial, findsOneWidget);
+      expect(find.byKey(const ValueKey('preparation-product-recipe-v3')),
+          findsNothing);
+      expect(tester.widget<AdminCatalogListRow>(lg).title, 'LG');
+      expect(tester.widget<AdminCatalogListRow>(lg).subtitle,
+          '950400000001 • PE PR');
+      expect(find.text('LG • PE PR • A'), findsNothing);
+      expect(find.text('LG • PE PR • B'), findsNothing);
+      expect(find.text('LG • PE PR • C'), findsNothing);
+
+      await tester.tap(lg);
+      await tester.pumpAndSettle();
+      var screen = tester.widget<PreparationOrderFormulaScreen>(
+          find.byType(PreparationOrderFormulaScreen));
+      expect(screen.variantId, 'v1');
+      expect(screen.variantName, 'LG');
+      expect(screen.variantCode, '950400000001');
+      expect(screen.materialId, 'mat-a');
+      expect(screen.allowAddingFormula, isTrue);
+      for (final name in ['A', 'B', 'C']) {
+        final card = find.byKey(ValueKey('preparation-formula-card-$name'));
+        await tester.ensureVisible(card);
+        expect(card, findsOneWidget);
+      }
+      final cardB = find.byKey(const ValueKey('preparation-formula-card-B'));
+      await tester.ensureVisible(cardB);
+      await tester.tap(find.descendant(
+          of: cardB, matching: find.byTooltip('O‘chirish')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('O‘chirish').last);
+      await tester.pumpAndSettle();
+      expect(deleted, isTrue);
+      expect(cardB, findsNothing);
+      Navigator.of(tester.element(find.byType(PreparationOrderFormulaScreen)))
+          .pop();
+      await tester.pumpAndSettle();
+      expect(lg, findsOneWidget);
+      expect(otherMaterial, findsOneWidget);
+
+      await tester.tap(otherMaterial);
+      await tester.pumpAndSettle();
+      screen = tester.widget<PreparationOrderFormulaScreen>(
+          find.byType(PreparationOrderFormulaScreen));
+      expect(screen.variantId, 'v2');
+      expect(screen.materialId, 'mat-b');
+      expect(screen.allowAddingFormula, isFalse);
+      expect(find.text('Bu formulada ichki tarkib yo‘q.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          if (request.url.path.endsWith('/formula-sets')) {
+            return fixtures.response({
+              'sets': [
+                {
+                  ...orderData(),
+                  'formulas': [
+                    for (final name in ['A', 'B', 'C'])
+                      if (!deleted || name != 'B')
+                        {
+                          'material_id': 'mat-a',
+                          'material_name': 'PE PR',
+                          'variant_id': 'v1',
+                          'variant_name': 'LG',
+                          ...part(name),
+                        },
+                  ],
+                }
+              ],
+            });
+          }
+          if (request.url.path.endsWith('/formula-catalog')) {
+            return fixtures.response({
+              'formulas': [
+                recipe('v1', 'P', 'mat-a'),
+                recipe('v2', 'P', 'mat-b', canCreate: false),
+                recipe('v3', 'OTHER', 'mat-a'),
+              ],
+            });
+          }
+          if (request.url.path.endsWith('/snapshot')) {
+            return fixtures.response(snapshot());
+          }
+          expect(request.url.path, '/v1/mobile/preparation/formulas/saved');
+          if (request.method == 'DELETE') {
+            expect(request.url.queryParameters, {
+              'product_code': 'P',
+              'material_id': 'mat-a',
+              'variant_id': 'v1',
+              'name': 'B',
+            });
+            deleted = true;
+            return fixtures.response({'deleted': true});
+          }
+          expect(request.url.queryParameters['product_code'], 'P');
+          final variant = request.url.queryParameters['variant_id'];
+          expect(request.url.queryParameters['material_id'],
+              variant == 'v1' ? 'mat-a' : 'mat-b');
+          return fixtures.response({
+            'product_code': 'P',
+            'formulas': variant == 'v1'
+                ? [part('A'), if (!deleted) part('B'), part('C')]
+                : [],
+          });
+        }));
   });
 
   testWidgets(
@@ -78,7 +236,7 @@ void main() {
           matching: find.byType(AdminSummaryCard));
       expect(tester.getSize(materialCard).height,
           lessThanOrEqualTo(tester.getSize(orderCard).height));
-      await tester.tap(find.text('Formulalar'));
+      await tester.tap(find.text('Mahsulot formulasi'));
       await tester.pumpAndSettle();
       expect(find.text('950200000001'), findsOneWidget);
       expect(find.text('Test product'), findsOneWidget);
@@ -131,7 +289,7 @@ void main() {
       expect(find.text('Shnek ulushi: 100%\nKley • 70%\nUn • 30%'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
-        () => MockClient((request) async {
+        () => legacyClient((request) async {
               if (request.url.path.endsWith('/snapshot')) {
                 return fixtures.response(snapshot());
               }
@@ -210,7 +368,7 @@ void main() {
       expect(find.byType(TextFormField), findsNothing);
       expect(card, findsOneWidget);
       expect(tester.takeException(), isNull);
-    }, () => MockClient((request) async {
+    }, () => legacyClient((request) async {
       expect(request.method, 'GET');
       if (request.url.path.endsWith('/snapshot')) {
         return fixtures.response(snapshot());
@@ -272,7 +430,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Saqlangan formulalar yo‘q.'), findsOneWidget);
     },
-        () => MockClient((request) async {
+        () => legacyClient((request) async {
               if (request.method == 'GET') {
                 return fixtures.response({
                   'sets': deleted ? [] : [orderData()]
@@ -324,7 +482,7 @@ void main() {
       expect(other, findsNothing);
       expect(formulaCard(), findsOneWidget);
     },
-        () => MockClient((request) async {
+        () => legacyClient((request) async {
               if (request.method == 'GET') {
                 return fixtures.response({
                   'sets': [order]
@@ -399,7 +557,7 @@ void main() {
       expect(find.text('Saqlangan formulalar yo‘q.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
-        () => MockClient((request) async {
+        () => legacyClient((request) async {
               if (request.url.path.endsWith('/snapshot')) {
                 return fixtures.response(snapshot());
               }
@@ -463,7 +621,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Formula komplekti topilmadi.'), findsOneWidget);
     },
-        () => MockClient((_) async => ++count == 1
+        () => legacyClient((_) async => ++count == 1
             ? http.Response('Bad gateway', 502)
             : fixtures.response({
                 'sets': [orderData()]
@@ -515,7 +673,7 @@ void main() {
       expect(find.text('Qurt maxsus'), findsOneWidget);
       expect(find.text(id), findsOneWidget);
       expect(tester.takeException(), isNull);
-    }, () => MockClient((request) async {
+    }, () => legacyClient((request) async {
       expect(request.url.path, '/v1/mobile/preparation/formula-sets');
       if (request.method == 'PATCH') {
         expect(jsonDecode(request.body), {'set_id': id, 'name': 'Qurt maxsus'});
@@ -545,7 +703,7 @@ void main() {
       expect(find.text(id), findsOneWidget);
       expect(find.text('1 ta formula'), findsOneWidget);
       expect(find.text('Bu formulani boshqarish huquqingiz yo‘q'), findsOneWidget);
-    }, () => MockClient((request) async => request.method == 'PATCH'
+    }, () => legacyClient((request) async => request.method == 'PATCH'
         ? fixtures.response({'error': 'Nomni o‘zgartirishga ruxsat yo‘q'}, 403)
         : fixtures.response({'sets': [orderData()]})));
   });

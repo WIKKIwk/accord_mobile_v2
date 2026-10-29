@@ -193,6 +193,26 @@ extension MobileApiPreparation on MobileApi {
     return PreparationFormula.listFromJson(_preparationResponse(response));
   }
 
+  Future<List<PreparationFormulaCatalogEntry>> preparationFormulaCatalog() async {
+    final key = _preparationStorageKey();
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
+      }
+      return _get(Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formula-catalog'),
+          headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) {
+      throw const MobileApiException(code: 'account_changed', message: 'Akkaunt o‘zgargan. Sahifani qayta oching');
+    }
+    final data = _preparationResponse(response);
+    if (data['formulas'] is! List) {
+      throw const MobileApiException(code: 'preparation_invalid_response', message: 'Formulalar yuklanmadi');
+    }
+    return (data['formulas'] as List).map((entry) => PreparationFormulaCatalogEntry.fromJson(
+        Map<String, dynamic>.from(entry as Map))).toList();
+  }
+
   Future<List<PreparationFormulaSet>> preparationFormulaSets() async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {

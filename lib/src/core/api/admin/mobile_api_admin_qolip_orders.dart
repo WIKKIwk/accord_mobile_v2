@@ -54,6 +54,7 @@ class AdminProductionMapQolipValidation {
     this.policyRevision = 0,
     this.blockingReasonCode = '',
     this.sets = const [],
+    this.reusedQolipCodes = const [],
   });
 
   final String qolipCode;
@@ -62,6 +63,7 @@ class AdminProductionMapQolipValidation {
   final int policyRevision;
   final String blockingReasonCode;
   final List<AdminQolipAutomaticSet> sets;
+  final List<String> reusedQolipCodes;
 
   List<String> get requiredQolipCodes => [
         for (final qolip in requiredQolips) qolip.qolipCode,
@@ -113,6 +115,21 @@ class AdminProductionMapQolipValidation {
         requiredQolips.add(qolip);
       }
     }
+    final rawReused = json['reused_qolip_codes'];
+    if (rawReused != null && (rawReused is! List ||
+        rawReused.any((code) => code is! String || code.trim().isEmpty))) {
+      throw _invalidQolipAutomaticConfirmation();
+    }
+    final reused = rawReused == null ? <String>[] :
+        (rawReused as List).cast<String>().map((code) => code.trim()).toList();
+    if (reused.isNotEmpty) {
+      final keys = reused.map((code) => code.toLowerCase()).toSet();
+      final requiredKeys = requiredQolips.map((mold) => mold.qolipCode.toLowerCase()).toSet();
+      if (keys.length != reused.length || keys.length != requiredKeys.length ||
+          !keys.containsAll(requiredKeys)) {
+        throw _invalidQolipAutomaticConfirmation();
+      }
+    }
     final sets = <AdminQolipAutomaticSet>[];
     if (automatic) {
       final codes = json['required_qolip_codes'] as List;
@@ -139,8 +156,8 @@ class AdminProductionMapQolipValidation {
             AdminQolipAutomaticSet.fromJson(raw.cast<String, dynamic>());
         if (!ids.add(set.setId)) throw _invalidQolipAutomaticConfirmation();
         if (set.ready &&
-            (!requiredQolips.any(
-                    (mold) => !mold.isExtension && mold.setId == set.setId) ||
+            (!requiredQolips.any((mold) => mold.setId == set.setId &&
+                    (!mold.isExtension || requiredQolips.every((entry) => entry.isExtension))) ||
                 requiredQolips.any((mold) =>
                     (mold.isExtension || mold.setId == set.setId) &&
                     !mold.ready))) {
@@ -164,6 +181,7 @@ class AdminProductionMapQolipValidation {
       policyRevision: rawRevision is int ? rawRevision : 0,
       blockingReasonCode: json['blocking_reason_code']?.toString().trim() ?? '',
       sets: sets,
+      reusedQolipCodes: reused,
     );
   }
 }

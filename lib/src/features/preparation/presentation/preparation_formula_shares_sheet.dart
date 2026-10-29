@@ -130,7 +130,7 @@ class _FormulaSharesSheetState extends State<_FormulaSharesSheet> {
                     style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
                 UrduAwareText(
-                    '${widget.materialName.isEmpty ? 'Homashyo' : widget.materialName}: shnek ulushlari jami 100% bo‘lsin. Har bir shnek ichidagi seriyalar alohida 100% hisoblanadi.'),
+                    '${widget.materialName.isEmpty ? 'Homashyo' : widget.materialName}: shnek ulushlari jami 100% bo‘lsin. Har bir shnek ichidagi seriyolar alohida 100% hisoblanadi.'),
                 const SizedBox(height: 16),
                 for (var i = 0; i < widget.formulas.length; i++)
                   Padding(

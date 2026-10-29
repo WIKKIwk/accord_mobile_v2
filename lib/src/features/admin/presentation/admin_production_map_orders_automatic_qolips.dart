@@ -68,6 +68,14 @@ extension _AutomaticOrderQolips on _ReadOnlyOrderDetailSheetState {
     final previous = _selectedAutomaticQolipSet;
     _replaceRequiredQolips(validation.requiredQolips);
     if (!_automaticQolipMode) {
+      _scannedQolipCodes.removeWhere((key, _) => !_requiredQolips.containsKey(key));
+      if (_queueActionControl?.allows('resume') == true &&
+          validation.reusedQolipCodes.isNotEmpty) {
+        _scannedQolipCodes
+          ..clear()
+          ..addEntries(validation.reusedQolipCodes.map(
+              (code) => MapEntry(code.toLowerCase(), code)));
+      }
       _clearAutomaticQolips();
       return;
     }

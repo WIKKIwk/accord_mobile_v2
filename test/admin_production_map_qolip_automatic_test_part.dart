@@ -2,11 +2,18 @@ part of 'admin_production_map_test_screen_test.dart';
 
 Map<String, dynamic> _autoQolipControl(
     {bool automatic = true,
+    bool resume = false,
     int policyRevision = 1,
     bool materialScan = false}) {
   final control = scanControl();
+  if (resume) {
+    control['state'] = 'paused';
+    control['allowed_actions'] = ['resume'];
+  }
   control['interaction'] = <String, dynamic>{
     ...(control['interaction'] as Map<String, dynamic>),
+    if (resume) 'mode': 'paused',
+    if (resume) 'resume_input_required': false,
     'qolip_automatic_confirmation': automatic,
     'qolip_policy_revision': policyRevision,
     'start_materials_mode': materialScan ? 'scan_required' : 'hidden',
@@ -68,10 +75,13 @@ Map<String, dynamic> _autoBootstrap(
     bool missing = false,
     bool materialScan = false,
     bool automatic = true,
+    bool resume = false,
     int policyRevision = 1,
     int revision = 7}) {
   final body = scanBootstrap(revision: revision);
+  if (resume) body['control_state']['queue_state'] = 'paused';
   body['control_state']['control'] = _autoQolipControl(
+      resume: resume,
       automatic: automatic,
       policyRevision: policyRevision,
       materialScan: materialScan);
@@ -87,16 +97,19 @@ Map<String, dynamic> _autoBootstrap(
 
 AdminProductionMapLiveSnapshot _autoLiveSnapshot(ProductionMapSaved order,
         {bool automatic = true,
+        bool resume = false,
         int revision = 7,
         int policyRevision = 1,
         bool materialScan = false}) =>
     AdminProductionMapLiveSnapshot.fromJson({
       ...scanSequence(),
+      if (resume) 'queue_states': {scanApparatus: {scanOrder: 'paused'}},
       'rev': revision,
       'scope': 'worker-live-scope',
       'queue_action_controls': {
         scanApparatus: {
           scanOrder: _autoQolipControl(
+              resume: resume,
               automatic: automatic,
               policyRevision: policyRevision,
               materialScan: materialScan)
@@ -109,8 +122,9 @@ AdminProductionMapLiveSnapshot _autoLiveSnapshot(ProductionMapSaved order,
 
 Future<void> _openAutomaticQolipFixture(
     WidgetTester tester, _ScanBootstrapFixture fixture,
-    {bool materialScan = false}) async {
-  final snapshot = _autoLiveSnapshot(fixture.order, materialScan: materialScan);
+    {bool materialScan = false, bool resume = false, bool automatic = true}) async {
+  final snapshot = _autoLiveSnapshot(fixture.order, materialScan: materialScan,
+      resume: resume, automatic: automatic);
   await tester.pumpWidget(MaterialApp(
     theme: ThemeData(useMaterial3: true),
     locale: const Locale('uz'),
@@ -139,6 +153,74 @@ Future<void> _openAutomaticQolipFixture(
 }
 
 void _registerAutomaticQolipTests() {
+  for (final outcome in ['unchanged', 'replacement scan', 'replacement automatic', 'replacement alternatives']) {
+    testWidgets('mold resume: $outcome', (tester) async {
+      final fixture = await _prepareScanBootstrapFixture(tester);
+      final automatic = outcome.contains('automatic') || outcome.contains('alternatives');
+      final sets = outcome.contains('alternatives') ? 2 : 1;
+      final writes = <http.Request>[];
+      Map<String, dynamic> molds() {
+        if (automatic) return _autoQolipData(sets: sets);
+        final result = scanQolips();
+        result['qolip']['reused_qolip_codes'] = outcome == 'unchanged' ? ['MOLD1'] : <String>[];
+        return result;
+      }
+      await http.runWithClient(() async {
+        await _openAutomaticQolipFixture(tester, fixture, resume: true, automatic: automatic);
+        await tester.pumpAndSettle();
+        final resume = find.widgetWithText(FilledButton, 'Davom ettirish');
+        expect(resume, findsOneWidget);
+        if (outcome == 'replacement scan') {
+          expect(tester.widget<FilledButton>(resume).onPressed, isNull);
+          final dynamic content = tester.widget(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_ReadOnlyOrderDetailContent'));
+          await content.onQuickScan('MOLD1');
+          await tester.pumpAndSettle();
+        }
+        if (sets == 2) {
+          expect(tester.widget<FilledButton>(resume).onPressed, isNull);
+          await tester.tap(find.byKey(const ValueKey('production-qolips-expansion')));
+          await tester.pumpAndSettle();
+          final choice = find.byKey(const ValueKey('production-qolip-set-select-950100000002'));
+          await tester.ensureVisible(choice);
+          await tester.tap(choice);
+          await tester.pumpAndSettle();
+        }
+        expect(tester.widget<FilledButton>(resume).onPressed, isNotNull);
+        tester.widget<FilledButton>(resume).onPressed!();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(writes, hasLength(1));
+        final body = jsonDecode(writes.single.body) as Map;
+        expect(body['action'], 'resume');
+        if (automatic) {
+          expect(body['qolip_confirmation']['set_id'], sets == 2 ? '950100000002' : '950100000001');
+          expect(body.containsKey('qolip_codes'), isFalse);
+        } else {
+          expect(body['qolip_codes'], ['MOLD1']);
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 11));
+        expect(tester.takeException(), isNull);
+      }, () => MockClient((request) async {
+        if (request.url.path.endsWith('/raw-material-assignments')) {
+          return http.Response('[]', 200);
+        }
+        if (request.url.path.endsWith('/order-scan-bootstrap')) {
+          final result = _autoBootstrap(resume: true, automatic: automatic, sets: sets);
+          result['sections']['qolips']['data'] = molds();
+          return http.Response(jsonEncode(result), 200);
+        }
+        if (request.url.path.endsWith('/qolip-validate')) return http.Response(jsonEncode(molds()), 200);
+        if (request.url.path.endsWith('/queue-action')) {
+          writes.add(request);
+          return http.Response('{"error":"apparatus_busy"}', 409);
+        }
+        return http.Response('{}', 200);
+      }));
+    });
+  }
   for (final outcome in [
     'single',
     'alternatives',

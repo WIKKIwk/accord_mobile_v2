@@ -715,7 +715,9 @@ void main() {
       await tester.pumpWidget(app(const QolipStorageScreen(archive: true)));
       await tester.pumpAndSettle();
       expect(find.text('Archive dates'), findsOneWidget);
-      await tester.tap(find.byType(TextField));
+      await tester.tap(find.descendant(
+          of: find.byType(AdminCatalogSearchField),
+          matching: find.byType(EditableText)));
       tester.view.viewInsets = const FakeViewPadding(bottom: 320);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -735,6 +737,142 @@ void main() {
     },
         () => MockClient((_) async =>
             jsonResponse({'ok': true, 'entries': [], 'has_more': false})));
+  });
+  testWidgets('archive top bar searches and clears the server query',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final queries = <String>[];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipStorageScreen(archive: true)));
+      await tester.pumpAndSettle();
+      final search = find.byType(AdminCatalogSearchField);
+      expect(find.descendant(of: find.byType(AppBar), matching: search),
+          findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Search archive'), findsOneWidget);
+
+      final input =
+          find.descendant(of: search, matching: find.byType(EditableText));
+      await tester.enterText(input, 'Q-ONE');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(queries.last, 'Q-ONE');
+      expect(find.byTooltip('Refresh'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('qolip-archive-search-close')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<EditableText>(input).controller.text, 'Q-ONE');
+      expect(find.byTooltip('Refresh'), findsOneWidget);
+      await tester.tap(find.descendant(
+          of: search, matching: find.byIcon(Icons.close_rounded)));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(queries.last, isEmpty);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          queries.add(request.url.queryParameters['q'] ?? '');
+          return jsonResponse({'ok': true, 'entries': [], 'has_more': false});
+        }));
+  });
+
+  testWidgets('archive filters and badges distinguish pallets and molds',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final queries = <Map<String, String>>[];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipStorageScreen(archive: true)));
+      await tester.pumpAndSettle();
+      final palletBadge = find.byKey(const ValueKey('qolip-archive-paddon-pa'));
+      final moldBadge = find.byKey(const ValueKey('qolip-archive-kind-mo'));
+      expect(find.descendant(of: palletBadge, matching: find.text('QP-00012')),
+          findsOneWidget);
+      expect(find.descendant(of: moldBadge, matching: find.text('Mold')),
+          findsOneWidget);
+
+      await tapVisible(tester,
+          find.byKey(const ValueKey('qolip-archive-kind-filter')));
+      await tapVisible(tester,
+          find.byKey(const ValueKey('qolip-archive-kind-option-Pallets')));
+      expect(palletBadge, findsOneWidget);
+      expect(moldBadge, findsNothing);
+      await tapVisible(tester,
+          find.byKey(const ValueKey('qolip-archive-kind-filter')));
+      await tapVisible(tester,
+          find.byKey(const ValueKey('qolip-archive-kind-option-Molds')));
+      expect(palletBadge, findsNothing);
+      expect(find.byType(QolipProductContainerCard), findsOneWidget);
+
+      await tapVisible(tester,
+          find.byKey(const ValueKey('qolip-archive-warehouse-filter')));
+      await tapVisible(
+          tester,
+          find.byKey(
+              const ValueKey('qolip-archive-warehouse-option-Qolip ombori')));
+      expect(queries.last['warehouse'], 'Qolip ombori');
+      expect(find.text('Warehouse: Qolip ombori'), findsOneWidget);
+
+      await tapVisible(
+          tester, find.byKey(const ValueKey('qolip-archive-date-filter')));
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), '01/01/2020');
+      await tester.enterText(find.byType(TextField).at(1), '01/31/2020');
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(queries.last['from'], '2020-01-01');
+      expect(queries.last['to'], '2020-01-31');
+      final dateFilter =
+          find.byKey(const ValueKey('qolip-archive-date-filter'));
+      expect(tester.widget<FilterChip>(dateFilter).selected, isTrue);
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tapVisible(tester, find.descendant(
+          of: dateFilter, matching: find.byTooltip('Clear date filter')));
+      expect(queries.last.containsKey('from'), isFalse);
+      expect(queries.last.containsKey('to'), isFalse);
+      expect(queries.last['warehouse'], 'Qolip ombori');
+
+      await tapVisible(tester, find.text('Clear filters'));
+      expect(queries.last.containsKey('warehouse'), isFalse);
+      expect(queries.last.containsKey('from'), isFalse);
+      expect(queries.last.containsKey('to'), isFalse);
+      expect(palletBadge, findsOneWidget);
+      expect(moldBadge, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          if (request.url.path.endsWith('/blocks')) {
+            return jsonResponse({
+              'ok': true,
+              'warehouses': ['Qolip ombori', 'Other'],
+              'blocks': [],
+            });
+          }
+          queries.add(request.url.queryParameters);
+          return jsonResponse({
+            'ok': true,
+            'entries': [
+              {
+                'id': 'pa',
+                'kind': 'paddon',
+                'code': 'QP-00012',
+                'warehouse': 'Qolip ombori',
+                'archived_at': '2026-10-29T10:00:00Z',
+                'snapshot': <String, dynamic>{},
+              },
+              {
+                'id': 'mo',
+                'kind': 'qolip',
+                'code': 'Q-ONE',
+                'warehouse': 'Qolip ombori',
+                'archived_at': '2026-10-29T10:00:00Z',
+                'snapshot': <String, dynamic>{},
+              },
+            ],
+            'has_more': false,
+          });
+        }));
   });
   test('QR mold lookup requests exact code rather than fuzzy first page',
       () async {

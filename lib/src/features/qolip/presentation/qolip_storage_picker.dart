@@ -17,6 +17,7 @@ class _MoldPickerState extends State<_MoldPicker>
   FocusNode? _searchFocus;
   FocusNode get _searchFocusNode => _searchFocus ??= FocusNode();
   final _selected = <String, QolipStorageMold>{};
+  final _scannedCodes = <String>{};
   final _queuedCodes = <String>{};
   List<QolipStorageMold> _molds = [];
   Timer? _debounce, _feedbackTimer;
@@ -40,7 +41,7 @@ class _MoldPickerState extends State<_MoldPicker>
   _StorageProductImages? _productImageResolver;
   _StorageProductImages get _productImages =>
       _productImageResolver ??= _StorageProductImages(
-          isCurrent: () => _current && !_scanMode, groups: _groupProducts);
+          isCurrent: () => _current && _listVisible, groups: _groupProducts);
   ScrollController? _listScrollController;
   ScrollController get _listScroll => _listScrollController ??=
       ScrollController()..addListener(_scheduleMoreIfNeeded);
@@ -65,6 +66,8 @@ class _MoldPickerState extends State<_MoldPicker>
       !_leaving &&
       _scope == currentSessionReadScope();
   bool get _busy => _loadingProductKey != null || _pendingScans > 0;
+  bool get _inlineScanner => widget.paddonCode != null;
+  bool get _listVisible => _inlineScanner || !_scanMode;
   bool get _listPending =>
       _loading || _searchPending == true || _failure != null;
   bool _eligible(QolipStorageMold mold) =>
@@ -76,7 +79,7 @@ class _MoldPickerState extends State<_MoldPicker>
   void _loadMoreIfNeeded() {
     final scroll = _listScrollController;
     if (!_current ||
-        _scanMode ||
+        !_listVisible ||
         _busy ||
         _reviewOpen ||
         _listPending ||
@@ -94,6 +97,7 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   void _notifySelectionChanged(Iterable<QolipStorageMold> molds) {
+    _scannedCodes.removeWhere((key) => !_selected.containsKey(key));
     final keys = <String>{};
     for (final mold in molds) {
       if (!_hasLinkedProduct(mold)) {
@@ -132,6 +136,24 @@ class _MoldPickerState extends State<_MoldPicker>
     }
   }
 
+  bool _selectionUnchanged(
+          Map<String, QolipStorageMold>? snapshot, String key) =>
+      snapshot == null || identical(_selected[key], snapshot[key]);
+
+  void _rememberConcurrentScans(Map<String, QolipStorageMold>? snapshot,
+      Iterable<QolipStorageMold> loaded) {
+    if (snapshot == null || _scannedCodes.isEmpty) return;
+    final loadedKeys = loaded.map(_pickerMoldKey).toSet();
+    final concurrentScans = [
+      for (final entry in _selected.entries)
+        if (_scannedCodes.contains(entry.key) &&
+            (!loadedKeys.contains(entry.key) ||
+                !identical(entry.value, snapshot[entry.key])))
+          entry.value,
+    ];
+    if (concurrentScans.isNotEmpty) _rememberMolds(concurrentScans);
+  }
+
   void _selectMolds(Iterable<QolipStorageMold> molds) {
     final changed = <QolipStorageMold>[];
     for (final mold in molds) {
@@ -150,7 +172,7 @@ class _MoldPickerState extends State<_MoldPicker>
   void initState() {
     super.initState();
     _scanMode = widget.scanInitially;
-    if (!_scanMode) _load();
+    if (_listVisible) _load();
   }
 
   @override
@@ -181,12 +203,15 @@ class _MoldPickerState extends State<_MoldPicker>
                 _searchPending == true ||
                 _busy ||
                 _reviewOpen ||
-                _scanMode ||
+                !_listVisible ||
                 _next == null))) {
       return;
     }
     final offset = more ? _next! : 0;
     final generation = ++_generation;
+    final selectedAtStart = _inlineScanner
+        ? Map<String, QolipStorageMold>.of(_selected)
+        : null;
     setState(() {
       _loading = true;
       _failure = null;
@@ -213,14 +238,17 @@ class _MoldPickerState extends State<_MoldPicker>
       _next = page.nextOffset;
       for (final mold in page.items) {
         final key = _pickerMoldKey(mold);
-        if (_selected.containsKey(key)) {
+        if (_selected.containsKey(key) &&
+            _selectionUnchanged(selectedAtStart, key)) {
           if (_eligible(mold)) {
             _selected[key] = mold;
           } else {
             _selected.remove(key);
+            _scannedCodes.remove(key);
           }
         }
       }
+      _rememberConcurrentScans(selectedAtStart, page.items);
     } catch (e) {
       if (_current && generation == _generation) {
         _failure = e;
@@ -236,7 +264,7 @@ class _MoldPickerState extends State<_MoldPicker>
   }
 
   void _searchChanged(String _) {
-    if (!_current || _scanMode || _busy) return;
+    if (!_current || !_listVisible || _busy) return;
     _debounce?.cancel();
     setState(() {
       _searchPending = true;
@@ -249,7 +277,7 @@ class _MoldPickerState extends State<_MoldPicker>
   void _toggle(QolipStorageMold mold, bool selected) {
     if (!_current ||
         _loadingProductKey != null ||
-        (!_scanMode && _listPending) ||
+        (!_inlineScanner && !_scanMode && _listPending) ||
         !_eligible(mold)) return;
     final key = _pickerMoldKey(mold);
     if (selected && !_selected.containsKey(key) && _selected.length >= 1000) {
@@ -345,7 +373,12 @@ class _MoldPickerState extends State<_MoldPicker>
     await Future<void>.delayed(Duration.zero);
     if (!mounted || _scope != currentSessionReadScope()) return;
     navigator.pop();
-    AppRootNavigation.replaceRootRoute(navigator.context, route);
+    if (route == AppRoutes.qolipHome &&
+        AppSession.instance.profile?.role == UserRole.qolipchi) {
+      QolipHomeNavigation.open(navigator.context);
+    } else {
+      AppRootNavigation.replaceRootRoute(navigator.context, route);
+    }
   }
 
   void _onDockTab(QolipDockTab tab) {
@@ -373,8 +406,8 @@ class _MoldPickerState extends State<_MoldPicker>
         title: _s(context, 'select_molds'),
         subtitle: '',
         nativeTopBar: true,
-        automaticallyImplyNativeLeading: _scanMode,
-        titleWidget: _scanMode
+        automaticallyImplyNativeLeading: !_listVisible,
+        titleWidget: !_listVisible
             ? null
             : ListenableBuilder(
                 listenable: _activityChanges,
@@ -442,44 +475,123 @@ class _MoldPickerState extends State<_MoldPicker>
                         ]),
                         const SizedBox(height: 8),
                       ],
-                      if (!_scanMode) Text(_s(context, 'picker_hint')),
+                      if (_listVisible) Text(_s(context, 'picker_hint')),
                       const SizedBox(height: 14),
-                      Wrap(spacing: 8, runSpacing: 8, children: [
-                        ListenableBuilder(
-                          listenable: _selectionChanges,
-                          builder: (context, _) => PaddonMetric(
-                              label: _s(context, 'selected'),
-                              value: '${_selected.length}'),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ListenableBuilder(
+                              listenable: _selectionChanges,
+                              builder: (context, _) => PaddonMetric(
+                                  label: _s(context, 'selected'),
+                                  value: '${_selected.length}'),
+                            ),
+                            if (_inlineScanner) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Flexible(
+                                      child: ListenableBuilder(
+                                        listenable: _activityChanges,
+                                        builder: (context, _) => TextButton.icon(
+                                          key: const ValueKey(
+                                              'qolip-picker-scan-toggle'),
+                                          onPressed: _reviewOpen ||
+                                                  _loadingProductKey != null
+                                              ? null
+                                              : () => _changeMode(!_scanMode),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
+                                            backgroundColor: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withValues(alpha: 0.12),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                            minimumSize: const Size(0, 36),
+                                            visualDensity: VisualDensity.standard,
+                                            tapTargetSize:
+                                                MaterialTapTargetSize.shrinkWrap,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                            textStyle: Theme.of(context)
+                                                .textTheme
+                                                .labelLarge
+                                                ?.copyWith(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700),
+                                          ),
+                                          icon: Icon(
+                                            _scanMode
+                                                ? Icons.close_rounded
+                                                : Icons.qr_code_scanner_rounded,
+                                            size: 16,
+                                          ),
+                                          label: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                                _s(context, 'scan_via_qr'),
+                                                maxLines: 1),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ]),
+                      ),
                     ]),
               ),
               const SizedBox(height: 12),
-              ListenableBuilder(
-                listenable: _activityChanges,
-                builder: (context, _) => SegmentedButton<bool>(
-                  expandedInsets: EdgeInsets.zero,
-                  segments: [
-                    ButtonSegment(
-                        value: false,
-                        icon: const Icon(Icons.checklist_rounded),
-                        label: Text(_s(context, 'list_mode'))),
-                    ButtonSegment(
-                        value: true,
-                        icon: const Icon(Icons.qr_code_scanner_rounded),
-                        label: Text(_s(context, 'scan_mode'))),
-                  ],
-                  selected: {_scanMode},
-                  onSelectionChanged: _reviewOpen || _loadingProductKey != null
-                      ? null
-                      : (values) => _changeMode(values.single),
+              if (_inlineScanner) ...[
+                if (_scanMode) ..._scanPanelWidgets(context),
+                ListenableBuilder(
+                  listenable: _selectionChanges,
+                  builder: (context, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children:
+                        _selectionReviewWidgets(context, showEmpty: false),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (_scanMode)
-                ..._scannerWidgets(context)
-              else
                 ..._listWidgets(context),
+              ] else ...[
+                ListenableBuilder(
+                  listenable: _activityChanges,
+                  builder: (context, _) => SegmentedButton<bool>(
+                    expandedInsets: EdgeInsets.zero,
+                    segments: [
+                      ButtonSegment(
+                          value: false,
+                          icon: const Icon(Icons.checklist_rounded),
+                          label: Text(_s(context, 'list_mode'))),
+                      ButtonSegment(
+                          value: true,
+                          icon: const Icon(Icons.qr_code_scanner_rounded),
+                          label: Text(_s(context, 'scan_mode'))),
+                    ],
+                    selected: {_scanMode},
+                    onSelectionChanged:
+                        _reviewOpen || _loadingProductKey != null
+                            ? null
+                            : (values) => _changeMode(values.single),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_scanMode)
+                  ..._scannerWidgets(context)
+                else
+                  ..._listWidgets(context),
+              ],
             ],
           ),
         ),

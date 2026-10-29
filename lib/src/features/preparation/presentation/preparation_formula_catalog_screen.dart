@@ -14,7 +14,7 @@ class _PreparationFormulaCatalogScreenState
   final _searchFocus = FocusNode();
   late final _scope = currentSessionReadScope();
   bool get _sameScope => _scope == currentSessionReadScope();
-  List<PreparationFormulaSet> _sets = const [];
+  List<PreparationFormulaCatalogEntry> _formulas = const [];
   bool _loading = true, _busy = false;
   String? _error;
 
@@ -28,7 +28,7 @@ class _PreparationFormulaCatalogScreenState
   void _sessionChanged() {
     if (!mounted || _sameScope) return;
     setState(() {
-      _sets = const [];
+      _formulas = const [];
       _loading = false;
       _error = 'Akkaunt o‘zgargan. Sahifani qayta oching';
     });
@@ -49,8 +49,8 @@ class _PreparationFormulaCatalogScreenState
       _error = null;
     });
     try {
-      final sets = await MobileApi.instance.preparationFormulaSets();
-      if (mounted && _sameScope) setState(() => _sets = sets);
+      final formulas = await MobileApi.instance.preparationFormulaCatalog();
+      if (mounted && _sameScope) setState(() => _formulas = formulas);
     } catch (error) {
       if (mounted && _sameScope) {
         setState(() => _error = preparationFormulaErrorMessage(error));
@@ -60,71 +60,27 @@ class _PreparationFormulaCatalogScreenState
     }
   }
 
-  Future<void> _open(
-      PreparationFormulaSet set, PreparationScopedFormula entry) async {
+  Future<void> _open(PreparationFormulaCatalogEntry entry) async {
     if (_busy || _loading || !_sameScope) return;
     setState(() => _busy = true);
-    var changed = false;
     try {
-      final formulas = set.formulas
-          .where((f) =>
-              f.materialId == entry.materialId &&
-              f.variantId == entry.variantId)
-          .map((f) => f.formula)
-          .toList();
-      final action = await showPreparationFormulaDetails(context,
-          formula: entry.formula,
-          materialName: entry.materialName,
-          sharesComplete: preparationFormulaSharesComplete(formulas));
-      if (!mounted || !_sameScope || action == null) return;
-      if (action == 'shares') {
-        final updated = await showPreparationFormulaSharesEditor(context,
-            productCode: set.productCode,
-            materialId: entry.materialId,
-            materialName: entry.materialName,
-            formulas: formulas,
-            savedOnly: true,
-            variantId: entry.variantId);
-        changed = updated != null;
-      } else if (action == 'edit') {
-        await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
-            orderId: set.id,
-            orderCode: set.id,
-            productCode: set.productCode,
-            productTitle: set.productTitle,
-            materialId: entry.materialId,
-            materialName: entry.materialName,
-            initialFormulaName: entry.formula.name,
-            manageSavedFormula: true,
-            variantId: entry.variantId,
-            variantName: entry.variantName));
-        changed = true;
-      } else if (action == 'delete') {
-        final confirmed = await showM3ConfirmDialog(
-            context: context,
-            title: 'Formulani o‘chirish',
-            message:
-                '«${entry.formula.name}» formulasi o‘chirilsinmi? $_sharedFormulaWarning',
-            cancelLabel: 'Bekor qilish',
-            confirmLabel: 'O‘chirish',
-            destructive: true);
-        if (!mounted || !_sameScope || confirmed != true) return;
-        await MobileApi.instance.preparationDeleteFormula(
-            set.productCode, entry.formula.name,
-            materialId: entry.materialId,
-            savedOnly: true,
-            variantId: entry.variantId);
-        changed = true;
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(preparationFormulaErrorMessage(error))));
-      }
+      await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
+        orderId: '',
+        orderCode: '',
+        productCode: entry.productCode,
+        productTitle: entry.productTitle,
+        materialId: entry.materialId,
+        materialName: entry.materialName,
+        manageSavedFormula: true,
+        variantId: entry.id,
+        variantName: entry.name,
+        variantCode: entry.code,
+        allowAddingFormula: entry.canCreate,
+      ));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
-        if (changed) await _load();
+        if (_sameScope) await _load();
       }
     }
   }
@@ -133,19 +89,17 @@ class _PreparationFormulaCatalogScreenState
   Widget build(BuildContext context) {
     final query = _search.text.trim().toLowerCase();
     final entries = [
-      for (final set in _sets)
-        for (final entry in set.formulas)
-          if ([
-            entry.formula.name,
-            entry.formula.code,
-            entry.variantName,
-            entry.materialName,
-            set.name,
-            set.productTitle,
-            set.productCode,
-            ...set.orderCodes
-          ].join(' ').toLowerCase().contains(query))
-            (set, entry),
+      for (final entry in _formulas)
+        if ([
+          entry.name,
+          entry.code,
+          entry.materialName,
+          entry.setName,
+          entry.productTitle,
+          entry.productCode,
+          ...entry.orderCodes
+        ].join(' ').toLowerCase().contains(query))
+          entry,
     ];
     return AppShell(
       title: 'Formulalar',
@@ -158,6 +112,7 @@ class _PreparationFormulaCatalogScreenState
       titleWidget: AdminCatalogSearchField(
           controller: _search,
           focusNode: _searchFocus,
+          showLeading: false,
           hintText: 'Formula nomi, kodi yoki buyurtmani qidirish',
           onChanged: (_) => setState(() {}),
           onClear: () => setState(_search.clear)),
@@ -191,26 +146,26 @@ class _PreparationFormulaCatalogScreenState
                           ]),
                     );
                   }
-                  final (set, entry) = entries[index - 1];
-                  final formula = entry.formula;
-                  return AdminCatalogListRow(
-                    key: ValueKey(
-                        'preparation-catalog-formula-${formula.code.isNotEmpty ? formula.code : '${set.id}-${entry.materialId}-${entry.variantId}-${formula.name}'}'),
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                        index - 1, entries.length),
-                    icon: Icons.functions_rounded,
-                    title: [entry.variantName, formula.name]
-                        .where((v) => v.isNotEmpty)
-                        .join(' • '),
-                    subtitle: [
-                      if (formula.code.isNotEmpty) formula.code,
-                      set.productTitle,
-                      if (entry.materialName.isNotEmpty) entry.materialName,
-                      if (set.orderCodes.isNotEmpty)
-                        'Buyurtmalar: ${set.orderCodes.join(', ')}',
-                    ].join('\n'),
-                    subtitleMaxLines: 4,
-                    onTap: _busy ? null : () => _open(set, entry),
+                  final entry = entries[index - 1];
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      top: index == 1 ? 0 : M3SegmentedListGeometry.gap,
+                    ),
+                    child: AdminCatalogListRow(
+                      key: ValueKey('preparation-catalog-formula-${entry.id}'),
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          index - 1, entries.length),
+                      icon: Icons.functions_rounded,
+                      title: entry.name,
+                      subtitle: [
+                        if (entry.code.isNotEmpty) entry.code,
+                        entry.productTitle,
+                        if (entry.materialName.isNotEmpty) entry.materialName,
+                        if (entry.orderCodes.isNotEmpty)
+                          'Buyurtmalar: ${entry.orderCodes.join(', ')}',
+                      ].join(' • '),
+                      onTap: _busy ? null : () => _open(entry),
+                    ),
                   );
                 },
               ),

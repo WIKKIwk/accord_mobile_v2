@@ -273,14 +273,34 @@ class PreparationScopedFormula {
 
 class PreparationFormulaVariant {
   const PreparationFormulaVariant({required this.id, required this.name,
-    this.formulaCount = 0, this.sharesComplete = false});
+    this.code = '', this.formulaCount = 0, this.sharesComplete = false});
   factory PreparationFormulaVariant.fromJson(Map<String, dynamic> json) =>
       PreparationFormulaVariant(id: json['id'] as String, name: json['name'] as String,
+        code: (json['formula_code'] as String? ?? '').trim(),
         formulaCount: (json['formula_count'] as num?)?.toInt() ?? 0,
         sharesComplete: json['shares_complete'] == true);
-  final String id, name;
+  final String id, name, code;
   final int formulaCount;
   final bool sharesComplete;
+}
+
+class PreparationFormulaCatalogEntry {
+  PreparationFormulaCatalogEntry.fromJson(Map<String, dynamic> json)
+      : id = json['id'] as String,
+        code = (json['formula_code'] as String? ?? '').trim(),
+        name = json['name'] as String,
+        productCode = json['product_code'] as String,
+        productTitle = json['product_title'] as String,
+        setName = json['set_name'] as String? ?? '',
+        materialId = json['material_id'] as String,
+        materialName = json['material_name'] as String,
+        orderCodes = List<String>.from(json['order_codes'] as List),
+        canCreate = json['can_create'] == true;
+
+  final String id, code, name, productCode, productTitle, setName;
+  final String materialId, materialName;
+  final List<String> orderCodes;
+  final bool canCreate;
 }
 
 class PreparationFormulaLine {

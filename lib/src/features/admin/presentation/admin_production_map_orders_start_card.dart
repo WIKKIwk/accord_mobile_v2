@@ -729,7 +729,8 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                 );
               },
             ),
-          if ((uiState.showStart || uiState.showBackendBlockingState) &&
+          if ((uiState.showStart || uiState.showResume ||
+                  uiState.showBackendBlockingState) &&
               automaticQolipContent != null) ...[
             const Divider(height: 28),
             automaticQolipContent!,

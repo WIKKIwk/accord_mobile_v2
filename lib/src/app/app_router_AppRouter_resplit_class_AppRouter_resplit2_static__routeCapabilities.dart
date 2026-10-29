@@ -80,6 +80,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.boyoqchiHome: {'boyoqchi.access'},
   AppRoutes.preparation: {'preparation.access'},
   AppRoutes.preparationFormulas: {'preparation.access'},
+  AppRoutes.preparationProduction: {'preparation.access'},
   AppRoutes.rawMaterialSplit: {'raw_material.split'},
   AppRoutes.rawMaterialSplitHistory: {'raw_material.split'},
   AppRoutes.boyoqchiAstatka: {'boyoqchi.access'},

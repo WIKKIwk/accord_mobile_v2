@@ -78,6 +78,7 @@ class _PreparationFormulaVariantsScreenState
       customerName: widget.customerName,
       variantId: variant.id,
       variantName: variant.name,
+      variantCode: variant.code,
     ));
     _opening = false;
     if (mounted) await _load();
@@ -150,9 +151,12 @@ class _PreparationFormulaVariantsScreenState
                               .standaloneListSlotForIndex(i, _variants.length),
                           icon: Icons.functions_rounded,
                           title: _variants[i].name,
-                          subtitle: _variants[i].formulaCount == 0
-                              ? 'Tarkib hali kiritilmagan'
-                              : '${_variants[i].formulaCount} ta shnek • ${_variants[i].sharesComplete ? 'jami 100%' : 'ulushlar belgilanmagan'}',
+                          subtitle: [
+                            if (_variants[i].code.isNotEmpty) _variants[i].code,
+                            _variants[i].formulaCount == 0
+                                ? 'Tarkib hali kiritilmagan'
+                                : '${_variants[i].formulaCount} ta ichki formula • ${_variants[i].sharesComplete ? 'jami 100%' : 'ulushlar belgilanmagan'}',
+                          ].join(' • '),
                           onTap: _creating || _opening
                               ? null
                               : () => _open(_variants[i]),

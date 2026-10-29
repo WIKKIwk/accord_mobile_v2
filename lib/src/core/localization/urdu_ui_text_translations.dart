@@ -511,6 +511,7 @@ class UrduUiTextTranslations {
     'Bo‘laklar': 'حصے',
     'Chiqimlar': 'اخراج',
     'Formulalar': 'فارمولے',
+    'Mahsulot formulasi': 'مصنوعات کا فارمولا',
     'Joylashtirish': 'ترتیب دیں',
     'Jo‘natilmoqda...': 'بھیجا جا رہا ہے...',
     'Kamera': 'کیمرہ',
@@ -837,6 +838,7 @@ class UrduUiTextTranslations {
     'Scanner bu qurilmada ishlamaydi': 'اس ڈیوائس پر اسکینر کام نہیں کرتا',
     'Secret mode': 'خفیہ موڈ',
     'Seriya qo‘shish': 'سیریز شامل کریں',
+    'Seriyo qo‘shish': 'سیریز شامل کریں',
     'Server holati yangilanishi kutilmoqda':
         'سرور کی حالت اپ ڈیٹ ہونے کا انتظار ہے',
     'Server qo‘shish': 'سرور شامل کریں',

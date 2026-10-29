@@ -14,6 +14,7 @@ class AdminCatalogListRow extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.value = '',
+    this.titleMaxLines = 1,
     this.subtitleMaxLines = 1,
   });
 
@@ -24,6 +25,7 @@ class AdminCatalogListRow extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final String value;
+  final int titleMaxLines;
   final int subtitleMaxLines;
 
   @override
@@ -36,7 +38,7 @@ class AdminCatalogListRow extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       backgroundColor: scheme.surfaceContainerLowest,
-      fixedHeight: subtitleMaxLines == 1 ? 61 : null,
+      fixedHeight: titleMaxLines == 1 && subtitleMaxLines == 1 ? 61 : null,
       minHeight: 61,
       padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: value,
@@ -56,7 +58,7 @@ class AdminCatalogListRow extends StatelessWidget {
       ),
       title: title,
       subtitle: subtitle,
-      titleMaxLines: 1,
+      titleMaxLines: titleMaxLines,
       subtitleMaxLines: subtitleMaxLines,
       titleStyle: theme.textTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.w700,

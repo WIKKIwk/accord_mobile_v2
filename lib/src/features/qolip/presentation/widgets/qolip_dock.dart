@@ -2,8 +2,11 @@ import '../../../../app/app_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
+import '../../../../core/session/session.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
 import '../../../admin/presentation/widgets/admin_create_hub_sheet.dart';
+import '../../../shared/models/app_models.dart';
+import '../qolip_home_navigation.dart';
 import 'package:flutter/material.dart';
 
 enum QolipDockTab { home, products, tasks }
@@ -47,6 +50,9 @@ class QolipDock extends StatelessWidget {
           }
           if (onTabSelected != null) {
             onTabSelected!(tab);
+          } else if (tab == QolipDockTab.home &&
+              AppSession.instance.profile?.role == UserRole.qolipchi) {
+            QolipHomeNavigation.open(context);
           } else {
             AppRootNavigation.replaceRootRoute(context, route);
           }

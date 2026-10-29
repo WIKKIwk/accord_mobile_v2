@@ -51,7 +51,7 @@ extension MobileApiAdminQueueActionResult on MobileApi {
     final normalizedApparatusId = apparatus.trim();
     if (qolipConfirmation != null) {
       qolipConfirmation.toJson();
-      if (action != 'start' ||
+      if (!const {'start', 'resume'}.contains(action) ||
           qolipCode.trim().isNotEmpty ||
           qolipCodes.any((code) => code.trim().isNotEmpty)) {
         throw _invalidQolipAutomaticConfirmation();

@@ -20,11 +20,13 @@ import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
+import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_order_image_thumb.dart';
 import '../../shared/models/app_models.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_code_details_sheet.dart';
 import 'qolip_mileage_sheet.dart';
+import 'qolip_home_navigation.dart';
 import 'qolip_paddon_print.dart';
 import 'qolip_products_screen.dart'
     show QolipProductContainer, QolipProductContainerCard, QolipCodeRow;
@@ -234,6 +236,19 @@ Future<void> _moldDetails(BuildContext context, QolipStorageMold m,
   );
 }
 
+int? _archivePaddonMoldCount(QolipArchiveEntry entry) {
+  final items = entry.snapshot['items'];
+  if (items is List) return items.length;
+  final paddon = entry.snapshot['paddon'];
+  final count = paddon is Map ? paddon['item_count'] : null;
+  return count is num && count >= 0 ? count.toInt() : null;
+}
+
+String _archivePaddonLocation(QolipArchiveEntry entry) {
+  final paddon = entry.snapshot['paddon'];
+  return paddon is Map ? (paddon['location'] as String? ?? '') : '';
+}
+
 class QolipStorageScreen extends StatefulWidget {
   const QolipStorageScreen({super.key, this.archive = false});
   final bool archive;
@@ -244,33 +259,53 @@ class QolipStorageScreen extends StatefulWidget {
 class _QolipStorageScreenState extends State<QolipStorageScreen>
     with _StorageSessionState<QolipStorageScreen> {
   final _search = TextEditingController();
+  final _searchFieldKey = GlobalKey();
   FocusNode? _searchFocus;
   FocusNode get _searchFocusNode => _searchFocus ??= FocusNode();
   final _intent = QolipStorageIntent();
   final _scope = currentSessionReadScope();
+  final _archiveScroll = ScrollController();
   Timer? _debounce;
   List<QolipPaddon> _paddons = [];
   List<QolipArchiveEntry> _archive = [];
   int? _next;
   int _generation = 0;
   bool _loading = false, _saving = false, _history = false;
+  bool _archiveSearchPending = false, _archiveMoreFailure = false;
+  bool _archiveLoadingMore = false;
+  bool _returningHome = false;
   String _kind = 'all';
   String _warehouseFilter = '';
+  List<String> _warehouses = [];
+  bool _warehouseFilterExpanded = false;
+  bool _warehouseFilterLoading = false;
+  bool _kindFilterExpanded = false;
   DateTimeRange? _dateFilter;
   List<QolipStorageMold>? _pendingArchiveMolds;
   Map<String, String>? _createDraft;
   final _pendingPaddonDeletes = <String, Map<String, dynamic>>{};
   Object? _failure;
 
+  bool get _archiveBacksToHome =>
+      widget.archive && AppSession.instance.profile?.role == UserRole.qolipchi;
+
+  void _goHomeFromArchive() {
+    if (_returningHome || !mounted) return;
+    _returningHome = true;
+    QolipHomeNavigation.open(context);
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.archive) _archiveScroll.addListener(_scheduleArchiveMore);
     _load();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _archiveScroll.dispose();
     _generation++;
     _searchFocus?.dispose();
     _search.dispose();
@@ -279,7 +314,40 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
+    if (widget.archive) {
+      _generation++;
+      setState(() {
+        _archiveSearchPending = true;
+        _loading = false;
+        _failure = null;
+        _archiveMoreFailure = false;
+      });
+    }
     _debounce = Timer(const Duration(milliseconds: 300), () => _load());
+  }
+
+  void _scheduleArchiveMore() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _sessionExpired ||
+          _scope != currentSessionReadScope() ||
+          !widget.archive ||
+          _loading ||
+          _archiveSearchPending ||
+          _failure != null ||
+          _next == null ||
+          !_archiveScroll.hasClients ||
+          !_archiveScroll.position.hasContentDimensions) {
+        return;
+      }
+      final hasVisible = _archive.any((entry) =>
+          _kind == 'all' ||
+          entry.kind == _kind ||
+          (_kind == 'qolip' && entry.kind == 'paddon_mold'));
+      if (!hasVisible || _archiveScroll.position.extentAfter < 240) {
+        unawaited(_load(more: true));
+      }
+    });
   }
 
   bool _sameScope() {
@@ -290,21 +358,31 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
 
   Future<void> _load({bool more = false}) async {
     if (more && (_loading || _next == null)) return;
+    final offset = more ? _next! : 0;
     final generation = ++_generation;
     setState(() {
       _loading = true;
       _failure = null;
+      _archiveMoreFailure = false;
+      _archiveLoadingMore = widget.archive && more;
+      _archiveSearchPending = false;
     });
     try {
       if (widget.archive) {
         final page = await MobileApi.instance.qolipArchive(
             status: _history ? 'all' : 'open',
+            view: _kind == 'qolip' ? 'molds' : '',
             warehouse: _warehouseFilter,
             from: _dateFilter?.start,
             to: _dateFilter?.end,
             query: _search.text.trim(),
-            offset: more ? _next! : 0);
+            offset: offset);
         if (!mounted || generation != _generation) return;
+        if (page.nextOffset != null &&
+            (page.nextOffset! <= offset || page.items.isEmpty)) {
+          throw const MobileApiException(
+              code: 'qolip_storage_invalid_page', message: 'Invalid archive page');
+        }
         _archive = [if (more) ..._archive, ...page.items];
         _next = page.nextOffset;
       } else {
@@ -315,10 +393,14 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
         _next = page.nextOffset;
       }
     } catch (e) {
-      if (mounted && generation == _generation) _failure = e;
+      if (mounted && generation == _generation) {
+        _failure = e;
+        _archiveMoreFailure = widget.archive && more;
+      }
     } finally {
       if (mounted && generation == _generation) {
         setState(() => _loading = false);
+        if (widget.archive && _failure == null) _scheduleArchiveMore();
       }
     }
   }
@@ -331,28 +413,26 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
     if (mounted) await _load();
   }
 
-  Future<void> _filterWarehouse() async {
+  Future<void> _toggleWarehouseFilter() async {
+    if (_warehouseFilterExpanded) {
+      setState(() => _warehouseFilterExpanded = false);
+      return;
+    }
+    setState(() {
+      _warehouseFilterExpanded = true;
+      _kindFilterExpanded = false;
+    });
+    if (_warehouseFilterLoading) return;
+    setState(() => _warehouseFilterLoading = true);
     try {
       final warehouses =
           (await MobileApi.instance.qolipBlocksData()).warehouses;
       if (!mounted || !_sameScope()) return;
-      final selected = await _storageDialog<String>(
-          context: context,
-          builder: (context) =>
-              SimpleDialog(title: Text(_s(context, 'warehouse')), children: [
-                SimpleDialogOption(
-                    onPressed: () => Navigator.pop(context, ''),
-                    child: Text(_s(context, 'all'))),
-                for (final w in warehouses)
-                  SimpleDialogOption(
-                      onPressed: () => Navigator.pop(context, w),
-                      child: Text(w)),
-              ]));
-      if (!mounted || selected == null) return;
-      setState(() => _warehouseFilter = selected);
-      await _load();
+      setState(() => _warehouses = warehouses);
     } catch (e) {
-      if (mounted) _error(context, e);
+      if (mounted && !_sessionExpired) _error(context, e);
+    } finally {
+      if (mounted) setState(() => _warehouseFilterLoading = false);
     }
   }
 
@@ -362,7 +442,7 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
         firstDate: DateTime(2000),
         lastDate: DateTime.now().add(const Duration(days: 1)),
         initialDateRange: _dateFilter);
-    if (!mounted || selected == null) return;
+    if (!mounted || selected == null || !_sameScope()) return;
     setState(() => _dateFilter = selected);
     await _load();
   }
@@ -445,6 +525,11 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
 
   Future<void> _entry(QolipArchiveEntry entry) async {
     if (!_sameScope()) return;
+    if (entry.kind == 'paddon_mold') {
+      await _moldDetails(context, QolipStorageMold.fromJson(entry.snapshot),
+          archivedSnapshot: true);
+      return;
+    }
     await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => QolipArchiveDetailScreen(entry: entry)));
     if (mounted) await _load();
@@ -453,49 +538,60 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
   @override
   Widget build(BuildContext context) {
     if (_sessionExpired) return sessionExpiredPage(context);
-    final rows =
-        _archive.where((e) => _kind == 'all' || e.kind == _kind).toList();
-    final canGoBack = ModalRoute.of(context)?.canPop ?? false;
-    return AppShell(
-      title: widget.archive ? _s(context, 'archive') : '',
+    final rows = _archive
+        .where((e) =>
+            _kind == 'all' ||
+            e.kind == _kind ||
+            (_kind == 'qolip' && e.kind == 'paddon_mold'))
+        .toList();
+    final canGoBack =
+        _archiveBacksToHome || (ModalRoute.of(context)?.canPop ?? false);
+    final scheme = Theme.of(context).colorScheme;
+    final shell = AppShell(
+      title: '',
       subtitle: '',
       nativeTopBar: true,
-      automaticallyImplyNativeLeading: widget.archive,
-      profileActionListenable: widget.archive ? null : _searchFocusNode,
-      showProfileActionResolver:
-          widget.archive ? null : () => !_searchFocusNode.hasFocus,
-      titleWidget: widget.archive
-          ? null
-          : AdminCatalogSearchField(
-              controller: _search,
-              focusNode: _searchFocusNode,
-              hintText: _s(context, 'paddons_search'),
-              onChanged: _onSearchChanged,
-              onClear: () {
-                _search.clear();
-                _onSearchChanged('');
-              },
-              searchCloseKey: const ValueKey('qolip-paddons-search-close'),
-              leadingIcon:
-                  canGoBack ? Icons.arrow_back_rounded : Icons.menu_rounded,
-              leadingTooltip: canGoBack
-                  ? MaterialLocalizations.of(context).backButtonTooltip
-                  : MaterialLocalizations.of(context).openAppDrawerTooltip,
-              onBackWithContext: (searchContext) {
-                final navigator = Navigator.of(searchContext);
-                if (navigator.canPop()) {
-                  unawaited(navigator.maybePop());
-                } else {
-                  AppShellDrawerScope.maybeOf(searchContext)?.openDrawer();
-                }
-              },
-            ),
-      appBarBottomLoading: _loading || _saving,
+      automaticallyImplyNativeLeading: false,
+      profileActionListenable: _searchFocusNode,
+      showProfileActionResolver: () => !_searchFocusNode.hasFocus,
+      titleWidget: AdminCatalogSearchField(
+        key: _searchFieldKey,
+        controller: _search,
+        focusNode: _searchFocusNode,
+        hintText:
+            _s(context, widget.archive ? 'archive_search' : 'paddons_search'),
+        onChanged: _onSearchChanged,
+        onClear: () {
+          _search.clear();
+          _onSearchChanged('');
+        },
+        searchCloseKey: ValueKey(widget.archive
+            ? 'qolip-archive-search-close'
+            : 'qolip-paddons-search-close'),
+        leadingIcon: canGoBack ? Icons.arrow_back_rounded : Icons.menu_rounded,
+        leadingTooltip: canGoBack
+            ? MaterialLocalizations.of(context).backButtonTooltip
+            : MaterialLocalizations.of(context).openAppDrawerTooltip,
+        onBackWithContext: (searchContext) {
+          if (_archiveBacksToHome) {
+            _goHomeFromArchive();
+            return;
+          }
+          final navigator = Navigator.of(searchContext);
+          if (navigator.canPop()) {
+            unawaited(navigator.maybePop());
+          } else {
+            AppShellDrawerScope.maybeOf(searchContext)?.openDrawer();
+          }
+        },
+      ),
+      appBarBottomLoading:
+          (_loading && !_archiveLoadingMore) || _saving || _warehouseFilterLoading,
       contentPadding: EdgeInsets.zero,
       actions: [
         ListenableBuilder(
           listenable: _searchFocusNode,
-          builder: (context, _) => !widget.archive && _searchFocusNode.hasFocus
+          builder: (context, _) => _searchFocusNode.hasFocus
               ? const SizedBox.shrink()
               : IconButton(
                   tooltip: _s(context, 'refresh'),
@@ -512,35 +608,35 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
       ),
       bottom: QolipDock(
         activeTab: null,
-        primaryActions: widget.archive
-            ? null
-            : [
-                AdminFabMenuAction(
-                  title: _s(context, 'create'),
-                  icon: Icons.add_rounded,
-                  enabled: !_saving,
-                  onTap: () => unawaited(_create()),
-                ),
-                AdminFabMenuAction(
-                  title: _s(context, 'scan_paddon'),
-                  icon: Icons.qr_code_scanner_rounded,
-                  enabled: !_saving,
-                  onTap: () => unawaited(_scanPaddon()),
-                ),
-                AdminFabMenuAction(
-                  title:
-                      '${_s(context, 'molds')}: ${_s(context, 'archive_action')}',
-                  icon: Icons.archive_outlined,
-                  enabled: !_saving,
-                  onTap: () => unawaited(_archiveMolds()),
-                ),
-              ],
+        primaryActions: [
+          if (!widget.archive)
+            AdminFabMenuAction(
+              title: _s(context, 'create'),
+              icon: Icons.add_rounded,
+              enabled: !_saving,
+              onTap: () => unawaited(_create()),
+            ),
+          AdminFabMenuAction(
+            title: _s(context, 'scan_paddon'),
+            icon: Icons.qr_code_scanner_rounded,
+            enabled: !_saving,
+            onTap: () => unawaited(_scanPaddon()),
+          ),
+          AdminFabMenuAction(
+            title: '${_s(context, 'molds')}: ${_s(context, 'archive_action')}',
+            icon: Icons.archive_outlined,
+            enabled: !_saving,
+            onTap: () => unawaited(_archiveMolds()),
+          ),
+        ],
       ),
       child: Material(
         color: AppTheme.shellStart(context),
         child: RefreshIndicator(
           onRefresh: () => _load(),
           child: ListView(
+            key: widget.archive ? const ValueKey('qolip-archive-list') : null,
+            controller: widget.archive ? _archiveScroll : null,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(
                 4, 4, 4, MediaQuery.viewPaddingOf(context).bottom + 120),
@@ -572,50 +668,114 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                   ),
                 ),
               ],
-              if (widget.archive)
-                TextField(
-                  controller: _search,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    hintText: _s(context, 'search'),
-                    filled: true,
-                    fillColor:
-                        Theme.of(context).colorScheme.surfaceContainerLowest,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: _onSearchChanged,
-                ),
               if (widget.archive) ...[
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  OutlinedButton.icon(
-                    onPressed: _filterWarehouse,
-                    icon: const Icon(Icons.warehouse_outlined),
-                    label: Text(_warehouseFilter.isEmpty
-                        ? _s(context, 'warehouse')
-                        : _warehouseFilter),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _filterDates,
-                    icon: const Icon(Icons.date_range),
-                    label: Text(_dateFilter == null
-                        ? _s(context, 'dates')
-                        : '${qolipStorageDate(_dateFilter!.start)} – ${qolipStorageDate(_dateFilter!.end)}'),
-                  ),
-                  if (_warehouseFilter.isNotEmpty || _dateFilter != null)
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _warehouseFilter = '';
-                          _dateFilter = null;
-                        });
-                        _load();
-                      },
-                      child: Text(_s(context, 'clear_filters')),
+                AdminExpandableFilterChip<String>(
+                  chipKey: const ValueKey('qolip-archive-warehouse-filter'),
+                  label: _s(context, 'warehouse'),
+                  emptyLabel: _s(context, 'all'),
+                  icon: Icons.warehouse_outlined,
+                  selectedValue:
+                      _warehouseFilter.isEmpty ? null : _warehouseFilter,
+                  expanded: _warehouseFilterExpanded,
+                  onToggle: _toggleWarehouseFilter,
+                  onSelect: (warehouse) {
+                    setState(() {
+                      _warehouseFilter = warehouse;
+                      _warehouseFilterExpanded = false;
+                    });
+                    _load();
+                  },
+                  optionKeyPrefix: 'qolip-archive-warehouse-option',
+                  options: [
+                    AdminFilterChipOption(value: '', label: _s(context, 'all')),
+                    for (final warehouse in {
+                      ..._warehouses,
+                      if (_warehouseFilter.isNotEmpty) _warehouseFilter,
+                    })
+                      AdminFilterChipOption(value: warehouse, label: warehouse),
+                  ],
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                ),
+                AdminExpandableFilterChip<String>(
+                  chipKey: const ValueKey('qolip-archive-kind-filter'),
+                  label: _s(context, 'kind'),
+                  emptyLabel: _s(context, 'all'),
+                  icon: Icons.filter_list_rounded,
+                  selectedValue: _kind == 'all' ? null : _kind,
+                  expanded: _kindFilterExpanded,
+                  onToggle: () => setState(() {
+                    _kindFilterExpanded = !_kindFilterExpanded;
+                    _warehouseFilterExpanded = false;
+                  }),
+                  onSelect: (kind) {
+                    setState(() {
+                      _kind = kind;
+                      _kindFilterExpanded = false;
+                      _archive = [];
+                    });
+                    _load();
+                  },
+                  optionKeyPrefix: 'qolip-archive-kind-option',
+                  options: [
+                    AdminFilterChipOption(value: 'all', label: _s(context, 'all')),
+                    AdminFilterChipOption(
+                        value: 'paddon', label: _s(context, 'paddons')),
+                    AdminFilterChipOption(
+                        value: 'qolip', label: _s(context, 'molds')),
+                  ],
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Wrap(spacing: 8, runSpacing: 8, children: [
+                    FilterChip(
+                      key: const ValueKey('qolip-archive-date-filter'),
+                      selected: _dateFilter != null,
+                      showCheckmark: false,
+                      avatar: const Icon(Icons.date_range_rounded, size: 18),
+                      label: Text(_dateFilter == null
+                          ? _s(context, 'dates')
+                          : '${MaterialLocalizations.of(context).formatShortDate(_dateFilter!.start)} – ${MaterialLocalizations.of(context).formatShortDate(_dateFilter!.end)}'),
+                      onSelected: (_) => _filterDates(),
+                      deleteIcon: const Icon(Icons.close_rounded, size: 18),
+                      deleteButtonTooltipMessage: _s(context, 'clear_date'),
+                      onDeleted: _dateFilter == null
+                          ? null
+                          : () {
+                              setState(() => _dateFilter = null);
+                              _load();
+                            },
+                      selectedColor: scheme.secondaryContainer,
+                      backgroundColor: scheme.surfaceContainerLowest,
+                      elevation: 2,
+                      pressElevation: 2,
+                      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+                      side: const BorderSide(color: Colors.transparent),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity:
+                          const VisualDensity(horizontal: 0, vertical: -1),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
-                ]),
+                    if (_warehouseFilter.isNotEmpty ||
+                        _dateFilter != null ||
+                        _kind != 'all')
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _warehouseFilter = '';
+                            _dateFilter = null;
+                            _kind = 'all';
+                            _warehouseFilterExpanded = false;
+                            _kindFilterExpanded = false;
+                          });
+                          _load();
+                        },
+                        child: Text(_s(context, 'clear_filters')),
+                      ),
+                  ]),
+                ),
                 SwitchListTile(
                   title: Text(_s(context, 'history')),
                   subtitle: Text(_s(context, _history ? 'all' : 'current')),
@@ -626,31 +786,6 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                           setState(() => _history = v);
                           _load();
                         },
-                ),
-                Wrap(spacing: 8, children: [
-                  for (final kind in ['all', 'paddon', 'qolip'])
-                    ChoiceChip(
-                      label: Text(_s(
-                          context,
-                          kind == 'paddon'
-                              ? 'paddons'
-                              : kind == 'qolip'
-                                  ? 'molds'
-                                  : 'all')),
-                      selected: _kind == kind,
-                      onSelected: (_) => setState(() => _kind = kind),
-                    ),
-                ]),
-                OutlinedButton.icon(
-                  onPressed: _saving ? null : _archiveMolds,
-                  icon: const Icon(Icons.archive_outlined),
-                  label: Text(
-                      '${_s(context, 'molds')}: ${_s(context, 'archive_action')}'),
-                ),
-                TextButton.icon(
-                  onPressed: _saving ? null : _scanPaddon,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: Text(_s(context, 'scan_paddon')),
                 ),
               ],
               if (_pendingArchiveMolds != null)
@@ -671,7 +806,7 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                 title: _s(context, widget.archive ? 'archive' : 'paddon_list'),
                 count: '${widget.archive ? rows.length : _paddons.length}',
               ),
-              if (_failure != null)
+              if (_failure != null && !_archiveMoreFailure)
                 AppRetryState(
                     onRetry: () => _load(), message: _s(context, 'failed')),
               if (_loading &&
@@ -681,24 +816,76 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                     child: Center(child: AppLoadingIndicator())),
               if (!_loading &&
                   _failure == null &&
-                  (widget.archive ? rows.isEmpty : _paddons.isEmpty))
+                  widget.archive &&
+                  _next == null &&
+                  rows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(child: Text(_s(context, 'empty'))),
+                ),
+              if (!_loading &&
+                  _failure == null &&
+                  !widget.archive &&
+                  _paddons.isEmpty)
                 PaddonEmptyState(
                   title: _s(context, 'empty'),
-                  message: widget.archive ? '' : _s(context, 'paddons_empty'),
+                  message: _s(context, 'paddons_empty'),
                 ),
-              if (widget.archive)
-                for (final e in rows)
+              if (widget.archive && _kind == 'qolip' && rows.isNotEmpty)
+                _ArchiveMoldList(entries: rows, onEntry: _entry)
+              else if (widget.archive)
+                M3SegmentSpacedColumn(children: [
+                for (var i = 0; i < rows.length; i++)
+                  if (rows[i].kind == 'paddon')
+                    PaddonListCard(
+                      key: ValueKey('qolip-archive-paddon-${rows[i].id}'),
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          i, rows.length),
+                      code: rows[i].code,
+                      countLabel: _archivePaddonMoldCount(rows[i]) != null
+                          ? '${_s(context, 'molds')}: ${_archivePaddonMoldCount(rows[i])}'
+                          : '',
+                      subtitle: [
+                        _s(context, rows[i].isOpen ? 'archived' : 'returned'),
+                        rows[i].warehouse,
+                        if (_archivePaddonLocation(rows[i]).isNotEmpty)
+                          _archivePaddonLocation(rows[i]),
+                      ].join(' • '),
+                      trailing: const SizedBox.shrink(),
+                      onTap: () => _entry(rows[i]),
+                    )
+                  else
                   ListTile(
-                    leading: Icon(e.kind == 'paddon'
-                        ? Icons.inventory_2_outlined
-                        : Icons.layers_outlined),
-                    title: Text(e.code),
+                    leading: const Icon(Icons.layers_outlined),
+                    title: Row(children: [
+                      Expanded(
+                        child: Text(rows[i].code,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        key: ValueKey('qolip-archive-kind-${rows[i].id}'),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: scheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _s(context, 'mold'),
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: scheme.onSecondaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ]),
                     subtitle: Text(
-                        '${e.warehouse} • ${qolipReworkDate(e.archivedAt)}\n${_s(context, e.isOpen ? 'archived' : 'returned')}'),
+                        '${rows[i].warehouse}\n${_s(context, rows[i].isOpen ? 'archived' : 'returned')}${rows[i].parentPaddonCode.isEmpty ? '' : ' • ${rows[i].parentPaddonCode}'}'),
                     isThreeLine: true,
-                    onTap: () => _entry(e),
-                    trailing: const Icon(Icons.chevron_right),
-                  )
+                    onTap: () => _entry(rows[i]),
+                  ),
+                ])
               else if (_paddons.isNotEmpty)
                 M3SegmentSpacedColumn(children: [
                   for (var i = 0; i < _paddons.length; i++)
@@ -722,7 +909,14 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                       onLongPress: () => _paddonActions(_paddons[i]),
                     ),
                 ]),
-              if (_next != null)
+              if (widget.archive && _archiveMoreFailure)
+                AppRetryState(
+                    onRetry: () => _load(more: true), message: _s(context, 'failed')),
+              if (widget.archive && _loading && _archiveLoadingMore && rows.isNotEmpty)
+                const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: AppLoadingIndicator())),
+              if (!widget.archive && _next != null)
                 TextButton(
                   onPressed: _loading ? null : () => _load(more: true),
                   child: Text(_s(context, 'more')),
@@ -731,6 +925,17 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
           ),
         ),
       ),
+    );
+    if (!_archiveBacksToHome) return shell;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        final fieldContext = _searchFieldKey.currentContext;
+        final drawerOpen = fieldContext != null &&
+            AppShellDrawerScope.maybeOf(fieldContext)?.isDrawerOpen() == true;
+        if (!didPop && !drawerOpen) _goHomeFromArchive();
+      },
+      child: shell,
     );
   }
 }

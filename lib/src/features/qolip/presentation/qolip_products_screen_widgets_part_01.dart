@@ -173,6 +173,7 @@ class QolipProductContainerCard extends StatelessWidget {
     this.codeRowBuilder,
     this.emptyContent,
     this.showMoldCount = true,
+    this.showExpandIcon = true,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -202,6 +203,7 @@ class QolipProductContainerCard extends StatelessWidget {
   final Widget Function(QolipProduct product)? codeRowBuilder;
   final Widget? emptyContent;
   final bool showMoldCount;
+  final bool showExpandIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -353,15 +355,16 @@ class QolipProductContainerCard extends StatelessWidget {
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2)),
                             ),
-                          AnimatedRotation(
-                            turns: expanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOutCubic,
-                            child: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: scheme.onSurfaceVariant,
+                          if (showExpandIcon)
+                            AnimatedRotation(
+                              turns: expanded ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              child: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: scheme.onSurfaceVariant,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),

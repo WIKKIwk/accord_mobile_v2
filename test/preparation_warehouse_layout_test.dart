@@ -6,6 +6,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
 import 'package:accord_mobile_v2/src/features/preparation/models/preparation_models.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -36,6 +37,75 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('home cards hide arrows, warehouse prompt and counts',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: PreparationScreen(),
+      ));
+      await tester.pumpAndSettle();
+
+      for (final title in [
+        'Ombor',
+        'Homashyolar',
+        'Mahsulot formulasi',
+        'Buyurtmalar',
+        'Ishlab chiqarish',
+        'Tarix',
+      ]) {
+        final finder = find.ancestor(
+          of: find.text(title),
+          matching: find.byType(AdminSummaryCard),
+        );
+        final card = tester.widget<AdminSummaryCard>(finder);
+        expect(card.showChevron, isFalse, reason: title);
+        expect(card.value, isEmpty, reason: title);
+        expect(card.onTap, isNotNull, reason: title);
+        expect(
+          find.descendant(
+              of: finder, matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsNothing,
+          reason: title,
+        );
+      }
+      expect(find.text('Ombor tanlang'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          expect(request.url.path, '/v1/mobile/preparation/snapshot');
+          return http.Response(
+            jsonEncode({
+              'warehouses': ['Ombor A', 'Ombor B'],
+              'assigned_warehouses': ['Ombor A', 'Ombor B'],
+              'material_warehouses': ['Ombor A', 'Ombor B'],
+              'materials': [],
+              'orders': [
+                {'id': 'O1', 'code': '001', 'title': 'Test', 'order_kg': '10', 'saved': false},
+                {'id': 'O2', 'code': '002', 'title': 'Test', 'order_kg': '20', 'saved': false},
+              ],
+              'history': [
+                {'id': 'H1'},
+                {'id': 'H2'},
+                {'id': 'H3'},
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }));
   });
 
   test('warehouse assignment sends and parses the preparation role', () async {

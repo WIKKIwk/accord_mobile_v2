@@ -27,7 +27,7 @@ class PreparationDock extends StatelessWidget {
         compact: true,
         tightToEdges: true,
         selectionVisible: true,
-        selectedIndex: profile ? 2 : 0,
+        selectedIndex: profile ? (hasActions ? 2 : 1) : 0,
         primaryVisible: !menuOpen && hasActions,
         destinations: [
           RoleDockDestination(
@@ -101,6 +101,12 @@ class PreparationDrawer extends StatelessWidget {
           icon: Icons.functions_outlined,
           selectedIcon: Icons.functions_rounded,
           routeName: AppRoutes.preparationFormulas,
+        ),
+        const RoleNavigationDrawerDestination(
+          label: 'Ishlab chiqarish',
+          icon: Icons.precision_manufacturing_outlined,
+          selectedIcon: Icons.precision_manufacturing,
+          routeName: AppRoutes.preparationProduction,
         ),
         const RoleNavigationDrawerDestination(
           icon: Icons.format_list_numbered_outlined,

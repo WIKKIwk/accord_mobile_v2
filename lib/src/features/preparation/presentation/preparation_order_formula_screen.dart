@@ -103,6 +103,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     this.manageSavedFormula = false,
     this.variantId = '',
     this.variantName = '',
+    this.variantCode = '',
+    this.allowAddingFormula = false,
   });
 
   final String orderId;
@@ -114,7 +116,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
   final String? customerName;
   final String? initialFormulaName;
   final bool manageSavedFormula;
-  final String variantId, variantName;
+  final String variantId, variantName, variantCode;
+  final bool allowAddingFormula;
 
   static Route<void> route({
     required String orderId,
@@ -128,6 +131,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     bool manageSavedFormula = false,
     String variantId = '',
     String variantName = '',
+    String variantCode = '',
+    bool allowAddingFormula = false,
   }) {
     return PreparationOrderFormulaRoute(
       builder: (_) => PreparationOrderFormulaScreen(
@@ -142,6 +147,8 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
         manageSavedFormula: manageSavedFormula,
         variantId: variantId,
         variantName: variantName,
+        variantCode: variantCode,
+        allowAddingFormula: allowAddingFormula,
       ),
     );
   }
@@ -384,7 +391,7 @@ class _PreparationOrderFormulaScreenState
       backgroundColor: Colors.transparent,
       sheetAnimationStyle: kM3PickerSheetAnimation,
       builder: (sheetContext) => M3AsyncPickerSheet<PreparationMaterial>(
-        title: 'Seriya tanlang',
+        title: 'Seriyo tanlang',
         hintText: 'Qidirish',
         pageSize: 50,
         loadPage: (query, offset, limit) async => _materials
@@ -452,7 +459,7 @@ class _PreparationOrderFormulaScreenState
       final row = _rows[i];
       final code = row.material?.code.trim() ?? '';
       if (row.material == null || code.isEmpty) {
-        return '${i + 1}-seriyada seriya tanlanmagan';
+        return '${i + 1}-seriyoda seriyo tanlanmagan';
       }
     }
     final duplicates = _duplicateCodes;
@@ -462,12 +469,12 @@ class _PreparationOrderFormulaScreenState
           .material!
           .name
           .trim();
-      final label = name.isEmpty ? 'Bu seriya' : '«$name»';
-      return '$label takrorlangan — har bir seriya 1 marta bo‘lishi kerak';
+      final label = name.isEmpty ? 'Bu seriyo' : '«$name»';
+      return '$label takrorlangan — har bir seriyo 1 marta bo‘lishi kerak';
     }
     for (var i = 0; i < _rows.length; i++) {
       if (_parsePercent(_rows[i]) == null) {
-        return '${i + 1}-seriya foizini to‘g‘ri kiriting (0–100, masalan 25)';
+        return '${i + 1}-seriyo foizini to‘g‘ri kiriting (0–100, masalan 25)';
       }
     }
     final total = _totalPercent;
@@ -507,7 +514,8 @@ class _PreparationOrderFormulaScreenState
         lines,
         name: name,
         materialId: widget.materialId,
-        savedOnly: widget.manageSavedFormula,
+        savedOnly: widget.manageSavedFormula &&
+            (_editingName != null || !widget.allowAddingFormula),
         variantId: widget.variantId,
       );
       if (!mounted) return;
@@ -599,22 +607,23 @@ class _PreparationOrderFormulaScreenState
     final materialLabel = widget.materialName.trim().isEmpty
         ? widget.materialId.trim()
         : widget.materialName.trim();
-    final codeLabel = widget.orderCode.isEmpty ? '' : widget.orderCode;
+    final subtitleParts = [
+      materialLabel,
+      widget.variantCode.trim(),
+      widget.orderCode.trim(),
+    ].where((part) => part.isNotEmpty).join(' • ');
 
     return AppShell(
       title: widget.variantName.isEmpty ? 'Formulalar' : widget.variantName,
-      subtitle: codeLabel.isEmpty
-          ? materialLabel
-          : materialLabel.isEmpty
-              ? codeLabel
-              : '$materialLabel • $codeLabel',
+      subtitle: subtitleParts,
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       bottom: PreparationDock(
-        showPrimaryFab: !widget.manageSavedFormula,
+        showPrimaryFab: !widget.manageSavedFormula || widget.allowAddingFormula,
         primaryFabActions: [
-          if (AppRouter.canOpenRoute(AppRoutes.gscaleMode))
+          if (!widget.manageSavedFormula &&
+              AppRouter.canOpenRoute(AppRoutes.gscaleMode))
             AdminFabMenuAction(
               title: 'Ishlab chiqarishni boshlash',
               icon: Icons.play_arrow_rounded,
@@ -622,7 +631,9 @@ class _PreparationOrderFormulaScreenState
               onTap: _startProduction,
             ),
           AdminFabMenuAction(
-            title: 'Shnek formula qo‘shish',
+            title: widget.manageSavedFormula
+                ? 'Ichki formula qo‘shish'
+                : 'Shnek formula qo‘shish',
             icon: Icons.functions_rounded,
             onTap: _openEditor,
           ),
@@ -672,7 +683,9 @@ class _PreparationOrderFormulaScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             UrduAwareText(
-                              '${widget.manageSavedFormula ? 'Komplekt kodi' : 'Buyurtma kodi'}: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
+                              widget.manageSavedFormula && widget.variantCode.isNotEmpty
+                                  ? 'Formula kodi: ${widget.variantCode}'
+                                  : '${widget.manageSavedFormula ? 'Komplekt kodi' : 'Buyurtma kodi'}: ${widget.orderCode.isEmpty ? '-' : widget.orderCode}',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -711,9 +724,10 @@ class _PreparationOrderFormulaScreenState
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Card(
                         margin: EdgeInsets.zero,
+                        elevation: 0,
+                        color: scheme.surfaceContainerLowest,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
-                          side: BorderSide(color: scheme.primary, width: 1.5),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -742,11 +756,13 @@ class _PreparationOrderFormulaScreenState
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              _FormulaNameBanner(
-                                name: _editingName ?? _nextAutoName(),
-                                auto: _editingName == null,
-                              ),
+                              if (_editingName == null) ...[
+                                const SizedBox(height: 12),
+                                _FormulaNameBanner(
+                                  name: _nextAutoName(),
+                                  auto: true,
+                                ),
+                              ],
                               const SizedBox(height: 12),
                               for (var i = 0; i < _rows.length; i++) ...[
                                 if (i > 0) const SizedBox(height: 12),
@@ -763,17 +779,29 @@ class _PreparationOrderFormulaScreenState
                                             _rows.removeAt(i);
                                           }),
                                 ),
+                                if (_rows.length > 1) ...[
+                                  const SizedBox(height: 8),
+                                  Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: scheme.outlineVariant
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ],
                               ],
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
+                              const SizedBox(height: 8),
+                              FilledButton.icon(
                                 key: const ValueKey(
                                     'preparation-formula-add-seriya'),
+                                style: FilledButton.styleFrom(
+                                  shape: const StadiumBorder(),
+                                ),
                                 onPressed: _saving
                                     ? null
                                     : () => setState(
                                         () => _rows.add(_FormulaRow())),
                                 icon: const Icon(Icons.add_rounded),
-                                label: const UrduAwareText('Seriya qo‘shish'),
+                                label: const UrduAwareText('Seriyo qo‘shish'),
                               ),
                               const SizedBox(height: 8),
                               _FormulaTotalBar(total: _totalPercent),
@@ -784,6 +812,9 @@ class _PreparationOrderFormulaScreenState
                               const SizedBox(height: 8),
                               FilledButton(
                                 key: const ValueKey('preparation-formula-save'),
+                                style: FilledButton.styleFrom(
+                                  shape: const StadiumBorder(),
+                                ),
                                 onPressed: _canSave ? _save : null,
                                 child: UrduAwareText(
                                     _saving ? 'Saqlanmoqda…' : 'Saqlash'),
@@ -800,14 +831,28 @@ class _PreparationOrderFormulaScreenState
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Card(
                         margin: EdgeInsets.zero,
+                        elevation: 0,
+                        color: scheme.surfaceContainerLowest,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                         child: ListTile(
                           key: const ValueKey('preparation-screw-shares-action'),
-                          leading: const Icon(Icons.percent_rounded),
-                          title: const UrduAwareText('Shnek ulushlari'),
+                          leading: Icon(Icons.percent_rounded, color: scheme.primary),
+                          title: UrduAwareText(
+                            'Shnek ulushlari',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                           subtitle: UrduAwareText(
                             preparationFormulaSharesComplete(_formulas)
                                 ? 'Jami: 100% • bitta umumiy tarkib'
                                 : 'Jami 100% qilib belgilang — kg shundan keyin hisoblanadi',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           trailing: const Icon(Icons.edit_outlined),
                           onTap: _saving || _deleting ? null : _editShares,
@@ -819,7 +864,7 @@ class _PreparationOrderFormulaScreenState
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: UrduAwareText(
-                      'Saqlangan formulalar (${_formulas.length})',
+                      '${widget.variantName.isEmpty ? 'Saqlangan formulalar' : 'Ichki formulalar'} (${_formulas.length})',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -836,7 +881,9 @@ class _PreparationOrderFormulaScreenState
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: UrduAwareText(
-                            'Hali formula yo‘q. FAB orqali formula qo‘shing.',
+                            widget.manageSavedFormula && !widget.allowAddingFormula
+                                ? 'Bu formulada ichki tarkib yo‘q.'
+                                : 'Hali formula yo‘q. FAB orqali formula qo‘shing.',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
                             ),
@@ -1002,15 +1049,12 @@ class _SavedFormulaCard extends StatelessWidget {
                             ),
                           ),
                           UrduAwareText(
-                            '${formula.lines.length} ta seriya',
+                            '${formula.lines.length} ta seriyo',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (formula.code.isNotEmpty)
-                            SelectableText(formula.code,
-                                style: theme.textTheme.bodySmall),
                           UrduAwareText(
                             formula.sharePercent == null
                                 ? 'Shnek ulushi belgilanmagan'
@@ -1099,9 +1143,6 @@ class _FormulaTotalBar extends StatelessWidget {
             ? Colors.green.withValues(alpha: 0.12)
             : scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: ok ? Colors.green : scheme.outlineVariant,
-        ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1204,10 +1245,9 @@ class _FormulaRowCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1215,7 +1255,7 @@ class _FormulaRowCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: UrduAwareText(
-                    '${index + 1}-seriya',
+                    '${index + 1}-seriyo',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -1230,13 +1270,14 @@ class _FormulaRowCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
+            FilledButton.icon(
               key: ValueKey('preparation-formula-pick-$index'),
+              style: FilledButton.styleFrom(shape: const StadiumBorder()),
               onPressed: saving ? null : onPick,
               icon: const Icon(Icons.inventory_2_outlined),
               label: Text(
                 material == null
-                    ? 'Seriya tanlang'
+                    ? 'Seriyo tanlang'
                     : material.name.isEmpty
                         ? material.code
                         : material.name,

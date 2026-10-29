@@ -21,6 +21,14 @@ extension _MoldPickerScanning on _MoldPickerState {
     if (!_current || _reviewOpen ||
         _loadingProductKey != null || scan == _scanMode) return;
     if (scan) _searchFocus?.unfocus();
+    if (_inlineScanner) {
+      _updatePicker(() {
+        _invalidateScans();
+        _scanMode = scan;
+      });
+      if (!scan) _scheduleMoreIfNeeded();
+      return;
+    }
     _updatePicker(() {
       // A lookup from an earlier camera session must not enter a later one.
       _invalidateScans();
@@ -62,6 +70,11 @@ extension _MoldPickerScanning on _MoldPickerState {
       return;
     }
     if (_selected.containsKey(key)) {
+      if (_inlineScanner) {
+        _scannedCodes.remove(key);
+        _scannedCodes.add(key);
+        _selectionChanges.value++;
+      }
       _scanMessage('$code — ${_s(context, 'duplicate')}',
           ProductionQuickScanFeedback.none);
       return;
@@ -104,7 +117,14 @@ extension _MoldPickerScanning on _MoldPickerState {
               ProductionQuickScanFeedback.none);
           return;
         }
-        _updatePicker(() => _selected[_pickerMoldKey(mold)] = mold);
+        _updatePicker(() {
+          if (_inlineScanner) {
+            _rememberMolds([mold]);
+            _scannedCodes.remove(key);
+            _scannedCodes.add(key);
+          }
+          _selectMolds([mold]);
+        });
         _scanMessage('${mold.code} — ${_s(context, 'scan_accepted')}',
             ProductionQuickScanFeedback.accepted);
       } catch (error) {
@@ -118,6 +138,7 @@ extension _MoldPickerScanning on _MoldPickerState {
             _queuedCodes.remove(key);
             _pendingScans--;
           });
+          if (_inlineScanner) _scheduleMoreIfNeeded();
         }
       }
     });
@@ -126,7 +147,13 @@ extension _MoldPickerScanning on _MoldPickerState {
   }
 
   List<Widget> _scannerWidgets(BuildContext context) {
-    final selected = _selected.values.toList(growable: false);
+    return [
+      ..._scanPanelWidgets(context),
+      ..._selectionReviewWidgets(context),
+    ];
+  }
+
+  List<Widget> _scanPanelWidgets(BuildContext context) {
     return [
       if (!_reviewOpen)
         ProductionQuickScannerPanel(
@@ -153,9 +180,22 @@ extension _MoldPickerScanning on _MoldPickerState {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
           child: Text(_s(context, 'scan_pending')),
         ),
+    ];
+  }
+
+  List<Widget> _selectionReviewWidgets(BuildContext context,
+      {bool showEmpty = true}) {
+    final selected = _inlineScanner
+        ? _scannedCodes.toList().reversed
+            .map((key) => _selected[key])
+            .whereType<QolipStorageMold>()
+            .toList(growable: false)
+        : _selected.values.toList(growable: false);
+    if (selected.isEmpty && !showEmpty) return [];
+    return [
       PaddonSectionHeader(
-          title: _s(context, 'selection_review'), count: '${_selected.length}'),
-      if (_selected.isEmpty)
+          title: _s(context, 'selection_review'), count: '${selected.length}'),
+      if (selected.isEmpty)
         PaddonEmptyState(
             title: _s(context, 'selected_empty'),
             message: _s(context, 'scan_ready'),
@@ -165,18 +205,18 @@ extension _MoldPickerScanning on _MoldPickerState {
           key: const ValueKey('qolip-scanned-molds'),
           children: [
             for (var i = 0; i < selected.length; i++)
-              _selectedCard(context, selected[i], i),
+              _selectedCard(context, selected[i], i, selected.length),
           ],
         ),
     ];
   }
 
   Widget _selectedCard(
-          BuildContext context, QolipStorageMold mold, int index) =>
+          BuildContext context, QolipStorageMold mold, int index, int count) =>
       PaddonListCard(
         key: ValueKey('qolip-scanned-mold-${mold.code}'),
         slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-            index, _selected.length),
+            index, count),
         code: mold.code,
         countLabel: '${_s(context, 'quantity')}: ${mold.quantity}',
         subtitle: [
@@ -185,10 +225,19 @@ extension _MoldPickerScanning on _MoldPickerState {
         ].join('\n'),
         icon: Icons.layers_outlined,
         onTap: () => unawaited(_reviewMold(mold)),
-        trailing: IconButton(
-          tooltip: _s(context, 'deselect'),
-          onPressed: () => _toggle(mold, false),
-          icon: const Icon(Icons.close_rounded),
-        ),
+        trailing: _inlineScanner
+            ? Tooltip(
+                message: _s(context, 'deselect'),
+                child: Checkbox(
+                  key: ValueKey('qolip-scanned-mold-select-${mold.code}'),
+                  value: true,
+                  onChanged: (_) => _toggle(mold, false),
+                ),
+              )
+            : IconButton(
+                tooltip: _s(context, 'deselect'),
+                onPressed: () => _toggle(mold, false),
+                icon: const Icon(Icons.close_rounded),
+              ),
       );
 }

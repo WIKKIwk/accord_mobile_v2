@@ -5,12 +5,16 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/widgets/paddon_widgets.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -59,23 +63,31 @@ void _session(String ref) {
   AppSession.instance.revision.value++;
 }
 
-Future<void> _openPicker(WidgetTester tester, {bool scan = true}) async {
-  await tester.binding.setSurfaceSize(const Size(390, 1000));
-  await tester.pumpWidget(const MaterialApp(
-    locale: Locale('en'),
+Future<void> _openPicker(WidgetTester tester,
+    {bool scan = true,
+    Locale locale = const Locale('en'),
+    Size size = const Size(390, 1000),
+    ThemeData? theme}) async {
+  await tester.binding.setSurfaceSize(size);
+  await tester.pumpWidget(MaterialApp(
+    locale: locale,
+    theme: theme,
     supportedLocales: AppLocalizations.supportedLocales,
-    localizationsDelegates: [
+    localizationsDelegates: const [
       AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
       GlobalWidgetsLocalizations.delegate,
       GlobalCupertinoLocalizations.delegate,
     ],
-    home: QolipPaddonScreen(code: 'QP-00012'),
+    home: const QolipPaddonScreen(code: 'QP-00012'),
   ));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('app-primary-navigation-button')));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(scan ? 'Add by scanning QR' : 'Add molds'));
+  final action = locale.languageCode == 'uz'
+      ? (scan ? 'QR skanerlash orqali qo‘shish' : 'Qolip qo‘shish')
+      : (scan ? 'Add by scanning QR' : 'Add molds');
+  await tester.tap(find.text(action));
   await tester.pumpAndSettle();
 }
 
@@ -121,6 +133,65 @@ void main() {
   });
 
   _pickerTest(
+      'compact QR button aligns with the counter and product rows expand without arrows',
+      (tester) async {
+    final font = FontLoader(AppTheme.fontFamily)
+      ..addFont(rootBundle.load('assets/fonts/google_sans/GoogleSans-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/google_sans/GoogleSans-Medium.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/google_sans/GoogleSans-Bold.ttf'));
+    await font.load();
+    await http.runWithClient(() async {
+      await _openPicker(tester,
+          scan: false,
+          locale: const Locale('uz'),
+          size: const Size(360, 780),
+          theme: AppTheme.light());
+      final summary = find.byKey(const ValueKey('qolip-picker-summary'));
+      final metric = find.descendant(
+          of: summary, matching: find.byType(PaddonMetric));
+      final toggle = find.byKey(const ValueKey('qolip-picker-scan-toggle'));
+      final metricRect = tester.getRect(metric);
+      final toggleRect = tester.getRect(toggle);
+      expect(find.text('QR skanerlash orqali'), findsOneWidget);
+      expect(toggleRect.left, greaterThanOrEqualTo(metricRect.right));
+      expect(toggleRect.center.dy, closeTo(metricRect.center.dy, 1));
+      expect(toggleRect.height, closeTo(metricRect.height, 1));
+      expect(toggleRect.right, lessThanOrEqualTo(tester.getRect(summary).right));
+      final label = find.descendant(
+          of: toggle, matching: find.text('QR skanerlash orqali'));
+      expect(tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+          isFalse);
+      await tester.binding.setSurfaceSize(const Size(320, 780));
+      await tester.pumpAndSettle();
+      expect(tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+          isFalse);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      final product = find.byKey(const ValueKey('qolip-picker-product-unlinked'));
+      final arrow = find.descendant(
+          of: product, matching: find.byIcon(Icons.keyboard_arrow_down_rounded));
+      expect(arrow, findsNothing);
+      final expand = find.byKey(
+          const ValueKey('qolip-picker-product-expand-unlinked'));
+      await tester.ensureVisible(expand);
+      await tester.tap(expand);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('qolip-picker-mold-M-A')), findsOneWidget);
+      expect(arrow, findsNothing);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          if (request.url.path.endsWith('/paddons/molds')) {
+            return _molds([_mold('M-A')]);
+          }
+          return _json(_detail());
+        }));
+  });
+
+  _pickerTest(
       'continuous scanner stages unique opaque codes before one reviewed write',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -162,7 +233,8 @@ void main() {
     },
         () => MockClient((request) async {
               if (request.url.path.endsWith('/paddons/molds')) {
-                final code = request.url.queryParameters['code']!;
+                final code = request.url.queryParameters['code'];
+                if (code == null) return _molds([]);
                 lookups.add(code);
                 return _molds([_mold(code)]);
               }
@@ -204,7 +276,8 @@ void main() {
                 return _json(_detail());
               }
               expect(request.method, 'GET');
-              final code = request.url.queryParameters['code']!;
+              final code = request.url.queryParameters['code'];
+              if (code == null) return _molds([]);
               lookups.add(code);
               if (code == 'M-A') {
                 started.complete();
@@ -257,7 +330,8 @@ void main() {
               if (!request.url.path.endsWith('/paddons/molds')) {
                 return _json(_detail());
               }
-              final code = request.url.queryParameters['code']!;
+              final code = request.url.queryParameters['code'];
+              if (code == null) return _molds([]);
               lookups.add(code);
               if (code == 'UNKNOWN') return _molds([]);
               if (code == 'NETWORK') {
@@ -272,7 +346,7 @@ void main() {
   });
 
   _pickerTest(
-      'list and scan modes share selection and allow removing a scanned mold',
+      'inline scanner keeps the list and synchronizes checked selections',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final writes = <Map<String, dynamic>>[];
@@ -294,23 +368,50 @@ void main() {
       await tester.tap(input);
       await tester.pumpAndSettle();
       expect(focus.hasFocus, isTrue);
-      await tester.ensureVisible(find.text('Scan QR'));
+      final toggle = find.byKey(const ValueKey('qolip-picker-scan-toggle'));
+      expect(find.byType(SegmentedButton<bool>), findsNothing);
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      await tester.ensureVisible(toggle);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Scan QR'));
+      await tester.tap(toggle);
       await tester.pumpAndSettle();
-      expect(find.byType(AdminCatalogSearchField), findsNothing);
+      expect(find.byType(AdminCatalogSearchField), findsOneWidget);
+      expect(find.byKey(const ValueKey('qolip-picker-products')), findsOneWidget);
       expect(focus.hasFocus, isFalse);
+      await _scanner(tester).onCodeDetected('M-A');
       await _scanner(tester).onCodeDetected('M-B');
       await tester.pumpAndSettle();
       expect(find.text('Confirm (2)'), findsOneWidget);
-      final remove =
-          find.descendant(of: _card('M-A'), matching: find.byType(IconButton));
+      final scannedCheckbox = find.byKey(
+          const ValueKey('qolip-scanned-mold-select-M-B'));
+      expect(tester.widget<Checkbox>(scannedCheckbox).value, isTrue);
+      expect(tester.getTopLeft(_card('M-B')).dy,
+          lessThan(tester.getTopLeft(_card('M-A')).dy));
+      final remove = find.byKey(
+          const ValueKey('qolip-scanned-mold-select-M-A'));
       await tester.ensureVisible(remove);
       await tester.pumpAndSettle();
       await tester.tap(remove);
       await tester.pumpAndSettle();
       expect(find.text('Confirm (1)'), findsOneWidget);
+      expect(_card('M-A'), findsNothing);
       expect(_scanner(tester).statusText, 'Scan a mold QR code');
+      await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+          const Offset(0, 600));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+          const Offset(0, -350));
+      await tester.pumpAndSettle();
+      final row = find.byKey(const ValueKey('qolip-picker-mold-M-B'));
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      final rowCheckbox =
+          find.descendant(of: row, matching: find.byType(Checkbox));
+      expect(tester.widget<Checkbox>(rowCheckbox).value, isTrue);
       await _confirmSelection(tester);
       expect(writes.single['qolip_codes'], ['M-B']);
       expect(tester.takeException(), isNull);
@@ -330,6 +431,88 @@ void main() {
   });
 
   _pickerTest(
+      'a scan stays selected when an earlier list request finishes later',
+      (tester) async {
+    final pendingList = Completer<http.Response>();
+    final listStarted = Completer<void>();
+    await http.runWithClient(() async {
+      await _openPicker(tester, scan: false);
+      final input = find.descendant(
+          of: find.byType(AdminCatalogSearchField),
+          matching: find.byType(EditableText));
+      await tester.enterText(input, 'M-B');
+      await tester.pump(const Duration(milliseconds: 350));
+      await listStarted.future;
+      final toggle = find.byKey(const ValueKey('qolip-picker-scan-toggle'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pump();
+      await _scanner(tester).onCodeDetected('M-B');
+      pendingList.complete(_molds([
+        {..._mold('M-B'), 'is_in_use': true}
+      ]));
+      await tester.pumpAndSettle();
+      expect(_card('M-B'), findsOneWidget);
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      expect(tester.widget<Checkbox>(find.byKey(
+          const ValueKey('qolip-scanned-mold-select-M-B'))).value, isTrue);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          if (!request.url.path.endsWith('/paddons/molds')) {
+            return _json(_detail());
+          }
+          final code = request.url.queryParameters['code'];
+          if (code != null) return _molds([_mold(code)]);
+          if (request.url.queryParameters['q'] == 'M-B') {
+            listStarted.complete();
+            return pendingList.future;
+          }
+          return _molds([]);
+        }));
+  });
+
+  _pickerTest(
+      'a scan stays selected when a product lookup finishes later',
+      (tester) async {
+    final pendingProduct = Completer<http.Response>();
+    final productStarted = Completer<void>();
+    var listReads = 0;
+    await http.runWithClient(() async {
+      await _openPicker(tester, scan: false);
+      await tester.tap(find.byKey(const ValueKey('qolip-picker-scan-toggle')));
+      await tester.pumpAndSettle();
+      final scan = _scanner(tester).onCodeDetected;
+      final product = find.byKey(
+          const ValueKey('qolip-picker-product-expand-unlinked'));
+      await tester.ensureVisible(product);
+      await tester.tap(product);
+      await tester.pump();
+      await productStarted.future;
+      await scan('M-B');
+      pendingProduct.complete(_molds([
+        _mold('M-A'),
+        {..._mold('M-B'), 'is_in_use': true}
+      ]));
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm (1)'), findsOneWidget);
+      final row = find.byKey(const ValueKey('qolip-picker-mold-M-B'));
+      await tester.ensureVisible(row);
+      final checked = find.descendant(of: row, matching: find.byType(Checkbox));
+      expect(tester.widget<Checkbox>(checked).value, isTrue);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          if (!request.url.path.endsWith('/paddons/molds')) {
+            return _json(_detail());
+          }
+          final code = request.url.queryParameters['code'];
+          if (code != null) return _molds([_mold(code)]);
+          if (++listReads == 1) return _molds([_mold('M-A')]);
+          productStarted.complete();
+          return pendingProduct.future;
+        }));
+  });
+
+  _pickerTest(
       'leaving scan mode discards late lookup results from its earlier session',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -340,9 +523,12 @@ void main() {
       final pending = _scanner(tester).onCodeDetected('M-A');
       await started.future;
       await tester.pump();
-      await tester.tap(find.text('List'));
+      final toggle = find.byKey(const ValueKey('qolip-picker-scan-toggle'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Scan QR'));
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      await tester.tap(toggle);
       await tester.pumpAndSettle();
       await _scanner(tester).onCodeDetected('M-B');
       first.complete(_molds([_mold('M-A')]));
@@ -397,7 +583,8 @@ void main() {
               if (!request.url.path.endsWith('/paddons/molds')) {
                 return _json(_detail());
               }
-              final code = request.url.queryParameters['code']!;
+              final code = request.url.queryParameters['code'];
+              if (code == null) return _molds([]);
               lookups.add(code);
               if (code == 'M-B') {
                 started.complete();
@@ -450,7 +637,8 @@ void main() {
               if (!request.url.path.endsWith('/paddons/molds')) {
                 return _json(_detail());
               }
-              final code = request.url.queryParameters['code']!;
+              final code = request.url.queryParameters['code'];
+              if (code == null) return _molds([]);
               lookups.add(code);
               return _molds([_mold(code)]);
             }));
@@ -485,11 +673,12 @@ void main() {
             return _json(_detail());
           }
           final code = request.url.queryParameters['code'];
+          if (code == null) return _molds([]);
           if (code == 'M-B') {
             started.complete();
             return pending.future;
           }
-          return _molds([_mold(code!)]);
+          return _molds([_mold(code)]);
         }));
   });
 }

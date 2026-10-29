@@ -250,16 +250,18 @@ void main() {
     }
   });
 
-  test('automatic start sends explicit confirmation without inventing QR scans',
+  test('automatic start and resume send confirmation without inventing QR scans',
       () async {
     final confirmation = AdminQolipAutomaticConfirmation(
         setId: _setId, fingerprint: _fingerprint, policyRevision: 3);
     await http.runWithClient(() async {
-      await api.adminApparatusQueueAction(
+      for (final action in ['start', 'resume']) {
+        await api.adminApparatusQueueAction(
           apparatus: scanApparatus,
           orderId: scanOrder,
-          action: 'start',
+          action: action,
           qolipConfirmation: confirmation);
+      }
     },
         () => MockClient((request) async {
               final body = jsonDecode(request.body) as Map;
@@ -268,7 +270,7 @@ void main() {
               expect(body.containsKey('qolip_codes'), isFalse);
               return http.Response('{"states":{}}', 200);
             }));
-    for (final action in ['resume', 'pause']) {
+    for (final action in ['pause', 'complete']) {
       await expectLater(
           api.adminApparatusQueueActionResult(
               apparatus: scanApparatus,

@@ -15,6 +15,7 @@ class PreparationFormulaOrdersScreen extends StatefulWidget {
 class _PreparationFormulaOrdersScreenState
     extends State<PreparationFormulaOrdersScreen> {
   List<PreparationFormulaSet> _sets = [];
+  List<PreparationFormulaCatalogEntry> _recipes = [];
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   String _query = '';
@@ -42,7 +43,13 @@ class _PreparationFormulaOrdersScreenState
     });
     try {
       final sets = await MobileApi.instance.preparationFormulaSets();
-      if (mounted) setState(() => _sets = sets);
+      final recipes = await MobileApi.instance.preparationFormulaCatalog();
+      if (mounted) {
+        setState(() {
+          _sets = sets;
+          _recipes = recipes;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = _formulaPageError(error));
     } finally {
@@ -53,9 +60,20 @@ class _PreparationFormulaOrdersScreenState
   Future<void> _open(PreparationFormulaSet formulaSet) async {
     if (_renaming) return;
     await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => _PreparationFormulaSetDetails(formulaSet: formulaSet)));
+        builder: (_) => _PreparationFormulaSetDetails(
+              formulaSet: formulaSet,
+              recipes: _recipes
+                  .where((entry) => entry.productCode == formulaSet.productCode)
+                  .toList(),
+            )));
     if (mounted) await _load();
   }
+
+  int _recipeCount(PreparationFormulaSet formulaSet) =>
+      _recipes
+          .where((entry) => entry.productCode == formulaSet.productCode)
+          .length +
+      formulaSet.formulas.where((entry) => entry.variantId.isEmpty).length;
 
   Future<void> _actions(PreparationFormulaSet formulaSet) async {
     if (_loading || _renaming) return;
@@ -176,8 +194,7 @@ class _PreparationFormulaOrdersScreenState
                                     : sets[i].id,
                                 subtitleMaxLines:
                                     sets[i].orderCodes.isEmpty ? 2 : 1,
-                                value:
-                                    '${sets[i].formulas.length} ta formula',
+                                value: '${_recipeCount(sets[i])} ta formula',
                                 onTap: _renaming ? null : () => _open(sets[i]),
                                 onLongPress: _renaming ? null : () => _actions(sets[i]),
                               ),
@@ -190,8 +207,12 @@ class _PreparationFormulaOrdersScreenState
 }
 
 class _PreparationFormulaSetDetails extends StatefulWidget {
-  const _PreparationFormulaSetDetails({required this.formulaSet});
+  const _PreparationFormulaSetDetails({
+    required this.formulaSet,
+    required this.recipes,
+  });
   final PreparationFormulaSet formulaSet;
+  final List<PreparationFormulaCatalogEntry> recipes;
   @override
   State<_PreparationFormulaSetDetails> createState() =>
       _PreparationFormulaSetDetailsState();
@@ -200,6 +221,7 @@ class _PreparationFormulaSetDetails extends StatefulWidget {
 class _PreparationFormulaSetDetailsState
     extends State<_PreparationFormulaSetDetails> {
   late List<PreparationScopedFormula> _formulas = widget.formulaSet.formulas;
+  late List<PreparationFormulaCatalogEntry> _recipes = widget.recipes;
   bool _busy = false;
   String? _error;
 
@@ -210,17 +232,46 @@ class _PreparationFormulaSetDetailsState
     });
     try {
       final sets = await MobileApi.instance.preparationFormulaSets();
+      final recipes = await MobileApi.instance.preparationFormulaCatalog();
       if (mounted) {
-        setState(() => _formulas = sets
+        setState(() {
+          _formulas = sets
                 .where((item) => item.id == widget.formulaSet.id)
                 .firstOrNull
                 ?.formulas ??
-            []);
+              [];
+          _recipes = recipes
+              .where((entry) =>
+                  entry.productCode == widget.formulaSet.productCode)
+              .toList();
+        });
       }
     } catch (error) {
       if (mounted) setState(() => _error = _formulaPageError(error));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openRecipe(PreparationFormulaCatalogEntry entry) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
+        orderId: '',
+        orderCode: '',
+        productCode: entry.productCode,
+        productTitle: entry.productTitle,
+        materialId: entry.materialId,
+        materialName: entry.materialName,
+        manageSavedFormula: true,
+        variantId: entry.id,
+        variantName: entry.name,
+        variantCode: entry.code,
+        allowAddingFormula: entry.canCreate,
+      ));
+    } finally {
+      if (mounted) await _reload();
     }
   }
 
@@ -294,9 +345,13 @@ class _PreparationFormulaSetDetailsState
   }
 
   @override
-  Widget build(BuildContext context) => AppShell(
-        title: widget.formulaSet.id,
-        subtitle: widget.formulaSet.name,
+  Widget build(BuildContext context) {
+    final legacyFormulas =
+        _formulas.where((entry) => entry.variantId.isEmpty).toList();
+    final rowCount = _recipes.length + legacyFormulas.length;
+    return AppShell(
+        title: widget.formulaSet.name,
+        subtitle: widget.formulaSet.id,
         nativeTopBar: true,
         contentPadding: EdgeInsets.zero,
         bottom: const PreparationDock(showPrimaryFab: false),
@@ -314,22 +369,33 @@ class _PreparationFormulaSetDetailsState
                 if (_error != null)
                   Padding(
                       padding: const EdgeInsets.all(12), child: Text(_error!)),
-                if (_formulas.isEmpty)
+                if (rowCount == 0)
                   const Padding(
                       padding: EdgeInsets.all(16),
                       child: UrduAwareText('Bu komplektda formula qolmadi.')),
                 M3SegmentSpacedColumn(children: [
-                  for (final (index, entry) in _formulas.indexed)
+                  for (final (index, entry) in _recipes.indexed)
+                    AdminCatalogListRow(
+                      key: ValueKey('preparation-product-recipe-${entry.id}'),
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                          index, rowCount),
+                      icon: Icons.functions_rounded,
+                      title: entry.name,
+                      subtitle: [entry.code, entry.materialName]
+                          .where((part) => part.isNotEmpty)
+                          .join(' • '),
+                      onTap: _busy ? null : () => _openRecipe(entry),
+                    ),
+                  for (final (index, entry) in legacyFormulas.indexed)
                     AdminCatalogListRow(
                       key: ValueKey(
                           'preparation-order-formula-${entry.materialId}-${entry.variantId.isEmpty ? '' : '${entry.variantId}-'}${entry.formula.name}'),
                       slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          index, _formulas.length),
+                          _recipes.length + index, rowCount),
                       icon: Icons.functions_rounded,
                       title: [entry.variantName, entry.materialName, entry.formula.name]
                           .where((part) => part.isNotEmpty).join(' • '),
                       subtitle: [
-                        if (entry.formula.code.isNotEmpty) entry.formula.code,
                         entry.formula.sharePercent == null
                             ? 'Shnek ulushi belgilanmagan'
                             : 'Shnek ulushi: ${preparationDisplay(entry.formula.sharePercent!)}%',
@@ -339,7 +405,6 @@ class _PreparationFormulaSetDetailsState
                           '${line.name} • ${preparationDisplay(line.percent)}%',
                       ].join('\n'),
                       subtitleMaxLines: entry.formula.lines.length + 1 +
-                          (entry.formula.code.isEmpty ? 0 : 1) +
                           (entry.materialId.isEmpty ? 1 : 0),
                       onTap: _busy ? null : () => _actions(entry),
                     ),
@@ -347,4 +412,5 @@ class _PreparationFormulaSetDetailsState
               ]),
         ),
       );
+  }
 }

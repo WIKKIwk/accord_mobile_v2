@@ -14,6 +14,10 @@ abstract final class AppRootNavigation {
     return _routeObserver.containsRoute(routeName);
   }
 
+  static bool containsRouteIn(NavigatorState navigator, String routeName) {
+    return _routeObserver.containsRouteIn(navigator, routeName);
+  }
+
   static void replaceRootRoute(BuildContext context, String routeName) {
     final current = ModalRoute.of(context)?.settings.name;
     if (current == routeName) {
@@ -51,6 +55,13 @@ class _AppRouteStackObserver extends NavigatorObserver {
 
   bool containsRoute(String routeName) {
     return _routes.any((route) => route.settings.name == routeName);
+  }
+
+  bool containsRouteIn(NavigatorState navigator, String routeName) {
+    return _routes.any((route) =>
+        identical(route.navigator, navigator) &&
+        route.isActive &&
+        route.settings.name == routeName);
   }
 
   @override

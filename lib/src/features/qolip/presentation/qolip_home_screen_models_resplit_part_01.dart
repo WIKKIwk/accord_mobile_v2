@@ -2,10 +2,15 @@
 part of 'qolip_home_screen.dart';
 
 class _QolipHomeScreenState extends State<QolipHomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _blockOrderPreferenceKey = 'qolip.home.block_order';
+  static const _quietRefreshInterval = Duration(seconds: 30);
 
+  final bool _preserveHome =
+      AppSession.instance.profile?.role == UserRole.qolipchi;
+  String _homeScope = currentSessionReadScope();
   late Future<QolipBlocksResult> _blocksFuture;
+  QolipBlocksResult? _homeBlocksSnapshot;
   final Map<String, Future<List<QolipLocationEntry>>> _locations = {};
   final Map<String, List<QolipLocationEntry>> _resolvedLocations = {};
   final Map<String, int> _locationGenerations = {};
@@ -18,18 +23,55 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
   String _searchQuery = '';
   TabController? _blockTabController;
   Timer? _searchDebounce;
+  Timer? _quietRefreshCooldown;
   int _searchGeneration = 0;
+  int _quietRefreshGeneration = 0;
+  int? _pendingTabIndex;
   bool _supportsCrossBlockMove = false;
+  bool _homeDataReady = false, _homeSessionInvalid = false;
+  bool _quietRefreshInFlight = false, _quietRefreshQueued = false;
+  bool _routeKnown = false, _routeIsCurrent = false;
 
   @override
   void initState() {
     super.initState();
+    if (_preserveHome) {
+      WidgetsBinding.instance.addObserver(this);
+      AppSession.instance.revision.addListener(_handleHomeSessionChange);
+    }
     _blocksFuture = _loadBlocks();
     QolipDataRevision.locations.addListener(_handleLocationsChanged);
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_preserveHome) return;
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    if (_routeKnown && current && !_routeIsCurrent) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _routeIsCurrent) _requestQuietRefresh();
+      });
+    }
+    _routeKnown = true;
+    _routeIsCurrent = current;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_preserveHome && state == AppLifecycleState.resumed && _routeIsCurrent) {
+      _requestQuietRefresh();
+    }
+  }
+
+  @override
   void dispose() {
+    if (_preserveHome) {
+      WidgetsBinding.instance.removeObserver(this);
+      AppSession.instance.revision.removeListener(_handleHomeSessionChange);
+    }
+    _quietRefreshGeneration++;
+    _quietRefreshCooldown?.cancel();
     QolipDataRevision.locations.removeListener(_handleLocationsChanged);
     _searchGeneration++;
     _blockSearchMatchCounts.dispose();
@@ -45,6 +87,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_homeSessionInvalid) return const Scaffold(body: SizedBox.shrink());
     final l10n = context.l10n;
     return AppShell(
       title: '',
@@ -81,6 +124,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
       ),
       contentPadding: EdgeInsets.zero,
       child: FutureBuilder<QolipBlocksResult>(
+        key: ValueKey(_homeScope),
         future: _blocksFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done &&
@@ -146,6 +190,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
                       children: [
                         for (final block in blocks)
                           _QolipBlockGrid(
+                            key: ValueKey('qolip-home-block-${_blockKey(block)}'),
                             block: block,
                             future: _locationsFor(block.name),
                             initialLocations:

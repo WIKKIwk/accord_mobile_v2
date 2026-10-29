@@ -131,6 +131,7 @@ class AppRoutes {
   static const String boyoqchiHome = '/boyoqchi-home';
   static const String preparation = '/preparation';
   static const String preparationFormulas = '/preparation-formulas';
+  static const String preparationProduction = '/preparation-production';
   static const String rawMaterialSplit = '/raw-material-split';
   static const String rawMaterialSplitHistory = '/raw-material-split-history';
   static const String boyoqchiAstatka = '/boyoqchi-astatka';

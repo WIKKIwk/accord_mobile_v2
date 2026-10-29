@@ -220,7 +220,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
   List<AdminFabMenuAction> _fabActions(PreparationSnapshot data) => [
         if (!_locked)
           AdminFabMenuAction(
-            title: 'Formulalar',
+            title: 'Mahsulot formulasi',
             icon: Icons.functions_rounded,
             onTap: () => _openAndReload(const PreparationFormulaOrdersScreen()),
           ),
@@ -414,7 +414,8 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             titleStyle: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
-                            value: _warehouse ?? 'Ombor tanlang',
+                            value: _warehouse ?? '',
+                            showChevron: false,
                             onTap: _locked ? null : () => _openWarehouse(data),
                             elevation: 4,
                           ),
@@ -427,6 +428,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                           value: '',
+                          showChevron: false,
                           onTap: _locked
                               ? null
                               : () => _openAndReload(
@@ -437,11 +439,12 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           slot: M3SegmentVerticalSlot.middle,
                           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
                           backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Formulalar',
+                          title: 'Mahsulot formulasi',
                           titleStyle: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                           value: '',
+                          showChevron: false,
                           onTap: _locked
                               ? null
                               : () => _openAndReload(
@@ -456,8 +459,23 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           titleStyle: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
-                          value: '${data.orders.where((o) => !o.saved).length}',
+                          value: '',
+                          showChevron: false,
                           onTap: () => _openOrders(),
+                          elevation: 4,
+                        ),
+                        AdminSummaryCard(
+                          slot: M3SegmentVerticalSlot.middle,
+                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
+                          backgroundColor: scheme.surfaceContainerLowest,
+                          title: 'Ishlab chiqarish',
+                          titleStyle: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          value: '',
+                          showChevron: false,
+                          onTap: () => AppRootNavigation.replaceRootRoute(
+                              context, AppRoutes.preparationProduction),
                           elevation: 4,
                         ),
                         AdminSummaryCard(
@@ -468,7 +486,8 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           titleStyle: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
-                          value: '${data.history.length}',
+                          value: '',
+                          showChevron: false,
                           onTap: () => _openHistory(data),
                           elevation: 4,
                         ),

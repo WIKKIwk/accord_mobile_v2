@@ -175,6 +175,7 @@ extension __AppShellStateAstPart01 on _AppShellState {
     }
     return AppShellDrawerScope(
       openDrawer: _openExpressiveDrawer,
+      isDrawerOpen: () => _expressiveDrawerController?.isDismissed == false,
       child: decorated,
     );
   }

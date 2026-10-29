@@ -74,6 +74,9 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
       AppRoutes.inventoryMovements,
     }.contains(routeName);
   }
+  if (routeName == AppRoutes.preparationProduction && profile.role != UserRole.tayyorlovMasteri) {
+    return false;
+  }
   if (profile.role == UserRole.salesManager &&
       !const {
         AppRoutes.salesHome,

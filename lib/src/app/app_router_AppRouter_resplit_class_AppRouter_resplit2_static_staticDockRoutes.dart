@@ -71,6 +71,7 @@ const _app_router_AppRouter_resplit_class_AppRouter_staticDockRoutes_resplit2Val
   AppRoutes.boyoqchiHome,
   AppRoutes.preparation,
   AppRoutes.preparationFormulas,
+  AppRoutes.preparationProduction,
   AppRoutes.rawMaterialSplit,
   AppRoutes.rawMaterialSplitHistory,
   AppRoutes.boyoqchiAstatka,

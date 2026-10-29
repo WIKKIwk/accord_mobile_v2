@@ -635,6 +635,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
     case AppRoutes.preparationFormulas:
       return AppRouter._buildRoute(
           settings, const PreparationFormulaCatalogScreen());
+    case AppRoutes.preparationProduction:
+      return AppRouter._buildRoute(settings, const PreparationProductionScreen());
     case AppRoutes.rawMaterialSplit:
       return AppRouter._buildRoute(settings, const RawMaterialSplitScreen());
     case AppRoutes.rawMaterialSplitHistory:
