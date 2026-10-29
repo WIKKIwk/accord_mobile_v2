@@ -255,8 +255,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
                                 .standaloneListSlotForIndex(
                                     i, detail.items.length),
                             code: detail.items[i].code,
-                            countLabel:
-                                '${_s(context, 'quantity')}: ${detail.items[i].quantity}',
+                            countLabel: '',
                             subtitle: [
                               if (detail.items[i].productNames.isNotEmpty)
                                 detail.items[i].productNames,
@@ -344,8 +343,6 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
               ),
               PaddonMetric(
                   label: _s(context, 'molds'), value: '${detail.items.length}'),
-              PaddonMetric(
-                  label: _s(context, 'quantity'), value: '${p.totalQuantity}'),
             ]),
         const SizedBox(height: 12),
         const Divider(height: 1),
