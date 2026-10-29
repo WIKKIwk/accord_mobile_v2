@@ -37,14 +37,10 @@ class _MoldPickerState extends State<_MoldPicker>
   Map<String, Object>? _productLoadErrors;
   ValueNotifier<int>? _selectionNotifier, _activityNotifier;
   Map<String, ValueNotifier<int>>? _productNotifiers;
-  Map<String, String>? _productImageOrders;
-  OrderImageThumbCache? _coverImageCache;
-  Future<void>? _productImagesTask;
-  bool? _productImagesRequested;
-  Map<String, String> get _imageOrders =>
-      _productImageOrders ??= <String, String>{};
-  OrderImageThumbCache get _coverImageProviders =>
-      _coverImageCache ??= OrderImageThumbCache();
+  _StorageProductImages? _productImageResolver;
+  _StorageProductImages get _productImages =>
+      _productImageResolver ??= _StorageProductImages(
+          isCurrent: () => _current && !_scanMode, groups: _groupProducts);
   ScrollController? _listScrollController;
   ScrollController get _listScroll => _listScrollController ??=
       ScrollController()..addListener(_scheduleMoreIfNeeded);
@@ -148,7 +144,7 @@ class _MoldPickerState extends State<_MoldPicker>
     _feedbackTimer?.cancel();
     _searchFocus?.dispose();
     _search.dispose();
-    _coverImageCache?.clear();
+    _productImageResolver?.dispose();
     _listScrollController?.dispose();
     _generation++;
     _invalidateScans();
@@ -218,7 +214,7 @@ class _MoldPickerState extends State<_MoldPicker>
     } finally {
       if (_current && generation == _generation) {
         setState(() => _loading = false);
-        if (_failure == null) _requestProductImages();
+        if (_failure == null) _productImages.request();
         _scheduleMoreIfNeeded();
       }
     }

@@ -18,6 +18,13 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   Object? _failure;
   String? _pendingAction;
   List<String> _pendingCodes = [];
+  _StorageProductImages? _productImageResolver;
+  _StorageProductImages get _productImages =>
+      _productImageResolver ??= _StorageProductImages(
+        isCurrent: () =>
+            mounted && !_sessionExpired && _scope == currentSessionReadScope(),
+        groups: () => _groupStorageProducts(_detail?.items ?? const []),
+      );
   Map<String, ValueNotifier<bool>>? _expandedProductNotifiers;
   ValueNotifier<bool> _productExpanded(String key) =>
       (_expandedProductNotifiers ??= <String, ValueNotifier<bool>>{})
@@ -31,6 +38,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   @override
   void dispose() {
     _generation++;
+    _productImageResolver?.dispose();
     for (final notifier
         in _expandedProductNotifiers?.values ?? <ValueNotifier<bool>>[]) {
       notifier.dispose();
@@ -40,18 +48,23 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
 
   Future<void> _load() async {
     final generation = ++_generation;
+    var loaded = false;
     setState(() {
       _loading = true;
       _failure = null;
     });
     try {
       final detail = await MobileApi.instance.qolipPaddonDetail(widget.code);
-      if (mounted && generation == _generation) _detail = detail;
+      if (mounted && generation == _generation) {
+        _detail = detail;
+        loaded = true;
+      }
     } catch (e) {
       if (mounted && generation == _generation) _failure = e;
     } finally {
       if (mounted && generation == _generation) {
         setState(() => _loading = false);
+        if (loaded) _productImages.request();
       }
     }
   }
@@ -285,10 +298,11 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
       for (final mold in group.visibleMolds) _pickerMoldKey(mold): mold,
     };
     final products = _storageProductRows(group, byCode.values);
-    return ValueListenableBuilder<bool>(
+    return ListenableBuilder(
       key: ValueKey('qolip-paddon-product-listener-${group.key}'),
-      valueListenable: expanded,
-      builder: (context, isExpanded, _) => QolipProductContainerCard(
+      listenable:
+          Listenable.merge([expanded, _productImages.changes(group.key)]),
+      builder: (context, _) => QolipProductContainerCard(
         key: ValueKey('qolip-paddon-product-${group.key}'),
         expandKey: ValueKey('qolip-paddon-product-expand-${group.key}'),
         slot: M3SegmentedListGeometry.standaloneListSlotForIndex(index, count),
@@ -298,11 +312,12 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
           itemGroup: '',
           children: products,
         ),
-        imageUrl: '',
+        imageUrl: _productImages.imageUrl(group.key),
+        imageProviderCache: _productImages.providers,
         loading: false,
         errorMessage: null,
         onRetry: () async {},
-        expanded: isExpanded,
+        expanded: expanded.value,
         containerSelectionMode: false,
         qolipSelectionMode: true,
         selectedContainer: false,

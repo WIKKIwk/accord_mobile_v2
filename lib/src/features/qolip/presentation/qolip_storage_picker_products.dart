@@ -74,56 +74,78 @@ List<QolipProduct> _storageProductRows(
         ),
     ];
 
-extension _MoldPickerProducts on _MoldPickerState {
-  List<_StorageProductGroup> _groupProducts() =>
-      _groupStorageProducts(_molds, query: _search.text);
+class _StorageProductImages {
+  _StorageProductImages({required this.isCurrent, required this.groups});
 
-  void _requestProductImages() {
-    if (!_current || _scanMode) return;
-    _productImagesRequested = true;
-    if (_productImagesTask != null) return;
-    final task = _loadProductImages();
-    _productImagesTask = task;
-    unawaited(task.whenComplete(() {
-      if (!identical(_productImagesTask, task)) return;
-      _productImagesTask = null;
-      if (_productImagesRequested == true && _current && !_scanMode) {
-        _requestProductImages();
-      }
-    }));
+  final bool Function() isCurrent;
+  final List<_StorageProductGroup> Function() groups;
+  final providers = OrderImageThumbCache();
+  final _orders = <String, String>{};
+  final _changes = <String, ValueNotifier<String>>{};
+  Future<void>? _task;
+  bool _requested = false, _disposed = false;
+
+  bool get _current => !_disposed && isCurrent();
+  Listenable changes(String key) => _changes.putIfAbsent(
+      key, () => ValueNotifier<String>(_orders[key] ?? ''));
+
+  String imageUrl(String key) {
+    final order = _orders[key] ?? '';
+    return order.isEmpty
+        ? ''
+        : MobileApi.instance.adminProductionMapOrderImageUrl(order);
   }
 
-  Future<void> _loadProductImages() async {
-    try {
-      while (_productImagesRequested == true && _current && !_scanMode) {
-        _productImagesRequested = false;
-        await _resolveProductImages();
-      }
-    } catch (_) {
-      // Product images are optional; the picker must remain usable offline.
+  void dispose() {
+    _disposed = true;
+    providers.clear();
+    for (final notifier in _changes.values) {
+      notifier.dispose();
     }
   }
 
-  Future<void> _resolveProductImages() async {
+  void request() {
+    if (!_current) return;
+    _requested = true;
+    if (_task != null) return;
+    final task = _load();
+    _task = task;
+    unawaited(task.whenComplete(() {
+      if (!identical(_task, task)) return;
+      _task = null;
+      if (_requested && _current) request();
+    }));
+  }
+
+  Future<void> _load() async {
+    try {
+      while (_requested && _current) {
+        _requested = false;
+        await _resolve();
+      }
+    } catch (_) {
+      // Images are optional and must not block the storage screens.
+    }
+  }
+
+  Future<void> _resolve() async {
     final store = QolipCatalogStore.instance;
     final seenCursors = <String>{};
-    while (_current && !_scanMode) {
-      final groups =
-          _groupProducts().where((group) => !group.unlinked).toList();
-      if (groups.isEmpty) return;
+    while (_current) {
+      final products = groups().where((group) => !group.unlinked).toList();
+      if (products.isEmpty) return;
       final window = store.window('');
       final byId = {for (final item in window.items) item.id: item};
       var missing = false;
-      for (final group in groups) {
+      for (final group in products) {
         final item = byId[qolipCatalogId(group.code)];
         if (item == null) {
-          if (!_imageOrders.containsKey(group.key)) missing = true;
+          if (!_orders.containsKey(group.key)) missing = true;
           continue;
         }
         final imageOrder = item.orderImageOrderId.trim();
-        final previous = _imageOrders[group.key] ?? '';
-        _imageOrders[group.key] = imageOrder;
-        if (previous != imageOrder) _notifyProductChanged(group.key);
+        _orders[group.key] = imageOrder;
+        _changes[group.key]?.value = imageOrder;
       }
       if (!missing) return;
       if (!window.loaded) {
@@ -135,6 +157,11 @@ extension _MoldPickerProducts on _MoldPickerState {
       await store.more('');
     }
   }
+}
+
+extension _MoldPickerProducts on _MoldPickerState {
+  List<_StorageProductGroup> _groupProducts() =>
+      _groupStorageProducts(_molds, query: _search.text);
 
   bool? _productSelection(_StorageProductGroup group) {
     final selected = _selected.values.where(group.contains).toList();
@@ -283,8 +310,11 @@ extension _MoldPickerProducts on _MoldPickerState {
           for (var i = 0; i < groups.length; i++)
             ListenableBuilder(
               key: ValueKey('qolip-picker-product-listener-${groups[i].key}'),
-              listenable: Listenable.merge(
-                  [_productChanges(groups[i].key), _activityChanges]),
+              listenable: Listenable.merge([
+                _productChanges(groups[i].key),
+                _activityChanges,
+                _productImages.changes(groups[i].key),
+              ]),
               builder: (context, _) =>
                   _productGroupCard(context, groups[i], i, groups.length),
             ),
@@ -307,7 +337,6 @@ extension _MoldPickerProducts on _MoldPickerState {
       for (final mold in displayMolds) _pickerMoldKey(mold): mold,
     };
     final products = _storageProductRows(group, byCode.values);
-    final imageOrder = _imageOrders[group.key] ?? '';
     final slot =
         M3SegmentedListGeometry.standaloneListSlotForIndex(index, count);
     return QolipProductContainerCard(
@@ -320,10 +349,8 @@ extension _MoldPickerProducts on _MoldPickerState {
         itemGroup: '',
         children: products,
       ),
-      imageUrl: imageOrder.isEmpty
-          ? ''
-          : MobileApi.instance.adminProductionMapOrderImageUrl(imageOrder),
-      imageProviderCache: _coverImageProviders,
+      imageUrl: _productImages.imageUrl(group.key),
+      imageProviderCache: _productImages.providers,
       expanded: expanded,
       loading: loading,
       errorMessage: error == null

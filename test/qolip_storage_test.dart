@@ -22,6 +22,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'order_image_test_data.dart';
+
 Map<String, dynamic> pallet(
         {bool archived = false, bool locked = true, int revision = 4}) =>
     {
@@ -97,6 +99,141 @@ void main() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
     QolipCatalogStore.instance.reset();
+  });
+
+  testWidgets('pallet contents display the linked products catalog images',
+      (tester) async {
+    final png = await tester.runAsync(() => orderImageTestPng(48, 48));
+    final pending = Completer<http.Response>();
+    final imageRequests = <String>[];
+    final response = detail(locked: false);
+    response['items'] = [
+      {
+        ...mold(),
+        'products': [
+          {'code': 'ITEM-A', 'name': 'Alpha'},
+          {'code': 'ITEM-B', 'name': 'Beta'},
+        ]
+      },
+      {...mold(), 'qolip_code': 'Q-LOOSE'},
+    ];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      final first = paddonProduct('product:item-a');
+      final second = paddonProduct('product:item-b');
+      expect(tester.widget<QolipProductContainerCard>(first).imageUrl,
+          contains('order_id=paddon-alpha-image'));
+      expect(tester.widget<QolipProductContainerCard>(second).imageUrl, '');
+      expect(tester.widget<QolipProductContainerCard>(paddonProduct('unlinked'))
+          .imageUrl, '');
+      await tapVisible(tester, expandPaddonProduct('product:item-a'));
+      final firstWidget = tester.widget<QolipProductContainerCard>(first);
+      pending.complete(jsonResponse({
+        'ok': true,
+        'items': [
+          {
+            'id': qolipCatalogId('ITEM-B'),
+            'name': 'Beta',
+            'order_image_order_id': 'paddon-beta-image',
+          },
+        ],
+        'has_more': false,
+      }));
+      await tester.pumpAndSettle();
+      expect(tester.widget<QolipProductContainerCard>(second).imageUrl,
+          contains('order_id=paddon-beta-image'));
+      expect(tester.widget<QolipProductContainerCard>(first), same(firstWidget));
+      expect(find.byKey(const ValueKey('qolip-paddon-mold-Q-ONE')),
+          findsOneWidget);
+      bool hasImage(Finder card) => tester
+          .widgetList<RawImage>(
+              find.descendant(of: card, matching: find.byType(RawImage)))
+          .any((image) => image.image?.width == 48);
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 25)));
+        await tester.pump();
+        if (hasImage(first) && hasImage(second)) break;
+      }
+      expect(imageRequests, containsAll(['paddon-alpha-image', 'paddon-beta-image']));
+      expect(hasImage(first), isTrue);
+      expect(hasImage(second), isTrue);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          if (request.url.path.endsWith('/products/page')) {
+            if (request.url.queryParameters.containsKey('cursor')) {
+              return pending.future;
+            }
+            return jsonResponse({
+              'ok': true,
+              'items': [
+                {
+                  'id': qolipCatalogId('ITEM-A'),
+                  'name': 'Alpha',
+                  'order_image_order_id': 'paddon-alpha-image',
+                },
+              ],
+              'has_more': true,
+              'next_cursor': 'next',
+            });
+          }
+          if (request.url.path.endsWith('/order-image/view')) {
+            imageRequests.add(request.url.queryParameters['order_id']!);
+            return http.Response.bytes(png!, 200,
+                headers: {'content-type': 'image/png'});
+          }
+          return jsonResponse(response);
+        }));
+  });
+
+  testWidgets('pallet ignores late image data after an account switch',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    var imageReads = 0;
+    final response = detail();
+    response['items'] = [
+      {
+        ...mold(),
+        'products': [
+          {'code': 'ITEM-A', 'name': 'Alpha'},
+        ],
+      },
+    ];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      AppSession.instance.profile = const SessionProfile(
+          role: UserRole.qolipchi,
+          ref: 'different',
+          displayName: 'Other',
+          legalName: '',
+          phone: '',
+          avatarUrl: '');
+      AppSession.instance.revision.value++;
+      pending.complete(jsonResponse({
+        'ok': true,
+        'items': [
+          {
+            'id': qolipCatalogId('ITEM-A'),
+            'name': 'Alpha',
+            'order_image_order_id': 'old-account-paddon-image',
+          },
+        ],
+        'has_more': false,
+      }));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Account or permissions changed'), findsWidgets);
+      expect(find.byType(QolipProductContainerCard), findsNothing);
+      expect(imageReads, 0);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((request) async {
+          if (request.url.path.endsWith('/products/page')) {
+            return pending.future;
+          }
+          if (request.url.path.endsWith('/order-image/view')) imageReads++;
+          return jsonResponse(response);
+        }));
   });
 
   testWidgets('pallet groups shared molds by product and removes one mold',
