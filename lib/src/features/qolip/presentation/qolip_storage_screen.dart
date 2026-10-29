@@ -16,6 +16,7 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/widgets/admin_drawer_navigation.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
+import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../state/qolip_data_revision.dart';
 import 'qolip_mileage_sheet.dart';
 import 'qolip_paddon_print.dart';
@@ -214,6 +215,8 @@ class QolipStorageScreen extends StatefulWidget {
 class _QolipStorageScreenState extends State<QolipStorageScreen>
     with _StorageSessionState<QolipStorageScreen> {
   final _search = TextEditingController();
+  FocusNode? _searchFocus;
+  FocusNode get _searchFocusNode => _searchFocus ??= FocusNode();
   final _intent = QolipStorageIntent();
   final _scope = currentSessionReadScope();
   Timer? _debounce;
@@ -239,8 +242,14 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
   void dispose() {
     _debounce?.cancel();
     _generation++;
+    _searchFocus?.dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () => _load());
   }
 
   bool _sameScope() {
@@ -415,17 +424,53 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
     if (_sessionExpired) return sessionExpiredPage(context);
     final rows =
         _archive.where((e) => _kind == 'all' || e.kind == _kind).toList();
+    final canGoBack = ModalRoute.of(context)?.canPop ?? false;
     return AppShell(
-      title: _s(context, widget.archive ? 'archive' : 'paddons'),
+      title: widget.archive ? _s(context, 'archive') : '',
       subtitle: '',
       nativeTopBar: true,
+      automaticallyImplyNativeLeading: widget.archive,
+      profileActionListenable: widget.archive ? null : _searchFocusNode,
+      showProfileActionResolver:
+          widget.archive ? null : () => !_searchFocusNode.hasFocus,
+      titleWidget: widget.archive
+          ? null
+          : AdminCatalogSearchField(
+              controller: _search,
+              focusNode: _searchFocusNode,
+              hintText: _s(context, 'paddons_search'),
+              onChanged: _onSearchChanged,
+              onClear: () {
+                _search.clear();
+                _onSearchChanged('');
+              },
+              searchCloseKey: const ValueKey('qolip-paddons-search-close'),
+              leadingIcon:
+                  canGoBack ? Icons.arrow_back_rounded : Icons.menu_rounded,
+              leadingTooltip: canGoBack
+                  ? MaterialLocalizations.of(context).backButtonTooltip
+                  : MaterialLocalizations.of(context).openAppDrawerTooltip,
+              onBackWithContext: (searchContext) {
+                final navigator = Navigator.of(searchContext);
+                if (navigator.canPop()) {
+                  unawaited(navigator.maybePop());
+                } else {
+                  AppShellDrawerScope.maybeOf(searchContext)?.openDrawer();
+                }
+              },
+            ),
       appBarBottomLoading: _loading || _saving,
       contentPadding: EdgeInsets.zero,
       actions: [
-        IconButton(
-          tooltip: _s(context, 'refresh'),
-          onPressed: _loading || _saving ? null : () => _load(),
-          icon: const Icon(Icons.refresh_rounded),
+        ListenableBuilder(
+          listenable: _searchFocusNode,
+          builder: (context, _) => !widget.archive && _searchFocusNode.hasFocus
+              ? const SizedBox.shrink()
+              : IconButton(
+                  tooltip: _s(context, 'refresh'),
+                  onPressed: _loading || _saving ? null : () => _load(),
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
         ),
       ],
       drawer: QolipNavigationDrawer(
@@ -495,27 +540,23 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
               ],
-              TextField(
-                controller: _search,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: _s(context, 'search'),
-                  filled: true,
-                  fillColor:
-                      Theme.of(context).colorScheme.surfaceContainerLowest,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: BorderSide.none,
+              if (widget.archive)
+                TextField(
+                  controller: _search,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: _s(context, 'search'),
+                    filled: true,
+                    fillColor:
+                        Theme.of(context).colorScheme.surfaceContainerLowest,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
+                  onChanged: _onSearchChanged,
                 ),
-                onChanged: (_) {
-                  _debounce?.cancel();
-                  _debounce =
-                      Timer(const Duration(milliseconds: 300), () => _load());
-                },
-              ),
               if (widget.archive) ...[
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   OutlinedButton.icon(

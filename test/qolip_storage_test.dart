@@ -5,6 +5,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/widgets/paddon_widgets.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_storage_screen.dart';
 import 'package:flutter/material.dart';
@@ -595,6 +596,109 @@ void main() {
                   : {'ok': true, 'paddons': [], 'has_more': false});
             }));
   });
+  testWidgets('pallet top bar searches, unfocuses and clears the server query',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final queries = <String>[];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipStorageScreen()));
+      await tester.pumpAndSettle();
+      final search = find.byType(AdminCatalogSearchField);
+      expect(find.descendant(of: find.byType(AppBar), matching: search),
+          findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Search pallets'), findsOneWidget);
+      expect(find.byKey(const ValueKey('qolip-paddon-card-QP-00013')),
+          findsOneWidget);
+
+      final input =
+          find.descendant(of: search, matching: find.byType(EditableText));
+      await tester.enterText(input, 'QP-00012');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(queries.last, 'QP-00012');
+      expect(find.byKey(const ValueKey('qolip-paddon-card-QP-00012')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('qolip-paddon-card-QP-00013')),
+          findsNothing);
+      expect(find.byTooltip('Refresh'), findsNothing);
+
+      await tester
+          .tap(find.byKey(const ValueKey('qolip-paddons-search-close')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<EditableText>(input).controller.text, 'QP-00012');
+      expect(find.byTooltip('Refresh'), findsOneWidget);
+      await tester.tap(find.descendant(
+          of: search, matching: find.byIcon(Icons.close_rounded)));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(queries.last, isEmpty);
+      expect(find.byKey(const ValueKey('qolip-paddon-card-QP-00013')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              final query = request.url.queryParameters['q'] ?? '';
+              queries.add(query);
+              return jsonResponse({
+                'ok': true,
+                'paddons': [
+                  pallet(),
+                  if (query.isEmpty)
+                    {...pallet(locked: false), 'code': 'QP-00013'},
+                ],
+              });
+            }));
+  });
+
+  testWidgets('pallet search leading opens its drawer at the root',
+      (tester) async {
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipStorageScreen()));
+      await tester.pumpAndSettle();
+      final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
+      expect(nav.canPop(), isFalse);
+      await tester.tap(find.descendant(
+          of: find.byType(AdminCatalogSearchField),
+          matching: find.byIcon(Icons.menu_rounded)));
+      await tester.pumpAndSettle();
+      expect(nav.canPop(), isTrue);
+      await nav.maybePop();
+      await tester.pumpAndSettle();
+      expect(nav.canPop(), isFalse);
+      expect(find.byType(AdminCatalogSearchField), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () =>
+            MockClient((_) async => jsonResponse({'ok': true, 'paddons': []})));
+  });
+
+  testWidgets('pallet search leading returns to the previous page',
+      (tester) async {
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(Builder(
+          builder: (context) => Scaffold(
+              body: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                          builder: (_) => const QolipStorageScreen())),
+                  child: const Text('Open'))))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(
+          of: find.byType(AdminCatalogSearchField),
+          matching: find.byIcon(Icons.arrow_back_rounded)));
+      await tester.pumpAndSettle();
+      expect(find.text('Open'), findsOneWidget);
+      expect(find.byType(AdminCatalogSearchField), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+        () =>
+            MockClient((_) async => jsonResponse({'ok': true, 'paddons': []})));
+  });
+
   testWidgets('pallet list shares production cards and opens create from dock',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));

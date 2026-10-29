@@ -3,6 +3,8 @@ part of 'app_localizations.dart';
 extension AppLocalizationsQolipStorage on AppLocalizations {
   String qolipStorageText(String key) => switch (key) {
         'paddons' => _t('Paddonlar', 'Pallets', 'Поддоны'),
+        'paddons_search' =>
+          _t('Paddon qidirish', 'Search pallets', 'Поиск поддонов'),
         'archive' => _t('Arxiv', 'Archive', 'Архив'),
         'molds' => _t('Qoliplar', 'Molds', 'Формы'),
         'create' => _t('Yangi paddon', 'New pallet', 'Новый поддон'),
