@@ -84,7 +84,9 @@ extension _MoldPickerProducts on _MoldPickerState {
           query: group.code,
           offset: offset,
         );
-        if (!_current || generation != _generation) return null;
+        if (!await _continueAfterDiscard() ||
+            !_current ||
+            generation != _generation) return null;
         for (final mold in page.items.where(group.contains)) {
           found[_pickerMoldKey(mold)] = mold;
         }
@@ -116,7 +118,9 @@ extension _MoldPickerProducts on _MoldPickerState {
       if (removedUnavailable) _message(context, _s(context, 'changed'));
       return molds;
     } catch (error) {
-      if (_current && generation == _generation) {
+      if (await _continueAfterDiscard() &&
+          _current &&
+          generation == _generation) {
         setState(() => _productErrors[group.key] = error);
         if (!_expandedProducts.contains(group.key)) {
           _message(
@@ -151,8 +155,10 @@ extension _MoldPickerProducts on _MoldPickerState {
   Future<void> _toggleProduct(_PickerProduct group) async {
     if (!_current || _busy || _listPending) return;
     final deselect = _productSelection(group) == true;
-    final molds = await _loadProduct(group);
-    if (!_current || molds == null) return;
+    final molds = _productErrors.containsKey(group.key)
+        ? await _loadProduct(group)
+        : _productMolds[group.key] ?? await _loadProduct(group);
+    if (!await _continueAfterDiscard() || !_current || molds == null) return;
     final eligible = molds.where(_eligible).toList();
     final unavailable = molds.length - eligible.length;
     if (!deselect && unavailable > 0) {
@@ -187,10 +193,12 @@ extension _MoldPickerProducts on _MoldPickerState {
       return PaddonEmptyState(
           title: _s(context, 'empty'), icon: Icons.layers_outlined);
     }
-    return M3SegmentSpacedColumn(children: [
-      for (var i = 0; i < groups.length; i++)
-        _productGroupCard(context, groups[i], i, groups.length),
-    ]);
+    return M3SegmentSpacedColumn(
+        key: const ValueKey('qolip-picker-products'),
+        children: [
+          for (var i = 0; i < groups.length; i++)
+            _productGroupCard(context, groups[i], i, groups.length),
+        ]);
   }
 
   Widget _productGroupCard(

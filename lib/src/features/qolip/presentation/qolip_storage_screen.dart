@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/session/session.dart';
 import '../../../core/theme/app_theme.dart';

@@ -28,6 +28,7 @@ class _MoldPickerState extends State<_MoldPicker>
   Object? _failure;
   String? _loadingProductKey;
   bool? _searchPending;
+  Completer<bool>? _discardDecision;
   Set<String>? _expandedProductKeys;
   Map<String, List<QolipStorageMold>>? _productMoldCache;
   Map<String, Object>? _productLoadErrors;
@@ -65,6 +66,8 @@ class _MoldPickerState extends State<_MoldPicker>
     _search.dispose();
     _generation++;
     _invalidateScans();
+    final decision = _discardDecision;
+    if (decision != null && !decision.isCompleted) decision.complete(false);
     super.dispose();
   }
 
@@ -168,7 +171,7 @@ class _MoldPickerState extends State<_MoldPicker>
     try {
       final molds = await MobileApi.instance
           .qolipStorageSet(id, warehouse: widget.warehouse);
-      if (!mounted || !_current) return;
+      if (!await _continueAfterDiscard() || !_current) return;
       if ({..._selected.keys, ...molds.map(_pickerMoldKey)}
               .length >
           1000) {
@@ -186,7 +189,7 @@ class _MoldPickerState extends State<_MoldPicker>
         }
       });
     } catch (e) {
-      if (mounted && _current) {
+      if (await _continueAfterDiscard() && mounted && _current) {
         if (e is MobileApiException && e.code == 'qolip_set_unavailable') {
           await _storageDialog<void>(
               context: context,
@@ -229,20 +232,62 @@ class _MoldPickerState extends State<_MoldPicker>
     if (mounted) Navigator.pop(context, result);
   }
 
-  Future<void> _leave() async {
-    if (!_current || _reviewOpen || _selectingSet || _loadingProductKey != null) return;
+  Future<bool> _confirmDiscard() async {
+    if (!_current || _reviewOpen) return false;
+    if (_selected.isEmpty && !_busy) return true;
+    final decision = Completer<bool>();
+    _discardDecision = decision;
     setState(() => _reviewOpen = true);
-    final confirmed = await _confirm(context, _s(context, 'leave'),
-        '${_s(context, 'selected')}: ${_selected.length}');
-    if (!_current) return;
-    setState(() => _reviewOpen = false);
-    if (!confirmed) return;
+    var confirmed = false;
+    try {
+      confirmed = await _confirm(context, _s(context, 'leave'),
+          '${_s(context, 'selected')}: ${_selected.length}');
+      if (!_current) return false;
+      setState(() => _reviewOpen = false);
+      return confirmed;
+    } finally {
+      if (identical(_discardDecision, decision)) _discardDecision = null;
+      if (!decision.isCompleted) decision.complete(_current && !confirmed);
+    }
+  }
+
+  Future<bool> _continueAfterDiscard() async {
+    final decision = _discardDecision;
+    return decision == null || await decision.future;
+  }
+
+  Future<void> _leave() async {
+    if (!await _confirmDiscard() || !_current) return;
     setState(() {
       _leaving = true;
+      _generation++;
       _invalidateScans();
     });
     await Future<void>.delayed(Duration.zero);
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _navigateFromPicker(String route) async {
+    if (!await _confirmDiscard() || !_current) return;
+    final navigator = Navigator.of(context);
+    setState(() {
+      _leaving = true;
+      _generation++;
+      _invalidateScans();
+    });
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted || _scope != currentSessionReadScope()) return;
+    navigator.pop();
+    AppRootNavigation.replaceRootRoute(navigator.context, route);
+  }
+
+  void _onDockTab(QolipDockTab tab) {
+    final route = switch (tab) {
+      QolipDockTab.home => AppRoutes.qolipHome,
+      QolipDockTab.products => AppRoutes.qolipProducts,
+      QolipDockTab.tasks => AppRoutes.qolipTasks,
+    };
+    unawaited(_navigateFromPicker(route));
   }
 
   @override
@@ -260,39 +305,27 @@ class _MoldPickerState extends State<_MoldPicker>
         showProfileAction: false,
         contentPadding: EdgeInsets.zero,
         appBarBottomLoading: _loading || _busy,
-        bottom: Material(
-          color: Theme.of(context).colorScheme.surfaceContainerLowest,
-          elevation: 8,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                if (_pendingScans > 0) ...[
-                  Text(_s(context, 'scan_pending'),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                ],
-                SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      key: const ValueKey('qolip-picker-confirm'),
-                      onPressed: _selected.isEmpty || _busy || _loading || _searchPending == true
-                          ? null
-                          : _finish,
-                      icon: const Icon(Icons.check_rounded),
-                      label: Text(
-                          '${_s(context, 'confirm')} (${_selected.length})'),
-                    )),
-              ]),
-            ),
-          ),
+        bottom: QolipDock(
+          activeTab: null,
+          onTabSelected: _onDockTab,
+          onChatSelected: () => unawaited(_navigateFromPicker(AppRoutes.chat)),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          key: const ValueKey('qolip-picker-confirm'),
+          heroTag: null,
+          onPressed: _selected.isEmpty || _busy || _loading ||
+                  _searchPending == true
+              ? null
+              : _finish,
+          icon: const Icon(Icons.check_rounded),
+          label: Text('${_s(context, 'confirm')} (${_selected.length})'),
         ),
         child: Material(
           color: AppTheme.shellStart(context),
           child: ListView(
+            key: const ValueKey('qolip-picker-list'),
             padding: EdgeInsets.fromLTRB(
-                4, 4, 4, MediaQuery.viewPaddingOf(context).bottom + 100),
+                4, 4, 4, MediaQuery.viewPaddingOf(context).bottom + 140),
             children: [
               PaddonPanel(
                 key: const ValueKey('qolip-picker-summary'),
@@ -387,18 +420,29 @@ class _MoldPickerState extends State<_MoldPicker>
               icon: const Icon(Icons.layers_outlined, size: 18),
               label: Text(_s(context, 'choose_set'))),
         ]),
-        if (_selected.isNotEmpty)
-          SizedBox(
-              height: 44,
-              child: ListView(scrollDirection: Axis.horizontal, children: [
-                for (final m in _selected.values)
-                  Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 6),
-                      child: InputChip(
-                        label: Text(m.code),
-                        onDeleted: _busy ? null : () => _toggle(m, false),
-                      )),
-              ])),
+        SizedBox(
+          key: const ValueKey('qolip-picker-selected-strip'),
+          height: 44,
+          child: _selected.isEmpty
+              ? Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(_s(context, 'selected_empty'),
+                      style: Theme.of(context).textTheme.bodySmall),
+                )
+              : ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final m in _selected.values)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 6),
+                        child: InputChip(
+                          label: Text(m.code),
+                          onDeleted: _busy ? null : () => _toggle(m, false),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
         PaddonSectionHeader(
             title: _s(context, 'loaded_products'), count: '${_groupProducts().length}'),
         if (_failure != null)

@@ -80,9 +80,11 @@ extension _MoldPickerScanning on _MoldPickerState {
     // exact mold lookups so fast scans stay queued and can be reviewed together.
     final operation = _scanQueue.then((_) async {
       try {
-        if (!mounted || !_currentScan(generation)) return;
+        if (!mounted || !await _continueAfterDiscard() ||
+            !_currentScan(generation)) return;
         final page = await MobileApi.instance.qolipStorageMolds(code: code);
-        if (!mounted || !_currentScan(generation)) return;
+        if (!mounted || !await _continueAfterDiscard() ||
+            !_currentScan(generation)) return;
         final mold = page.items.singleOrNull;
         if (mold == null ||
             _pickerMoldKey(mold) != key ||
@@ -106,7 +108,7 @@ extension _MoldPickerScanning on _MoldPickerState {
         _scanMessage('${mold.code} — ${_s(context, 'scan_accepted')}',
             ProductionQuickScanFeedback.accepted);
       } catch (error) {
-        if (mounted && _currentScan(generation)) {
+        if (await _continueAfterDiscard() && mounted && _currentScan(generation)) {
           _scanMessage(_storageErrorMessage(context, error),
               ProductionQuickScanFeedback.rejected);
         }
@@ -145,6 +147,11 @@ extension _MoldPickerScanning on _MoldPickerState {
                   color: _scanFeedback == ProductionQuickScanFeedback.rejected
                       ? Theme.of(context).colorScheme.error
                       : null)),
+        ),
+      if (_pendingScans > 0)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          child: Text(_s(context, 'scan_pending')),
         ),
       PaddonSectionHeader(
           title: _s(context, 'selection_review'), count: '${_selected.length}'),

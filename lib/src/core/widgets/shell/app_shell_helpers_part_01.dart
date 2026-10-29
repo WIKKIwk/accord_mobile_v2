@@ -38,6 +38,7 @@ class AppShell extends StatefulWidget {
     this.actions,
     this.drawer,
     this.bottom,
+    this.floatingActionButton,
     this.resizeToAvoidBottomInset = true,
     this.bottomDockFadeStrength,
     this.bottomDockHeight = _contentBottomDockHeight,
@@ -65,6 +66,7 @@ class AppShell extends StatefulWidget {
   final List<Widget>? actions;
   final Widget? drawer;
   final Widget? bottom;
+  final Widget? floatingActionButton;
   final bool resizeToAvoidBottomInset;
 
   /// Pastki dock ustidagi yumshoq scrim: **0** yo‘q, **1** to‘liq. `null` — scrim chizilmaydi.

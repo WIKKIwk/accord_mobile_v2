@@ -141,6 +141,7 @@ class _AppShellState extends State<AppShell>
       bottomNavigationBar: widget.bottom == null
           ? null
           : Padding(padding: widget.bottomPadding, child: widget.bottom!),
+      floatingActionButton: widget.floatingActionButton,
       body: SafeArea(
         bottom: false,
         child: _buildAnimatedContent(

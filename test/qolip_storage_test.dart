@@ -635,6 +635,9 @@ void main() {
         await tester.pumpAndSettle();
         await tester.ensureVisible(find.byKey(
             const ValueKey('qolip-picker-product-expand-unlinked')));
+        await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+            const Offset(0, -180));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(
             const ValueKey('qolip-picker-product-expand-unlinked')));
         await tester.pumpAndSettle();
@@ -642,7 +645,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byType(QolipCodeRow));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Confirm (1)'));
+        await tester.tap(find.byKey(const ValueKey('qolip-picker-confirm')));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
         await tester.pumpAndSettle();
@@ -856,6 +859,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(
           const ValueKey('qolip-picker-product-expand-unlinked')));
+      await tester.drag(find.byKey(const ValueKey('qolip-picker-list')),
+          const Offset(0, -180));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(
           const ValueKey('qolip-picker-product-expand-unlinked')));
       await tester.pumpAndSettle();
@@ -864,7 +870,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(QolipCodeRow));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Confirm (1)'));
+      await tester.tap(find.byKey(const ValueKey('qolip-picker-confirm')));
       await tester.pumpAndSettle();
       expect(writes, 0);
       expect(find.byType(AlertDialog), findsOneWidget);

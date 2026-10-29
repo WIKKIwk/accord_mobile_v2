@@ -183,13 +183,13 @@ void main() {
       await started.future;
       await tester.pump();
       expect(lookups, ['M-A']);
-      expect(tester.widget<FilledButton>(_confirm).onPressed, isNull);
+      expect(tester.widget<FloatingActionButton>(_confirm).onPressed, isNull);
       first.complete(_molds([_mold('M-A')]));
       await Future.wait([a, b]);
       await tester.pumpAndSettle();
       expect(lookups, ['M-A', 'M-B']);
       expect(find.text('Confirm (2)'), findsOneWidget);
-      expect(tester.widget<FilledButton>(_confirm).onPressed, isNotNull);
+      expect(tester.widget<FloatingActionButton>(_confirm).onPressed, isNotNull);
       expect(tester.takeException(), isNull);
     },
         () => MockClient((request) async {
@@ -438,5 +438,42 @@ void main() {
               lookups.add(code);
               return _molds([_mold(code)]);
             }));
+  });
+
+  _pickerTest('canceling dock navigation resumes a pending scan', (tester) async {
+    final pending = Completer<http.Response>();
+    final started = Completer<void>();
+    await http.runWithClient(() async {
+      await _openPicker(tester);
+      final scan = _scanner(tester).onCodeDetected;
+      await scan('M-A');
+      await tester.pumpAndSettle();
+      final lookup = scan('M-B');
+      await started.future;
+      await tester.pump();
+      await tester.tap(find.descendant(
+          of: find.byType(NavigationBar), matching: find.text('Chat')));
+      await tester.pump();
+      expect(find.text('Discard the unsaved selection?'), findsOneWidget);
+      pending.complete(_molds([_mold('M-B')]));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pump();
+      await lookup;
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm (2)'), findsOneWidget);
+      expect(_card('M-A'), findsOneWidget);
+      expect(_card('M-B'), findsOneWidget);
+    }, () => MockClient((request) async {
+          if (!request.url.path.endsWith('/paddons/molds')) {
+            return _json(_detail());
+          }
+          final code = request.url.queryParameters['code'];
+          if (code == 'M-B') {
+            started.complete();
+            return pending.future;
+          }
+          return _molds([_mold(code!)]);
+        }));
   });
 }

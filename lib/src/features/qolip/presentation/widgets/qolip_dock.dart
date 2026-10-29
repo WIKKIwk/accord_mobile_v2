@@ -13,6 +13,7 @@ class QolipDock extends StatelessWidget {
     super.key,
     required this.activeTab,
     this.onTabSelected,
+    this.onChatSelected,
     this.compact = true,
     this.tightToEdges = true,
     this.showPrimaryFab = false,
@@ -22,6 +23,7 @@ class QolipDock extends StatelessWidget {
 
   final QolipDockTab? activeTab;
   final ValueChanged<QolipDockTab>? onTabSelected;
+  final VoidCallback? onChatSelected;
   final bool compact;
   final bool tightToEdges;
   final bool showPrimaryFab;
@@ -110,6 +112,7 @@ class QolipDock extends StatelessWidget {
             selectionVisible: selectionVisible,
             selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
             primaryVisible: hasPrimary && !menuOpen,
+            onChatTap: onChatSelected,
             destinations: destinations,
           ),
         );

@@ -43,6 +43,7 @@ class RoleDock extends StatelessWidget {
     required this.selectionVisible,
     this.primaryVisible = false,
     this.primaryAction,
+    this.onChatTap,
     this.compact = true,
     this.tightToEdges = true,
   });
@@ -52,6 +53,7 @@ class RoleDock extends StatelessWidget {
   final bool selectionVisible;
   final bool primaryVisible;
   final Widget? primaryAction;
+  final VoidCallback? onChatTap;
   final bool compact;
   final bool tightToEdges;
 
@@ -69,11 +71,12 @@ class RoleDock extends StatelessWidget {
             selectedIcon: Icons.chat_bubble_rounded,
             active: ModalRoute.of(context)?.settings.name == AppRoutes.chat,
             showBadge: ChatStore.instance.unreadCountListenable.value > 0,
-            routeName: AppRoutes.chat,
-            onTap: () => AppRootNavigation.replaceRootRoute(
-              context,
-              AppRoutes.chat,
-            ),
+            routeName: onChatTap == null ? AppRoutes.chat : null,
+            onTap: onChatTap ??
+                () => AppRootNavigation.replaceRootRoute(
+                      context,
+                      AppRoutes.chat,
+                    ),
           ),
         ];
         final isChatRoute =
