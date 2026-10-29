@@ -161,6 +161,19 @@ extension MobileApiQolipStorage on MobileApi {
               headers: _headers(requireToken()), body: jsonEncode(body));
     });
     requireScope();
+    if (path == 'archive' &&
+        query['view'] == 'molds' &&
+        response.statusCode == 400 &&
+        (response.headers['content-type'] ?? '')
+            .toLowerCase()
+            .startsWith('text/plain') &&
+        response.body.startsWith('Failed to deserialize query string:') &&
+        response.body.contains('unknown field `view`')) {
+      throw const MobileApiException(
+          code: 'qolip_archive_view_unsupported',
+          message: 'Archive mold view is unsupported',
+          statusCode: 400);
+    }
     final json = await decodeJsonMapPayload(response.body);
     requireScope();
     if (response.statusCode != 200 || json['ok'] != true) {
@@ -265,22 +278,126 @@ extension MobileApiQolipStorage on MobileApi {
       String warehouse = '',
       DateTime? from,
       DateTime? to}) async {
-    final json = await _qolipStorageRequest('archive', query: {
-      'status': status,
-      if (view.isNotEmpty) 'view': view,
-      if (warehouse.isNotEmpty) 'warehouse': warehouse,
-      if (from != null) 'from': qolipStorageDate(from),
-      if (to != null) 'to': qolipStorageDate(to),
-      'q': query,
-      'limit': '100',
-      'offset': '$offset'
-    });
+    final scope = currentSessionReadScope();
+    Map<String, dynamic> json;
+    try {
+      json = await _qolipStorageRequest('archive', query: {
+        'status': status,
+        if (view.isNotEmpty) 'view': view,
+        if (warehouse.isNotEmpty) 'warehouse': warehouse,
+        if (from != null) 'from': qolipStorageDate(from),
+        if (to != null) 'to': qolipStorageDate(to),
+        'q': query,
+        'limit': '100',
+        'offset': '$offset'
+      });
+    } on MobileApiException catch (error) {
+      if (view != 'molds' || error.code != 'qolip_archive_view_unsupported') {
+        rethrow;
+      }
+      return _qolipLegacyArchiveMolds(
+          status: status,
+          query: query,
+          offset: offset,
+          warehouse: warehouse,
+          from: from,
+          to: to,
+          scope: scope);
+    }
     return QolipStoragePage(
         (json['entries'] as List)
             .map((e) =>
                 QolipArchiveEntry.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),
         json['has_more'] == true ? (json['next_offset'] as num).toInt() : null);
+  }
+
+  Future<QolipStoragePage<QolipArchiveEntry>> _qolipLegacyArchiveMolds({
+    required String status,
+    required String query,
+    required int offset,
+    required String warehouse,
+    required DateTime? from,
+    required DateTime? to,
+    required String scope,
+  }) async {
+    const limit = 100;
+    final matches = <QolipArchiveEntry>[];
+    final search = query.trim().toLowerCase();
+    var sourceOffset = 0;
+    var seen = 0;
+    while (true) {
+      if (scope != currentSessionReadScope()) {
+        throw const MobileApiException(
+            code: 'session_scope_changed', message: 'Session changed');
+      }
+      final page = await qolipArchive(
+          status: status,
+          query: query,
+          offset: sourceOffset,
+          warehouse: warehouse,
+          from: from,
+          to: to);
+      if (scope != currentSessionReadScope()) {
+        throw const MobileApiException(
+            code: 'session_scope_changed', message: 'Session changed');
+      }
+      for (final entry in page.items) {
+        final candidates = <QolipArchiveEntry>[];
+        if (entry.kind == 'qolip') {
+          candidates.add(entry);
+        } else if (entry.kind == 'paddon') {
+          final rawItems = entry.snapshot['items'];
+          if (rawItems is List) {
+            for (final raw in rawItems.whereType<Map>()) {
+              final mold = Map<String, dynamic>.from(raw);
+              final code = mold['qolip_code'];
+              if (code is! String || code.trim().isEmpty) continue;
+              candidates.add(QolipArchiveEntry.fromJson({
+                'id': entry.id,
+                'kind': 'paddon_mold',
+                'code': code,
+                'warehouse': entry.warehouse,
+                'archived_at': entry.archivedAt,
+                'restored_at': entry.restoredAt,
+                'archived_by_name': entry.archivedBy,
+                'restored_by_name': entry.restoredBy,
+                'note': entry.note,
+                'parent_paddon_code': entry.code,
+                'snapshot': mold,
+              }));
+            }
+            candidates.sort((a, b) {
+              final order =
+                  a.code.toLowerCase().compareTo(b.code.toLowerCase());
+              return order != 0 ? order : a.code.compareTo(b.code);
+            });
+          }
+        }
+        for (final candidate in candidates) {
+          if (search.isNotEmpty &&
+              !candidate.code.toLowerCase().contains(search) &&
+              !candidate.parentPaddonCode.toLowerCase().contains(search) &&
+              !jsonEncode(candidate.snapshot).toLowerCase().contains(search)) {
+            continue;
+          }
+          if (seen++ < offset) continue;
+          matches.add(candidate);
+          if (matches.length > limit) {
+            return QolipStoragePage(
+                matches.take(limit).toList(), offset + limit);
+          }
+        }
+      }
+      final next = page.nextOffset;
+      if (next == null) return QolipStoragePage(matches, null);
+      if (next <= sourceOffset || page.items.isEmpty) {
+        throw const MobileApiException(
+            code: 'qolip_storage_invalid_page',
+            message: 'Invalid archive page');
+      }
+      sourceOffset = next;
+    }
   }
 
   Future<List<QolipArchiveEntry>> qolipArchiveAction(
