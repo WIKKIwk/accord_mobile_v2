@@ -1,8 +1,10 @@
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_home_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_create_hub_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_dock.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -123,6 +125,7 @@ void main() {
 
   testWidgets('sales home reuses the admin home with sales navigation',
       (tester) async {
+    final l10n = AppLocalizations(const Locale('uz'));
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('uz'),
       localizationsDelegates: const [
@@ -138,7 +141,84 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AdminHomeScreen), findsOneWidget);
     expect(find.text('Sotuv manageri'), findsOneWidget);
-    expect(find.text('Ish xaritasi'), findsWidgets);
+    expect(find.byType(AdminDock), findsOneWidget);
+    for (final title in [
+      l10n.adminQuickOrdersTitle,
+      l10n.adminWorkMapNavTitle
+    ]) {
+      final card = find.ancestor(
+        of: find.text(title),
+        matching: find.byType(M3SegmentFilledSurface),
+      );
+      expect(card, findsOneWidget);
+      expect(find.descendant(of: card, matching: find.byType(Icon)),
+          findsOneWidget);
+      expect(
+        find.descendant(
+            of: card, matching: find.byIcon(Icons.chevron_right_rounded)),
+        findsOneWidget,
+      );
+    }
+    for (final title in [
+      l10n.adminCreateItemTitle,
+      l10n.adminCreateUserTitle,
+      l10n.adminUsersTitle,
+      l10n.adminProductionMapTestTitle,
+    ]) {
+      expect(find.text(title), findsNothing);
+    }
+    expect(AppRouter.canOpenRoute(AppRoutes.adminProductionMapTest), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sales drawer opens products and users through existing pages',
+      (tester) async {
+    final l10n = AppLocalizations(const Locale('uz'));
+    final openedRoutes = <String>[];
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const AdminHomeScreen(),
+      onGenerateRoute: (settings) {
+        openedRoutes.add(settings.name!);
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) =>
+              Scaffold(appBar: AppBar(), body: Text(settings.name!)),
+        );
+      },
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.adminProductsTitle), findsOneWidget);
+    expect(find.text(l10n.adminUsersTitle), findsOneWidget);
+    expect(find.text(l10n.adminProductionMapTestTitle), findsNothing);
+    await tester.tap(find.text(l10n.adminProductsTitle));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(openedRoutes.last, AppRoutes.adminItemCreate);
+
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    expect(navigator.canPop(), isTrue);
+    navigator.pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.adminUsersTitle));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(openedRoutes.last, AppRoutes.adminSuppliers);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);

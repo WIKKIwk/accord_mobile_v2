@@ -146,6 +146,8 @@ class _AdminActionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = _adminHomeActions(context);
+    final showIcons =
+        AppSession.instance.profile?.role != UserRole.salesManager;
     return M3SegmentSpacedColumn(
       padding: const EdgeInsets.symmetric(
         horizontal: _adminHomePanelCardGap,
@@ -155,6 +157,7 @@ class _AdminActionList extends StatelessWidget {
           _AdminActionCard(
             slot: _slotFor(i, actions.length),
             action: actions[i],
+            showIcon: showIcons,
             onTap: () => onOpenRoute(actions[i].routeName),
           ),
       ],
@@ -166,11 +169,13 @@ class _AdminActionCard extends StatelessWidget {
   const _AdminActionCard({
     required this.slot,
     required this.action,
+    required this.showIcon,
     required this.onTap,
   });
 
   final M3SegmentVerticalSlot slot;
   final _AdminHomeAction action;
+  final bool showIcon;
   final VoidCallback onTap;
 
   @override
@@ -188,8 +193,10 @@ class _AdminActionCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         child: Row(
           children: [
-            Icon(action.icon, size: 23, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 14),
+            if (showIcon) ...[
+              Icon(action.icon, size: 23, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 14),
+            ],
             Expanded(
               child: Text(action.title, style: theme.textTheme.titleMedium),
             ),
@@ -336,8 +343,18 @@ List<_AdminHomeAction> _adminHomeActions(BuildContext context) {
       routeName: AppRoutes.adminServerMonitor,
     ),
   ];
+  final isSalesManager =
+      AppSession.instance.profile?.role == UserRole.salesManager;
+  const hiddenSalesRoutes = {
+    AppRoutes.adminItemCreate,
+    AppRoutes.adminUserCreate,
+    AppRoutes.adminSuppliers,
+    AppRoutes.adminProductionMapTest,
+  };
   return candidates
-      .where((action) => AppRouter.canOpenRoute(action.routeName))
+      .where((action) =>
+          AppRouter.canOpenRoute(action.routeName) &&
+          (!isSalesManager || !hiddenSalesRoutes.contains(action.routeName)))
       .toList(growable: false);
 }
 

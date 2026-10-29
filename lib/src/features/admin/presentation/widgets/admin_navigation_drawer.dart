@@ -67,7 +67,9 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       icon: Icons.grid_view_outlined,
       selectedIcon: Icons.grid_view_rounded,
       label: l10n.adminProductsTitle,
-      routeName: AppRoutes.adminItemBulkMove,
+      routeName: AppSession.instance.profile?.role == UserRole.salesManager
+          ? AppRoutes.adminItemCreate
+          : AppRoutes.adminItemBulkMove,
     ),
     RoleNavigationDrawerDestination(
       icon: Icons.account_tree_outlined,
