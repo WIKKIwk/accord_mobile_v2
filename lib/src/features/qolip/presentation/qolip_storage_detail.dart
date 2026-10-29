@@ -1,8 +1,10 @@
 part of 'qolip_storage_screen.dart';
 
 class QolipPaddonScreen extends StatefulWidget {
-  const QolipPaddonScreen({super.key, required this.code});
+  const QolipPaddonScreen(
+      {super.key, required this.code, this.openAddOnLoad = false});
   final String code;
+  final bool openAddOnLoad;
   @override
   State<QolipPaddonScreen> createState() => _QolipPaddonScreenState();
 }
@@ -14,6 +16,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   QolipPaddonDetail? _detail;
   Map<String, dynamic>? _lastInspection;
   bool _loading = true, _saving = false;
+  late bool _openAddPending;
   int _generation = 0;
   Object? _failure;
   String? _pendingAction;
@@ -32,6 +35,7 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
   @override
   void initState() {
     super.initState();
+    _openAddPending = widget.openAddOnLoad;
     _load();
   }
 
@@ -64,7 +68,19 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
     } finally {
       if (mounted && generation == _generation) {
         setState(() => _loading = false);
-        if (loaded) _productImages.request();
+        if (loaded) {
+          _productImages.request();
+          if (_openAddPending) {
+            _openAddPending = false;
+            if (_detail?.paddon.editable == true) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) unawaited(_add());
+              });
+            } else {
+              _message(context, _s(context, 'locked_error'));
+            }
+          }
+        }
       }
     }
   }

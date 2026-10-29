@@ -30,6 +30,20 @@ extension AppLocalizationsQolipStorage on AppLocalizations {
           _t('Ko‘rsatilgan paddonlar', 'Loaded pallets', 'Загруженные поддоны'),
         'paddon_list' => _t(
             'Saqlanayotgan paddonlar', 'Stored pallets', 'Поддоны на хранении'),
+        'delete_paddon_title' => _t('Paddonni o‘chirish?',
+            'Delete pallet?', 'Удалить поддон?', 'پیلٹ حذف کریں؟'),
+        'delete_paddon_confirm' => _t(
+            'Bo‘sh paddon o‘chiriladi. Davom etasizmi?',
+            'The empty pallet will be deleted. Continue?',
+            'Пустой поддон будет удалён. Продолжить?',
+            'خالی پیلٹ حذف کر دیا جائے گا۔ جاری رکھیں؟'),
+        'paddon_not_empty' => _t(
+            'Paddonni o‘chirish uchun avval ichidagi barcha qoliplarni chiqaring.',
+            'Remove all molds from the pallet before deleting it.',
+            'Перед удалением извлеките все формы из поддона.',
+            'حذف کرنے سے پہلے پیلٹ سے تمام سانچے نکالیں۔'),
+        'paddon_deleted' => _t('Paddon o‘chirildi', 'Pallet deleted',
+            'Поддон удалён', 'پیلٹ حذف کر دیا گیا'),
         'paddons_empty' => _t(
             'Yangi paddon yaratish yoki QR ochish uchun pastdagi + tugmasini bosing.',
             'Use the + button below to create a pallet or open its QR.',

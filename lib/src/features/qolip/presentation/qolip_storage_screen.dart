@@ -32,6 +32,7 @@ import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
 
 part 'qolip_storage_detail.dart';
+part 'qolip_paddon_actions.dart';
 part 'qolip_storage_archive_mold_list.dart';
 part 'qolip_storage_picker.dart';
 part 'qolip_storage_picker_products.dart';
@@ -129,6 +130,7 @@ String _storageErrorMessage(BuildContext context, Object error) {
     'qolip_archived' => 'archived_error',
     'qolip_in_paddon' => 'in_paddon_error',
     'qolip_paddon_empty' => 'empty_error',
+    'qolip_paddon_not_empty' => 'paddon_not_empty',
     'qolip_storage_forbidden' || 'forbidden' => 'forbidden_error',
     'qolip_paddon_capacity' ||
     'qolip_storage_too_many_items' =>
@@ -257,6 +259,7 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
   DateTimeRange? _dateFilter;
   List<QolipStorageMold>? _pendingArchiveMolds;
   Map<String, String>? _createDraft;
+  final _pendingPaddonDeletes = <String, Map<String, dynamic>>{};
   Object? _failure;
 
   @override
@@ -320,10 +323,11 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
     }
   }
 
-  Future<void> _open(String code) async {
+  Future<void> _open(String code, {bool addMolds = false}) async {
     if (!_sameScope()) return;
-    await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => QolipPaddonScreen(code: code)));
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) =>
+            QolipPaddonScreen(code: code, openAddOnLoad: addMolds)));
     if (mounted) await _load();
   }
 
@@ -715,6 +719,7 @@ class _QolipStorageScreenState extends State<QolipStorageScreen>
                           ? Icons.lock_outline_rounded
                           : Icons.inventory_2_rounded,
                       onTap: () => _open(_paddons[i].code),
+                      onLongPress: () => _paddonActions(_paddons[i]),
                     ),
                 ]),
               if (_next != null)

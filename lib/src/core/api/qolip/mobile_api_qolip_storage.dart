@@ -270,6 +270,13 @@ extension MobileApiQolipStorage on MobileApi {
           Map<String, dynamic> body) async =>
       QolipPaddonDetail.fromJson(
           await _qolipStorageRequest('paddons/action', body: body));
+  Future<void> qolipDeletePaddon(Map<String, dynamic> body) async {
+    final result = await _qolipStorageRequest('paddons/action', body: body);
+    if (result['deleted'] != true || result['code'] != body['code']) {
+      throw const FormatException('Invalid pallet deletion response');
+    }
+  }
+
   Future<QolipStoragePage<QolipArchiveEntry>> qolipArchive(
       {String status = 'open',
       String view = '',
