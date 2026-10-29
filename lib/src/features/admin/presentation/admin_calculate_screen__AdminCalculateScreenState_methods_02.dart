@@ -33,15 +33,20 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       return;
     }
     setState(() => _openingSavedOrder = true);
+    final templateStore = CalculateOrderTemplateStore.instance;
+    final templateScope = templateStore.captureScope();
     try {
       final source = await MobileApi.instance.adminProductionMap(sourceMapId);
+      if (!mounted || !templateStore.isCurrentScope(templateScope)) return;
       final sourceMap = source.map.withoutAlternativeAssignments();
       final kg = _parseRequiredDouble(_kg.text);
       final currentDraft = _buildTemplateDraft();
       final signatureFields = currentDraft.toJson()..remove('saved_at');
       final signature = signatureFields.toString();
-      if (_savedOrderRequestId.isEmpty || _savedOrderRequestSignature != signature) {
-        _savedOrderRequestId = 'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}';
+      if (_savedOrderRequestId.isEmpty ||
+          _savedOrderRequestSignature != signature) {
+        _savedOrderRequestId =
+            'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}';
         _savedOrderRequestSignature = signature;
       }
       final plannedLength = _result != null && _result!.results.isNotEmpty
@@ -76,12 +81,12 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         template: draft,
         templateAction: _templateIsFork ? 'fork' : 'use',
       );
-      if (!mounted) {
+      if (!mounted || !templateStore.isCurrentScope(templateScope)) {
         return;
       }
       final savedTemplate = result.template;
       if (savedTemplate != null) {
-        CalculateOrderTemplateStore.instance.remember(savedTemplate);
+        templateStore.remember(savedTemplate, scope: templateScope);
         _templateId = savedTemplate.id;
         _orderCode = savedTemplate.code;
         _sourceMapId = savedTemplate.sourceMapId;
@@ -146,16 +151,18 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       return;
     }
     setState(() => _openingAutomaticOrder = true);
+    final templateStore = CalculateOrderTemplateStore.instance;
+    final templateScope = templateStore.captureScope();
     try {
       final result = await MobileApi.instance.adminAutoOpenProductionMap(
         template: _buildTemplateDraft(),
       );
-      if (!mounted) {
+      if (!mounted || !templateStore.isCurrentScope(templateScope)) {
         return;
       }
       final savedTemplate = result.template;
       if (savedTemplate != null) {
-        CalculateOrderTemplateStore.instance.remember(savedTemplate);
+        templateStore.remember(savedTemplate, scope: templateScope);
       }
       showAdminTopNotice(
         context,
@@ -214,6 +221,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       return;
     }
     setState(() => _openingTrainingOrder = true);
+    final templateStore = CalculateOrderTemplateStore.instance;
+    final templateScope = templateStore.captureScope();
     try {
       final orderContext = _buildProductionMapOrderContext();
       final calculation = _result;
@@ -241,12 +250,12 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         ),
         template: _buildTemplateDraft(),
       );
-      if (!mounted) {
+      if (!mounted || !templateStore.isCurrentScope(templateScope)) {
         return;
       }
       final savedTemplate = saved.template;
       if (!widget.trainingMode && savedTemplate != null) {
-        CalculateOrderTemplateStore.instance.remember(savedTemplate);
+        templateStore.remember(savedTemplate, scope: templateScope);
       }
       showAdminTopNotice(
         context,
@@ -341,9 +350,10 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       code: _orderCode,
       name: _resolvedOrderName(),
       savedAt: DateTime.now().toUtc(),
-      orderNumber:
-          widget.openedOrder?.template.orderNumber ??
-          (widget.pendingOrderId.isNotEmpty ? widget.template!.orderNumber : ''),
+      orderNumber: widget.openedOrder?.template.orderNumber ??
+          (widget.pendingOrderId.isNotEmpty
+              ? widget.template!.orderNumber
+              : ''),
       customerRef: _customerRef,
       customer: _customer.text.trim(),
       itemCode: _activeItemCode,
@@ -425,7 +435,10 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           picked.name.trim().isEmpty ? picked.ref : picked.name.trim();
       _itemCode = '';
       _product.clear();
-      for (final row in _products) { row.itemCode = ''; row.product.clear(); }
+      for (final row in _products) {
+        row.itemCode = '';
+        row.product.clear();
+      }
     });
   }
 

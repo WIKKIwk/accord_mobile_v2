@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
@@ -113,6 +114,71 @@ void main() {
     expect(store.templates.map((item) => item.code), ['Z-OLD', 'Z-NEW']);
     expect(store.isLoaded, isTrue);
   });
+
+  test('account switch reloads archive and ignores an older pending response',
+      () async {
+    var scope = 'admin';
+    final client = _PendingTemplateClient();
+    final store =
+        CalculateOrderTemplateStore(client: client, readScope: () => scope);
+    final adminLoad = store.load();
+    scope = 'sales';
+    final salesLoad = store.load();
+    final sales = _template(code: 'SALES', name: 'Sales');
+    client.requests[1].complete([sales]);
+    await salesLoad;
+    client.requests[0]
+        .complete([_template(code: 'ADMIN', name: 'Old account')]);
+    await adminLoad;
+    expect(store.templates.map((item) => item.code), ['SALES']);
+    expect(store.isLoaded, isTrue);
+    store.dispose();
+  });
+
+  test('remembering one template does not mark the archive as loaded',
+      () async {
+    final client = _FakeCalculateOrderTemplateClient();
+    client.seed([_template(code: 'ADMIN', name: 'Admin')]);
+    final store =
+        CalculateOrderTemplateStore(client: client, readScope: () => 'sales');
+    store.remember(_template(code: 'SALES', name: 'Sales'));
+    expect(store.isLoaded, isFalse);
+    await store.load();
+    expect(client.listCalls, 1);
+    expect(store.templates.single.code, 'ADMIN');
+    store.dispose();
+  });
+
+  test('save responses from the old account do not enter the new cache',
+      () async {
+    var scope = 'admin';
+    final client = _PendingTemplateClient();
+    final store =
+        CalculateOrderTemplateStore(client: client, readScope: () => scope);
+    final saved = _template(code: 'OLD', name: 'Old');
+    final oldScope = store.captureScope();
+    scope = 'sales';
+    store.remember(saved, scope: oldScope);
+    expect(store.templates, isEmpty);
+    store.dispose();
+  });
+}
+
+class _PendingTemplateClient implements CalculateOrderTemplateClient {
+  final requests = <Completer<List<CalculateOrderTemplate>>>[];
+  @override
+  Future<List<CalculateOrderTemplate>> listTemplates() {
+    final request = Completer<List<CalculateOrderTemplate>>();
+    requests.add(request);
+    return request.future;
+  }
+
+  @override
+  Future<CalculateOrderTemplate> upsertTemplate(
+          CalculateOrderTemplate template) =>
+      throw UnimplementedError();
+  @override
+  Future<void> deleteTemplate(String id) => throw UnimplementedError();
 }
 
 class _FakeCalculateOrderTemplateClient

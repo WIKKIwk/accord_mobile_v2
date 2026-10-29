@@ -109,10 +109,14 @@ extension _AdminProductionMapTestDefinitionState
     if (_savingMap) {
       return;
     }
+    final templateStore = CalculateOrderTemplateStore.instance;
+    final templateScope = templateStore.captureScope();
     final creatingOrder = _orderMode && !_orderNumberLocked;
     if (creatingOrder) {
       final confirmed = await _requestOrderConfirmation();
-      if (!mounted || !confirmed) {
+      if (!mounted ||
+          !confirmed ||
+          !templateStore.isCurrentScope(templateScope)) {
         return;
       }
     }
@@ -132,16 +136,17 @@ extension _AdminProductionMapTestDefinitionState
           template: draft,
           pendingOrderId: widget.orderContext?.pendingOrderId ?? '',
           templateAction: _lastSavedTemplate == null
-              ? (widget.orderContext?.templateAction ?? '') : 'update',
+              ? (widget.orderContext?.templateAction ?? '')
+              : 'update',
         );
-        if (!mounted) {
+        if (!mounted || !templateStore.isCurrentScope(templateScope)) {
           return;
         }
         _lastSavedTemplate = result.template;
         _templateDraft = result.template ?? draft;
         final savedTemplate = result.template;
         if (savedTemplate != null) {
-          CalculateOrderTemplateStore.instance.remember(savedTemplate);
+          templateStore.remember(savedTemplate, scope: templateScope);
         }
         if (_orderMode) {
           _savedOrderMapId = result.saved.map.id.trim();
@@ -160,7 +165,7 @@ extension _AdminProductionMapTestDefinitionState
         final saved = await MobileApi.instance.adminSaveProductionMap(
           definition,
         );
-        if (!mounted) {
+        if (!mounted || !templateStore.isCurrentScope(templateScope)) {
           return;
         }
         if (_orderMode) {
@@ -196,12 +201,14 @@ extension _AdminProductionMapTestDefinitionState
       if (!_isRezkaProductionNode(node, _apparatusCatalog)) continue;
       final count = node.rezkaKadrCount ?? 0;
       final groups = node.rezkaFrameGroups;
-      if (count <= 0 || (groups.isNotEmpty &&
-          (groups.any((value) => value <= 0) ||
-              groups.fold<int>(0, (sum, value) => sum + value) != count))) {
+      if (count <= 0 ||
+          (groups.isNotEmpty &&
+              (groups.any((value) => value <= 0) ||
+                  groups.fold<int>(0, (sum, value) => sum + value) != count))) {
         throw MobileApiException(
           code: 'rezka_kadr_count_required',
-          message: '${node.title}: kadr sozlamasi to‘liq emas. Rezka sozlash oynasini ochib, kadrlarni saqlang.',
+          message:
+              '${node.title}: kadr sozlamasi to‘liq emas. Rezka sozlash oynasini ochib, kadrlarni saqlang.',
         );
       }
     }
@@ -289,7 +296,8 @@ extension _AdminProductionMapTestDefinitionState
             context.templateId,
           ]);
     return ProductionMapDefinition(
-      products: context?.templateDraft?.products ?? savedMap?.products ?? const [],
+      products:
+          context?.templateDraft?.products ?? savedMap?.products ?? const [],
       combo: context?.templateDraft?.combo ?? savedMap?.combo,
       id: widget.templateOnly
           ? _templateMapId(context, savedMap)
@@ -315,9 +323,8 @@ extension _AdminProductionMapTestDefinitionState
       // Re-saving an opened zakaz must keep its pechat constraints.
       rollCount: context?.rollCount ?? savedMap?.rollCount,
       widthMm: context?.widthMm ?? savedMap?.widthMm,
-      printValSizeMm: context != null
-          ? context.printValSizeMm
-          : savedMap?.printValSizeMm,
+      printValSizeMm:
+          context != null ? context.printValSizeMm : savedMap?.printValSizeMm,
       orderKg: savedMap?.orderKg,
       baseLength: savedMap?.baseLength,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),

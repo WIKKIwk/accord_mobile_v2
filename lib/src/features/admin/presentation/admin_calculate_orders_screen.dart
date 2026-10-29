@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import '../../../app/app_router.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../shared/models/app_models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../state/calculate_order_store.dart';
 import 'widgets/admin_catalog_search_field.dart';
@@ -29,29 +33,66 @@ class _AdminCalculateOrdersScreenState
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   bool _loading = true;
+  Object? _loadError;
+  int _loadGeneration = 0;
+  late String _sessionScope;
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _sessionScope = currentSessionReadScope();
+    AppSession.instance.revision.addListener(_onSessionChanged);
+    unawaited(_load());
   }
 
   @override
   void dispose() {
+    AppSession.instance.revision.removeListener(_onSessionChanged);
+    _loadGeneration++;
     _searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    await CalculateOrderTemplateStore.instance.load();
-    if (!mounted) {
-      return;
+    final generation = ++_loadGeneration;
+    final scope = currentSessionReadScope();
+    try {
+      await CalculateOrderTemplateStore.instance.load(force: true);
+      if (!mounted ||
+          generation != _loadGeneration ||
+          scope != currentSessionReadScope()) {
+        return;
+      }
+      setState(() {
+        _loadError = null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted ||
+          generation != _loadGeneration ||
+          scope != currentSessionReadScope()) {
+        return;
+      }
+      setState(() {
+        _loadError = error;
+        _loading = false;
+      });
     }
+  }
+
+  void _onSessionChanged() {
+    final scope = currentSessionReadScope();
+    if (scope == _sessionScope) return;
+    _sessionScope = scope;
+    _searchController.clear();
     setState(() {
-      _loading = false;
+      _searchQuery = '';
+      _loadError = null;
+      _loading = true;
     });
+    unawaited(_load());
   }
 
   void _openDrawerRoute(String routeName) {
@@ -71,8 +112,9 @@ class _AdminCalculateOrdersScreenState
 
   Future<void> _deleteTemplate(CalculateOrderTemplate template) async {
     if (AppSession.instance.profile?.role == UserRole.salesManager) return;
+    final scope = currentSessionReadScope();
     await CalculateOrderTemplateStore.instance.delete(template.id);
-    if (!mounted) {
+    if (!mounted || scope != currentSessionReadScope()) {
       return;
     }
     showAdminTopNotice(
@@ -148,39 +190,44 @@ class _AdminCalculateOrdersScreenState
         color: scheme.surfaceContainerLow,
         child: _loading
             ? const Center(child: AppLoadingIndicator())
-            : AnimatedBuilder(
-                animation: CalculateOrderTemplateStore.instance,
-                builder: (context, _) {
-                  final templates =
-                      CalculateOrderTemplateStore.instance.templates;
-                  final visibleTemplates = _visibleTemplates(templates);
-                  return ListView(
-                    padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
-                    children: [
-                      if (visibleTemplates.isEmpty &&
-                          _searchQuery.trim().isEmpty)
-                        _EmptyOrders(
-                          message: context.l10n.adminText(
-                            'calculate.saved_templates_empty',
-                          ),
-                        )
-                      else if (visibleTemplates.isEmpty)
-                        _EmptyOrders(
-                          message: context.l10n.adminText(
-                            'calculate.order_empty',
-                          ),
-                        )
-                      else
-                        _OrderListModule(
-                          templates: visibleTemplates,
-                          onTapTemplate: _openTemplate,
-                          onDeleteTemplate: AppSession.instance.profile?.role == UserRole.salesManager
-                              ? null : _deleteTemplate,
-                        ),
-                    ],
-                  );
-                },
-              ),
+            : _loadError != null
+                ? AppRetryState(onRetry: _load)
+                : AnimatedBuilder(
+                    animation: CalculateOrderTemplateStore.instance,
+                    builder: (context, _) {
+                      final templates =
+                          CalculateOrderTemplateStore.instance.templates;
+                      final visibleTemplates = _visibleTemplates(templates);
+                      return ListView(
+                        padding: EdgeInsets.fromLTRB(4, 4, 4, bottomPadding),
+                        children: [
+                          if (visibleTemplates.isEmpty &&
+                              _searchQuery.trim().isEmpty)
+                            _EmptyOrders(
+                              message: context.l10n.adminText(
+                                'calculate.saved_templates_empty',
+                              ),
+                            )
+                          else if (visibleTemplates.isEmpty)
+                            _EmptyOrders(
+                              message: context.l10n.adminText(
+                                'calculate.order_empty',
+                              ),
+                            )
+                          else
+                            _OrderListModule(
+                              templates: visibleTemplates,
+                              onTapTemplate: _openTemplate,
+                              onDeleteTemplate:
+                                  AppSession.instance.profile?.role ==
+                                          UserRole.salesManager
+                                      ? null
+                                      : _deleteTemplate,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
       ),
     );
   }
@@ -211,7 +258,8 @@ class _OrderListModule extends StatelessWidget {
             template: templates[index],
             onTap: () => onTapTemplate(templates[index]),
             onDelete: onDeleteTemplate == null
-                ? null : () => onDeleteTemplate!(templates[index]),
+                ? null
+                : () => onDeleteTemplate!(templates[index]),
           ),
       ],
     );
@@ -304,11 +352,12 @@ class _OrderRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (onDelete != null) IconButton(
-                    tooltip: context.l10n.adminText('action.delete'),
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete_outline_rounded),
-                  ),
+                  if (onDelete != null)
+                    IconButton(
+                      tooltip: context.l10n.adminText('action.delete'),
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                    ),
                   const SizedBox(width: 4),
                   Icon(
                     Icons.chevron_right_rounded,

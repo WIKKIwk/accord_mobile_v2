@@ -21,6 +21,7 @@ import '../../cache/production_snapshot_store.dart';
 import '../../production/worker_queue_warm_store.dart';
 import '../../inventory/inventory_view_store.dart';
 import '../../../features/admin/state/admin_sequence_warm_store.dart';
+import '../../../features/admin/state/calculate_order_store.dart';
 
 class AppRuntimeReset {
   AppRuntimeReset._();
@@ -31,6 +32,7 @@ class AppRuntimeReset {
     required SessionProfile? previousProfile,
     bool preserveLegacyLoginCredentials = false,
   }) async {
+    CalculateOrderTemplateStore.instance.reset();
     AdminSequenceWarmStore.instance.configure(scope: null, foreground: false);
     WorkerQueueWarmStore.instance.reset();
     InventoryViewStore.instance.reset();
