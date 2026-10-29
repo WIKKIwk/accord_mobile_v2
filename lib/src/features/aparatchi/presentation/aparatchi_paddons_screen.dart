@@ -22,7 +22,7 @@ import 'aparatchi_paddon_detail_screen.dart';
 import 'aparatchi_paddon_scope.dart';
 import 'widgets/aparatchi_dock.dart';
 import 'widgets/aparatchi_navigation_drawer.dart';
-import '../../../core/localization/urdu_aware_text.dart';
+import '../../../core/widgets/paddon_widgets.dart';
 
 typedef AparatchiPaddonsLoader = Future<List<AdminPaddon>> Function();
 
@@ -371,19 +371,28 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
               ),
               const SizedBox(height: 8),
               if (paddons.isEmpty)
-                const _PaddonsEmpty()
+                PaddonEmptyState(
+                  title:
+                      context.l10n.productionText('worker.paddon.empty.title'),
+                  message:
+                      context.l10n.productionText('worker.paddon.empty.body'),
+                )
               else
                 M3SegmentSpacedColumn(
                   children: [
                     for (var index = 0; index < paddons.length; index++)
-                      _PaddonCard(
+                      PaddonListCard(
                         key: ValueKey('paddon-card-${paddons[index].code}'),
                         slot:
                             M3SegmentedListGeometry.standaloneListSlotForIndex(
                           index,
                           paddons.length,
                         ),
-                        paddon: paddons[index],
+                        code: paddons[index].code,
+                        countLabel: context.l10n.productionText(
+                          'worker.paddon.wip_count',
+                          values: {'count': paddons[index].itemCount},
+                        ),
                         onTap: () => _openPaddon(paddons[index]),
                         onLongPress: _canDeletePaddon && !_deletingPaddon
                             ? () => _paddonActions(paddons[index])
@@ -412,183 +421,40 @@ class _PaddonsSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: scheme.surfaceContainerLowest,
-      surfaceTintColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.productionText('worker.paddon.location.title'),
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: scheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
+    return PaddonPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.productionText('worker.paddon.location.title'),
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 4),
-            Text(
-              context.l10n.productionText('worker.paddon.location.subtitle'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurface,
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.l10n.productionText('worker.paddon.location.subtitle'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurface,
             ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _PaddonMetric(
-                  label: context.l10n.productionText('worker.paddons'),
-                  value: '$paddonCount',
-                ),
-                _PaddonMetric(
-                  label: context.l10n.productionText('worker.daily.wip'),
-                  value: '$wipCount',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaddonMetric extends StatelessWidget {
-  const _PaddonMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.onSurface.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: UrduAwareText(
-          '$label: $value',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaddonCard extends StatelessWidget {
-  const _PaddonCard({
-    super.key,
-    required this.slot,
-    required this.paddon,
-    required this.onTap,
-    this.onLongPress,
-  });
-
-  final M3SegmentVerticalSlot slot;
-  final AdminPaddon paddon;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-    return M3SegmentFilledSurface(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 10, 8),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 45),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Icon(
-                Icons.inventory_2_rounded,
-                color: scheme.primary,
-                size: 25,
+              PaddonMetric(
+                label: context.l10n.productionText('worker.paddons'),
+                value: '$paddonCount',
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        paddon.code,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      context.l10n.productionText(
-                        'worker.paddon.wip_count',
-                        values: {'count': paddon.itemCount},
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
+              PaddonMetric(
+                label: context.l10n.productionText('worker.daily.wip'),
+                value: '$wipCount',
               ),
-              const Icon(Icons.chevron_right_rounded),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaddonsEmpty extends StatelessWidget {
-  const _PaddonsEmpty();
-
-  @override
-  Widget build(BuildContext context) {
-    return M3SegmentFilledSurface(
-      slot: M3SegmentVerticalSlot.top,
-      cornerRadius: M3SegmentedListGeometry.cornerLarge,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 42,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              context.l10n.productionText('worker.paddon.empty.title'),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              context.l10n.productionText('worker.paddon.empty.body'),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

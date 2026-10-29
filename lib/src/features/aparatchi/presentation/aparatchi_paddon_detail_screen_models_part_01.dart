@@ -104,13 +104,8 @@ class _PaddonDetailHeader extends StatelessWidget {
     final creatorName = paddon.createdByDisplayName.trim();
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: scheme.surfaceContainerLowest,
-      surfaceTintColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        child: Column(
+    return PaddonPanel(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -236,7 +231,7 @@ class _PaddonDetailHeader extends StatelessWidget {
                     label: Text(context.l10n.productionText('worker.paddon.locked')),
                     onPressed: onUnlock,
                   ),
-                _PaddonDetailMetric(
+                PaddonMetric(
                   label: 'WIP',
                   value: '${snapshot.items.length}',
                 ),
@@ -277,35 +272,6 @@ class _PaddonDetailHeader extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaddonDetailMetric extends StatelessWidget {
-  const _PaddonDetailMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.onSurface.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: UrduAwareText(
-          '$label: $value',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-        ),
       ),
     );
   }
