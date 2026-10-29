@@ -14,7 +14,9 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/transfer/two_pane_transfer.dart';
 import '../../../core/widgets/transfer/transfer_list.dart';
+import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_display.dart';
+import 'aparatchi_paddon_scope.dart';
 
 part 'aparatchi_paddon_transfer_actions.dart';
 
@@ -36,6 +38,7 @@ class _PaddonTransferDrag
 class _AparatchiPaddonTransferScreenState
     extends State<AparatchiPaddonTransferScreen> {
   List<AdminPaddon> _paddons = [];
+  List<AdminApparatus> _apparatus = [];
   AdminPaddonSnapshot? _source;
   AdminPaddonSnapshot? _target;
   _PaddonTransferDrag? _dragging;
@@ -159,10 +162,26 @@ class _AparatchiPaddonTransferScreenState
   Widget _header(AdminPaddonSnapshot? data, bool top) => TransferPickerHeader(
         key:
             ValueKey(top ? 'paddon-transfer-source' : 'paddon-transfer-target'),
-        title: data?.paddon.code ?? _text(top ? 'source' : 'target'),
+        title: data == null
+            ? _text(top ? 'source' : 'target')
+            : [data.paddon.code, _paddonLocation(data.paddon)]
+                .where((value) => value.isNotEmpty)
+                .join(' • '),
         icon: Icons.pallet,
         onTap: _saving ? null : () => _pick(top),
       );
+
+  String _paddonLocation(AdminPaddon paddon) {
+    String label(String value) => AparatchiPaddonDisplay.apparatusOrLocation(
+          value,
+          _apparatus,
+          context.l10n,
+        );
+    return {
+      label(paddon.apparatusId),
+      label(paddon.location),
+    }.where((value) => value.isNotEmpty).join(' • ');
+  }
 
   Widget _zone(AdminPaddonSnapshot? data, bool top) {
     if (data == null) return Center(child: Text(_text('choose')));

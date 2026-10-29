@@ -39,14 +39,16 @@ class _Server {
   bool forgedReply = false;
   bool loseReply = false;
   bool freeMovement = false;
+  String targetOwner = 'worker-1';
   String operation = 'cut';
   Map<String, dynamic>? lastRequest;
 
   Map<String, dynamic> paddon(String code) => {
         'id': 'paddon-$code',
         'code': code,
+        'apparatus_id': 'apparatus:default:asset-010',
         'item_count': members[code]!.length,
-        'created_by_ref': 'worker-1',
+        'created_by_ref': code == '00002' ? targetOwner : 'worker-1',
         if (code == '00003' || (code == '00001' && lockSourceOnRead))
           'locked_at_unix': 2,
       };
@@ -303,6 +305,23 @@ void main() {
       await tester.pumpAndSettle();
       // The list filters locked pallets, so only the unlocked empty destination remains.
       expect(find.byType(TransferListRow), findsNothing);
+      expect(server.writes, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, () => server.client);
+  });
+
+  testWidgets('visible other-worker destination still requires free movement',
+      (tester) async {
+    server.targetOwner = 'worker-2';
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('paddon-transfer-wip-roll-1')));
+      await tester.pumpAndSettle();
+      final action = tester.widget<FilledButton>(
+          find.byKey(const ValueKey('paddon-transfer-selected')));
+      expect(action.onPressed, isNull);
       expect(server.writes, 0);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => server.client);

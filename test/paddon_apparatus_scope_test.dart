@@ -208,42 +208,115 @@ void main() {
     }, () => client);
   });
 
-  testWidgets('scoped transfer excludes paddons from other rezka apparatus',
+  testWidgets(
+      'transfer includes assigned cutting destinations and keeps WIP IDs',
       (tester) async {
-    String? listScope;
+    const unassigned = 'apparatus:default:asset-012';
+    final listScopes = <String?>[];
+    final memberships = <String, List<String>>{
+      '0011': ['roll-1'],
+      '4234': [],
+    };
+    Map<String, dynamic>? transfer;
+    Map<String, dynamic> paddon(String code, String apparatus) => {
+          ..._paddon(code, apparatus),
+          'item_count': memberships[code]?.length ?? 0,
+          if (code == '4234') 'location': '2-qator',
+        };
     final client = MockClient((request) async {
+      if (request.url.path.endsWith('/admin/apparatus')) {
+        return http.Response(
+            jsonEncode([
+              ..._catalog,
+              _apparatus(unassigned, 'Rezka 3', 'cut'),
+            ]),
+            200);
+      }
       if (request.url.path.endsWith('/paddons')) {
-        listScope = request.url.queryParameters['apparatus'];
+        final apparatus = request.url.queryParameters['apparatus'];
+        listScopes.add(apparatus);
+        expect([rezka, rezka2], contains(apparatus));
+        expect(request.url.queryParameters['selectable_only'], 'true');
         return http.Response(
             jsonEncode({
               'ok': true,
               'paddons': [
-                _paddon('0011', rezka),
-                _paddon('4234', rezka2),
+                paddon('0011', rezka),
+                paddon('4234', rezka2),
+                _paddon('9999', unassigned),
+                _paddon('8888', laminate),
               ]
             }),
             200);
       }
       if (request.url.path.endsWith('/qr/report')) {
-        expect(request.url.queryParameters['code'], '4234');
+        final code = request.url.queryParameters['code']!;
+        expect(memberships, contains(code));
         return http.Response(
             jsonEncode({
               'ok': true,
-              'paddon': _paddon('4234', rezka2),
-              'items': [],
+              'paddon': paddon(code, code == '0011' ? rezka : rezka2),
+              'items': [
+                for (final batchId in memberships[code]!)
+                  {
+                    'batch_id': batchId,
+                    'apparatus': rezka,
+                    'wip_status': 'waiting',
+                    'produced_qty': 15,
+                    'uom': 'kg',
+                  },
+              ],
               'can_manage_items': true
             }),
             200);
+      }
+      if (request.url.path.endsWith('/items/transfer')) {
+        transfer = (jsonDecode(request.body) as Map).cast<String, dynamic>();
+        memberships['0011']!.remove('roll-1');
+        memberships['4234']!.add('roll-1');
+        return http.Response(jsonEncode({'ok': true, ...transfer!}), 200);
       }
       throw StateError('Unexpected request $request');
     });
     await http.runWithClient(() async {
       await tester.pumpWidget(
-          _app(const AparatchiPaddonTransferScreen(apparatusId: rezka2)));
+          _app(const AparatchiPaddonTransferScreen(apparatusId: rezka)));
       await tester.pumpAndSettle();
-      expect(listScope, rezka2);
-      expect(find.text('4234'), findsOneWidget);
-      expect(find.text('0011'), findsNothing);
+      expect(listScopes, unorderedEquals([rezka, rezka2]));
+      expect(find.text('0011 • Rezka'), findsOneWidget);
+      expect(find.text('4234 • Rezka 2 • 2-qator'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('paddon-transfer-target')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('paddon-transfer-pick-4234')),
+          findsOneWidget);
+      expect(find.text('Rezka 2 • 2-qator • 0 WIP'), findsOneWidget);
+      expect(find.byKey(const ValueKey('paddon-transfer-pick-9999')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('paddon-transfer-pick-8888')),
+          findsNothing);
+      await tester.tap(find.byKey(const ValueKey('paddon-transfer-pick-4234')));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('paddon-transfer-wip-roll-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('paddon-transfer-selected')));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(transfer, isNull);
+      await tester.tap(find.byKey(const ValueKey('paddon-transfer-confirm')));
+      await tester.pumpAndSettle();
+      expect(transfer, {
+        'source_code': '0011',
+        'target_code': '4234',
+        'progress_batch_ids': ['roll-1'],
+      });
+      expect(memberships['0011'], isEmpty);
+      expect(memberships['4234'], ['roll-1']);
+      expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('paddon-transfer-list-4234')),
+            matching: find.byKey(const ValueKey('paddon-transfer-wip-roll-1')),
+          ),
+          findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => client);
   });
