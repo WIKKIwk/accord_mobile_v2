@@ -89,6 +89,9 @@ class SessionProfile {
     return codes.any(hasCapability);
   }
 
+  /// Shared administrative components retain the authenticated actor's role.
+  bool get isAdminOrBrigader => role == UserRole.admin || role == UserRole.brigader;
+
   bool get hasExplicitCapabilities => capabilities.isNotEmpty;
 
   bool get hasWorkspaceAccess {
@@ -101,6 +104,7 @@ class SessionProfile {
           'preparation.access',
           'raw_material.split',
           'sales.access',
+          'brigader.access',
         ]) ||
         (role == UserRole.materialTaminotchi &&
             hasAnyCapability(materialTaminotchiWorkspaceCapabilities));
@@ -111,6 +115,9 @@ class SessionProfile {
   }
 
   UserRole? get accessRole {
+    if (role == UserRole.brigader && hasCapability('brigader.access')) {
+      return UserRole.brigader;
+    }
     if (role == UserRole.salesManager && hasCapability('sales.access')) {
       return UserRole.salesManager;
     }

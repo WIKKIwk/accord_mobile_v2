@@ -100,7 +100,7 @@ class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
         ),
         apparatus: _apparatusCatalog,
         manageItems: false,
-        bottom: AppSession.instance.profile?.role == UserRole.admin
+        bottom: AppSession.instance.profile?.isAdminOrBrigader == true
             ? const AdminDock(activeTab: AdminDockTab.home)
             : null,
         footerBuilder: (context, _) => FilledButton.icon(

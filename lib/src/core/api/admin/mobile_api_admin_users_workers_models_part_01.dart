@@ -14,6 +14,8 @@ void resetMobileApiTestModeWorkerSettingsData() {
 
 String _adminWarehouseRoleToJson(UserRole role) {
   switch (role) {
+    case UserRole.brigader:
+      return 'brigader';
     case UserRole.salesManager:
       return 'sales_manager';
     case UserRole.tayyorlovMasteri:

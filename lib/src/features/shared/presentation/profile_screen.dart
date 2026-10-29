@@ -114,7 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
         final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
         final bottomPadding = bottomInset + 136.0;
-        final subtitle = current.accessRole == UserRole.salesManager ? 'Sotuv manageri profili' : current.accessRole == UserRole.homashyoRezkachi ? 'Homashyo rezkachisi profili' : current.accessRole == UserRole.tayyorlovMasteri ? 'Tayyorlov masteri profili' : current.isCapabilityOnlyProfile
+        final subtitle = current.accessRole == UserRole.brigader ? 'Brigader profili' : current.accessRole == UserRole.salesManager ? 'Sotuv manageri profili' : current.accessRole == UserRole.homashyoRezkachi ? 'Homashyo rezkachisi profili' : current.accessRole == UserRole.tayyorlovMasteri ? 'Tayyorlov masteri profili' : current.isCapabilityOnlyProfile
             ? l10n.capabilityBasedAccount
             : current.accessRole == UserRole.supplier
                 ? l10n.supplierAccount

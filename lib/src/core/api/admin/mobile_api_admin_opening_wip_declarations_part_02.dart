@@ -436,7 +436,7 @@ AdminOpeningWipRecord _testModeCreateOpeningWip(
 
 void _testModeDeleteOpeningWipBatch(String batchId) {
   final profile = AppSession.instance.profile;
-  if (profile?.role != UserRole.admin) {
+  if (profile?.isAdminOrBrigader != true) {
     throw const MobileApiException(
       code: 'forbidden',
       message: 'Bu amal uchun ruxsat yo‘q',

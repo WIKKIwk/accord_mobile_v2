@@ -376,7 +376,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       workerMode: workerMode,
                       qolipInRework: !detailPending &&
                           !workerMode &&
-                          AppSession.instance.profile?.role == UserRole.admin &&
+                          AppSession.instance.profile?.isAdminOrBrigader == true &&
                           order.qolipInRework,
                       showContractSyncProgress: showContractSyncProgress,
                       materialsLoading: materialsLoading,
@@ -481,7 +481,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     ),
                   if (!summaryOnlyMode) const SizedBox(height: 4),
                   if (!workerMode &&
-                      AppSession.instance.profile?.role == UserRole.admin) ...[
+                      AppSession.instance.profile?.isAdminOrBrigader == true) ...[
                     _orderDetailSurfaceCard(
                       context: context,
                       child: Padding(
@@ -542,7 +542,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                   ],
-                  if (AppSession.instance.profile?.role == UserRole.admin &&
+                  if (AppSession.instance.profile?.isAdminOrBrigader == true &&
                       map.combo != null) ...[
                     _OrderComboDetailCard(
                       key: ValueKey('production-order-combo:${map.id}'),
@@ -1096,7 +1096,7 @@ class _OrderSummaryCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final rows = <Widget>[];
     final showCalculationDetails = !workerMode &&
-        AppSession.instance.profile?.role == UserRole.admin;
+        AppSession.instance.profile?.isAdminOrBrigader == true;
     final baseLength = baseMetraj ?? map.baseLength;
     if (baseLength != null && baseLength > 0) {
       final roundedMetraj = ((baseLength / 500).ceil() * 500).toString();
@@ -1665,7 +1665,7 @@ class _RawMaterialAssignmentsExpansionBody extends StatelessWidget {
     final balances = _rawMaterialBalances(assignments);
     final role = AppSession.instance.profile?.role;
     final groupedAssignments =
-        role == UserRole.admin || role == UserRole.materialTaminotchi
+        role == UserRole.admin || role == UserRole.brigader || role == UserRole.materialTaminotchi
             ? _adminRawMaterialAssignmentGroups(
                 assignments,
                 apparatusCatalog,

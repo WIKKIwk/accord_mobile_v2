@@ -120,8 +120,11 @@ extension MobileApiServer on MobileApi {
       );
     }
 
-    if (AppSession.instance.can('admin.access') &&
-        !loginResult.profile.hasCapability('admin.access')) {
+    final requiredWorkspaceCapability = AppSession.instance.profile?.role == UserRole.brigader
+        ? 'brigader.access'
+        : AppSession.instance.can('admin.access') ? 'admin.access' : null;
+    if (requiredWorkspaceCapability != null &&
+        !loginResult.profile.hasCapability(requiredWorkspaceCapability)) {
       return MobileServerSwitchResult(
         status: MobileServerSwitchStatus.credentialsNotFound,
         baseUrl: normalized,
@@ -149,7 +152,9 @@ extension MobileApiServer on MobileApi {
     if (savedAccounts.isInitialized) {
       final store = savedAccounts.store;
       final currentProfile = AppSession.instance.profile;
-      final requiresAdmin = AppSession.instance.can('admin.access');
+      final requiredWorkspaceCapability = currentProfile?.role == UserRole.brigader
+          ? 'brigader.access'
+          : AppSession.instance.can('admin.access') ? 'admin.access' : null;
       SavedAccountSession? fallback;
       for (final account in store.accountsForEndpoint(baseUrl)) {
         final session = await store.sessionFor(account.id);
@@ -158,8 +163,8 @@ extension MobileApiServer on MobileApi {
             session.code.trim().isEmpty) {
           continue;
         }
-        if (requiresAdmin &&
-            !session.account.profile.hasCapability('admin.access')) {
+        if (requiredWorkspaceCapability != null &&
+            !session.account.profile.hasCapability(requiredWorkspaceCapability)) {
           continue;
         }
         final sameProfile = currentProfile != null &&

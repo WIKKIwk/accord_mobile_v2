@@ -53,9 +53,7 @@ List<RoleNavigationDrawerDestination> _visibleAdminDrawerDestinations(
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
       label: l10n.adminHomeNavTitle,
-      routeName: AppSession.instance.profile?.role == UserRole.salesManager
-          ? AppRoutes.salesHome
-          : AppRoutes.adminHome,
+      routeName: AppSession.instance.homeRoute,
     ),
     RoleNavigationDrawerDestination(
       icon: Icons.people_outline_rounded,

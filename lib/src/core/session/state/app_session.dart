@@ -46,6 +46,9 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.brigader && profile.hasCapability('brigader.access')) {
+      return '/brigader-home';
+    }
     if (profile.role == UserRole.salesManager && profile.hasCapability('sales.access')) {
       return '/sales-home';
     }
@@ -125,6 +128,10 @@ class AppSession {
     }
     return '/';
   }
+
+  bool get canUseAdminComponents =>
+      can('admin.access') ||
+      (profile?.role == UserRole.brigader && can('brigader.access'));
 
   bool can(String capability) {
     return profile?.hasCapability(capability) ?? false;

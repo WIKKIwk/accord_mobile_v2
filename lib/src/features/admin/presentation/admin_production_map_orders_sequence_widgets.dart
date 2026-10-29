@@ -371,7 +371,7 @@ class _SequenceHeaderSelectors extends StatelessWidget {
           apparatus: availableApparatus,
           selectedId: apparatus?.id,
           editableProfileRef:
-              profile?.role == UserRole.admin ? profile?.ref : null,
+              profile?.isAdminOrBrigader == true ? profile?.ref : null,
           expanded: expanded,
           onToggle: onToggleExpanded,
           onSelect: onSelectApparatus,

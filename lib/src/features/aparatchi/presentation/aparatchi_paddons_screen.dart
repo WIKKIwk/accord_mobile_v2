@@ -65,6 +65,7 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
       AppSession.instance.profile?.hasAnyCapability(
         const [
           'admin.access',
+          'brigader.access',
           'production.map.manage',
           'apparatus.queue.manage'
         ],
@@ -117,8 +118,8 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
       }
       canTransfer = options.any((a) => a.id == _apparatusId) &&
           profile.hasAnyCapability(
-              const ['admin.access', 'apparatus.queue.manage']);
-    } else if (loader == null && profile?.role == UserRole.admin) {
+              const ['admin.access', 'brigader.access', 'apparatus.queue.manage']);
+    } else if (loader == null && profile?.isAdminOrBrigader == true) {
       canTransfer = true;
     }
     final paddons = _needsApparatus

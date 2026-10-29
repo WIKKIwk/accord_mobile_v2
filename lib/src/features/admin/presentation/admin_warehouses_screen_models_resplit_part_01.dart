@@ -30,7 +30,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
 
   bool get _warehouseScoped => _materialScoped || _werkaScoped;
 
-  bool get _adminScoped => AppSession.instance.profile?.role == UserRole.admin;
+  bool get _adminScoped => AppSession.instance.profile?.isAdminOrBrigader == true;
 
   bool _userManuallySelectedWarehouse = false;
 

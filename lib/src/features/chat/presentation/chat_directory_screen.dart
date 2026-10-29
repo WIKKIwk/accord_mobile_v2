@@ -83,6 +83,7 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
         l10n.adminText('users.kind.material_supplier'),
       UserRole.admin => l10n.adminRoleName,
       UserRole.tayyorlovMasteri ||
+      UserRole.brigader ||
       UserRole.salesManager ||
       UserRole.homashyoRezkachi =>
         userRoleLabel(role),

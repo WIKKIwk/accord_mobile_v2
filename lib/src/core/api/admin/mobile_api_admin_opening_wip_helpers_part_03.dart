@@ -12,7 +12,7 @@ AdminOpeningWipBatch _testModeLookupOpeningWip({
   final normalizedQr = qrPayload.trim().toUpperCase();
   final normalizedBatchId = batchId.trim();
   final profile = AppSession.instance.profile;
-  final canUseApparatus = profile?.role == UserRole.admin ||
+  final canUseApparatus = profile?.isAdminOrBrigader == true ||
       (profile?.assignedApparatus ?? const <String>[])
           .any((item) => item.trim() == normalizedApparatus);
   if (!canUseApparatus) {

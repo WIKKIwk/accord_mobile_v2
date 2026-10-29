@@ -14,7 +14,6 @@ import '../../../core/widgets/shell/app_retry_state.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../../core/widgets/transfer/two_pane_transfer.dart';
 import '../../../core/widgets/transfer/transfer_list.dart';
-import '../../shared/models/app_models.dart';
 import 'aparatchi_paddon_display.dart';
 
 part 'aparatchi_paddon_transfer_actions.dart';
@@ -95,7 +94,7 @@ class _AparatchiPaddonTransferScreenState
         !snapshot.paddon.isLocked &&
         snapshot.canManageItems &&
         profile != null &&
-        (profile.role == UserRole.admin ||
+        (profile.isAdminOrBrigader ||
             snapshot.freeMovementEnabled ||
             snapshot.paddon.createdByRef == profile.ref);
   }

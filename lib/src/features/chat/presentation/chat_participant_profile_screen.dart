@@ -18,7 +18,7 @@ import '../../../core/localization/urdu_aware_text.dart';
 /// instead of a request that would be rejected by the admin API.
 Widget _buildParticipantProfile(
     BuildContext context, ChatPrincipal participant) {
-  final hasAdminAccess = AppSession.instance.can('admin.access');
+  final hasAdminAccess = AppSession.instance.canUseAdminComponents;
   if (!hasAdminAccess) {
     return _ChatParticipantSummaryProfile(participant: participant);
   }
@@ -57,6 +57,7 @@ Widget _buildParticipantProfile(
     UserRole.aparatchi ||
     UserRole.qolipchi ||
     UserRole.tayyorlovMasteri ||
+    UserRole.brigader ||
     UserRole.salesManager ||
     UserRole.homashyoRezkachi ||
     UserRole.boyoqchi =>
@@ -73,6 +74,7 @@ AdminUserListEntry _adminEntryFor(ChatPrincipal participant) {
     UserRole.boyoqchi => AdminUserKind.boyoqchi,
     UserRole.tayyorlovMasteri => AdminUserKind.tayyorlovMasteri,
     UserRole.homashyoRezkachi => AdminUserKind.homashyoRezkachi,
+    UserRole.brigader => AdminUserKind.brigader,
     UserRole.salesManager => AdminUserKind.salesManager,
     UserRole.aparatchi => AdminUserKind.worker,
     _ => AdminUserKind.worker,

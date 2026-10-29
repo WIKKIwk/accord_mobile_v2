@@ -222,6 +222,7 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
         kind != AdminUserKind.tayyorlovMasteri &&
         kind != AdminUserKind.homashyoRezkachi &&
         kind != AdminUserKind.salesManager &&
+        kind != AdminUserKind.brigader &&
         visibleItems.isNotEmpty &&
         (_loadingMore || _hasMore);
     return AppRefreshIndicator(

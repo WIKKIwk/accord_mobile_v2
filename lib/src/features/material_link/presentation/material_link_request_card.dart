@@ -29,7 +29,7 @@ class _MaterialLinkRequestCardState extends State<MaterialLinkRequestCard> {
     final profile = AppSession.instance.profile;
     return profile != null &&
         profile.hasCapability('raw_material.assign') &&
-        (profile.role == UserRole.admin ||
+        (profile.isAdminOrBrigader ||
             (profile.role == UserRole.materialTaminotchi &&
                 profile.ref == _request.moverRef));
   }

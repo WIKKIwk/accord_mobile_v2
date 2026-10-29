@@ -4,7 +4,6 @@ import '../../../../core/api/mobile_api.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/session/session.dart';
 import '../../../../core/session/session_read_scope.dart';
-import '../../../shared/models/app_models.dart';
 
 class AdminQolipStartSettingsCard extends StatefulWidget {
   const AdminQolipStartSettingsCard({super.key});
@@ -20,7 +19,7 @@ class _AdminQolipStartSettingsCardState
   bool _busy = true;
   bool _loadFailed = false;
 
-  bool get _isAdmin => AppSession.instance.profile?.role == UserRole.admin;
+  bool get _isAdmin => AppSession.instance.profile?.isAdminOrBrigader == true;
   String _text(String key) =>
       context.l10n.productionText('qolip.start.settings.$key');
 

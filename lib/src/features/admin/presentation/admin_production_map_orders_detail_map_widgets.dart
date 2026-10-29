@@ -102,7 +102,7 @@ class _OrderMapProgressCardState extends State<_OrderMapProgressCard> {
   bool get _canViewParticipants =>
       !workerMode &&
       !widget.detailPending &&
-      AppSession.instance.can('admin.access');
+      AppSession.instance.canUseAdminComponents;
 
   void _showParticipants(ProductionMapNode node) {
     final apparatus = _orderMapNodeStationId(node);

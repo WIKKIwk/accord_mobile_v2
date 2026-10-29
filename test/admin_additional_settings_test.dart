@@ -152,6 +152,50 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isFalse);
   });
 
+  testWidgets('brigader can save every existing additional settings card', (tester) async {
+    AppSession.instance.profile = SessionProfile.fromJson({
+      'role': 'brigader', 'ref': 'brigader_test',
+      'capabilities': ['brigader.access'],
+    });
+    expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isTrue);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      for (final key in [
+        'mandatory-app-update-switch',
+        'paddon-worker-visibility-switch',
+        'lamination-layer-remainders-switch',
+        'qolip-automatic-confirmation-switch',
+      ]) {
+        final finder = find.byKey(ValueKey(key));
+        await tester.scrollUntilVisible(finder, 180);
+        await tester.ensureVisible(finder);
+        await tester.pumpAndSettle();
+        expect(tester.widget<SwitchListTile>(finder).onChanged, isNotNull);
+        await tester.tap(finder);
+        await tester.pumpAndSettle();
+      }
+      expect(mandatoryUpdates, isTrue);
+      expect(workerVisibility, isTrue);
+      expect(laminationRequired, isFalse);
+      expect(automaticQolips, isTrue);
+      expect(updateWrites, 1);
+      expect(writes, 1);
+      expect(laminationWrites, 1);
+      expect(qolipWrites, 1);
+      await tester.scrollUntilVisible(find.byKey(const ValueKey('paddon-free-movement-switch')), -180);
+      await tester.ensureVisible(find.byKey(const ValueKey('paddon-free-movement-switch')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('paddon-free-movement-switch')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('paddon-free-movement-confirm')));
+      await tester.pumpAndSettle();
+      expect(enabled, isTrue);
+      expect(writes, 2);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
+
   testWidgets(
       'automatic mold confirmation defaults off and persists independently',
       (tester) async {

@@ -114,6 +114,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   },
   AppRoutes.adminActivity: {'admin.activity.read'},
   AppRoutes.salesHome: {'sales.access'},
+  AppRoutes.brigaderHome: {'brigader.access'},
   AppRoutes.adminCalculate: {'admin.access', 'production.map.manage', 'production.order.create', 'production.order.edit'},
   AppRoutes.adminCalculateMaterials: {
     'admin.access',

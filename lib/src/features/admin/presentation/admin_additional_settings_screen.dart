@@ -8,7 +8,6 @@ import '../../../core/session/session_read_scope.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_retry_state.dart';
-import '../../shared/models/app_models.dart';
 import 'widgets/admin_app_update_settings_card.dart';
 import 'widgets/admin_lamination_settings_card.dart';
 import 'widgets/admin_qolip_start_settings_card.dart';
@@ -27,7 +26,7 @@ class _AdminAdditionalSettingsScreenState
     extends State<AdminAdditionalSettingsScreen> {
   Future<PaddonManagementSettings>? _future;
   bool _saving = false;
-  bool get _isAdmin => AppSession.instance.profile?.role == UserRole.admin;
+  bool get _isAdmin => AppSession.instance.profile?.isAdminOrBrigader == true;
 
   @override
   void initState() {

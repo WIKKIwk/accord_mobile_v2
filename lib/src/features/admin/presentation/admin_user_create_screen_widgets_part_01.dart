@@ -37,7 +37,11 @@ class _AdminUserCreateScreenState extends State<AdminUserCreateScreen> {
   Future<List<_AdminUserCreateChoice>> _loadRoleChoices() async {
     try {
       final roles = await MobileApi.instance.adminRoles();
-      final assignableRoles = roles.where(_isAssignableRole).toList();
+      final profile = AppSession.instance.profile;
+      final assignableRoles = roles.where(_isAssignableRole).where((role) {
+        if (profile?.role != UserRole.brigader || role.system) return true;
+        return role.capabilityCodes.every(profile!.hasCapability);
+      }).toList();
       final hasMaterialTaminotchi = assignableRoles.any(
         _isMaterialTaminotchiRole,
       );

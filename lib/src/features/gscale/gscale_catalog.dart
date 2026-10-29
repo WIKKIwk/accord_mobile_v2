@@ -34,6 +34,7 @@ bool gscaleUsesScopedAdminWarehousesForProfile(
   UserRole? role,
 }) {
   if (role == UserRole.admin ||
+      role == UserRole.brigader ||
       role == UserRole.werka ||
       role == UserRole.materialTaminotchi) {
     return true;
@@ -115,6 +116,7 @@ Future<List<GScaleCatalogWarehouse>> fetchGScaleItemWarehouses({
   final client = api ?? MobileApi.instance;
   final profile = AppSession.instance.profile;
   final canReadAdminCatalog = role == UserRole.admin ||
+      role == UserRole.brigader ||
       (role == null && profile?.hasCapability('catalog.item.read') == true);
   final canReadGScaleCatalog = role == UserRole.werka ||
       (role == null && profile?.hasCapability('gscale.catalog.read') == true);

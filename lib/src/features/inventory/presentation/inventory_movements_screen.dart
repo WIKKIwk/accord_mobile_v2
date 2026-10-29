@@ -131,7 +131,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
           .where((name) => name.isNotEmpty)
           .toSet();
 
-  bool get _isAdmin => AppSession.instance.can('admin.access');
+  bool get _isAdmin => AppSession.instance.canUseAdminComponents;
 
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;

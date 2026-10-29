@@ -11,6 +11,7 @@ const _app_router_AppRouter_resplit_class_AppRouter_staticDockRoutes_resplit2Val
   AppRoutes.werkaArchive,
   AppRoutes.adminHome,
   AppRoutes.salesHome,
+  AppRoutes.brigaderHome,
   AppRoutes.adminActivity,
   AppRoutes.adminCalculate,
   AppRoutes.adminCalculateMaterials,

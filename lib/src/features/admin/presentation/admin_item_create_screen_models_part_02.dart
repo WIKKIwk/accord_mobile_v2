@@ -455,7 +455,7 @@ class _AdminItemsListTabState extends State<AdminItemsListTab>
                     onItemTap: (_canSelect && _selectedCodes.isNotEmpty) ||
                             widget.onItemTap != null ||
                             (AppSession.instance.profile?.role != UserRole.salesManager &&
-                                AppSession.instance.can('admin.access'))
+                                AppSession.instance.canUseAdminComponents)
                         ? _openItem
                         : null,
                   ),

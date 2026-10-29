@@ -245,6 +245,7 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, PinSetupConfirmScreen(args: args));
     case AppRoutes.adminHome:
     case AppRoutes.salesHome:
+    case AppRoutes.brigaderHome:
       return AppRouter._buildRoute(settings, const AdminHomeScreen());
     case AppRoutes.adminActivity:
       return AppRouter._buildRoute(settings, const AdminActivityScreen());
@@ -469,7 +470,7 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       final isMaterialTaminotchi =
           entry?.kind == AdminUserKind.materialTaminotchi ||
               entry?.principalRole == UserRole.materialTaminotchi;
-      final canManageCustomer = AppSession.instance.can('admin.access') &&
+      final canManageCustomer = AppSession.instance.canUseAdminComponents &&
           AppSession.instance.profile?.role != UserRole.salesManager;
       return AppRouter._buildRoute(
         settings,

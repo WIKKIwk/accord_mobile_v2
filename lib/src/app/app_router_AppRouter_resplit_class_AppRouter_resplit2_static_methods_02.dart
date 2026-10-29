@@ -21,6 +21,59 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return false;
   }
   final profile = session.profile!;
+  // The brigader workspace reuses the selected admin surfaces, including their
+  // detail and action routes, while its backend enforces the same boundary.
+  if (profile.role == UserRole.brigader) {
+    return profile.hasCapability('brigader.access') && const {
+      AppRoutes.brigaderHome,
+      AppRoutes.adminHome,
+      AppRoutes.adminFactoryMap,
+      AppRoutes.adminCalculateOrders,
+      AppRoutes.adminCalculate,
+      AppRoutes.adminProductionMapTest,
+      AppRoutes.adminProductionMapOrders,
+      AppRoutes.adminSuppliers,
+      AppRoutes.adminActivity,
+      AppRoutes.adminItemBulkMove,
+      AppRoutes.adminOpeningWip,
+      AppRoutes.adminWipBatches,
+      AppRoutes.adminNotifications,
+      AppRoutes.adminApparatusSettings,
+      AppRoutes.adminApparatusGroups,
+      AppRoutes.adminAdditionalSettings,
+      AppRoutes.adminWarehouses,
+      AppRoutes.adminFactoryLocations,
+      AppRoutes.adminRawMaterialSettings,
+      AppRoutes.adminRawMaterialRules,
+      AppRoutes.adminRawMaterialAssignments,
+      AppRoutes.adminCalculateMaterials,
+      AppRoutes.adminWorkerSettings,
+      AppRoutes.adminItemGroupCreate,
+      AppRoutes.adminCreateHub,
+      AppRoutes.adminUserCreate,
+      AppRoutes.adminSupplierCreate,
+      AppRoutes.adminCustomerCreate,
+      AppRoutes.adminCustomerDetail,
+      AppRoutes.adminWorkerDetail,
+      AppRoutes.adminWorkerProfileDetail,
+      AppRoutes.adminInactiveSuppliers,
+      AppRoutes.adminItemCreate,
+      AppRoutes.adminItemDetail,
+      AppRoutes.adminSupplierDetail,
+      AppRoutes.adminSupplierItemsView,
+      AppRoutes.adminSupplierItemsAdd,
+      AppRoutes.adminWerka,
+      AppRoutes.adminQueuePolicies,
+      AppRoutes.adminApparatusCreate,
+      AppRoutes.adminProgressQrScan,
+      AppRoutes.apparatusQueue,
+      AppRoutes.apparatusWorkInstructions,
+      AppRoutes.apparatusDailyWork,
+      AppRoutes.apparatusPaddons,
+      AppRoutes.apparatusPaddonDetail,
+      AppRoutes.inventoryMovements,
+    }.contains(routeName);
+  }
   if (profile.role == UserRole.salesManager &&
       !const {
         AppRoutes.salesHome,

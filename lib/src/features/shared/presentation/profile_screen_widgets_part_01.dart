@@ -33,7 +33,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.boyoqchiHome => _ProfileShellKind.boyoqchi,
     AppRoutes.preparation => _ProfileShellKind.preparation,
     AppRoutes.rawMaterialSplit => _ProfileShellKind.rawMaterialSplit,
-    AppRoutes.salesHome || AppRoutes.adminHome => _ProfileShellKind.admin,
+    AppRoutes.brigaderHome || AppRoutes.salesHome || AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };
 }

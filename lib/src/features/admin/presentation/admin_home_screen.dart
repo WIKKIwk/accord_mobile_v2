@@ -90,12 +90,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     return AdminShell(
-      title: AppSession.instance.profile?.role == UserRole.salesManager
-          ? userRoleLabel(UserRole.salesManager)
-          : context.l10n.adminRoleName,
-      selectedRouteName: AppSession.instance.profile?.role == UserRole.salesManager
-          ? AppRoutes.salesHome
-          : AppRoutes.adminHome,
+      title: AppSession.instance.profile?.role == UserRole.brigader
+          ? userRoleLabel(UserRole.brigader)
+          : AppSession.instance.profile?.role == UserRole.salesManager
+              ? userRoleLabel(UserRole.salesManager)
+              : context.l10n.adminRoleName,
+      selectedRouteName: AppSession.instance.homeRoute,
       activeTab: AdminDockTab.home,
       bottomDockFadeStrength: null,
       child: ColoredBox(
