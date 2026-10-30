@@ -70,6 +70,7 @@ part 'admin_production_map_test_screen_test_cases_resplit_part_19.dart';
 part 'admin_production_map_rezka_wip_completion_waste_test_part.dart';
 part 'admin_production_map_rezka_recorded_rolls_test_part.dart';
 part 'admin_production_map_rezka_print_optimization_test_part.dart';
+part 'admin_production_map_rezka_deviation_warning_test_part.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_20.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_21.dart';
 part 'admin_production_map_test_screen_test_cases_resplit_part_22.dart';
@@ -79,6 +80,7 @@ part 'admin_production_map_worker_notices_test_part.dart';
 part 'admin_production_map_worker_material_width_notice_test_part.dart';
 part 'admin_production_map_worker_material_presentation_test_part.dart';
 part 'admin_production_map_worker_fab_qr_test_part.dart';
+part 'admin_production_map_worker_tab_qr_test_part.dart';
 part 'admin_production_map_worker_qr_window_test_part.dart';
 part 'admin_production_map_worker_compact_qr_test_part.dart';
 part 'admin_production_map_worker_fab_latency_test_part.dart';
@@ -126,6 +128,7 @@ part 'admin_production_map_qolip_alternative_sets_test_part.dart';
 part 'admin_production_map_resume_wip_test_part.dart';
 part 'admin_production_map_re_pause_test_part.dart';
 part 'admin_production_map_cancel_start_test_part.dart';
+part 'admin_production_map_scanned_wip_test_part.dart';
 part 'admin_production_map_temporary_pause_test_part.dart';
 part 'admin_production_map_print_preflight_reopen_test_part.dart';
 part 'admin_production_map_reactivation_reclose_test_part.dart';
@@ -219,6 +222,7 @@ void main() {
   _registerRePauseTests();
   _registerTemporaryPauseTests();
   _registerCancelStartTests();
+  _registerScannedWipTests();
   _registerPrintPreflightReopenTests();
   _registerRecloseTests();
   _registerReactivationTests();
@@ -265,6 +269,7 @@ void main() {
   _registerRezkaWipCompletionWasteTests();
   _registerRezkaRecordedRollTests();
   _registerRezkaPrintOptimizationTests();
+  _registerRezkaDeviationWarningTests();
 
   _registeradmin_production_map_test_screen_testCases20();
 
@@ -279,6 +284,7 @@ void main() {
   _registerWorkerMaterialWidthNoticeTests();
   _registerWorkerMaterialPresentationTests();
   _registerWorkerFabQrTests();
+  _registerWorkerTabQrTests();
   _registerWorkerQrWindowTests();
   _registerCompactWorkerQrTests();
   _registerWorkerFabLatencyTests();

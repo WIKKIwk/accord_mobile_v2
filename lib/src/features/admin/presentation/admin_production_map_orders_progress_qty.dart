@@ -27,19 +27,25 @@ class _RezkaFrameInput {
 
 class _RezkaFrameControllers {
   final meter = TextEditingController();
+  final meterFocusNode = FocusNode();
   final kg = TextEditingController();
+  final kgFocusNode = FocusNode();
   final bobina = TextEditingController();
   final bobinaFocusNode = FocusNode();
   final diameter = TextEditingController();
+  final diameterFocusNode = FocusNode();
   final issueNote = TextEditingController();
 
   void dispose() {
     issueNote.dispose();
     meter.dispose();
+    meterFocusNode.dispose();
     kg.dispose();
+    kgFocusNode.dispose();
     bobina.dispose();
     bobinaFocusNode.dispose();
     diameter.dispose();
+    diameterFocusNode.dispose();
   }
 }
 
@@ -304,6 +310,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
   AdminRezkaOutputReport? _rezkaReport;
   _RezkaFrameInput? _rezkaAutofillReference;
+  int? _rezkaReferenceFrameIndex;
+  String? _rezkaReferenceCycle;
+  final Set<String> _rezkaAcknowledgedDeviations = <String>{};
+  _RezkaCorrectionFocus? _rezkaCorrectionFocus;
+  bool _rezkaCorrectionFocusScheduled = false;
   bool _rezkaPrintBusy = false;
   bool _rezkaIssueBusy = false;
   bool _rezkaPrintQueueProcessing = false;
@@ -325,7 +336,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       _rezkaConfirmationBusy;
 
   void _updateRezkaPrint(VoidCallback update) {
-    if (mounted) setState(update);
+    if (mounted) {
+      setState(update);
+      _scheduleRezkaCorrectionFocus();
+    }
   }
 
   Future<void> _cancelProgressQtyDialog() async {
@@ -643,7 +657,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   Future<void> _confirmProgressQty() async {
     if (_progressQtyBusy) return;
     if (_showRezkaFrameInputs &&
-        (_rezkaSyncRequired || _rezkaPrintQueue.isNotEmpty)) {
+        ((_canPrintRezkaFrames && widget.reloadRezkaOutputReport != null) ||
+            _rezkaSyncRequired ||
+            _rezkaPrintQueue.isNotEmpty)) {
       _updateRezkaPrint(() => _rezkaConfirmationBusy = true);
       try {
         final latest = await widget.reloadRezkaOutputReport?.call();
@@ -682,10 +698,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         }
       }
     }
-    if (mounted) _submit();
+    if (mounted) await _submit();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_progressQtyBusy || _rezkaPrintQueue.isNotEmpty || _rezkaSyncRequired) {
       return;
     }
@@ -1092,6 +1108,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     if (widget.isRezka && rezkaMetricsReady) {
+      final confirmed = await _confirmRezkaOutputDeviations({
+        for (var index = 0; index < (rezkaFrameInputs?.length ?? 0); index++)
+          if (_rezkaReport?.frameAt(index) == null)
+            index: rezkaFrameInputs![index],
+      });
+      if (!mounted || !confirmed) {
+        return;
+      }
       Navigator.of(context).pop(
         _ProgressQtyInput(
           meterQty: effectiveMeterQty,
@@ -1264,6 +1288,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             key: ValueKey<String>('rezka-frame-$index-meter'),
             enabled: fieldsEnabled,
             controller: frame.meter,
+            focusNode: frame.meterFocusNode,
             label: context.l10n.productionText(
               'worker.daily.field.length',
             ),
@@ -1281,6 +1306,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             key: ValueKey<String>('rezka-frame-$index-kg'),
             enabled: fieldsEnabled,
             controller: frame.kg,
+            focusNode: frame.kgFocusNode,
             onChanged: (value) => _updateRezkaMeterFromWeight(index, value),
             label: context.l10n.productionText('worker.daily.field.weight'),
             error: requiredError(
@@ -1313,6 +1339,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             key: ValueKey<String>('rezka-frame-$index-diameter'),
             enabled: fieldsEnabled,
             controller: frame.diameter,
+            focusNode: frame.diameterFocusNode,
             label: context.l10n.productionText(
               'worker.daily.field.diameter',
             ),

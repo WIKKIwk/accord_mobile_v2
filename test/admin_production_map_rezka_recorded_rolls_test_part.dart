@@ -508,6 +508,10 @@ void _registerRezkaRecordedRollTests() {
       expect(value(1, 'meter'), '900');
       await edit(1, 'meter', '800');
       await printRoll(1);
+      expect(find.byKey(const ValueKey('rezka-deviation-warning')),
+          findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('rezka-deviation-confirm')));
+      await tester.pumpAndSettle();
       expect(frames, hasLength(2));
       expect(frames.last['input']['produced_qty'], 800);
       expect(frames.last['input']['gross_qty'], 18);
@@ -737,6 +741,11 @@ void _registerRezkaRecordedRollTests() {
         expect(tester.widget<IconButton>(secondPrint).onPressed, isNull);
 
         await tester.tap(firstPrint);
+        await pumpUntil(() => find
+            .byKey(const ValueKey('rezka-deviation-warning'))
+            .evaluate()
+            .isNotEmpty);
+        await tester.tap(find.byKey(const ValueKey('rezka-deviation-confirm')));
         await pumpUntil(() => events.length >= 5);
         if (action == 'pause') {
           await pumpUntil(() => finalActions.isNotEmpty);

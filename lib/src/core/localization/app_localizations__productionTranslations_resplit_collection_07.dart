@@ -348,6 +348,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'The server did not fully confirm the QR order or route. Refresh and scan again. If the problem persists, contact an admin.',
     'ru': 'Сервер не подтвердил заказ или маршрут QR полностью. Обновите страницу и повторите сканирование. Если проблема повторится, сообщите администратору.',
   },
+  'worker.qr.select_apparatus': {
+    'uz': 'QR skanerlash uchun sizga biriktirilgan apparat tabini tanlang.',
+    'en': 'Select an assigned apparatus tab to scan a QR code.',
+    'ru': 'Для сканирования QR выберите вкладку назначенного вам аппарата.',
+    'ur': 'QR اسکین کرنے کے لیے اپنی تفویض کردہ مشین کا ٹیب منتخب کریں۔',
+  },
   'worker.qr.no_assignment': {
     'uz': 'Sizga apparat biriktirilmagan. Ishni boshlash uchun, iltimos, adminga apparat biriktirishini so‘rab murojaat qiling.',
     'en': 'No machine is assigned to you. Please ask an admin to assign a machine before starting work.',

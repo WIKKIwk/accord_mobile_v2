@@ -8,6 +8,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.order,
     required this.noticeAnchorKey,
     required this.onClose,
+    this.onScannedWips,
     required this.map,
     required this.orderImageBytes,
     required this.orderImageLoading,
@@ -99,6 +100,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String? detailError;
   final VoidCallback? onRetryDetail;
   final VoidCallback onClose;
+  final VoidCallback? onScannedWips;
   final ProductionMapDefinition map;
   final Uint8List? orderImageBytes;
   final bool orderImageLoading;
@@ -319,6 +321,15 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (onScannedWips != null) ...[
+                            IconButton.filledTonal(
+                              key: const ValueKey('production-order-scanned-wips'),
+                              tooltip: context.l10n.productionText('worker.scanned_wip.title'),
+                              onPressed: onScannedWips,
+                              icon: const Icon(Icons.list_alt_rounded),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           IconButton.filledTonal(
                             key: const ValueKey(
                               'production-order-detail-close',

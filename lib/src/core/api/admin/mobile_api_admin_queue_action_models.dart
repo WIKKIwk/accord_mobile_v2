@@ -18,11 +18,19 @@ class AdminRecordedRezkaFrame {
 }
 
 class AdminRezkaOutputReport {
-  const AdminRezkaOutputReport({required this.cycleId, this.frames = const [], this.layoutOutputs = const []});
+  const AdminRezkaOutputReport({
+    required this.cycleId,
+    this.frames = const [],
+    this.layoutOutputs = const [],
+    this.referenceFrameIndex,
+  });
 
   final String cycleId;
   final List<AdminRecordedRezkaFrame> frames;
   final List<Map<String, dynamic>> layoutOutputs;
+
+  /// One-based first saved healthy output, stable across reopening the dialog.
+  final int? referenceFrameIndex;
 
   AdminRecordedRezkaFrame? frameAt(int zeroBasedIndex) {
     for (final frame in frames) {
@@ -38,6 +46,7 @@ class AdminRezkaOutputReport {
       'cycle_id': payload['rezka_output_cycle'] ?? session['session_id'],
       'frames': payload['rezka_output_report'] ?? const [],
       'layout_outputs': payload['rezka_layout_outputs'],
+      'reference_frame_index': payload['rezka_reference_frame_index'],
     });
   }
 
@@ -78,7 +87,14 @@ class AdminRezkaOutputReport {
             (slot['input'] as Map).cast<String, dynamic>()),
       ));
     }
+    final reference = raw['reference_frame_index'];
+    if (reference != null &&
+        (reference is! int ||
+            !frames.any((frame) => frame.index == reference && !frame.isIssue))) {
+      return null;
+    }
     return AdminRezkaOutputReport(
+        referenceFrameIndex: reference as int?,
         cycleId: cycle, frames: List.unmodifiable(frames),
         layoutOutputs: (raw['layout_outputs'] is List ? raw['layout_outputs'] as List : const [])
             .whereType<Map>().map((item) => Map<String, dynamic>.unmodifiable(item.cast<String, dynamic>())).toList(growable: false));

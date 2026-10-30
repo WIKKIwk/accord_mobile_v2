@@ -53,6 +53,29 @@ void main() {
   });
   tearDown(() => AppSession.instance.token = null);
 
+  test('report retains the first saved reference across sorting and session reads', () {
+    final raw = Map<String, dynamic>.from(
+        _reportReadFixture()['rezka_output_report'] as Map)
+      ..['reference_frame_index'] = 2;
+    final report = AdminRezkaOutputReport.tryFromJson(raw)!;
+    expect(report.referenceFrameIndex, 2);
+    final session = AdminRezkaOutputReport.fromSession({
+      'session_id': 'active-cycle',
+      'payload_json': {
+        'rezka_output_report': raw['frames'],
+        'rezka_reference_frame_index': 2,
+      },
+    })!;
+    expect(session.referenceFrameIndex, 2);
+    for (final invalid in [0, 1, 3, 2.5, '2']) {
+      expect(AdminRezkaOutputReport.tryFromJson({
+        ...raw, 'reference_frame_index': invalid,
+      }), isNull);
+    }
+    raw.remove('reference_frame_index');
+    expect(AdminRezkaOutputReport.tryFromJson(raw)!.referenceFrameIndex, isNull);
+  });
+
   test('multi-product rezka report preserves product identities and widths', () {
     final report = AdminRezkaOutputReport.tryFromJson({
       'cycle_id': 'mixed-cycle',

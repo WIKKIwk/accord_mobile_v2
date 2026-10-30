@@ -12,6 +12,7 @@ part 'app_localizations_qolip_product_transfer.dart';
 part 'app_localizations_re_pause.dart';
 part 'app_localizations_temporary_pause.dart';
 part 'app_localizations_cancel_start.dart';
+part 'app_localizations_scanned_wip.dart';
 part 'app_localizations_reactivation.dart';
 part 'app_localizations_worker_delivery.dart';
 part 'app_localizations_worker_material_use.dart';

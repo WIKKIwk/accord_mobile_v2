@@ -11,6 +11,7 @@ const _app_localizations_AppLocalizations_resplit_class_AppLocalizations__produc
   ..._rePauseTranslations,
   ..._temporaryPauseTranslations,
   ..._cancelStartTranslations,
+  ..._scannedWipTranslations,
   ..._workReactivationTranslations,
   ..._app_localizations_declarations__productionTranslations_resplitPart01,
   ..._app_localizations_declarations__productionTranslations_resplitPart02,

@@ -7,6 +7,7 @@ class _AdminProductionMapOrdersScreenState
   final _searchFocusNode = FocusNode();
   late TabController _tabController;
   int _workerTabIndex = 0;
+  int _workerQrTabRevision = 0;
   bool _loading = true;
   bool _adminPaging = false;
   bool _adminForeground = true;
@@ -273,9 +274,13 @@ class _AdminProductionMapOrdersScreenState
     if (!mounted) return;
     await _startWorkerLive();
     if (!mounted || widget.initialWorkerQrPayload.trim().isEmpty) return;
+    final apparatus = _workerSelectedApparatus;
+    if (apparatus == null) return;
     _workerQrScanInFlight = true;
     try {
-      await _handleWorkerFabQr(widget.initialWorkerQrPayload.trim());
+      await _handleWorkerFabQr(widget.initialWorkerQrPayload.trim(),
+          apparatusId: apparatus.id.trim(),
+          tabRevision: _workerQrTabRevision);
     } finally {
       _workerQrScanInFlight = false;
     }
@@ -894,6 +899,7 @@ class _AdminProductionMapOrdersScreenState
     }
     _tabController.removeListener(_syncWorkerTab);
     _tabController.dispose();
+    _workerQrTabRevision++;
     _workerTabIndex = 0;
     _tabController = TabController(
       length: length,
@@ -906,10 +912,11 @@ class _AdminProductionMapOrdersScreenState
   void _syncWorkerTab() {
     final index = _tabController.index;
     if (!mounted || _workerTabIndex == index) return;
+    _workerQrTabRevision++;
     setState(() => _workerTabIndex = index);
   }
 
-  AdminApparatus? get _workerPaddonApparatus {
+  AdminApparatus? get _workerSelectedApparatus {
     if (!widget.workerMode) return null;
     final assigned = AppSession.instance.profile?.assignedApparatus ??
         const <String>[];
@@ -921,11 +928,15 @@ class _AdminProductionMapOrdersScreenState
     if (index < 0 || index >= tabs.length) return null;
     final apparatus = tabs[index].apparatus;
     if (apparatus == null ||
-        apparatus.operation.trim() != 'cut' ||
         !_isAssignedWatchApparatus(apparatus, assignedApparatus: assigned)) {
       return null;
     }
     return apparatus;
+  }
+
+  AdminApparatus? get _workerPaddonApparatus {
+    final apparatus = _workerSelectedApparatus;
+    return apparatus?.operation.trim() == 'cut' ? apparatus : null;
   }
 
   bool _beginQueueAction(String actionKey) {
@@ -1154,6 +1165,7 @@ class _AdminProductionMapOrdersScreenState
     }
     final mapId = order.map.id.trim();
     final readScope = currentSessionReadScope();
+    final workerQrTabRevision = _workerQrTabRevision;
     final initialStates =
         initialQueueSnapshot?.queueStates ?? _queueStatesByApparatus;
     final initialControls =
@@ -1366,8 +1378,14 @@ class _AdminProductionMapOrdersScreenState
         if (initialPreview != null || workerPreview) _adminDetailOpening = false;
         if (!mounted || readScope != currentSessionReadScope()) return;
         if (result == true && initialOrderSwitchBatch != null) {
+          if (workerQrTabRevision != _workerQrTabRevision ||
+              _workerSelectedApparatus?.id.trim() != apparatus.id.trim()) {
+            return;
+          }
           // Revalidate the scanned order even when it is outside the list window.
-          await _handleWorkerFabQr(initialOrderSwitchBatch.qrPayload);
+          await _handleWorkerFabQr(initialOrderSwitchBatch.qrPayload,
+              apparatusId: apparatus.id.trim(),
+              tabRevision: workerQrTabRevision);
           return;
         }
         if (mounted && result == true) unawaited(_refreshLive());
@@ -1396,6 +1414,13 @@ class _AdminProductionMapOrdersScreenState
 
   Future<void> _openWorkerQrScanner() async {
     if (_workerQrScanInFlight || _workerQrGuidanceOpen) return;
+    final apparatus = _workerSelectedApparatus;
+    if (apparatus == null) {
+      await _showWorkerQrGuidance(context,
+          context.l10n.productionText('worker.qr.select_apparatus'));
+      return;
+    }
+    final tabRevision = _workerQrTabRevision;
     _workerQrScanInFlight = true;
     final scope = currentSessionReadScope();
     try {
@@ -1407,15 +1432,22 @@ class _AdminProductionMapOrdersScreenState
           result is! String || result.trim().isEmpty) {
         return;
       }
-      await _handleWorkerFabQr(result.trim());
+      await _handleWorkerFabQr(result.trim(),
+          apparatusId: apparatus.id.trim(), tabRevision: tabRevision);
     } finally {
       _workerQrScanInFlight = false;
     }
   }
 
-  Future<void> _handleWorkerFabQr(String qrPayload) async {
+  Future<void> _handleWorkerFabQr(String qrPayload,
+      {required String apparatusId, required int tabRevision}) async {
     var orderTitle = '';
     final scope = currentSessionReadScope();
+    bool isCurrent() => mounted &&
+        scope == currentSessionReadScope() &&
+        tabRevision == _workerQrTabRevision &&
+        _workerSelectedApparatus?.id.trim() == apparatusId;
+    if (!isCurrent()) return;
     try {
       final wip = await _identifyWorkerWip(qrPayload);
       if (wip == null) {
@@ -1425,11 +1457,8 @@ class _AdminProductionMapOrdersScreenState
         );
       }
       final batch = wip.progress;
-      if (!mounted || scope != currentSessionReadScope()) return;
+      if (!isCurrent()) return;
       final targetOrderId = wip.orderId;
-      final stationId =
-          batch?.nextApparatus.trim() ??
-          wip.openingRecord!.intake.resumeApparatus.trim();
       if (targetOrderId.isEmpty) {
         throw const MobileApiException(
           code: 'progress_qr_invalid_response',
@@ -1439,7 +1468,7 @@ class _AdminProductionMapOrdersScreenState
       final providedSnapshot = widget.queueSnapshotLoader == null
           ? null
           : await widget.queueSnapshotLoader!();
-      if (!mounted || scope != currentSessionReadScope()) return;
+      if (!isCurrent()) return;
       final targetMaps = _orders.where(
         (order) => order.map.id.trim() == targetOrderId,
       );
@@ -1489,13 +1518,13 @@ class _AdminProductionMapOrdersScreenState
       if (!_workerCatalogReady) {
         throw const MobileApiException(code: 'worker_qr_sync', message: '');
       }
-      // Modern QR route metadata selects the station without a separate map
-      // GET. Opening/training/older payloads retain their map-based resolver.
+      // Route metadata validates the selected tab without a separate map GET.
+      // Opening/training/older payloads retain their map-based resolver.
       if (targetOrder == null && batch?.hasInputRouteMetadata != true) {
         targetOrder = await MobileApi.instance
             .adminProductionMap(targetOrderId)
             .timeout(_queueActionControlRefreshTimeout);
-        if (!mounted || scope != currentSessionReadScope()) return;
+        if (!isCurrent()) return;
         if (targetOrder.map.id.trim() != targetOrderId) {
           throw const MobileApiException(
             code: 'progress_qr_invalid_response',
@@ -1518,45 +1547,19 @@ class _AdminProductionMapOrdersScreenState
           message: '',
         );
       }
-      AdminApparatus? station;
-      for (final candidate in _apparatus) {
-        if (candidates.contains(candidate.id.trim()) &&
-            _isAssignedWatchApparatus(candidate, assignedApparatus: assigned)) {
-          station = candidate;
-          if (candidate.id.trim() == stationId) break;
-        }
-      }
-      if (station == null ||
-          !_isAssignedWatchApparatus(station, assignedApparatus: assigned)) {
-        if (candidates.any(
-          (id) => !_apparatus.any((apparatus) => apparatus.id.trim() == id),
-        )) {
-          throw const MobileApiException(
-            code: 'worker_qr_catalog_missing',
-            message: '',
-          );
-        }
-        // Route guidance needs the later stages to distinguish an unassigned
-        // destination from a job that has not reached this worker yet.
-        targetOrder ??= await MobileApi.instance
-            .adminProductionMap(targetOrderId)
-            .timeout(_queueActionControlRefreshTimeout);
-        if (!mounted || scope != currentSessionReadScope()) return;
-        if (targetOrder.map.id.trim() != targetOrderId) {
-          throw const MobileApiException(
-            code: 'progress_qr_invalid_response',
-            message: '',
-          );
-        }
+      final station = _workerSelectedApparatus;
+      if (station == null || station.id.trim() != apparatusId) return;
+      if (!candidates.contains(apparatusId)) {
         await _showWorkerQrGuidance(
           context,
           _workerWipRouteGuidance(
             l10n: context.l10n,
             wip: wip,
-            map: targetOrder.map,
+            map: targetOrder?.map,
             apparatus: _apparatus,
             consumers: candidates,
             assignedApparatus: assigned,
+            openedApparatus: apparatusId,
           ),
           icon: Icons.warning_amber_rounded,
           tone: AdminTopNoticeTone.error,
@@ -1568,23 +1571,21 @@ class _AdminProductionMapOrdersScreenState
               apparatus: station.id,
               orderId: targetOrderId,
               qrPayload: batch == null ? '' : qrPayload,
-              isCurrent: () => mounted && scope == currentSessionReadScope(),
+              isCurrent: isCurrent,
               currentSnapshot: () => _canonicalQueueSnapshot,
             )
           : null;
-      if (!mounted || scope != currentSessionReadScope()) return;
+      if (!isCurrent()) return;
       var targetSnapshot = bootstrap?.queueContext;
       // Old servers ignore the additive context/proof fields. Keep their
       // scoped reads and exact QR validation, without refreshing the whole page.
       targetSnapshot ??= providedSnapshot ?? await _loadWorkerQrSnapshot(
               apparatus: station.id,
               orderId: targetOrderId,
-              isCurrent: () => mounted && scope == currentSessionReadScope(),
+              isCurrent: isCurrent,
               currentSnapshot: () => _canonicalQueueSnapshot,
             );
-      if (!mounted ||
-          scope != currentSessionReadScope() ||
-          targetSnapshot == null) {
+      if (!isCurrent() || targetSnapshot == null) {
         return;
       }
       targetOrder =
@@ -1595,7 +1596,7 @@ class _AdminProductionMapOrdersScreenState
       targetOrder ??= await MobileApi.instance
           .adminProductionMap(targetOrderId)
           .timeout(_queueActionControlRefreshTimeout);
-      if (!mounted || scope != currentSessionReadScope()) return;
+      if (!isCurrent()) return;
       if (targetOrder.map.id.trim() != targetOrderId) {
         throw const MobileApiException(
           code: 'progress_qr_invalid_response',
@@ -1625,7 +1626,7 @@ class _AdminProductionMapOrdersScreenState
           qrPayload: qrPayload,
         );
       }
-      if (!mounted || scope != currentSessionReadScope()) return;
+      if (!isCurrent()) return;
       final targetControl =
           targetSnapshot.queueActionControls[station.id.trim()]?[targetOrderId];
       final targetOrderControl = targetSnapshot.orderControlFor(targetOrderId);
@@ -1695,8 +1696,7 @@ class _AdminProductionMapOrdersScreenState
         } else {
           if (_canonicalQueueSnapshot?.isWorkerList == true) {
             currentSnapshot = await _readWorkerListDetail(station, activeId);
-            if (!mounted || scope != currentSessionReadScope() ||
-                currentSnapshot == null) {
+            if (!isCurrent() || currentSnapshot == null) {
               return;
             }
             currentOrder = currentSnapshot.maps.single;
@@ -1711,7 +1711,7 @@ class _AdminProductionMapOrdersScreenState
               await MobileApi.instance
                   .adminProductionMap(activeId)
                   .timeout(_queueActionControlRefreshTimeout);
-          if (!mounted || scope != currentSessionReadScope()) return;
+          if (!isCurrent()) return;
           if (currentOrder.map.id.trim() != activeId) {
             throw const MobileApiException(code: 'worker_qr_sync', message: '');
           }
@@ -1723,13 +1723,10 @@ class _AdminProductionMapOrdersScreenState
               : await _loadWorkerQrSnapshot(
                   apparatus: station.id,
                   orderId: activeId,
-                  isCurrent: () =>
-                      mounted && scope == currentSessionReadScope(),
+                  isCurrent: isCurrent,
                   currentSnapshot: () => _canonicalQueueSnapshot,
                 );
-          if (!mounted ||
-              scope != currentSessionReadScope() ||
-              currentSnapshot == null) {
+          if (!isCurrent() || currentSnapshot == null) {
             return;
           }
           }
@@ -1737,8 +1734,7 @@ class _AdminProductionMapOrdersScreenState
       }
       if (currentOrder != null && isWorkerListPresentationOrder(currentOrder)) {
         currentSnapshot = await _readWorkerListDetail(station, currentOrder.map.id);
-        if (!mounted || scope != currentSessionReadScope() ||
-            currentSnapshot == null) {
+        if (!isCurrent() || currentSnapshot == null) {
           return;
         }
         currentOrder = currentSnapshot.maps.single;
@@ -1810,7 +1806,7 @@ class _AdminProductionMapOrdersScreenState
         initialOrderSwitchBatch: wip,
       );
     } catch (error) {
-      if (!mounted || scope != currentSessionReadScope()) return;
+      if (!isCurrent()) return;
       if (error is MobileApiException && error.code == 'order_frozen' &&
           error.orderTitle.trim().isEmpty && orderTitle.isEmpty) {
         // Older servers reject the QR without its title. This history read
@@ -1826,7 +1822,7 @@ class _AdminProductionMapOrdersScreenState
                 .first.trim();
           }
         } catch (_) {}
-        if (!mounted || scope != currentSessionReadScope()) return;
+        if (!isCurrent()) return;
       }
       await _showWorkerQrGuidance(
         context,

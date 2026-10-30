@@ -191,8 +191,21 @@ void _registerTemporaryPauseTests() {
       expect(find.byKey(const ValueKey('production-switch-order-complete')),
           findsOneWidget);
       expect(fixture.mutations, isEmpty);
-      await tester.tap(find
-          .byKey(const ValueKey('production-switch-order-temporary-pause')));
+      final confirmation = find.byWidgetPredicate((widget) =>
+          widget.runtimeType.toString() == '_WorkerTemporaryPauseSwitchSheet');
+      for (final identity in ['Inline work', 'Laminatsiya 1']) {
+        expect(
+            find.descendant(
+                of: confirmation, matching: find.textContaining(identity)),
+            findsOneWidget);
+      }
+      final pause =
+          find.byKey(const ValueKey('production-switch-order-temporary-pause'));
+      // The parent detail's async QR validation can mount this sheet on the
+      // last startup frame. Finish its entrance before targeting the button.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(pause);
+      await tester.tap(pause);
       await _pumpTemporaryPauseUi(tester);
       expect(fixture.phase, 'paused');
       expect(fixture.mutations, hasLength(1));

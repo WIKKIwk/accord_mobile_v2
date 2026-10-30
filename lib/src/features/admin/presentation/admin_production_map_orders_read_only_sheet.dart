@@ -7,6 +7,7 @@ const _queueActionControlRefreshTimeout = Duration(seconds: 5);
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     with WidgetsBindingObserver {
   bool _detailRecoveryNeeded = false;
+  bool _scannedWipSheetOpen = false;
   // Button controls can recover before their independently loaded materials.
   bool _materialSectionNeedsRecovery = false;
   bool get _needsDetailRecovery =>
@@ -703,6 +704,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           dismissAdminTopNotice();
           Navigator.of(context).pop();
         },
+        onScannedWips: _canReadScannedWips && !_queueActionBusy
+            ? () => unawaited(_showScannedWips()) : null,
         map: map,
         orderImageBytes: _orderImageBytes,
         orderImageLoading: _orderImageLoading,
@@ -2606,13 +2609,25 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final usesTimelineAstatka =
         (widget.apparatus?.usesLaminationWorkflow ?? false) ||
             operation == 'cut';
+    final apparatusLabel =
+        canonicalApparatusDisplayLabel(station, widget.apparatusCatalog);
+    final currentOrderCode = _openedOrderDisplayCode(widget.order.map).trim();
+    final currentOrderTitle = _busyOrderDisplayLabel(widget.order, context.l10n);
+    final currentOrderLabel =
+        currentOrderCode.isEmpty || currentOrderCode == currentOrderTitle
+            ? currentOrderTitle
+            : '$currentOrderCode • $currentOrderTitle';
     if (temporaryPause != null) {
       final choice = await showModalBottomSheet<_WorkerOrderSwitchChoice>(
         context: context,
+        isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
         builder: (_) => _WorkerTemporaryPauseSwitchSheet(
-            canComplete: _queueActionControl?.allows('complete') == true),
+          canComplete: _queueActionControl?.allows('complete') == true,
+          apparatusLabel: apparatusLabel,
+          orderLabel: currentOrderLabel,
+        ),
       );
       if (!mounted || scope != currentSessionReadScope() || choice == null) {
         return false;
@@ -2626,8 +2641,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     final confirmed = temporaryPause != null || (await showM3ConfirmDialog(
           context: context,
           title: context.l10n.productionText('worker.order.switch.title'),
-          message:
-              currentInteraction?.mode == AdminQueueInteractionMode.inProgress
+          message: '${context.l10n.productionText(
+            'worker.order.switch.current_order',
+            values: {'apparatus': apparatusLabel, 'order': currentOrderLabel},
+          )}\n\n${currentInteraction?.mode == AdminQueueInteractionMode.inProgress
                   ? context.l10n.productionText(
                       'worker.order.switch.complete_current',
                     )
@@ -2637,7 +2654,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
                         )
                       : context.l10n.productionText(
                           'worker.order.switch.stop_current',
-                        ),
+                        )}',
           cancelLabel: context.l10n.productionText('worker.action.no'),
           confirmLabel: context.l10n.productionText(
             'worker.order.switch.confirm',

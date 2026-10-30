@@ -19,6 +19,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
   void _restoreRezkaOutputReport(AdminRezkaOutputReport? report) {
     if (report == null) return;
     _rezkaReport = report;
+    _refreshRezkaReference(report);
     widget.onRezkaOutputReportChanged?.call(report);
     for (var index = 0; index < _rezkaFrameControllers.length; index++) {
       final saved = report.frameAt(index);
@@ -36,8 +37,22 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
 
   void _autofillRezkaFrames(AdminRezkaOutputReport report) {
     if (widget.order.map.products.isNotEmpty) return;
-    if (!_showRezkaFrameInputs || _rezkaAutofillReference != null) return;
+    if (!_showRezkaFrameInputs) return;
+    // Corrections refresh the reference without replacing draft measurements.
+    if (_rezkaAutofillReference != null) {
+      final saved = _rezkaReferenceFrameIndex == null
+          ? null
+          : report.frameAt(_rezkaReferenceFrameIndex!);
+      if (saved != null && !saved.isIssue) {
+        _rezkaAutofillReference = _rezkaInputFromSaved(saved);
+      }
+      return;
+    }
     for (var index = 0; index < _rezkaFrameControllers.length; index++) {
+      if (_rezkaReferenceFrameIndex != null &&
+          index != _rezkaReferenceFrameIndex) {
+        continue;
+      }
       final saved = report.frameAt(index);
       final source = _rezkaFrameControllers[index];
       if (saved == null || saved.isIssue || !_rezkaFrameMetricsComplete(source)) {
@@ -370,6 +385,13 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         throw const MobileApiException(
             code: 'rezka_output_cycle_conflict', message: '');
       }
+      if (_rezkaReport?.frameAt(index) == null &&
+          request.input != null &&
+          !await _confirmFreshRezkaFrame(request)) {
+        _updateRezkaPrint(() => _rezkaPrintStatus.remove(index));
+        return;
+      }
+      if (!mounted) return;
       _rezkaPrinter ??=
           await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
       if (!mounted) return;

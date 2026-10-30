@@ -306,6 +306,12 @@ extension __InventoryMovementsScreenStateAstPart02
     final barcode = _rawMaterialAssetBarcode(asset).trim();
     final hasOrderAssignment =
         _rawMaterialOrderAssignments.containsKey(barcode);
+    final showOrderAssignment = asset.kind == InventoryAssetKind.rawMaterial &&
+        (_materialScoped ||
+            (_preparationScoped &&
+                AppSession.instance.can('raw_material.assign') &&
+                _assignedWarehouseNames
+                    .contains(asset.custodyWarehouse.trim().toLowerCase())));
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -319,14 +325,12 @@ extension __InventoryMovementsScreenStateAstPart02
         showTransfer: !_preparationScoped ||
             _assignedWarehouseNames
                 .contains(asset.custodyWarehouse.trim().toLowerCase()),
-        orderLabel: _preparationScoped
+        orderLabel: _preparationScoped && !showOrderAssignment
             ? _rawMaterialOrderAssignments[barcode]?.orderLabel
             : null,
         transferRequiresWarehouseLocation: !physicallyInWarehouse,
-        showOrderAssignment:
-            _materialScoped && asset.kind == InventoryAssetKind.rawMaterial,
-        allowOrderAssignment: _materialScoped &&
-            asset.kind == InventoryAssetKind.rawMaterial &&
+        showOrderAssignment: showOrderAssignment,
+        allowOrderAssignment: showOrderAssignment &&
             asset.isAvailable &&
             physicallyInWarehouse &&
             !busy,

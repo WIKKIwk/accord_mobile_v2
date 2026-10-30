@@ -167,4 +167,127 @@ void main() {
           fail('Unexpected request: ${request.method} ${request.url}');
         }));
   });
+
+  testWidgets('master can link and unlink a warehouse roll to an order',
+      (tester) async {
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.tayyorlovMasteri,
+      displayName: 'Master',
+      legalName: '',
+      ref: 'prep-1',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['preparation.access', 'raw_material.assign'],
+      assignedWarehouses: ['Tayyorlov ombori'],
+    );
+    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var linked = false;
+    final writes = <String>[];
+    final assignment = {
+      'order_id': 'zakaz-86',
+      'apparatus': 'apparatus:default:bosma_7',
+      'barcode': 'QR-1',
+      'item_code': 'PE-1',
+      'item_name': 'PE PR',
+      'item_group': 'Rulon',
+      'stock_status': 'available',
+    };
+    final order = {
+      'id': 'zakaz-86',
+      'product_code': 'P-1',
+      'title': 'Avella 72 sht',
+      'code': '0086',
+      'nodes': [],
+      'edges': [],
+    };
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('inventory-asset-raw:roll-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ulanmagan'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('raw-material-assign-order-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('0086 · Avella 72 sht'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('raw-material-confirm-assignment')));
+      await tester.pumpAndSettle();
+      expect(find.text('Ulangan'), findsOneWidget);
+      expect(find.byKey(const ValueKey('raw-material-unlink-button')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('raw-material-unlink-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('raw-material-confirm-unlink')));
+      await tester.pumpAndSettle();
+      expect(find.text('Ulanmagan'), findsOneWidget);
+      expect(writes, ['POST', 'DELETE']);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, () => MockClient((request) async {
+      final path = request.url.path;
+      if (path.endsWith('/inventory/locations')) {
+        return _json([
+          {'id': 'loc:a', 'kind': 'warehouse', 'name': 'Tayyorlov ombori',
+            'warehouse_id': 'warehouse:a', 'active': true},
+        ]);
+      }
+      if (path.endsWith('/inventory/assets')) {
+        return _json([
+          {
+            'kind': 'raw_material', 'asset_ref': 'raw:roll-1',
+            'custody_warehouse_id': 'warehouse:a', 'custody_warehouse': 'Tayyorlov ombori',
+            'item_code': 'PE-1', 'item_name': 'PE PR', 'identifier': 'QR-1',
+            'qty': 10, 'uom': 'kg', 'status': 'available',
+            'physical_location': {'id': 'loc:a', 'kind': 'warehouse', 'name': 'Tayyorlov ombori'},
+            'order_assignment': linked
+                ? {'order_id': 'zakaz-86', 'order_label': '0086 · Avella 72 sht', 'order_control': 'active'}
+                : null,
+          },
+        ]);
+      }
+      if (path.endsWith('/raw-material-assignments/lookup')) {
+        return _json({'barcode': 'QR-1', 'status': 'available',
+          'assignment': linked ? assignment : null, if (linked) 'order': order});
+      }
+      if (path.endsWith('/raw-material-assignments/candidate-orders')) {
+        return _json([
+          {'order': {'map': order, 'program': {
+            'map_id': 'zakaz-86', 'product_code': 'P-1', 'operations': []}},
+            'apparatus_options': ['apparatus:default:bosma_7']},
+        ]);
+      }
+      if (path.endsWith('/admin/apparatus')) return _json([]);
+      if (path.endsWith('/raw-material-assignments')) {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['order_id'], 'zakaz-86');
+        expect(body['barcode'], 'QR-1');
+        writes.add(request.method);
+        if (request.method == 'POST') {
+          expect(body['apparatus'], 'apparatus:default:bosma_7');
+          linked = true;
+          return _json(assignment);
+        }
+        expect(request.method, 'DELETE');
+        linked = false;
+        return _json({'ok': true, 'assignment': assignment});
+      }
+      fail('Unexpected request: ${request.method} ${request.url}');
+    }));
+  });
 }

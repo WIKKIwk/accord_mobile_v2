@@ -126,12 +126,18 @@ class _WorkerTemporaryPauseButton extends StatelessWidget {
 enum _WorkerOrderSwitchChoice { temporaryPause, complete }
 
 class _WorkerTemporaryPauseSwitchSheet extends StatelessWidget {
-  const _WorkerTemporaryPauseSwitchSheet({required this.canComplete});
+  const _WorkerTemporaryPauseSwitchSheet({
+    required this.canComplete,
+    required this.apparatusLabel,
+    required this.orderLabel,
+  });
   final bool canComplete;
+  final String apparatusLabel;
+  final String orderLabel;
 
   @override
   Widget build(BuildContext context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -139,6 +145,14 @@ class _WorkerTemporaryPauseSwitchSheet extends StatelessWidget {
             children: [
               Text(context.l10n.productionText('worker.order.switch.title'),
                   style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.productionText(
+                  'worker.order.switch.current_order',
+                  values: {'apparatus': apparatusLabel, 'order': orderLabel},
+                ),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               Text(context.l10n
                   .productionText('worker.temporary_pause.switch_description')),

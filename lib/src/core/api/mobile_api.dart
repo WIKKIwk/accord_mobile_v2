@@ -116,6 +116,7 @@ part 'admin/mobile_api_paddon_transfer.dart';
 part 'admin/mobile_api_re_pause.dart';
 part 'admin/mobile_api_temporary_pause.dart';
 part 'admin/mobile_api_cancel_start.dart';
+part 'admin/mobile_api_scanned_wip.dart';
 part 'admin/mobile_api_reactivation.dart';
 part 'admin/mobile_api_reactivation_reclose.dart';
 part 'admin/mobile_api_factory_locations.dart';

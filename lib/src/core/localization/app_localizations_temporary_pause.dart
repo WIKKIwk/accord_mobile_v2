@@ -1,6 +1,12 @@
 part of 'app_localizations.dart';
 
 const _temporaryPauseTranslations = {
+  'worker.order.switch.current_order': {
+    'uz': 'Apparat: {apparatus}\nHozirgi buyurtma: {order}',
+    'en': 'Machine: {apparatus}\nCurrent order: {order}',
+    'ru': 'Аппарат: {apparatus}\nТекущий заказ: {order}',
+    'ur': 'مشین: {apparatus}\nموجودہ آرڈر: {order}',
+  },
   'worker.temporary_pause.action': {
     'uz': 'Buyurtmani yechib turish',
     'en': 'Set order aside temporarily',
