@@ -249,6 +249,15 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
   ];
 }
 
+String _testModeProgressOrderCode(AdminProgressBatch batch) {
+  final map = _testModeOrderById(batch.orderId)?.map;
+  if (map == null) return '';
+  if (map.code.trim().isNotEmpty) return map.code.trim();
+  if (map.orderNumber.trim().isNotEmpty) return map.orderNumber.trim();
+  final id = map.id.trim();
+  return id.startsWith('zakaz-') ? id.substring(6).trim() : '';
+}
+
 List<UsbRpsPrintRequest> _testModeProgressPrintJobs({
   required List<AdminProgressBatch> batches,
   required String printer,
@@ -261,6 +270,7 @@ List<UsbRpsPrintRequest> _testModeProgressPrintJobs({
         epc: batch.qrPayload,
         itemCode: batch.labelItemCode,
         itemName: batch.labelItemName,
+        orderCode: _testModeProgressOrderCode(batch),
         warehouse: 'Ijrochi: ${batch.executorName}',
         printer: printer.trim().isEmpty ? 'godex' : printer.trim(),
         printMode: printMode.trim().isEmpty ? 'label' : printMode.trim(),

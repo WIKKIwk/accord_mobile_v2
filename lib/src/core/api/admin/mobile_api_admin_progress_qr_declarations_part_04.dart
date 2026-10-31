@@ -375,6 +375,7 @@ extension MobileApiAdminProgressQr on MobileApi {
         epc: batch.qrPayload,
         itemCode: batch.labelItemCode,
         itemName: batch.labelItemName,
+        orderCode: _testModeProgressOrderCode(batch),
         apparatus: batch.apparatus,
         warehouse: 'Ijrochi: ${batch.executorName}',
         printer: normalizedPrinter.isEmpty ? 'godex' : normalizedPrinter,

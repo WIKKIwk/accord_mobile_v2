@@ -49,9 +49,6 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private static let compactLabelMarginDots = 8
   private static let compactLabelReferenceXDots: Int32 = 32
   private static let compactLabelTextXDots = 8
-  private static let progressPackTextCodeGapDots = 24
-  private static let progressPackCodeMinY = 236
-  private static let progressTextCharWidthDots = 16
   private static let progressTextLineHeightDots = 24
   private static let progressTextTopY = 36
   private static let progressFieldGapDots = 4
@@ -857,68 +854,14 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest
   ) -> XTSPLCommand? {
-    let payload = requiredPayload(label.epc)
-    let customer = cleanLabelText(label.customerName.isEmpty ? "-" : label.customerName)
-    let rawProduct = cleanLabelText(
-      label.itemName.isEmpty
-        ? (label.itemCode.isEmpty ? "-" : label.itemCode)
-        : label.itemName
-    )
-    let product = "\(customer) - \(progressProductName(rawProduct, fallback: label.itemCode))"
-    let apparatus = progressApparatusName(
-      label.apparatusDisplayName,
-      canonicalApparatus: label.apparatus,
-      fallback: rawProduct
-    )
-    let status = progressStatusLabel(rawProduct)
-
-    let meterUnit = cleanLabelText(label.progressUnit.isEmpty ? "m" : label.progressUnit)
-    let weightUnit = cleanLabelText(label.unit.isEmpty ? "kg" : label.unit)
-    var fields = [
-      progressFieldLines("MAHSULOT NOMI", value: product, maxLines: 5),
-      progressFieldLines("APARAT", value: apparatus, maxLines: 2),
-      progressFieldLines("HOLAT", value: status, maxLines: 2),
-      progressFieldLines(
-        "METRAJ", value: "\(formatLabelQty(label.progressQty ?? label.netQty)) \(meterUnit)",
-        maxLines: 1
-      ),
-      progressFieldLines("NETTO", value: "\(formatLabelQty(label.netQty)) \(weightUnit)", maxLines: 1),
-      progressFieldLines("BRUTTO", value: "\(formatLabelQty(label.grossQty)) \(weightUnit)", maxLines: 1)
-    ]
-    if !label.completedAtLabel.isEmpty {
-      fields.append(progressFieldLines("TUGATILDI", value: label.completedAtLabel, maxLines: 1))
-    }
-    let gaps = fields.indices.map { $0 == fields.count - 1 ? 0 : 4 }
-    let codeSize = label.materialDataMatrix
-      ? Self.materialDataMatrixSizeDots
-      : qrSymbolSizeDots(payload, cellWidth: packQrCellWidth(payload))
-    // Reserve top/bottom margins, the text-to-code gap, and the EPC footer
-    // inside the 50 mm WIP label using the actual printed symbol size.
-    let availableHeight = Self.compactLabelHeightDots -
-      2 * Self.compactLabelMarginDots - Self.progressPackTextCodeGapDots - codeSize -
-      Self.progressPackEpcGapDots - Self.largeQrFooterHeightDots
-    let lineCount = fields.reduce(0) { $0 + $1.count }
-    let lineHeight = [24, 20, 12].first {
-      lineCount * $0 + gaps.reduce(0, +) <= availableHeight
-    } ?? 12
-    let font = lineHeight == 24 ? kFNT_16_24 : (lineHeight == 20 ? kFNT_12_20 : kFNT_8_12)
-    let charWidth = lineHeight == 24 ? 16 : (lineHeight == 20 ? 12 : 8)
     var result = command
-    var y = Self.compactLabelMarginDots
-    for (fieldIndex, lines) in fields.enumerated() {
-      result = appendProgressLines(
-        result, lines: lines, y: y, lineHeight: lineHeight, font: font, charWidth: charWidth
+    for line in label.progressLines {
+      let font = line.font == "large" ? kFNT_16_24 : (line.font == "medium" ? kFNT_12_20 : kFNT_8_12)
+      result = appendProgressStyledLine(
+        result, line: line.text, y: line.y, font: font, charWidth: line.charWidth
       )
-      y += lines.count * lineHeight + gaps[fieldIndex]
     }
-
-    let latestCodeY = Self.compactLabelHeightDots - Self.compactLabelMarginDots -
-      codeSize - Self.progressPackEpcGapDots - Self.largeQrFooterHeightDots
-    let codeY = min(
-      latestCodeY,
-      max(Self.progressPackCodeMinY, y + Self.progressPackTextCodeGapDots)
-    )
-    return appendProgressQr(result, label: label, codeY: codeY)
+    return appendProgressQr(result, label: label, codeY: label.progressCodeY, epcGap: 8)
   }
 
   private func progressEpcY(_ payload: String) -> Int {
@@ -956,7 +899,8 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
   private func appendProgressQr(
     _ command: XTSPLCommand?,
     label: BluetoothLabelRequest,
-    codeY: Int? = nil
+    codeY: Int? = nil,
+    epcGap: Int = 16
   ) -> XTSPLCommand? {
     var result = command
     let payload = requiredPayload(label.epc)
@@ -972,7 +916,7 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       : qrSymbolSizeDots(payload, cellWidth: qrCellWidth)
     let epcY = codeY == nil
       ? progressEpcY(progressLayoutPayload(label, payload: payload))
-      : qrY + codeSize + Self.progressPackEpcGapDots
+      : qrY + codeSize + epcGap
     if label.materialDataMatrix {
       result = materialDataMatrixRow(
         result,
@@ -1000,21 +944,6 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       value: epcText
     )
     return result
-  }
-
-  private func progressFieldLines(
-    _ fieldLabel: String,
-    value: String,
-    maxLines: Int
-  ) -> [String] {
-    Array(
-      wrapLabelText(
-        "\(fieldLabel): \(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "-" : value)",
-        width: (Self.compactLabelWidthDots - Self.compactLabelTextXDots -
-          Self.compactLabelMarginDots - Self.progressBoldOffsetDots) /
-          Self.progressTextCharWidthDots
-      ).prefix(max(1, maxLines))
-    )
   }
 
   private func appendProgressLines(
@@ -1176,79 +1105,6 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       : wrapLabelText(displayValue, width: fullLineChars).count + 1
     return y + Self.qolipFieldLineHeightDots * valueLineCount +
       Self.qolipFieldRowGapDots
-  }
-
-  private func progressProductName(_ itemName: String, fallback: String) -> String {
-    let value = cleanLabelText(itemName.isEmpty ? (fallback.isEmpty ? "-" : fallback) : itemName)
-    let markers = [
-      " YARIM TAYYOR MAHSULOT",
-      " YARIM TAYYOR",
-      " TAYYOR MAHSULOT",
-      ", APPARAT:",
-      ", REZKA HOLATDA"
-    ]
-    var cutIndex: String.Index?
-    for marker in markers {
-      if let range = value.range(of: marker, options: [.caseInsensitive]),
-         cutIndex == nil || range.lowerBound < cutIndex! {
-        cutIndex = range.lowerBound
-      }
-    }
-    let product = (cutIndex == nil ? value : String(value[..<cutIndex!]))
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-      .trimmingCharacters(in: CharacterSet(charactersIn: " ,-"))
-    return product.isEmpty ? value : product
-  }
-
-  private func progressStatusLabel(_ itemName: String) -> String {
-    if itemName.range(of: "YARIM TAYYOR", options: [.caseInsensitive]) != nil {
-      return "YARIM TAYYOR"
-    }
-    if itemName.range(of: "TAYYOR MAHSULOT", options: [.caseInsensitive]) != nil {
-      return "TAYYOR MAHSULOT"
-    }
-    if itemName.range(of: "TAYYOR", options: [.caseInsensitive]) != nil {
-      return "TAYYOR MAHSULOT"
-    }
-    return "YARIM TAYYOR"
-  }
-
-  private func progressApparatusName(
-    _ displayName: String,
-    canonicalApparatus: String,
-    fallback itemName: String
-  ) -> String {
-    let explicit = cleanLabelText(displayName).trimmingCharacters(in: .whitespacesAndNewlines)
-    if !explicit.isEmpty {
-      return shortProgressApparatusName(explicit)
-    }
-    let canonical = cleanLabelText(canonicalApparatus)
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    if !canonical.isEmpty {
-      return shortProgressApparatusName(canonical)
-    }
-    guard let marker = itemName.range(of: ", APPARAT:", options: [.caseInsensitive]) else {
-      return "-"
-    }
-    let value = itemName[marker.upperBound...]
-      .split(separator: ",", maxSplits: 1, omittingEmptySubsequences: true)
-      .first
-      .map(String.init)?
-      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return shortProgressApparatusName(value.isEmpty ? "-" : value)
-  }
-
-  private func shortProgressApparatusName(_ value: String) -> String {
-    switch value {
-    case "7 TA RANGLI BOSMA", "7 TA RANGLI BOSMA APARAT":
-      return "7TALIK BOSMA"
-    case "8 TA RANGLI BOSMA", "8 TA RANGLI BOSMA APARAT":
-      return "8TALIK BOSMA"
-    case "9 TA RANGLI BOSMA", "9 TA RANGLI BOSMA APARAT":
-      return "9TALIK BOSMA"
-    default:
-      return value
-    }
   }
 
   private func text(
@@ -1687,6 +1543,13 @@ private enum PrintError: LocalizedError {
   }
 }
 
+private struct BluetoothProgressLine {
+  let text: String
+  let y: Int
+  let font: String
+  let charWidth: Int
+}
+
 private struct BluetoothLabelRequest {
   let epc: String
   let itemCode: String
@@ -1708,6 +1571,8 @@ private struct BluetoothLabelRequest {
   let progressQty: Double?
   let progressUnit: String
   let completedAtLabel: String
+  let progressLines: [BluetoothProgressLine]
+  let progressCodeY: Int
   let paddonLabelLines: [String]
 
   init?(arguments: [String: Any]) {
@@ -1757,6 +1622,23 @@ private struct BluetoothLabelRequest {
     progressUnit = (arguments["progress_unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     completedAtLabel = (arguments["completed_at_label"] as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let lineMaps = (arguments["progress_lines"] as? [[String: Any]]) ?? []
+    progressLines = lineMaps.compactMap { line in
+      guard let text = line["text"] as? String, !text.isEmpty,
+        let y = (line["y"] as? NSNumber)?.intValue, (12...240).contains(y),
+        let font = line["font"] as? String,
+        let width = (line["char_width"] as? NSNumber)?.intValue,
+        (font == "large" && width == 16) || (font == "medium" && width == 16) ||
+          (font == "small" && width == 8)
+      else { return nil }
+      return BluetoothProgressLine(text: text, y: y, font: font, charWidth: width)
+    }
+    progressCodeY = (arguments["progress_code_y"] as? NSNumber)?.intValue ?? 0
+    if ["progress", "opening_wip"].contains(labelKind) &&
+      (!materialDataMatrix || progressLines.isEmpty || progressLines.count != lineMaps.count ||
+        !(236...252).contains(progressCodeY)) {
+      return nil
+    }
     paddonLabelLines = (arguments["paddon_label_lines"] as? [String]) ?? []
   }
 

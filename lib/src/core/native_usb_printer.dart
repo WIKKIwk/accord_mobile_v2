@@ -152,6 +152,7 @@ class UsbRpsPrintRequest {
     required this.epc,
     required this.itemCode,
     required this.itemName,
+    this.orderCode = '',
     this.apparatus = '',
     this.apparatusDisplayName = '',
     required this.warehouse,
@@ -209,6 +210,7 @@ class UsbRpsPrintRequest {
       epc: (json['epc'] ?? json['qr_payload'])?.toString() ?? '',
       itemCode: json['item_code']?.toString() ?? '',
       itemName: json['item_name']?.toString() ?? '',
+      orderCode: json['order_code']?.toString() ?? '',
       apparatus: apparatus,
       apparatusDisplayName:
           json['apparatus_display_name']?.toString().trim() ?? '',
@@ -240,6 +242,7 @@ class UsbRpsPrintRequest {
   final String epc;
   final String itemCode;
   final String itemName;
+  final String orderCode;
   final String apparatus;
   final String apparatusDisplayName;
   final String warehouse;
@@ -318,6 +321,7 @@ class UsbRpsPrintRequest {
       epc: epc,
       itemCode: itemCode,
       itemName: itemName,
+      orderCode: orderCode,
       apparatus: apparatus,
       apparatusDisplayName: apparatusDisplayName,
       warehouse: warehouse,
@@ -400,6 +404,8 @@ class UsbRpsPrintRequest {
       'epc': _cleanEpc(epc),
       'item_code': _cleanText(itemCode, fallback: 'USB-TEST'),
       'item_name': _cleanText(itemName, fallback: 'USB printer test'),
+      if (isProgressLabel && orderCode.trim().isNotEmpty)
+        'order_code': _cleanText(orderCode, fallback: ''),
       if (apparatus.trim().isNotEmpty)
         'apparatus': _cleanText(apparatus, fallback: ''),
       if (apparatusDisplayName.trim().isNotEmpty)

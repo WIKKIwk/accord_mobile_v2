@@ -42,6 +42,7 @@ void main() {
         'status': 'prepared',
         'epc': epc,
         'item_code': 'ZIZI',
+        'order_code': 'WORK-42',
         'item_name': 'ZIZI SPONGE YARIM TAYYOR',
         'label_kind': 'progress',
         'gross_qty': 107,
@@ -112,6 +113,8 @@ void main() {
                   200);
             }));
     expect(captured[0]['completed_at_unix'], completedB);
+    expect(captured[0]['order_code'], 'WORK-42');
+    expect((captured[0]['progress_lines'] as List).last['text'], 'ISH KODI: WORK-42');
     expect(captured[0]['completed_at_label'], '17.10.2026 09:12');
     expect(captured[1]['completed_at_unix'], completedA);
     expect(captured[1]['completed_at_label'], '18.10.2026 14:37');
@@ -137,6 +140,7 @@ void main() {
                   200);
             }));
     expect(captured.single['completed_at_label'], '17.10.2026 09:12');
+    expect((captured.single['progress_lines'] as List).last['text'], 'ISH KODI: WORK-42');
   });
 
   test('legacy WIP without a completion timestamp does not invent a date',

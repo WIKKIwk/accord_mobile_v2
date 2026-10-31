@@ -38,6 +38,7 @@ class PrintService {
         epc: request.epc,
         itemCode: request.itemCode,
         itemName: request.itemName,
+        orderCode: request.orderCode,
         apparatus: request.apparatus,
         apparatusDisplayName: request.apparatusDisplayName,
         warehouse: request.warehouse,

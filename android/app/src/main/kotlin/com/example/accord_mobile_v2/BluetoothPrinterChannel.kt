@@ -66,9 +66,6 @@ class BluetoothPrinterChannel(
         private const val COMPACT_LABEL_MARGIN_DOTS = 8
         private const val COMPACT_LABEL_REFERENCE_X_DOTS = 32
         private const val COMPACT_LABEL_TEXT_X_DOTS = 8
-        private const val PROGRESS_PACK_TEXT_CODE_GAP_DOTS = 24
-        private const val PROGRESS_PACK_CODE_MIN_Y = 236
-        private const val PROGRESS_TEXT_CHAR_WIDTH_DOTS = 16
         private const val PROGRESS_TEXT_LINE_HEIGHT_DOTS = 24
         private const val PROGRESS_TEXT_TOP_Y = 36
         private const val PROGRESS_FIELD_GAP_DOTS = 4
@@ -744,68 +741,15 @@ class BluetoothPrinterChannel(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
     ) {
-        val payload = requiredPayload(label.epc)
-        val customer = cleanLabelText(label.customerName.ifBlank { "-" })
-        val rawProduct = cleanLabelText(
-            label.itemName.ifBlank { label.itemCode }.ifBlank { "-" },
-        )
-        val product = "$customer - ${progressProductName(rawProduct, label.itemCode)}"
-        val apparatus = progressApparatusName(
-            label.apparatusDisplayName,
-            label.apparatus,
-            rawProduct,
-        )
-        val status = progressStatusLabel(rawProduct)
-        val meterUnit = cleanLabelText(label.progressUnit.ifBlank { "m" })
-        val weightUnit = cleanLabelText(label.unit.ifBlank { "kg" })
-        val fields = mutableListOf(
-            progressFieldLines("MAHSULOT NOMI", product, maxLines = 5),
-            progressFieldLines("APARAT", apparatus, maxLines = 2),
-            progressFieldLines("HOLAT", status, maxLines = 2),
-            progressFieldLines(
-                "METRAJ",
-                "${formatLabelQty(label.progressQty ?: label.netQty)} $meterUnit",
-                maxLines = 1,
-            ),
-            progressFieldLines("NETTO", "${formatLabelQty(label.netQty)} $weightUnit", maxLines = 1),
-            progressFieldLines("BRUTTO", "${formatLabelQty(label.grossQty)} $weightUnit", maxLines = 1),
-        )
-        if (label.completedAtLabel.isNotBlank()) {
-            fields.add(progressFieldLines("TUGATILDI", label.completedAtLabel, maxLines = 1))
-        }
-        val gaps = IntArray(fields.size) { if (it == fields.lastIndex) 0 else 4 }
-        val codeSize = if (label.materialDataMatrix) {
-            MATERIAL_DATA_MATRIX_SIZE_DOTS
-        } else {
-            qrSymbolSizeDots(payload, packQrCellSize(payload))
-        }
-        // Reserve top/bottom margins, the text-to-code gap, and the EPC footer
-        // inside the 50 mm WIP label using the actual printed symbol size.
-        val availableHeight = COMPACT_LABEL_HEIGHT_DOTS -
-            2 * COMPACT_LABEL_MARGIN_DOTS - PROGRESS_PACK_TEXT_CODE_GAP_DOTS - codeSize -
-            PROGRESS_PACK_EPC_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS
-        val lineCount = fields.sumOf { it.size }
-        val lineHeight = listOf(24, 20, 12).first {
-            lineCount * it + gaps.sum() <= availableHeight
-        }
-        val (font, charWidth) = when (lineHeight) {
-            24 -> TSPLConst.FNT_16_24 to 16
-            20 -> TSPLConst.FNT_12_20 to 12
-            else -> TSPLConst.FNT_8_12 to 8
-        }
-        var y = COMPACT_LABEL_MARGIN_DOTS
-        fields.forEachIndexed { fieldIndex, lines ->
-            lines.forEachIndexed { lineIndex, line ->
-                sdkProgressLine(printer, y + lineIndex * lineHeight, line, font, charWidth)
+        label.progressLines.forEach { line ->
+            val font = when (line.font) {
+                "large" -> TSPLConst.FNT_16_24
+                "medium" -> TSPLConst.FNT_12_20
+                else -> TSPLConst.FNT_8_12
             }
-            y += lines.size * lineHeight + gaps[fieldIndex]
+            sdkProgressLine(printer, line.y, line.text, font, line.charWidth)
         }
-
-        val latestCodeY = COMPACT_LABEL_HEIGHT_DOTS - COMPACT_LABEL_MARGIN_DOTS -
-            codeSize - PROGRESS_PACK_EPC_GAP_DOTS - LARGE_QR_FOOTER_HEIGHT_DOTS
-        val codeY = maxOf(PROGRESS_PACK_CODE_MIN_Y, y + PROGRESS_PACK_TEXT_CODE_GAP_DOTS)
-            .coerceAtMost(latestCodeY)
-        printProgressQr(printer, label, codeY = codeY)
+        printProgressQr(printer, label, codeY = label.progressCodeY, epcGap = 8)
     }
 
     private fun progressEpcY(payload: String): Int {
@@ -844,6 +788,7 @@ class BluetoothPrinterChannel(
         printer: TSPLPrinter,
         label: BluetoothLabelRequest,
         codeY: Int? = null,
+        epcGap: Int = PROGRESS_PACK_EPC_GAP_DOTS,
     ) {
         val payload = requiredPayload(label.epc)
         val qrCellSize = packQrCellSize(payload)
@@ -857,7 +802,7 @@ class BluetoothPrinterChannel(
         }
         val epcY = if (codeY != null) {
             qrY + (if (label.materialDataMatrix) MATERIAL_DATA_MATRIX_SIZE_DOTS
-                else qrSymbolSizeDots(payload, qrCellSize)) + PROGRESS_PACK_EPC_GAP_DOTS
+                else qrSymbolSizeDots(payload, qrCellSize)) + epcGap
         } else {
             progressEpcY(progressLayoutPayload(label, payload))
         }
@@ -890,19 +835,6 @@ class BluetoothPrinterChannel(
             epcFont,
             epcText,
         )
-    }
-
-    private fun progressFieldLines(
-        fieldLabel: String,
-        value: String,
-        maxLines: Int,
-    ): List<String> {
-        return wrapLabelText(
-            "$fieldLabel: ${value.trim().ifBlank { "-" }}",
-            (COMPACT_LABEL_WIDTH_DOTS - COMPACT_LABEL_TEXT_X_DOTS -
-                COMPACT_LABEL_MARGIN_DOTS - PROGRESS_BOLD_OFFSET_DOTS) /
-                PROGRESS_TEXT_CHAR_WIDTH_DOTS,
-        ).take(maxLines.coerceAtLeast(1))
     }
 
     private fun sdkProgressLine(
@@ -1025,72 +957,6 @@ class BluetoothPrinterChannel(
         }
         return y + QOLIP_FIELD_LINE_HEIGHT_DOTS * valueLineCount +
             QOLIP_FIELD_ROW_GAP_DOTS
-    }
-
-    private fun progressProductName(itemName: String, fallback: String): String {
-        val value = cleanLabelText(itemName.ifBlank { fallback }.ifBlank { "-" })
-        val markers = listOf(
-            " YARIM TAYYOR MAHSULOT",
-            " YARIM TAYYOR",
-            " TAYYOR MAHSULOT",
-            ", APPARAT:",
-            ", REZKA HOLATDA",
-        )
-        val cutAt = markers.mapNotNull { marker ->
-            value.indexOf(marker, ignoreCase = true).takeIf { it > 0 }
-        }.minOrNull()
-        return (if (cutAt == null) value else value.take(cutAt))
-            .trim()
-            .trimEnd(',', '-', ' ')
-            .ifBlank { value }
-    }
-
-    private fun progressStatusLabel(itemName: String): String {
-        return when {
-            itemName.contains("YARIM TAYYOR", ignoreCase = true) ->
-                "YARIM TAYYOR"
-            itemName.contains("TAYYOR MAHSULOT", ignoreCase = true) ->
-                "TAYYOR MAHSULOT"
-            itemName.contains("TAYYOR", ignoreCase = true) ->
-                "TAYYOR MAHSULOT"
-            else -> "YARIM TAYYOR"
-        }
-    }
-
-    private fun progressApparatusName(
-        displayName: String,
-        canonicalApparatus: String,
-        itemName: String,
-    ): String {
-        val explicit = cleanLabelText(displayName).trim()
-        if (explicit.isNotEmpty()) {
-            return shortProgressApparatusName(explicit)
-        }
-        val canonical = cleanLabelText(canonicalApparatus).trim()
-        if (canonical.isNotEmpty()) {
-            return shortProgressApparatusName(canonical)
-        }
-        val marker = ", APPARAT:"
-        val markerStart = itemName.indexOf(marker, ignoreCase = true)
-        if (markerStart < 0) {
-            return "-"
-        }
-        val valueStart = markerStart + marker.length
-        return shortProgressApparatusName(
-            itemName.substring(valueStart)
-                .substringBefore(',')
-                .trim()
-                .ifBlank { "-" },
-        )
-    }
-
-    private fun shortProgressApparatusName(value: String): String {
-        return when (value) {
-            "7 TA RANGLI BOSMA", "7 TA RANGLI BOSMA APARAT" -> "7TALIK BOSMA"
-            "8 TA RANGLI BOSMA", "8 TA RANGLI BOSMA APARAT" -> "8TALIK BOSMA"
-            "9 TA RANGLI BOSMA", "9 TA RANGLI BOSMA APARAT" -> "9TALIK BOSMA"
-            else -> value
-        }
     }
 
     private fun sdkText(
@@ -1503,6 +1369,13 @@ private class CapturingTsplPrinter(
     fun payload(): ByteArray = output.toByteArray()
 }
 
+private data class BluetoothProgressLine(
+    val text: String,
+    val y: Int,
+    val font: String,
+    val charWidth: Int,
+)
+
 private data class BluetoothLabelRequest(
     val epc: String,
     val itemCode: String,
@@ -1524,6 +1397,8 @@ private data class BluetoothLabelRequest(
     val progressQty: Double?,
     val progressUnit: String,
     val completedAtLabel: String,
+    val progressLines: List<BluetoothProgressLine>,
+    val progressCodeY: Int,
     val paddonLabelLines: List<String>,
 ) {
     val netQty: Double
@@ -1562,6 +1437,19 @@ private data class BluetoothLabelRequest(
             val grossQty = call.argument<Number>("gross_qty")?.toDouble() ?: 0.0
             val tareKg = call.argument<Number>("tare_kg")?.toDouble() ?: 0.0
             val printCount = call.argument<Number>("print_count")?.toInt() ?: 1
+            val labelKind = call.argument<String>("label_kind").orEmpty().trim().lowercase(Locale.US)
+            val lineMaps = call.argument<List<Map<String, Any?>>>("progress_lines").orEmpty()
+            val lines = lineMaps.mapNotNull { line ->
+                val text = line["text"] as? String ?: return@mapNotNull null
+                val y = (line["y"] as? Number)?.toInt() ?: return@mapNotNull null
+                val font = line["font"] as? String ?: return@mapNotNull null
+                val width = (line["char_width"] as? Number)?.toInt() ?: return@mapNotNull null
+                if (text.isBlank() || y !in 12..240 ||
+                    (font to width) !in listOf("large" to 16, "medium" to 16, "small" to 8)
+                ) return@mapNotNull null
+                BluetoothProgressLine(text, y, font, width)
+            }
+            val codeY = call.argument<Number>("progress_code_y")?.toInt() ?: 0
             val materialDataMatrix = call.argument<Boolean>("material_data_matrix") == true
             val bars = call.argument<List<List<Number>>>("material_data_matrix_bars")
                 .orEmpty().map { row -> row.map { it.toDouble() } }
@@ -1576,6 +1464,9 @@ private data class BluetoothLabelRequest(
             ) {
                 return null
             }
+            if (labelKind in listOf("progress", "opening_wip") &&
+                (!materialDataMatrix || lines.isEmpty() || lines.size != lineMaps.size || codeY !in 236..252)
+            ) return null
             return BluetoothLabelRequest(
                 epc = epc,
                 itemCode = call.argument<String>("item_code").orEmpty().trim(),
@@ -1592,10 +1483,7 @@ private data class BluetoothLabelRequest(
                 tareEnabled = call.argument<Boolean>("tare_enabled") == true || tareKg > 0,
                 tareKg = tareKg.coerceAtLeast(0.0),
                 printCount = printCount,
-                labelKind = call.argument<String>("label_kind")
-                    .orEmpty()
-                    .trim()
-                    .lowercase(Locale.US),
+                labelKind = labelKind,
                 materialDataMatrix = materialDataMatrix,
                 materialDataMatrixBars = bars,
                 materialNameLines = call.argument<List<Any?>>("material_name_lines")
@@ -1607,6 +1495,8 @@ private data class BluetoothLabelRequest(
                     ?.takeIf { it.isFinite() },
                 progressUnit = call.argument<String>("progress_unit").orEmpty().trim(),
                 completedAtLabel = call.argument<String>("completed_at_label").orEmpty().trim(),
+                progressLines = lines,
+                progressCodeY = codeY,
                 paddonLabelLines = call.argument<List<String>>("paddon_label_lines").orEmpty(),
             )
         }

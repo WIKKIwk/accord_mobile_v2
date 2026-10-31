@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'formatters/date_time_formatters.dart';
 import 'native_usb_printer.dart';
 import 'printing/material_data_matrix.dart';
+import 'printing/progress_bluetooth_layout.dart';
 
 class NativeBluetoothPrinter {
   const NativeBluetoothPrinter._();
@@ -78,6 +79,7 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
   for (final key in const <String>[
     'item_code',
     'item_name',
+    'order_code',
     'apparatus',
     'warehouse',
     'unit',
@@ -93,6 +95,13 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
           key == 'qolip_color' ? qolipColorDisplayName(value) : value;
       payload[key] = bluetoothPrinterText(displayValue);
     }
+  }
+  if (request.isProgressLabel) {
+    payload['apparatus_display_name'] =
+        bluetoothPrinterText(request.apparatusDisplayName);
+    final layout = buildBluetoothProgressLayout(payload);
+    payload['progress_lines'] = layout.lines;
+    payload['progress_code_y'] = layout.codeY;
   }
   if (request.isMaterialProductLabel) {
     final itemName = payload['item_name']?.toString() ?? '';
