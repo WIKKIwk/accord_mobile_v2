@@ -906,10 +906,11 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let payload = requiredPayload(label.epc)
     let qrCellWidth = packQrCellWidth(payload)
     let qrY = codeY ?? progressCodeY(label, payload: payload)
-    // Keep the code row centered at its existing physical position when
-    // the WIP text origin moves left to use the wider paper.
+    let matrixRowWidth = Self.materialDataMatrixCount * Self.materialDataMatrixSizeDots +
+      (Self.materialDataMatrixCount - 1) * Self.materialDataMatrixGapDots
+    let matrixStartX = (Self.labelWidthDots - matrixRowWidth) / 2
     let xOffset = label.isProgress
-      ? Int(Self.labelReferenceXDots - Self.compactLabelReferenceXDots)
+      ? label.progressCodeX - matrixStartX
       : 0
     let codeSize = label.materialDataMatrix
       ? Self.materialDataMatrixSizeDots
@@ -938,7 +939,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     let epcText = fitLabelText(payload, maxLength: epcIsLarge ? 32 : 46)
     result = text(
       result,
-      x: centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8) + xOffset,
+      x: label.isProgress && label.materialDataMatrix
+        ? label.progressCodeX
+        : centeredLabelX(epcText, charWidth: epcIsLarge ? 12 : 8) + xOffset,
       y: epcY,
       font: epcFont,
       value: epcText
@@ -1573,6 +1576,7 @@ private struct BluetoothLabelRequest {
   let completedAtLabel: String
   let progressLines: [BluetoothProgressLine]
   let progressCodeY: Int
+  let progressCodeX: Int
   let paddonLabelLines: [String]
 
   init?(arguments: [String: Any]) {
@@ -1634,9 +1638,10 @@ private struct BluetoothLabelRequest {
       return BluetoothProgressLine(text: text, y: y, font: font, charWidth: width)
     }
     progressCodeY = (arguments["progress_code_y"] as? NSNumber)?.intValue ?? 0
+    progressCodeX = (arguments["progress_code_x"] as? NSNumber)?.intValue ?? 0
     if ["progress", "opening_wip"].contains(labelKind) &&
       (!materialDataMatrix || progressLines.isEmpty || progressLines.count != lineMaps.count ||
-        !(236...252).contains(progressCodeY)) {
+        !(236...252).contains(progressCodeY) || !(8...204).contains(progressCodeX)) {
       return nil
     }
     paddonLabelLines = (arguments["paddon_label_lines"] as? [String]) ?? []

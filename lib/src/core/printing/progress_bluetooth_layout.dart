@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 
-/// XP-P323B WIP label: 70 x 50 mm at 8 dots/mm. The code row and
-/// its human-readable identifier retain their existing size and position.
+/// XP-P323B WIP label: 70 x 50 mm at 8 dots/mm.
 class BluetoothProgressLayout {
-  const BluetoothProgressLayout(this.lines, this.codeY);
+  const BluetoothProgressLayout(this.lines, this.codeY, this.codeX);
 
   final List<Map<String, Object>> lines;
   final int codeY;
+  final int codeX;
 }
 
 BluetoothProgressLayout buildBluetoothProgressLayout(
@@ -110,10 +110,11 @@ BluetoothProgressLayout buildBluetoothProgressLayout(
     }
 
     append(primary, size.name, size.height, size.width);
-    append(secondary, 'small', 12, 8);
+    append(secondary, 'medium', 20, 16);
     y -= fieldGap;
     if (y <= maxTextEnd) {
-      return BluetoothProgressLayout(output, math.max(236, y + codeGap));
+      // The existing row starts at 92 dots. Move it left by one millimeter.
+      return BluetoothProgressLayout(output, math.max(236, y + codeGap), 84);
     }
   }
   throw StateError('WIP label matni 70 x 50 mm qog‘ozga sig‘madi');

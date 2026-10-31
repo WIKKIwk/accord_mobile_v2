@@ -793,10 +793,11 @@ class BluetoothPrinterChannel(
         val payload = requiredPayload(label.epc)
         val qrCellSize = packQrCellSize(payload)
         val qrY = codeY ?: progressCodeY(label, payload)
-        // Keep the code row centered at its existing physical position when
-        // the WIP text origin moves left to use the wider paper.
+        val matrixRowWidth = MATERIAL_DATA_MATRIX_COUNT * MATERIAL_DATA_MATRIX_SIZE_DOTS +
+            (MATERIAL_DATA_MATRIX_COUNT - 1) * MATERIAL_DATA_MATRIX_GAP_DOTS
+        val matrixStartX = (LABEL_WIDTH_DOTS - matrixRowWidth) / 2
         val xOffset = if (label.isProgress) {
-            LABEL_REFERENCE_X_DOTS - COMPACT_LABEL_REFERENCE_X_DOTS
+            label.progressCodeX - matrixStartX
         } else {
             0
         }
@@ -830,7 +831,8 @@ class BluetoothPrinterChannel(
         val epcText = fitLabelText(payload, if (epcFont == TSPLConst.FNT_12_20) 32 else 46)
         sdkText(
             printer,
-            centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8) + xOffset,
+            if (label.isProgress && label.materialDataMatrix) label.progressCodeX
+            else centeredLabelX(epcText, if (epcFont == TSPLConst.FNT_12_20) 12 else 8) + xOffset,
             epcY,
             epcFont,
             epcText,
@@ -1399,6 +1401,7 @@ private data class BluetoothLabelRequest(
     val completedAtLabel: String,
     val progressLines: List<BluetoothProgressLine>,
     val progressCodeY: Int,
+    val progressCodeX: Int,
     val paddonLabelLines: List<String>,
 ) {
     val netQty: Double
@@ -1450,6 +1453,7 @@ private data class BluetoothLabelRequest(
                 BluetoothProgressLine(text, y, font, width)
             }
             val codeY = call.argument<Number>("progress_code_y")?.toInt() ?: 0
+            val codeX = call.argument<Number>("progress_code_x")?.toInt() ?: 0
             val materialDataMatrix = call.argument<Boolean>("material_data_matrix") == true
             val bars = call.argument<List<List<Number>>>("material_data_matrix_bars")
                 .orEmpty().map { row -> row.map { it.toDouble() } }
@@ -1465,7 +1469,8 @@ private data class BluetoothLabelRequest(
                 return null
             }
             if (labelKind in listOf("progress", "opening_wip") &&
-                (!materialDataMatrix || lines.isEmpty() || lines.size != lineMaps.size || codeY !in 236..252)
+                (!materialDataMatrix || lines.isEmpty() || lines.size != lineMaps.size ||
+                    codeY !in 236..252 || codeX !in 8..204)
             ) return null
             return BluetoothLabelRequest(
                 epc = epc,
@@ -1497,6 +1502,7 @@ private data class BluetoothLabelRequest(
                 completedAtLabel = call.argument<String>("completed_at_label").orEmpty().trim(),
                 progressLines = lines,
                 progressCodeY = codeY,
+                progressCodeX = codeX,
                 paddonLabelLines = call.argument<List<String>>("paddon_label_lines").orEmpty(),
             )
         }

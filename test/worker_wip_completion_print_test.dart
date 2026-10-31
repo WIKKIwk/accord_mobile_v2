@@ -114,6 +114,7 @@ void main() {
             }));
     expect(captured[0]['completed_at_unix'], completedB);
     expect(captured[0]['order_code'], 'WORK-42');
+    expect(captured[0]['progress_code_x'], 84);
     expect((captured[0]['progress_lines'] as List).last['text'], 'ISH KODI: WORK-42');
     expect(captured[0]['completed_at_label'], '17.10.2026 09:12');
     expect(captured[1]['completed_at_unix'], completedA);
@@ -140,6 +141,7 @@ void main() {
                   200);
             }));
     expect(captured.single['completed_at_label'], '17.10.2026 09:12');
+    expect(captured.single['progress_code_x'], 84);
     expect((captured.single['progress_lines'] as List).last['text'], 'ISH KODI: WORK-42');
   });
 

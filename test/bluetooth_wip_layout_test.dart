@@ -40,10 +40,12 @@ void main() {
       }
     }
     expect(layout.codeY, inInclusiveRange(236, 252));
+    expect(layout.codeX, 84); // 8 dots left of the previous WIP code row.
+    expect(layout.codeX + 3 * 104 + 2 * 16, lessThanOrEqualTo(548));
     expect(layout.codeY + 104 + 8 + 24, lessThanOrEqualTo(388));
   }
 
-  test('orders the fields and keeps details small inside the 50 mm label', () {
+  test('orders the fields and enlarges the details inside the 50 mm label', () {
     final layout = buildBluetoothProgressLayout(payload());
     final texts = layout.lines.map((line) => line['text']).toList();
     expect(texts, [
@@ -60,7 +62,7 @@ void main() {
     expect(
         layout.lines.take(6).every((line) => line['font'] != 'small'), isTrue);
     expect(
-        layout.lines.skip(6).every((line) => line['font'] == 'small'), isTrue);
+        layout.lines.skip(6).every((line) => line['font'] == 'medium'), isTrue);
     expectLayoutFits(layout);
   });
 

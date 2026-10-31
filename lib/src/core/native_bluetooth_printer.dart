@@ -102,6 +102,7 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
     final layout = buildBluetoothProgressLayout(payload);
     payload['progress_lines'] = layout.lines;
     payload['progress_code_y'] = layout.codeY;
+    payload['progress_code_x'] = layout.codeX;
   }
   if (request.isMaterialProductLabel) {
     final itemName = payload['item_name']?.toString() ?? '';
