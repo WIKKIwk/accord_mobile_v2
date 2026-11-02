@@ -14,6 +14,7 @@ class AdminLayerRemainderSource {
     required this.sourceMeter,
     this.tareKg = 0,
     this.producerName = '',
+    this.isCurrentRoll = false,
   });
 
   final String sourceKind;
@@ -27,6 +28,7 @@ class AdminLayerRemainderSource {
   final double sourceMeter;
   final double tareKg;
   final String producerName;
+  final bool isCurrentRoll;
 
   bool get canCalculate =>
       const {'progress_batch', 'opening_wip', 'raw_material'}
@@ -54,6 +56,7 @@ class AdminLayerRemainderSource {
       AdminLayerRemainderSource(
         sourceKind: json['source_kind']?.toString() ?? '',
         sourceId: json['source_id']?.toString() ?? '',
+        isCurrentRoll: json['is_current_roll'] == true,
         sessionId: json['session_id']?.toString() ?? '',
         revision: (json['revision'] as num?)?.toInt() ?? 0,
         qrPayload: json['qr_payload']?.toString() ?? '',
@@ -68,6 +71,7 @@ class AdminLayerRemainderSource {
   Map<String, dynamic> toJson() => {
         'source_kind': sourceKind,
         'source_id': sourceId,
+        'is_current_roll': isCurrentRoll,
         'session_id': sessionId,
         'revision': revision,
         'qr_payload': qrPayload,
@@ -231,6 +235,21 @@ class AdminLaminationAstatkaSnapshot {
   final AdminLaminationLabelSettings labelSettings;
   final AdminLaminationAstatkaResult? requestResult;
   bool get outputRequired => sessionStatus == 'active';
+
+  AdminLayerRemainderSource? get wipInputRoll =>
+      _inputRoll(const {'progress_batch', 'opening_wip'});
+  AdminLayerRemainderSource? get filmInputRoll =>
+      _inputRoll(const {'raw_material'});
+
+  AdminLayerRemainderSource? _inputRoll(Set<String> kinds) {
+    final rolls = sources.where((source) => kinds.contains(source.sourceKind));
+    final current = rolls.where((source) => source.isCurrentRoll).toList();
+    if (current.length == 1) return current.single;
+    // Compatibility with snapshots containing just one physical input.
+    final calculable = rolls.where((source) => source.canCalculate).toList();
+    if (current.isEmpty && calculable.length == 1) return calculable.single;
+    return null;
+  }
 
   factory AdminLaminationAstatkaSnapshot.fromJson(Map<String, dynamic> json) {
     final session = json['session'];

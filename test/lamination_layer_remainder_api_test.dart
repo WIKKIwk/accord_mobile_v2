@@ -64,6 +64,64 @@ void main() {
     }
   });
 
+  test('kg fields retain the exact physical input IDs despite older rolls', () {
+    for (final wipKind in ['progress_batch', 'opening_wip']) {
+      final snapshot = AdminLaminationAstatkaSnapshot.fromJson({
+        'session': {'session_id': 'next-shift', 'status': 'active'},
+        'sources': [
+          for (final kind in [wipKind, 'raw_material']) ...[
+            {
+              ...source.toJson(),
+              'source_kind': kind,
+              'source_id': 'a-current-$kind',
+              'session_id': 'next-shift',
+              'is_current_roll': true,
+            },
+            {
+              ...source.toJson(),
+              'source_kind': kind,
+              'source_id': 'z-previous-$kind',
+              'session_id': 'next-shift',
+            },
+          ],
+        ],
+      });
+      expect(snapshot.wipInputRoll?.sourceId, 'a-current-$wipKind');
+      expect(snapshot.filmInputRoll?.sourceId, 'a-current-raw_material');
+      expect(snapshot.wipInputRoll?.toJson()['is_current_roll'], isTrue);
+      final unbound = AdminLaminationAstatkaSnapshot.fromJson({
+        'sources': [
+          for (final roll in snapshot.sources)
+            {...roll.toJson(), 'is_current_roll': false},
+        ],
+      });
+      expect(unbound.wipInputRoll, isNull);
+      expect(unbound.filmInputRoll, isNull);
+    }
+    const legacy = AdminLaminationAstatkaSnapshot(
+        sessionId: 'lamination-session',
+        sessionStatus: 'active',
+        sources: [source]);
+    expect(legacy.wipInputRoll?.sourceId, source.sourceId);
+    expect(legacy.filmInputRoll, isNull);
+    final filmAndGlue = AdminLaminationAstatkaSnapshot.fromJson({
+      'sources': [
+        {
+          ...source.toJson(),
+          'source_kind': 'raw_material',
+          'source_id': 'film'
+        },
+        {
+          ...source.toJson(),
+          'source_kind': 'raw_material',
+          'source_id': 'glue',
+          'source_meter': 0,
+        },
+      ],
+    });
+    expect(filmAndGlue.filmInputRoll?.sourceId, 'film');
+  });
+
   test('two-field protocol support and independent label settings are explicit',
       () {
     expect(AdminLaminationAstatkaSnapshot.fromJson({}).supportsRemainderWeights,

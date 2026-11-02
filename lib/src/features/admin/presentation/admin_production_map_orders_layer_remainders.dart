@@ -141,6 +141,10 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
           'layer_remainder_weights': {
             'wip_net_kg': input.laminationPrintLeftoverRolls,
             'film_net_kg': input.laminationFilmLeftoverRolls,
+            if (snapshot.wipInputRoll case final source?)
+              'wip_source_id': source.sourceId,
+            if (snapshot.filmInputRoll case final source?)
+              'film_source_id': source.sourceId,
             'expected_sources': [
               for (final source in snapshot.sources)
                 {

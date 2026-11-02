@@ -691,6 +691,8 @@ void _registerLaminationLabelPolicyTests() {
         expect(submissions.single['layer_remainder_weights'], {
           'wip_net_kg': scenario.zero ? 0 : 20.125,
           'film_net_kg': scenario.zero ? 0 : 20.125,
+          'wip_source_id': 'original-progress_batch',
+          'film_source_id': 'original-raw_material',
           'expected_sources': [
             for (final kind in ['progress_batch', 'raw_material'])
               {
@@ -698,6 +700,11 @@ void _registerLaminationLabelPolicyTests() {
                 'source_id': 'original-$kind',
                 'expected_revision': 7,
               },
+            {
+              'source_kind': 'raw_material',
+              'source_id': 'z-previous-film',
+              'expected_revision': 3,
+            },
           ],
         });
         expect(printerPicks, printable.isEmpty ? 0 : 1);
@@ -760,12 +767,21 @@ void _registerLaminationLabelPolicyTests() {
                               {
                                 'source_kind': kind,
                                 'source_id': 'original-$kind',
+                                'is_current_roll': true,
                                 'session_id': 'label-policy-session',
                                 'revision': 7,
                                 'source_net_kg': 50,
                                 'source_meter': 1500,
                                 'tare_kg': 2,
                               },
+                            {
+                              'source_kind': 'raw_material',
+                              'source_id': 'z-previous-film',
+                              'session_id': 'label-policy-session',
+                              'revision': 3,
+                              'source_net_kg': 25,
+                              'source_meter': 750,
+                            },
                           ],
                         }),
                         200);
