@@ -1,10 +1,13 @@
 import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
+import 'package:accord_mobile_v2/src/core/print_service.dart';
 import 'package:accord_mobile_v2/src/core/print_transport.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,6 +47,10 @@ void main() {
     AppSession.instance.token = 'worker-token';
   });
   tearDown(() => AppSession.instance.token = null);
+  tearDown(() => TestDefaultBinaryMessengerBinding
+      .instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+          const MethodChannel('accord/bluetooth_printer'), null));
 
   test('empty layer reports follow only the server material policy', () {
     for (final policy in [true, false, null, 'true']) {
@@ -72,9 +79,83 @@ void main() {
         });
         expect(snapshot.supportsRemainderWeights, isTrue);
         expect(snapshot.labelSettings.prints('progress_batch'), wip);
+        expect(snapshot.labelSettings.prints('opening_wip'), wip);
         expect(snapshot.labelSettings.prints('raw_material'), film);
       }
     }
+  });
+
+  test('opening remainder keeps its QR and passport through Bluetooth printing',
+      () async {
+    final opening = AdminLayerRemainderSource.fromJson({
+      ...source.toJson(),
+      'source_kind': 'opening_wip',
+    });
+    expect(opening.canCalculate, isTrue);
+    expect(opening.estimateMeter(20), 600);
+    const qr = '303132333435363738394142';
+    final prepared = AdminLayerRemainderResult.fromJson({
+      'ok': true,
+      'remainder': {
+        ...remainderPayload(),
+        'source_kind': 'opening_wip',
+        'qr_payload': qr
+      },
+      'print': {
+        'ok': true,
+        'status': 'prepared',
+        'qr_payload': qr,
+        'item_code': 'PET',
+        'item_name': 'Printed PET',
+        'label_kind': 'opening_wip',
+        'order_code': '0042',
+        'apparatus': 'apparatus:default:bosma_8',
+        'apparatus_display_name': 'Bosma 8',
+        'customer_name': 'Original Customer',
+        'executor_name': 'Original Owner',
+        'gross_qty': 22,
+        'tare_enabled': true,
+        'tare_kg': 2,
+        'progress_qty': 600,
+        'progress_unit': 'm',
+        'unit': 'kg',
+        'completed_at_unix': 123,
+      },
+    });
+    final job = prepared.printJob!;
+    expect(job.epc, prepared.remainder.qrPayload);
+    expect(job.netQty, 20);
+    expect(job.isProgressLabel, isTrue);
+    expect(job.orderCode, '0042');
+    expect(job.executorName, 'Original Owner');
+    MethodCall? captured;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('accord/bluetooth_printer'), (call) async {
+      captured = call;
+      return {
+        'ok': true,
+        'status': 'done',
+        'printer_status': 'Bluetooth OK',
+        'bytes': 128
+      };
+    });
+    final printed = await PrintService.printRps(job,
+        bluetoothPrinter: const BluetoothPrinterProfile(
+            name: 'XP-P323B', address: '00:11:22:33:44:55'),
+        transport: PrintTransport.bluetooth);
+    expect(printed.ok, isTrue);
+    expect(captured?.method, 'printLabel');
+    expect(captured?.arguments, containsPair('epc', qr));
+    expect(captured?.arguments, containsPair('label_kind', 'opening_wip'));
+    expect(captured?.arguments, containsPair('order_code', '0042'));
+    expect(captured?.arguments,
+        containsPair('customer_name', 'ORIGINAL CUSTOMER'));
+    expect(
+        captured?.arguments, containsPair('executor_name', 'ORIGINAL OWNER'));
+    expect(captured?.arguments, containsPair('gross_qty', 22.0));
+    expect(captured?.arguments, containsPair('tare_kg', 2.0));
+    expect(captured?.arguments, containsPair('progress_qty', 600.0));
   });
 
   test('two kg fields submit source revisions and the same persisted request',

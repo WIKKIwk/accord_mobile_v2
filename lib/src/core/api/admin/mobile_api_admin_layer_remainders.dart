@@ -29,7 +29,8 @@ class AdminLayerRemainderSource {
   final String producerName;
 
   bool get canCalculate =>
-      const {'progress_batch', 'raw_material'}.contains(sourceKind) &&
+      const {'progress_batch', 'opening_wip', 'raw_material'}
+          .contains(sourceKind) &&
       sourceId.isNotEmpty &&
       sessionId.isNotEmpty &&
       revision > 0 &&
@@ -197,7 +198,7 @@ class AdminLaminationLabelSettings {
   final bool printFilmRemainderLabels;
 
   bool prints(String sourceKind) => switch (sourceKind) {
-        'progress_batch' => printWipRemainderLabels,
+        'progress_batch' || 'opening_wip' => printWipRemainderLabels,
         'raw_material' => printFilmRemainderLabels,
         _ => false,
       };
