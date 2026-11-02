@@ -311,6 +311,11 @@ const _admin_localization_adminTranslations_resplitPart22 = {
     'en': 'Could not move the order',
     'ru': 'Не удалось переместить заказ',
   },
+  'admin.production.move.partial': {
+    'uz': '{total} ta buyurtmadan {moved} tasi ko‘chirildi. Qolganlari uchun ma’lumotlar yangilanmoqda.',
+    'en': '{moved} of {total} orders moved. Refreshing the remaining orders.',
+    'ru': 'Перемещено {moved} из {total} заказов. Данные остальных обновляются.',
+  },
   'admin.production.move.not_unassigned': {
     'uz': 'Bu buyurtmani tanlanmagan holatga qaytarib bo‘lmaydi',
     'en': 'This order cannot be returned to the unassigned state',

@@ -21,6 +21,51 @@ const _colorPrintApparatus = AdminApparatus(
 );
 
 void main() {
+  test('transfer checks physical limits even for assigned alternatives', () {
+    final source = _colorPrintApparatus.copyWith(colorStations: 8);
+    final target = _colorPrintApparatus.copyWith(id: 'apparatus:test:target',
+        colorStations: 8, minWebWidthMm: 400, maxWebWidthMm: 600);
+    final nodes = [for (final apparatus in [source, target])
+      ProductionMapNode(id: apparatus.id, kind: 'apparatus', title: apparatus.name,
+          apparatusId: apparatus.id, alternativeGroupId: 'choice',
+          alternativeAssignedApparatusId: source.id)];
+    bool allowed(AdminApparatus machine, double width) => productionMapCanMoveOrderToApparatus(
+        nodes: nodes, fromApparatus: source, toApparatus: machine,
+        rollCount: 7, widthMm: width);
+    expect(allowed(target, 600), isTrue);
+    expect(allowed(target, 601), isFalse);
+    expect(allowed(target, 399), isFalse);
+    expect(allowed(target.copyWith(lifecycleState: 'inactive'), 600), isFalse);
+    expect(productionMapPechatCanHandleOrder(apparatusColorCount: 9,
+        rollCount: 7, widthMm: 1500), isFalse);
+    expect(allowed(target.copyWith(technology: 'flexographic', maxWebWidthMm: 1500), 1500), isTrue);
+  });
+
+  test('print transfer retains original nodes and selects only remaining work', () {
+    const target = AdminApparatus(id: 'apparatus:test:target-8', name: 'Bosma 8',
+        operation: 'print', technology: 'rotogravure', colorStations: 8);
+    var map = ProductionMapDefinition(id: 'zakaz-transfer-history', productCode: 'P', title: 'P',
+        nodes: [
+          const ProductionMapNode(id: 'start', kind: 'start', title: 'Start'),
+          ProductionMapNode(id: 'print', kind: 'apparatus', title: 'Bosma 7',
+              apparatusId: _colorPrintApparatus.id),
+          const ProductionMapNode(id: 'end', kind: 'end', title: 'End'),
+        ], edges: const [ProductionMapEdge(from: 'start', to: 'print'),
+          ProductionMapEdge(from: 'print', to: 'end')]);
+    map = productionMapTransferPrintOccurrence(map: map,
+        fromApparatus: _colorPrintApparatus, toApparatus: target)!;
+    expect(map.nodes.firstWhere((node) => node.id == 'print').apparatusId, _colorPrintApparatus.id);
+    expect(productionMapPrintAssignmentAllowsOrder(map: map, apparatus: _colorPrintApparatus), isFalse);
+    expect(productionMapPrintAssignmentAllowsOrder(map: map, apparatus: target), isTrue);
+    final third = target.copyWith(id: 'apparatus:test:target-9', colorStations: 9);
+    expect(productionMapCanMoveOrderToApparatus(nodes: map.nodes,
+        fromApparatus: target, toApparatus: third, rollCount: 7, widthMm: 800), isTrue);
+    map = productionMapTransferPrintOccurrence(map: map, fromApparatus: target, toApparatus: third)!;
+    expect(map.nodes.where((node) => node.kind == 'apparatus'), hasLength(3));
+    expect(productionMapPrintAssignmentAllowsOrder(map: map, apparatus: target), isFalse);
+    expect(productionMapPrintAssignmentAllowsOrder(map: map, apparatus: third), isTrue);
+  });
+
   test('single unassigned print candidate needs no dispatch', () {
     for (final machine in [_flexoApparatus, _colorPrintApparatus]) {
       var map = ProductionMapDefinition(

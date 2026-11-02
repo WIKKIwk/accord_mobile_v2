@@ -279,7 +279,11 @@ void _registeradmin_production_map_test_screen_testCases12() {
         );
         expect(snapshot.sequences[target], [targetOrderId, orderId]);
         final maps = await MobileApi.instance.adminProductionMaps();
-        expect(_apparatusTitle(maps, orderId), '8 ta rangli bosma aparat');
+        final moved = maps.firstWhere((item) => item.map.id == orderId).map;
+        expect(moved.nodes.any((node) => node.apparatusId == source), isTrue,
+            reason: 'the producer occurrence remains available to historical QR records');
+        expect(moved.nodes.firstWhere((node) => node.apparatusId == target)
+            .alternativeAssignedApparatusId, target);
         expect(find.text('1 ta buyurtma ko‘chirildi'), findsOneWidget);
         await tester.pump(const Duration(seconds: 6));
       },

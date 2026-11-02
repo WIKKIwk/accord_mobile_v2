@@ -603,6 +603,20 @@ extension _AdminProductionMapOrdersMoveState
     required AdminApparatus from,
     required AdminApparatus to,
   }) async {
+    if (_apparatusMoveInFlight) return;
+    _apparatusMoveInFlight = true;
+    try {
+      await _performOrdersBetweenApparatusMove(orders: orders, from: from, to: to);
+    } finally {
+      _apparatusMoveInFlight = false;
+    }
+  }
+
+  Future<void> _performOrdersBetweenApparatusMove({
+    required List<ProductionMapSaved> orders,
+    required AdminApparatus from,
+    required AdminApparatus to,
+  }) async {
     if (_adminPaging &&
         (_queueSnapshotNeedsReconcile || _queueSnapshotContractError)) {
       return;
@@ -666,6 +680,7 @@ extension _AdminProductionMapOrdersMoveState
         )
         .toList(growable: false);
     _clearMoveDragState();
+    final scope = currentSessionReadScope();
     String? transferReason;
     if (transferOrders.isNotEmpty) {
       transferReason = await _askApparatusTransferReason(
@@ -673,12 +688,12 @@ extension _AdminProductionMapOrdersMoveState
         from: from,
         to: to,
       );
-      if (transferReason == null || !mounted) {
+      if (transferReason == null || !mounted || currentSessionReadScope() != scope) {
         return;
       }
     }
+    final savedById = <String, ProductionMapSaved>{};
     try {
-      final savedById = <String, ProductionMapSaved>{};
       final transferTimestamp = DateTime.now().microsecondsSinceEpoch;
       for (var index = 0; index < transferOrders.length; index++) {
         final order = transferOrders[index];
@@ -690,6 +705,7 @@ extension _AdminProductionMapOrdersMoveState
           idempotencyKey:
               'app-transfer-${order.map.id.trim()}-$transferTimestamp-$index',
         );
+        if (!mounted || currentSessionReadScope() != scope) return;
         savedById[order.map.id.trim()] = saved;
       }
       if (pendingOrders.isNotEmpty) {
@@ -701,6 +717,7 @@ extension _AdminProductionMapOrdersMoveState
           fromApparatus: from.id,
           toApparatus: to.id,
         );
+        if (!mounted || currentSessionReadScope() != scope) return;
         savedById.addAll(
           _savedProductionMapOrdersByIdOrThrow(
             saved: saved,
@@ -735,6 +752,15 @@ extension _AdminProductionMapOrdersMoveState
         tone: AdminTopNoticeTone.success,
       );
     } catch (error) {
+      if (!mounted || currentSessionReadScope() != scope) return;
+      if (savedById.isNotEmpty) {
+        _applySavedMoveOrders(orderIds: savedById.keys.toSet(), savedById: savedById);
+        showAdminTopNotice(context, context.l10n.adminText('production.move.partial',
+            values: {'moved': savedById.length, 'total': orders.length}),
+            icon: Icons.warning_amber_rounded, tone: AdminTopNoticeTone.error);
+        await _load();
+        return;
+      }
       await _resyncAfterMoveActionError(
         error,
         context.l10n.adminText('production.move.failed'),

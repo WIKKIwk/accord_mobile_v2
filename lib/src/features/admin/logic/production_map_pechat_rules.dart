@@ -112,6 +112,7 @@ bool productionMapPechatCanHandleOrder({
   if (widthMm == null || widthMm <= 0) {
     return true;
   }
+  if (!widthMm.isFinite || widthMm > 1350) return false;
   final rubberSize = productionMapRubberSizeFromWidth(widthMm);
   return switch (apparatusColorCount) {
     7 => rubberSize <= 850,
@@ -251,7 +252,8 @@ bool productionMapAlternativeAssignedGroupContainsTarget({
     (node) =>
         node.kind == 'apparatus' &&
         candidateGroups.contains(node.alternativeGroupId.trim()) &&
-        node.apparatusId.trim() == toId,
+        (node.apparatusId.trim() == toId ||
+            node.alternativeGroupId.trim().startsWith('print_transfer_')),
   );
 }
 
@@ -322,6 +324,22 @@ bool productionMapCanMoveOrderToApparatus({
       return false;
     }
   }
+  if (fromOperation == 'print') {
+    if (fromApparatus.lifecycleState != 'active' ||
+        toApparatus.lifecycleState != 'active' ||
+        !productionMapApparatusProfileCanHandleOrder(
+            apparatus: toApparatus, rollCount: rollCount, widthMm: widthMm)) {
+      return false;
+    }
+    if (toApparatus.technology != 'flexographic' &&
+        toApparatus.colorStations != null &&
+        !productionMapPechatCanMoveOrder(
+            apparatusColorCount: toApparatus.colorStations!,
+            rollCount: rollCount, widthMm: widthMm,
+            sourceApparatusColorCount: fromApparatus.colorStations)) {
+      return false;
+    }
+  }
   if (sourceNodes.any(
     (node) => node.alternativeGroupId.trim().isNotEmpty,
   )) {
@@ -338,6 +356,9 @@ bool productionMapCanMoveOrderToApparatus({
   }
 
   final targetColorCount = toApparatus.colorStations;
+  if (fromOperation == 'print' && toApparatus.technology == 'flexographic') {
+    return true;
+  }
   if (targetColorCount == null) {
     return true;
   }
@@ -347,6 +368,58 @@ bool productionMapCanMoveOrderToApparatus({
     widthMm: widthMm,
     sourceApparatusColorCount: fromApparatus.colorStations,
   );
+}
+
+/// Preserve the producing node while selecting a peer for unfinished printing.
+/// The server additionally binds this change to the paused session occurrence.
+ProductionMapDefinition? productionMapTransferPrintOccurrence({
+  required ProductionMapDefinition map,
+  required AdminApparatus fromApparatus,
+  required AdminApparatus toApparatus,
+}) {
+  final sources = map.nodes.where((node) => node.kind == 'apparatus' &&
+      node.apparatusId == fromApparatus.id &&
+      _effectiveApparatusId(node) == fromApparatus.id).toList();
+  if (sources.length != 1) return null;
+  final source = sources.single;
+  var group = source.alternativeGroupId;
+  if (group.isEmpty) {
+    final base = 'print_transfer_${source.id}';
+    group = base;
+    var suffix = 1;
+    while (map.nodes.any((node) => node.alternativeGroupId == group)) {
+      group = '${base}_${suffix++}';
+    }
+  }
+  final targets = map.nodes.where((node) => node.kind == 'apparatus' &&
+      node.alternativeGroupId == group && node.apparatusId == toApparatus.id);
+  final nodes = List<ProductionMapNode>.of(map.nodes);
+  final edges = List<ProductionMapEdge>.of(map.edges);
+  if (targets.isEmpty) {
+    if (source.alternativeGroupId.isNotEmpty &&
+        !group.startsWith('print_transfer_')) {
+      return null;
+    }
+    final base = '${source.id}_transfer';
+    var id = base;
+    var suffix = 1;
+    while (nodes.any((node) => node.id == id)) { id = '${base}_${suffix++}'; }
+    nodes.add(source.copyWith(id: id, apparatusId: toApparatus.id,
+        title: toApparatus.name, alternativeGroupId: group, x: source.x + 180));
+    for (final edge in map.edges) {
+      if (edge.from == source.id || edge.to == source.id) {
+        edges.add(ProductionMapEdge(from: edge.from == source.id ? id : edge.from,
+            to: edge.to == source.id ? id : edge.to, branch: edge.branch));
+      }
+    }
+  }
+  return map.copyWith(nodes: [for (final node in nodes)
+    if (node.id == source.id || node.alternativeGroupId == group)
+      node.copyWith(alternativeGroupId: group,
+          alternativeAssignedApparatusId: toApparatus.id,
+          alternativeAssignedTitle: toApparatus.name)
+    else node,
+  ], edges: edges);
 }
 
 /// Reassigns the chosen apparatus for alternative-group maps.

@@ -132,6 +132,7 @@ class _AdminProductionMapOrdersScreenState
 
   AdminApparatus? _moveBottomApparatus;
   final Set<String> _selectedMoveOrderIds = {};
+  bool _apparatusMoveInFlight = false;
   List<ProductionMapSaved> _draggingMoveOrders = const [];
 
   AdminApparatus? _draggingMoveSource;

@@ -127,6 +127,13 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     final normalizedTo = _requireCanonicalApparatusId(toApparatus);
     final normalizedReason = reason.trim();
     final normalizedKey = idempotencyKey.trim();
+    final scope = jsonEncode([MobileApi.baseUrl, currentSessionReadScope()]);
+    void requireSameScope() {
+      if (scope != jsonEncode([MobileApi.baseUrl, currentSessionReadScope()])) {
+        throw const MobileApiException(code: 'session_changed',
+            message: 'Ko‘chirish davomida hisob o‘zgardi.');
+      }
+    }
     if (normalizedOrderId.isEmpty) {
       throw const MobileApiException(
         code: 'apparatus_transfer_order_not_paused',
@@ -220,7 +227,12 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
           message: 'Zakaz bu aparatga tushmaydi',
         );
       }
-      final nodes = productionMapReassignAlternativeApparatusAssignment(
+      final printMap = sourceApparatus.operation == 'print'
+          ? productionMapTransferPrintOccurrence(map: current.map,
+              fromApparatus: sourceApparatus, toApparatus: targetApparatus)
+          : null;
+      final nodes = sourceApparatus.operation == 'print' ? printMap?.nodes
+          : productionMapReassignAlternativeApparatusAssignment(
             nodes: current.map.nodes,
             fromApparatus: sourceApparatus,
             toApparatus: targetApparatus,
@@ -237,7 +249,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         );
       }
       final saved = ProductionMapSaved(
-        map: current.map.copyWith(nodes: nodes),
+        map: printMap ?? current.map.copyWith(nodes: nodes),
         program: current.program,
       );
       final sourceSequence = List<String>.from(
@@ -275,23 +287,34 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
       );
       return saved;
     }
+    requireSameScope();
+    final command = await ApparatusTransferCommandStore.retain(scope, {
+      'order_id': normalizedOrderId,
+      'from_apparatus': normalizedFrom,
+      'to_apparatus': normalizedTo,
+      'reason': normalizedReason,
+      'idempotency_key': normalizedKey,
+    });
+    requireSameScope();
     final response = await _sendAuthorized(
-      () => _post(
+      () {
+        requireSameScope();
+        return _post(
         Uri.parse(
           '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/apparatus-transfer',
         ),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({
-          'order_id': normalizedOrderId,
-          'from_apparatus': normalizedFrom,
-          'to_apparatus': normalizedTo,
-          'reason': normalizedReason,
-          'idempotency_key': normalizedKey,
-        }),
-      ),
+        body: jsonEncode(command),
+        );
+      },
     );
+    requireSameScope();
     if (response.statusCode != 200) {
+      if (response.statusCode >= 400 && response.statusCode < 500 &&
+          response.statusCode != 408 && response.statusCode != 429) {
+        await ApparatusTransferCommandStore.acknowledge(scope, command);
+      }
       throw _adminProductionMapException(response, 'apparatus_transfer');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
@@ -302,7 +325,13 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
         message: 'Avariya ko‘chirish javobi noto‘g‘ri',
       );
     }
-    return ProductionMapSaved.fromJson(rawSaved.cast<String, dynamic>());
+    final saved = ProductionMapSaved.fromJson(rawSaved.cast<String, dynamic>());
+    if (saved.map.id.trim() != normalizedOrderId) {
+      throw const MobileApiException(code: 'apparatus_transfer_invalid_response',
+          message: 'Ko‘chirish javobidagi order mos kelmadi');
+    }
+    await ApparatusTransferCommandStore.acknowledge(scope, command);
+    return saved;
   }
 
   Future<ProductionMapSaved> adminMoveProductionMapOrder({

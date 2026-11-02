@@ -51,6 +51,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'json_payload_decoder.dart';
+import 'admin/apparatus_transfer_command_store.dart';
 import '../cache/order_image_cache.dart';
 
 part 'admin/mobile_api_admin.dart';
