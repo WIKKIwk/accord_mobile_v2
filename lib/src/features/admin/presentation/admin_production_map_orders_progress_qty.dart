@@ -80,7 +80,6 @@ class _ProgressQtyInput {
     this.rezkaFrames = const [],
     this.rezkaOutputCycle = '',
     this.rezkaRecordedFrameCount = 0,
-    this.layerRemainders = const [],
   });
   final double? meterQty;
   final double? kgQty;
@@ -104,7 +103,6 @@ class _ProgressQtyInput {
   final List<_RezkaFrameInput> rezkaFrames;
   final String rezkaOutputCycle;
   final int rezkaRecordedFrameCount;
-  final List<Map<String, dynamic>> layerRemainders;
 }
 
 Future<_ProgressQtyInput?> _showProgressQtyDialog(
@@ -155,8 +153,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       returnedPaintDraft: draft,
       fullCompletionReportRequired: fullCompletionReportRequired,
       closingOutputBatchId: closingOutputBatchId,
-      rezkaTotalWasteOnlyReport:
-          rezkaTotalWasteOnlyReport,
+      rezkaTotalWasteOnlyReport: rezkaTotalWasteOnlyReport,
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
       astatkaReport: astatkaReport,
@@ -206,8 +203,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,
     closingOutputBatchId: closingOutputBatchId,
-    rezkaTotalWasteOnlyReport:
-        rezkaTotalWasteOnlyReport,
+    rezkaTotalWasteOnlyReport: rezkaTotalWasteOnlyReport,
     workerHandoff: workerHandoff,
     removeRollFromApparatus: removeRollFromApparatus,
     astatkaReport: astatkaReport,
@@ -288,7 +284,6 @@ class _ProgressQtyDialog extends StatefulWidget {
 }
 
 class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
-  final _layerControllers = <String, TextEditingController>{};
   final _meterController = TextEditingController();
   final _kgController = TextEditingController();
   final _bobinaController = TextEditingController();
@@ -385,10 +380,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       for (var index = 0; index < _rezkaFrameCount; index += 1)
         _RezkaFrameControllers(),
     ];
-    for (final source in widget.laminationAstatka?.sources ??
-        const <AdminLayerRemainderSource>[]) {
-      _layerControllers[_layerKey(source)] = TextEditingController();
-    }
     _restoreRezkaOutputReport(widget.rezkaOutputReport);
     for (final frame in _rezkaFrameControllers) {
       frame.meter.addListener(_onRezkaFrameInputChanged);
@@ -401,9 +392,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
 
   @override
   void dispose() {
-    for (final controller in _layerControllers.values) {
-      controller.dispose();
-    }
     _descriptionController.dispose();
     _wasteController.dispose();
     _rezkaEdgeWasteController.dispose();
@@ -843,25 +831,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       return;
     }
     if (_isComplete && _integratedLaminationAstatka && !formValid) return;
-    final layers = _hasAstatkaLayers && formValid
-        ? _layerDispositions()
-        : const <Map<String, dynamic>>[];
-    final printLeftoverRolls = _hasAstatkaLayers
-        ? layers
-            .where((layer) =>
-                layer['source_kind'] == 'progress_batch' &&
-                (layer['remaining_net_kg'] as num) > 0)
-            .length
-            .toDouble()
-        : _parseQty(_printLeftoverController.text);
-    final filmLeftoverRolls = _hasAstatkaLayers
-        ? layers
-            .where((layer) =>
-                layer['source_kind'] == 'raw_material' &&
-                (layer['remaining_net_kg'] as num) > 0)
-            .length
-            .toDouble()
-        : _parseQty(_filmLeftoverController.text);
+    final printLeftoverRolls = _parseQty(_printLeftoverController.text);
+    final filmLeftoverRolls = _parseQty(_filmLeftoverController.text);
     final rezkaBosmaWaste = _parseQty(_rezkaBosmaWasteController.text);
     final rezkaLaminationWaste =
         _parseQty(_rezkaLaminationWasteController.text);
@@ -942,9 +913,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         rezkaLaminationWaste > 0;
     final hasRezkaEdgeWaste =
         rezkaEdgeWaste != null && rezkaEdgeWaste.isFinite && rezkaEdgeWaste > 0;
-    final hasWaste =
-        totalWaste != null && totalWaste.isFinite &&
-        (totalWaste > 0 || (_requiresRezkaTotalWasteOnlyReport && totalWaste == 0));
+    final hasWaste = totalWaste != null &&
+        totalWaste.isFinite &&
+        (totalWaste > 0 ||
+            (_requiresRezkaTotalWasteOnlyReport && totalWaste == 0));
     if (_isAstatkaReport) {
       if (!formValid) {
         _revealDescriptionField();
@@ -963,7 +935,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               .productionText('worker.lamination_astatka.output_required'));
           return;
         }
-        final layers = _layerDispositions();
         Navigator.of(context).pop(_ProgressQtyInput(
           finishedGoodsMeter: _astatkaOutputRequired ? meterQty : null,
           finishedGoodsKg: _astatkaOutputRequired ? kgQty : null,
@@ -971,25 +942,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
               _astatkaOutputRequired && !emptyOutput && (bobinaKg ?? 0) > 0
                   ? bobinaKg
                   : null,
-          laminationPrintLeftoverRolls: layers.isEmpty
-              ? printLeftoverRolls
-              : layers
-                  .where((layer) =>
-                      layer['source_kind'] == 'progress_batch' &&
-                      (layer['remaining_net_kg'] as double) > 0)
-                  .length
-                  .toDouble(),
-          laminationFilmLeftoverRolls: layers.isEmpty
-              ? filmLeftoverRolls
-              : layers
-                  .where((layer) =>
-                      layer['source_kind'] == 'raw_material' &&
-                      (layer['remaining_net_kg'] as double) > 0)
-                  .length
-                  .toDouble(),
+          laminationPrintLeftoverRolls: printLeftoverRolls,
+          laminationFilmLeftoverRolls: filmLeftoverRolls,
           totalWaste: totalWaste,
           description: _descriptionController.text.trim(),
-          layerRemainders: layers,
         ));
         return;
       }
@@ -1046,15 +1002,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         ? hasWaste && hasMeter && hasKg && hasBobina && returnedPaintValid
         : hasMeter && hasKg && hasBobina;
     final laminatsiyaMetricsReady = _requiresFullCompletionReport
-        ? (_hasAstatkaLayers ||
-                (_integratedLaminationAstatka
-                    ? printLeftoverRolls != null &&
-                        printLeftoverRolls.isFinite &&
-                        printLeftoverRolls >= 0 &&
-                        filmLeftoverRolls != null &&
-                        filmLeftoverRolls.isFinite &&
-                        filmLeftoverRolls >= 0
-                    : hasPrintLeftover || hasFilmLeftover)) &&
+        ? (_integratedLaminationAstatka
+                ? printLeftoverRolls != null &&
+                    printLeftoverRolls.isFinite &&
+                    printLeftoverRolls >= 0 &&
+                    filmLeftoverRolls != null &&
+                    filmLeftoverRolls.isFinite &&
+                    filmLeftoverRolls >= 0
+                : hasPrintLeftover || hasFilmLeftover) &&
             (_integratedLaminationAstatka
                 ? totalWaste != null && totalWaste.isFinite && totalWaste >= 0
                 : hasWaste) &&
@@ -1156,7 +1111,6 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           returnedPaintImageId: returnedPaintImageId,
           fullCompletionReportRequired: _requiresFullCompletionReport,
           description: description,
-          layerRemainders: layers,
         ),
       );
       return;
@@ -1233,13 +1187,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
           Row(children: [
             Expanded(
                 child: Text(
-              (_rezkaLayoutLabel(index).isEmpty ? '' : '${_rezkaLayoutLabel(index)}\n') + context.l10n.productionText(
-                'worker.progress.qty.rezka_output_roll',
-                values: {
-                  'index': index + 1,
-                  'frames': widget.rezkaOutputKadrCounts[index],
-                },
-              ),
+              (_rezkaLayoutLabel(index).isEmpty
+                      ? ''
+                      : '${_rezkaLayoutLabel(index)}\n') +
+                  context.l10n.productionText(
+                    'worker.progress.qty.rezka_output_roll',
+                    values: {
+                      'index': index + 1,
+                      'frames': widget.rezkaOutputKadrCounts[index],
+                    },
+                  ),
               style: theme.textTheme.titleSmall?.copyWith(
                 color: scheme.primary,
                 fontWeight: FontWeight.w800,
@@ -1401,127 +1358,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   bool get _isWorkerHandoff => widget.workerHandoff;
   bool get _isAstatkaReport => widget.astatkaReport;
   bool get _integratedLaminationAstatka => widget.laminationAstatka != null;
-  bool get _hasAstatkaLayers =>
-      widget.laminationAstatka?.sources.isNotEmpty == true;
   bool get _astatkaOutputRequired =>
       _isAstatkaReport && widget.laminationAstatka?.outputRequired == true;
 
-  String _layerKey(AdminLayerRemainderSource source) =>
-      '${source.sourceKind}:${source.sourceId}';
-
-  List<Map<String, dynamic>> _layerDispositions() => [
-        for (final source in widget.laminationAstatka?.sources ??
-            const <AdminLayerRemainderSource>[])
-          {
-            'source_kind': source.sourceKind,
-            'source_id': source.sourceId,
-            'expected_revision': source.revision,
-            'remaining_net_kg':
-                _parseQty(_layerControllers[_layerKey(source)]!.text),
-          },
-      ];
-
-  String _astatkaLayerDisplayName(AdminLayerRemainderSource source) {
-    final name = source.itemName.isEmpty ? source.itemCode : source.itemName;
-    if (source.sourceKind != 'progress_batch') return name;
-    return name.replaceAllMapped(
-      RegExp(r'\bapparatus:[\w:.-]+', caseSensitive: false),
-      (match) {
-        final id = match.group(0)!;
-        final label = canonicalApparatusDisplayLabel(id, widget.apparatusCatalog);
-        return label == id ? context.l10n.adminText('wip.unspecified') : label;
-      },
-    );
-  }
-
-  List<Widget> _astatkaLayerFields() => [
-        _progressQtySectionLabel(context,
-            context.l10n.productionText('worker.layer_remainder.title')),
-        Text(context.l10n
-            .productionText('worker.lamination_astatka.layers_instruction')),
-        const SizedBox(height: 10),
-        for (final source in widget.laminationAstatka!.sources)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(_astatkaLayerDisplayName(source),
-                      style: Theme.of(context).textTheme.titleSmall),
-                  Text(context.l10n.productionText(
-                      source.sourceKind == 'raw_material'
-                          ? 'worker.layer_remainder.raw_material'
-                          : 'worker.layer_remainder.printed_roll')),
-                  Text(
-                      '${formatQuantity(source.sourceNetKg)} kg · ${formatQuantity(source.sourceMeter)} m'),
-                  if (source.producerName.isNotEmpty)
-                    Text(context.l10n.productionText(
-                        'worker.layer_remainder.producer',
-                        values: {'name': source.producerName})),
-                  if (!source.canCalculate)
-                    Text(context.l10n.productionText(
-                        'worker.layer_remainder.missing_basis')),
-                  const SizedBox(height: 8),
-                  _qtyField(
-                    controller: _layerControllers[_layerKey(source)]!,
-                    label: context.l10n
-                        .productionText('worker.layer_remainder.net_weight'),
-                    suffix: 'kg',
-                    error: context.l10n.productionText(
-                        'worker.lamination_astatka.layer_required'),
-                    requiredField: true,
-                    allowZero: true,
-                    onChanged: (_) => setState(() {}),
-                    additionalValidator: (text) {
-                      final kg = _parseQty(text ?? '');
-                      if (kg == null ||
-                          !kg.isFinite ||
-                          kg < 0 ||
-                          (kg > 0 && source.estimateMeter(kg) == null)) {
-                        return context.l10n.productionText(
-                            'worker.lamination_astatka.layer_required');
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 6),
-                  Builder(builder: (_) {
-                    final kg =
-                        _parseQty(_layerControllers[_layerKey(source)]!.text);
-                    final meter = kg == 0
-                        ? 0.0
-                        : kg == null
-                            ? null
-                            : source.estimateMeter(kg);
-                    return Text(context.l10n.productionText(
-                        'worker.layer_remainder.estimated_meter',
-                        values: {
-                          'meter': meter == null ? '—' : formatQuantity(meter)
-                        }));
-                  }),
-                ],
-              ),
-            ),
-          ),
-        OutlinedButton.icon(
-          onPressed: () => showModalBottomSheet<bool>(
-            context: context,
-            isScrollControlled: true,
-            useSafeArea: true,
-            showDragHandle: true,
-            builder: (_) => LaminationLayerRemainderSheet(
-              apparatus: widget.apparatus,
-              orderId: widget.order.map.id,
-              progressDriverUrlPicker: widget.progressDriverUrlPicker,
-            ),
-          ),
-          icon: const Icon(Icons.history),
-          label: Text(
-              context.l10n.productionText('worker.layer_remainder.history')),
-        ),
-        const SizedBox(height: 10),
-      ];
   bool get _requiresPaintReport =>
       _requiresFullCompletionReport || (_isAstatkaReport && widget.isBosma);
   bool get _isRollRemoval => widget.removeRollFromApparatus;
@@ -1723,8 +1562,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 _isWorkerHandoff ||
                                 _isAstatkaReport) &&
                             isLaminatsiya &&
-                            !_isRollRemoval &&
-                            !_hasAstatkaLayers) ...[
+                            !_isRollRemoval) ...[
                           _progressQtySectionLabel(
                             context,
                             context.l10n.productionText(
@@ -1733,6 +1571,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                           ),
                           _qtyField(
                             controller: _printLeftoverController,
+                            suffix: 'kg',
                             label: context.l10n.productionText(
                               'worker.daily.field.print_leftover',
                             ),
@@ -1744,12 +1583,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 ),
                               },
                             ),
-                            requiredField:
-                                (_isWorkerHandoff ||
-                                        _isAstatkaReport ||
-                                        _integratedLaminationAstatka)
-                                    ? true
-                                    : null,
+                            requiredField: (_isWorkerHandoff ||
+                                    _isAstatkaReport ||
+                                    _integratedLaminationAstatka)
+                                ? true
+                                : null,
                             allowZero: _isWorkerHandoff ||
                                 _isAstatkaReport ||
                                 _integratedLaminationAstatka,
@@ -1760,10 +1598,10 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 _isWorkerHandoff ||
                                 _isAstatkaReport) &&
                             isLaminatsiya &&
-                            !_isRollRemoval &&
-                            !_hasAstatkaLayers) ...[
+                            !_isRollRemoval) ...[
                           _qtyField(
                             controller: _filmLeftoverController,
+                            suffix: 'kg',
                             label: context.l10n.productionText(
                               'worker.daily.field.film_leftover',
                             ),
@@ -1775,20 +1613,17 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                 ),
                               },
                             ),
-                            requiredField:
-                                (_isWorkerHandoff ||
-                                        _isAstatkaReport ||
-                                        _integratedLaminationAstatka)
-                                    ? true
-                                    : null,
+                            requiredField: (_isWorkerHandoff ||
+                                    _isAstatkaReport ||
+                                    _integratedLaminationAstatka)
+                                ? true
+                                : null,
                             allowZero: _isWorkerHandoff ||
                                 _isAstatkaReport ||
                                 _integratedLaminationAstatka,
                           ),
                           const SizedBox(height: 10),
                         ],
-                        if (_hasAstatkaLayers)
-                          ..._astatkaLayerFields(),
                         if (isRezka &&
                             (_requiresFullCompletionReport ||
                                 _requiresRezkaTotalWasteOnlyReport ||
@@ -1826,12 +1661,15 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                                         _isAstatkaReport)
                                     ? true
                                     : false,
-                            positive: !_isAstatkaReport && !_requiresRezkaTotalWasteOnlyReport,
-                            allowZero: _isAstatkaReport || _requiresRezkaTotalWasteOnlyReport,
+                            positive: !_isAstatkaReport &&
+                                !_requiresRezkaTotalWasteOnlyReport,
+                            allowZero: _isAstatkaReport ||
+                                _requiresRezkaTotalWasteOnlyReport,
                           ),
                           const SizedBox(height: 10),
                           if (_requiresFullCompletionReport ||
-                              (_isAstatkaReport && !_requiresRezkaTotalWasteOnlyReport)) ...[
+                              (_isAstatkaReport &&
+                                  !_requiresRezkaTotalWasteOnlyReport)) ...[
                             _qtyField(
                               controller: _rezkaBosmaWasteController,
                               label: context.l10n.productionText(

@@ -108,21 +108,65 @@ const _paddonManagementTranslations = {
     'ru': 'Состояние формы не подтверждено',
     'ur': 'سانچے کی حالت کی تصدیق نہیں ہو سکی',
   },
-  'lamination.settings.title': {
-    'uz': 'Laminatsiyachi ikki qatlamdan birini kiritish majburiyati',
-    'en': 'Require lamination layer remainder entry',
-    'ru': 'Обязательный ввод остатков слоёв ламинации',
-    'ur': 'لیمینیشن کی تہوں کے بقایا کا لازمی اندراج',
+  'lamination.settings.wip_label': {
+    'uz': 'Bosmadan ortgan rulon labelini chiqarish',
+    'en': 'Print upstream roll remainder labels',
+    'ru': 'Печатать этикетку остатка входного рулона',
+    'ur': 'آنے والے رول کے بقایا کا لیبل پرنٹ کریں',
   },
-  'lamination.settings.description': {
-    'uz':
-        'Yoqilganda qatlamlarning sof qoldig‘i so‘raladi va qoldiqqa alohida QR chiqariladi. O‘chirilganda eski astatka va boshqa hisobot maydonlari bilan ishlash davom etadi.',
+  'lamination.settings.film_label': {
+    'uz': 'Plyonkadan ortgan rulon labelini chiqarish',
+    'en': 'Print film remainder labels',
+    'ru': 'Печатать этикетку остатка плёнки',
+    'ur': 'فلم کے بقایا کا لیبل پرنٹ کریں',
+  },
+  'lamination.settings.label_description': {
+    'uz': 'Qoldiq kg saqlanganda shu tomonning labelini avtomatik chiqarish.',
     'en':
-        'When enabled, enter each layer’s net remainder and print a separate QR for it. When disabled, the existing leftover counts and other report fields remain available.',
+        'Automatically print this side’s label after saving the remaining net kg.',
     'ru':
-        'При включении вводится чистый вес остатков слоёв и печатается отдельный QR. При выключении сохраняются прежние поля остатков и остальные поля отчёта.',
+        'Автоматически печатать этикетку этой стороны после сохранения остатка нетто в кг.',
     'ur':
-        'فعال ہونے پر ہر تہہ کا خالص بقایا درج کریں اور الگ QR پرنٹ کریں۔ بند ہونے پر سابقہ بقایا اور رپورٹ کے دیگر خانے برقرار رہتے ہیں۔',
+        'بقایا خالص کلوگرام محفوظ کرنے کے بعد اس طرف کا لیبل خودکار پرنٹ کریں۔',
+  },
+  'worker.lamination_label.backend_required': {
+    'uz':
+        'Laminatsiya qoldiq kg va label sozlamalari uchun serverni yangilang.',
+    'en':
+        'Update the server to use lamination remainder weights and label settings.',
+    'ru':
+        'Обновите сервер для работы с весом остатков ламинации и настройками этикеток.',
+    'ur': 'لیمینیشن کے بقایا وزن اور لیبل کی ترتیبات کے لیے سرور اپ ڈیٹ کریں۔',
+  },
+  'worker.lamination_label.source_missing': {
+    'uz':
+        'Qoldiq rulonning asl manbasi yoki kg/metraj ma’lumoti topilmadi. Kiruvchi rulon va plyonkani tekshiring.',
+    'en':
+        'The remainder’s source roll or weight/length basis is missing. Check the input roll and film.',
+    'ru':
+        'Не найден исходный рулон или данные веса/метража. Проверьте входной рулон и плёнку.',
+    'ur':
+        'بقایا رول کا اصل ماخذ یا وزن اور لمبائی نہیں ملی۔ آنے والا رول اور فلم چیک کریں۔',
+  },
+  'worker.lamination_label.source_ambiguous': {
+    'uz':
+        'Shu tomonga bir nechta rulon ulangan. Qoldiq qaysi rulonga tegishli ekanini aniqlash uchun kiruvchi rulonlarni tekshiring.',
+    'en':
+        'Several rolls are linked to this side. Check the mounted rolls to identify the remainder’s source.',
+    'ru':
+        'К этой стороне привязано несколько рулонов. Проверьте установленные рулоны, чтобы определить источник остатка.',
+    'ur':
+        'اس طرف کئی رول منسلک ہیں۔ بقایا کا اصل رول پہچاننے کے لیے نصب رول چیک کریں۔',
+  },
+  'worker.layer_remainder.print_pending': {
+    'uz':
+        'Label ma’lumotlari saqlangan. Kerakli labelni tarixdan chop etishingiz mumkin.',
+    'en':
+        'Label details are saved. You can print the required label from history.',
+    'ru':
+        'Данные этикетки сохранены. Нужную этикетку можно напечатать из истории.',
+    'ur':
+        'لیبل کی تفصیلات محفوظ ہیں۔ مطلوبہ لیبل تاریخ سے پرنٹ کیا جا سکتا ہے۔',
   },
   'lamination.settings.load_failed': {
     'uz': 'Laminatsiya sozlamasi yuklanmadi.',

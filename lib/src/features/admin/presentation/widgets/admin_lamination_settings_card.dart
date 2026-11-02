@@ -15,7 +15,7 @@ class AdminLaminationSettingsCard extends StatefulWidget {
 
 class _AdminLaminationSettingsCardState
     extends State<AdminLaminationSettingsCard> {
-  bool? _required;
+  AdminLaminationLabelSettings? _settings;
   bool _busy = true;
   bool _loadFailed = false;
 
@@ -37,10 +37,9 @@ class _AdminLaminationSettingsCardState
       _loadFailed = false;
     });
     try {
-      final required =
-          await MobileApi.instance.laminationLayerRemaindersRequired();
+      final saved = await MobileApi.instance.laminationLabelSettings();
       if (!mounted || scope != currentSessionReadScope()) return;
-      setState(() => _required = required);
+      setState(() => _settings = saved);
     } catch (_) {
       if (!mounted || scope != currentSessionReadScope()) return;
       setState(() => _loadFailed = true);
@@ -49,15 +48,15 @@ class _AdminLaminationSettingsCardState
     }
   }
 
-  Future<void> _save(bool required) async {
+  Future<void> _save({bool? wip, bool? film}) async {
     if (_busy || !_isAdmin) return;
     final scope = currentSessionReadScope();
     setState(() => _busy = true);
     try {
-      final saved = await MobileApi.instance
-          .setLaminationLayerRemaindersRequired(required);
+      final saved = await MobileApi.instance.setLaminationLabelSettings(
+          printWipRemainderLabels: wip, printFilmRemainderLabels: film);
       if (!mounted || scope != currentSessionReadScope()) return;
-      setState(() => _required = saved);
+      setState(() => _settings = saved);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.settingsSaved)),
       );
@@ -78,11 +77,22 @@ class _AdminLaminationSettingsCardState
     return Card(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         SwitchListTile(
-          key: const ValueKey('lamination-layer-remainders-switch'),
-          title: Text(_text('title')),
-          subtitle: Text(_text('description')),
-          value: _required ?? true,
-          onChanged: _busy || _loadFailed || _required == null ? null : _save,
+          key: const ValueKey('lamination-wip-label-switch'),
+          title: Text(_text('wip_label')),
+          subtitle: Text(_text('label_description')),
+          value: _settings?.printWipRemainderLabels ?? true,
+          onChanged: _busy || _loadFailed || _settings == null
+              ? null
+              : (value) => _save(wip: value),
+        ),
+        SwitchListTile(
+          key: const ValueKey('lamination-film-label-switch'),
+          title: Text(_text('film_label')),
+          subtitle: Text(_text('label_description')),
+          value: _settings?.printFilmRemainderLabels ?? true,
+          onChanged: _busy || _loadFailed || _settings == null
+              ? null
+              : (value) => _save(film: value),
         ),
         if (_busy) const LinearProgressIndicator(),
         if (_loadFailed)

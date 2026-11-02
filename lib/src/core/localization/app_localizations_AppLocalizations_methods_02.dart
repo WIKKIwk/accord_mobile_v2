@@ -44,6 +44,12 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       return qolipReworkText('order_unavailable');
     }
     final key = switch (code.trim().toLowerCase()) {
+      'lamination_remainder_source_missing' =>
+        'worker.lamination_label.source_missing',
+      'lamination_remainder_source_ambiguous' =>
+        'worker.lamination_label.source_ambiguous',
+      'lamination_label_backend_required' =>
+        'worker.lamination_label.backend_required',
       'qolip_confirmation_invalid' ||
       'qolip_automatic_confirmation_invalid' =>
         'qolip.start.auto.unknown_state',

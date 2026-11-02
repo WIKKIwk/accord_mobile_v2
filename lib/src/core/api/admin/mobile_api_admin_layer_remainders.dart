@@ -186,6 +186,29 @@ class AdminLayerRemainderResult {
   }
 }
 
+/// Independent automatic label switches. Recording never depends on these.
+class AdminLaminationLabelSettings {
+  const AdminLaminationLabelSettings({
+    this.printWipRemainderLabels = true,
+    this.printFilmRemainderLabels = true,
+  });
+
+  final bool printWipRemainderLabels;
+  final bool printFilmRemainderLabels;
+
+  bool prints(String sourceKind) => switch (sourceKind) {
+        'progress_batch' => printWipRemainderLabels,
+        'raw_material' => printFilmRemainderLabels,
+        _ => false,
+      };
+
+  factory AdminLaminationLabelSettings.fromJson(Map json) =>
+      AdminLaminationLabelSettings(
+        printWipRemainderLabels: json['print_wip_remainder_labels'] == true,
+        printFilmRemainderLabels: json['print_film_remainder_labels'] == true,
+      );
+}
+
 class AdminLaminationAstatkaSnapshot {
   const AdminLaminationAstatkaSnapshot({
     required this.sessionId,
@@ -193,6 +216,8 @@ class AdminLaminationAstatkaSnapshot {
     this.sources = const [],
     this.allowEmptySources = false,
     this.layerRemaindersRequired = true,
+    this.supportsRemainderWeights = false,
+    this.labelSettings = const AdminLaminationLabelSettings(),
     this.requestResult,
   });
 
@@ -201,6 +226,8 @@ class AdminLaminationAstatkaSnapshot {
   final List<AdminLayerRemainderSource> sources;
   final bool allowEmptySources;
   final bool layerRemaindersRequired;
+  final bool supportsRemainderWeights;
+  final AdminLaminationLabelSettings labelSettings;
   final AdminLaminationAstatkaResult? requestResult;
   bool get outputRequired => sessionStatus == 'active';
 
@@ -212,6 +239,10 @@ class AdminLaminationAstatkaSnapshot {
       sessionStatus: session is Map ? session['status']?.toString() ?? '' : '',
       allowEmptySources: json['allow_empty_sources'] == true,
       layerRemaindersRequired: json['layer_remainders_required'] != false,
+      supportsRemainderWeights: json['remainder_weights_supported'] == true,
+      labelSettings: json['label_settings'] is Map
+          ? AdminLaminationLabelSettings.fromJson(json['label_settings'] as Map)
+          : const AdminLaminationLabelSettings(),
       sources: [
         if (json['sources'] is List)
           for (final source in json['sources'] as List)
@@ -232,6 +263,7 @@ class AdminLaminationAstatkaResult {
     this.remainders = const [],
     this.progressBatches = const [],
     this.prints = const [],
+    this.labelSettings = const AdminLaminationLabelSettings(),
   });
 
   final String action;
@@ -239,6 +271,7 @@ class AdminLaminationAstatkaResult {
   final List<AdminLayerRemainder> remainders;
   final List<AdminProgressBatch> progressBatches;
   final List<Map<String, dynamic>> prints;
+  final AdminLaminationLabelSettings labelSettings;
 
   factory AdminLaminationAstatkaResult.fromJson(Map<String, dynamic> json) {
     final action = json['action']?.toString() ?? 'pause';
@@ -256,6 +289,9 @@ class AdminLaminationAstatkaResult {
     final session = json['session'];
     return AdminLaminationAstatkaResult(
       action: action,
+      labelSettings: json['label_settings'] is Map
+          ? AdminLaminationLabelSettings.fromJson(json['label_settings'] as Map)
+          : const AdminLaminationLabelSettings(),
       sessionStatus: session is Map ? session['status']?.toString() ?? '' : '',
       remainders: [
         if (json['remainders'] is List)
@@ -278,7 +314,7 @@ class AdminLaminationAstatkaResult {
 }
 
 extension MobileApiAdminLayerRemainders on MobileApi {
-  Future<bool> laminationLayerRemaindersRequired() async {
+  Future<AdminLaminationLabelSettings> laminationLabelSettings() async {
     final response = await _sendAuthorized(() => _get(
           Uri.parse(
               '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/lamination-settings'),
@@ -287,16 +323,30 @@ extension MobileApiAdminLayerRemainders on MobileApi {
     return _laminationSettingsResponse(response);
   }
 
-  Future<bool> setLaminationLayerRemaindersRequired(bool required) async {
+  Future<AdminLaminationLabelSettings> setLaminationLabelSettings({
+    bool? printWipRemainderLabels,
+    bool? printFilmRemainderLabels,
+  }) async {
+    if (printWipRemainderLabels == null && printFilmRemainderLabels == null) {
+      throw ArgumentError('A label switch is required');
+    }
     final response = await _sendAuthorized(() => _put(
           Uri.parse(
               '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/lamination-settings'),
           headers: _headers(requireToken())
             ..['Content-Type'] = 'application/json',
-          body: jsonEncode({'layer_remainders_required': required}),
+          body: jsonEncode({
+            if (printWipRemainderLabels != null)
+              'print_wip_remainder_labels': printWipRemainderLabels,
+            if (printFilmRemainderLabels != null)
+              'print_film_remainder_labels': printFilmRemainderLabels,
+          }),
         ));
     final saved = _laminationSettingsResponse(response);
-    if (saved != required) {
+    if ((printWipRemainderLabels != null &&
+            saved.printWipRemainderLabels != printWipRemainderLabels) ||
+        (printFilmRemainderLabels != null &&
+            saved.printFilmRemainderLabels != printFilmRemainderLabels)) {
       throw const MobileApiException(
           code: 'lamination_settings',
           message: 'Laminatsiya sozlamasi tasdiqlanmadi');
@@ -304,20 +354,23 @@ extension MobileApiAdminLayerRemainders on MobileApi {
     return saved;
   }
 
-  bool _laminationSettingsResponse(http.Response response) {
+  AdminLaminationLabelSettings _laminationSettingsResponse(
+      http.Response response) {
     if (response.statusCode != 200) {
       throw _adminProductionMapException(response, 'lamination_settings');
     }
     final payload = jsonDecode(response.body);
+    final settings = payload is Map ? payload['settings'] : null;
     if (payload is! Map ||
         payload['ok'] != true ||
-        payload['settings'] is! Map ||
-        payload['settings']['layer_remainders_required'] is! bool) {
+        settings is! Map ||
+        settings['print_wip_remainder_labels'] is! bool ||
+        settings['print_film_remainder_labels'] is! bool) {
       throw const MobileApiException(
-          code: 'lamination_settings',
-          message: 'Laminatsiya sozlamasi tasdiqlanmadi');
+          code: 'lamination_label_backend_required',
+          message: 'Laminatsiya label sozlamalari uchun serverni yangilang');
     }
-    return payload['settings']['layer_remainders_required'] as bool;
+    return AdminLaminationLabelSettings.fromJson(settings);
   }
 
   Future<AdminLaminationAstatkaSnapshot> adminLaminationAstatkaSnapshot({
@@ -352,7 +405,8 @@ extension MobileApiAdminLayerRemainders on MobileApi {
         request['order_id']?.toString() ?? '');
     if (request['request_id']?.toString().trim().isNotEmpty != true ||
         request['session_id']?.toString().trim().isNotEmpty != true ||
-        request['layer_remainders'] is! List) {
+        (request['layer_remainders'] is! List &&
+            request['layer_remainder_weights'] is! Map)) {
       throw const MobileApiException(
           code: 'laminatsiya_astatka_metrics_required',
           message: 'Astatka hisobotini to‘liq kiriting');

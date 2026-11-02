@@ -57,21 +57,73 @@ void main() {
     }
   });
 
-  test(
-      'QR layer requirement defaults on for older servers and supports disabling',
+  test('two-field protocol support and independent label settings are explicit',
       () {
-    expect(AdminLaminationAstatkaSnapshot.fromJson({}).layerRemaindersRequired,
-        isTrue);
-    expect(
-        AdminLaminationAstatkaSnapshot.fromJson({
-          'layer_remainders_required': true,
-        }).layerRemaindersRequired,
-        isTrue);
-    expect(
-        AdminLaminationAstatkaSnapshot.fromJson({
-          'layer_remainders_required': false,
-        }).layerRemaindersRequired,
+    expect(AdminLaminationAstatkaSnapshot.fromJson({}).supportsRemainderWeights,
         isFalse);
+    for (final wip in [false, true]) {
+      for (final film in [false, true]) {
+        final snapshot = AdminLaminationAstatkaSnapshot.fromJson({
+          'remainder_weights_supported': true,
+          'label_settings': {
+            'print_wip_remainder_labels': wip,
+            'print_film_remainder_labels': film,
+          },
+        });
+        expect(snapshot.supportsRemainderWeights, isTrue);
+        expect(snapshot.labelSettings.prints('progress_batch'), wip);
+        expect(snapshot.labelSettings.prints('raw_material'), film);
+      }
+    }
+  });
+
+  test('two kg fields submit source revisions and the same persisted request',
+      () async {
+    final payload = {
+      'apparatus': apparatus,
+      'order_id': 'order-1',
+      'session_id': source.sessionId,
+      'request_id': 'stable-two-fields-request',
+      'layer_remainder_weights': {
+        'wip_net_kg': 20.125,
+        'film_net_kg': 0,
+        'expected_sources': [
+          {
+            'source_kind': source.sourceKind,
+            'source_id': source.sourceId,
+            'expected_revision': source.revision,
+          }
+        ],
+      },
+      'print_transport': 'offline',
+    };
+    final requests = <Map>[];
+    await http.runWithClient(() async {
+      for (var i = 0; i < 2; i++) {
+        final result =
+            await MobileApi.instance.adminSubmitLaminationAstatka(payload);
+        expect(result.remainders.single.operationId, 'remainder-operation');
+        expect(result.labelSettings.prints('progress_batch'), isFalse);
+        expect(result.labelSettings.prints('raw_material'), isTrue);
+      }
+    },
+        () => MockClient((request) async {
+              requests.add(jsonDecode(request.body) as Map);
+              return http.Response(
+                  jsonEncode({
+                    'ok': true,
+                    'report': {},
+                    'session': {'status': 'paused'},
+                    'remainders': [remainderPayload()],
+                    'label_settings': {
+                      'print_wip_remainder_labels': false,
+                      'print_film_remainder_labels': true,
+                    },
+                    'prints': [],
+                  }),
+                  200);
+            }));
+    expect(requests, [payload, payload]);
   });
 
   test('net weight ratio estimates 600 m without counting the core', () {

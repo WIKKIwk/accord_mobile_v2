@@ -1,7 +1,7 @@
 part of 'admin_production_map_orders_screen.dart';
 
 extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
-  // A null outcome selects the existing count/waste report without QR returns.
+  // Both label switches use this same report and remainder workflow.
   Future<_ProgressActionOutcome?> _runIntegratedLaminationAstatka({
     bool completeStage = false,
     bool fullCompletionReportRequired = false,
@@ -41,11 +41,10 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
       if (result != null) {
         committed = true;
         await preferences.remove(pendingKey);
-      } else if (!snapshot.layerRemaindersRequired) {
-        // The server confirmed there is no receipt for this pending request.
-        // Do not replay an uncommitted QR return after the admin disables it.
-        await preferences.remove(pendingKey);
-        return null;
+      } else if (!snapshot.supportsRemainderWeights) {
+        _showSheetNotice(context.l10n
+            .productionText('worker.lamination_label.backend_required'));
+        return _ProgressActionOutcome.failed;
       } else if (request != null) {
         final retry = await showDialog<bool>(
           context: context,
@@ -118,69 +117,48 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
               ? _ProgressActionOutcome.completed
               : _ProgressActionOutcome.failed;
         }
-        if (!completeStage &&
-            snapshot.sessionStatus == 'completed' &&
-            snapshot.sources.isEmpty) {
-          // Completed reports without physical inputs keep the established
-          // count/waste audit. They must never manufacture output or residuals.
-          await MobileApi.instance.adminLaminatsiyaAstatkaReport(
-            apparatus: station,
-            orderId: orderId,
-            laminationPrintLeftoverRolls: input.laminationPrintLeftoverRolls,
-            laminationFilmLeftoverRolls: input.laminationFilmLeftoverRolls,
-            totalWaste: input.totalWaste,
-            description: input.description,
-          );
-          committed = true;
-          result =
-              const AdminLaminationAstatkaResult(sessionStatus: 'completed');
-        } else {
-          final needsLabels = (input.finishedGoodsMeter ?? 0) > 0 ||
-              input.layerRemainders.any(
-                (layer) => (layer['remaining_net_kg'] as num) > 0,
-              );
-          if (needsLabels) {
-            printer = await _pickProgressPrinter(
-                context, widget.progressDriverUrlPicker);
-            if (!contextCurrent() || printer == null)
-              return _ProgressActionOutcome.cancelled;
-          }
-          request = {
-            if (completeStage) ...{
-              'action': 'complete',
-              'full_completion_report_required':
-                  input.fullCompletionReportRequired,
-            },
-            'apparatus': station,
-            'order_id': orderId,
-            'session_id': snapshot.sessionId,
-            'request_id':
-                '${completeStage ? 'complete' : 'astatka'}-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32).toRadixString(16)}',
-            'lamination_print_leftover_rolls':
-                input.laminationPrintLeftoverRolls,
-            'lamination_film_leftover_rolls': input.laminationFilmLeftoverRolls,
-            'total_waste':
-                completeStage ? input.totalWaste ?? 0 : input.totalWaste,
-            if (input.finishedGoodsMeter != null)
-              'finished_goods_meter': input.finishedGoodsMeter,
-            if (input.finishedGoodsKg != null)
-              'finished_goods_kg': input.finishedGoodsKg,
-            if (input.bobinaKg != null) 'bobina_kg': input.bobinaKg,
-            'description': input.description,
-            'layer_remainders': input.layerRemainders,
-            if (printer != null) ...{
-              'driver_url': printer.driverUrl,
-              'printer': printer.printer,
-              'print_mode': printer.printMode,
-              'print_transport': printer.transport.clientApiValue,
-              'print_count': 1,
-            },
-          };
-          // A lost response must never cause another output or residual to be made.
-          final persisted =
-              await preferences.setString(pendingKey, jsonEncode(request));
-          if (!persisted) throw StateError('astatka_pending_not_saved');
-        }
+        request = {
+          if (completeStage) ...{
+            'action': 'complete',
+            'full_completion_report_required':
+                input.fullCompletionReportRequired,
+          },
+          'apparatus': station,
+          'order_id': orderId,
+          'session_id': snapshot.sessionId,
+          'request_id':
+              '${completeStage ? 'complete' : 'astatka'}-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32).toRadixString(16)}',
+          'lamination_print_leftover_rolls': input.laminationPrintLeftoverRolls,
+          'lamination_film_leftover_rolls': input.laminationFilmLeftoverRolls,
+          'total_waste':
+              completeStage ? input.totalWaste ?? 0 : input.totalWaste,
+          if (input.finishedGoodsMeter != null)
+            'finished_goods_meter': input.finishedGoodsMeter,
+          if (input.finishedGoodsKg != null)
+            'finished_goods_kg': input.finishedGoodsKg,
+          if (input.bobinaKg != null) 'bobina_kg': input.bobinaKg,
+          'description': input.description,
+          'layer_remainder_weights': {
+            'wip_net_kg': input.laminationPrintLeftoverRolls,
+            'film_net_kg': input.laminationFilmLeftoverRolls,
+            'expected_sources': [
+              for (final source in snapshot.sources)
+                {
+                  'source_kind': source.sourceKind,
+                  'source_id': source.sourceId,
+                  'expected_revision': source.revision,
+                },
+            ],
+          },
+          // Save first. Printer selection and hardware writes happen only
+          // after the authoritative receipt supplies the enabled label jobs.
+          'print_transport': 'offline',
+          'print_count': 1,
+        };
+        // A lost response must never cause another output or residual to be made.
+        final persisted =
+            await preferences.setString(pendingKey, jsonEncode(request));
+        if (!persisted) throw StateError('astatka_pending_not_saved');
       }
       if (!contextCurrent())
         return committed
@@ -190,8 +168,13 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
         // Replay keeps the exact saved business request. The response's labels
         // are reprinted explicitly when the original local printer is unknown.
         atomicPostSubmitted = true;
-        result =
-            await MobileApi.instance.adminSubmitLaminationAstatka(request!);
+        result = await MobileApi.instance.adminSubmitLaminationAstatka({
+          ...request!,
+          // Older saved drafts may still name a remote printer. Preserve their
+          // business identity while preparing labels for the post-save choice.
+          'print_transport': 'offline',
+          'print_count': 1,
+        });
         committed = true;
         await preferences.remove(pendingKey);
       }
@@ -205,33 +188,76 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
       });
       unawaited(_refreshQueueActionControlAfterWrite());
       var printFailed = false;
-      if (printer != null) {
-        final expected = {
-          for (final batch in result.progressBatches) batch.qrPayload,
-          for (final remainder in result.remainders)
-            if (remainder.remainingNetKg > 0 && remainder.qrPayload.isNotEmpty)
-              remainder.qrPayload,
-        };
-        final printed = <String>{};
-        for (final rawPrint in result.prints) {
-          try {
-            final qr = rawPrint['qr_payload']?.toString() ?? '';
-            if (!expected.contains(qr) ||
-                !printed.add(qr) ||
-                rawPrint['ok'] != true) {
-              throw StateError('astatka_print_identity_invalid');
+      final expected = {
+        for (final batch in result.progressBatches) batch.qrPayload,
+        for (final remainder in result.remainders)
+          if (remainder.remainingNetKg > 0 &&
+              remainder.qrPayload.isNotEmpty &&
+              result.labelSettings.prints(remainder.sourceKind))
+            remainder.qrPayload,
+      };
+      var printPending = expected.isNotEmpty;
+      if (expected.isNotEmpty && result.prints.isNotEmpty) {
+        printer =
+            await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
+        if (!contextCurrent()) return _ProgressActionOutcome.completed;
+        if (printer != null) {
+          printPending = false;
+          final remainders = {
+            for (final r in result.remainders) r.qrPayload: r
+          };
+          final batches = {
+            for (final b in result.progressBatches) b.qrPayload: b
+          };
+          final printed = <String>{};
+          for (final rawPrint in result.prints) {
+            try {
+              final qr = rawPrint['qr_payload']?.toString() ?? '';
+              if (!expected.contains(qr) ||
+                  !printed.add(qr) ||
+                  rawPrint['ok'] != true) {
+                throw StateError('astatka_print_identity_invalid');
+              }
+              if (printer.transport.isLocal) {
+                await _printAstatkaLocalJob(
+                    UsbRpsPrintRequest.fromPrintJson(rawPrint), qr, printer);
+              } else if (remainders[qr] case final remainder?) {
+                final prepared =
+                    await MobileApi.instance.adminLayerRemainderReprint(
+                  apparatus: station,
+                  orderId: orderId,
+                  operationId: remainder.operationId,
+                  driverUrl: printer.driverUrl,
+                  printer: printer.printer,
+                  printMode: printer.printMode,
+                  printTransport: printer.transport,
+                );
+                if (!prepared.printOk || prepared.remainder.qrPayload != qr)
+                  throw StateError('print_failed');
+              } else if (batches[qr] case final batch?) {
+                final prepared =
+                    await MobileApi.instance.adminProgressQrReprint(
+                  qrPayload: qr,
+                  progressBatchId: batch.batchId,
+                  driverUrl: printer.driverUrl,
+                  printer: printer.printer,
+                  printMode: printer.printMode,
+                  printTransport: printer.transport,
+                );
+                if (!prepared.ok) throw StateError('print_failed');
+              } else {
+                throw StateError('print_identity_mismatch');
+              }
+            } catch (_) {
+              printFailed = true;
             }
-            await _printAstatkaLocalJob(
-                UsbRpsPrintRequest.fromPrintJson(rawPrint), qr, printer);
-          } catch (_) {
-            printFailed = true;
           }
+          if (printed.length != expected.length) printFailed = true;
         }
-        if (printed.length != expected.length) printFailed = true;
       }
       if (!contextCurrent()) return _ProgressActionOutcome.completed;
       await _showLaminationAstatkaLabels(
-          result: result, printFailed: printFailed);
+          result: result, printFailed: printFailed, printPending: printPending);
       return _ProgressActionOutcome.completed;
     } catch (error) {
       if (!committed &&
@@ -262,6 +288,7 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
   Future<void> _showLaminationAstatkaLabels({
     AdminLaminationAstatkaResult? result,
     bool printFailed = false,
+    bool printPending = false,
     bool resumeGuidance = false,
   }) =>
       showModalBottomSheet<bool>(
@@ -275,6 +302,7 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
           progressDriverUrlPicker: widget.progressDriverUrlPicker,
           initialResult: result,
           printFailed: printFailed,
+          printPending: printPending,
           resumeGuidance: resumeGuidance,
         ),
       );
@@ -302,6 +330,7 @@ class LaminationLayerRemainderSheet extends StatefulWidget {
     this.progressDriverUrlPicker,
     this.initialResult,
     this.printFailed = false,
+    this.printPending = false,
     this.resumeGuidance = false,
   });
 
@@ -310,6 +339,7 @@ class LaminationLayerRemainderSheet extends StatefulWidget {
   final Future<String?> Function(BuildContext)? progressDriverUrlPicker;
   final AdminLaminationAstatkaResult? initialResult;
   final bool printFailed;
+  final bool printPending;
   final bool resumeGuidance;
 
   @override
@@ -431,6 +461,7 @@ class _LaminationLayerRemainderSheetState
               if (widget.resumeGuidance)
                 Text(context.l10n
                     .productionText('worker.lamination_astatka.resume_scan')),
+              if (widget.printPending) Text(_text('print_pending')),
               if (widget.printFailed)
                 Text(_text('print_failed'),
                     style: TextStyle(color: theme.colorScheme.error)),

@@ -41,7 +41,8 @@ void main() {
   late bool mandatoryUpdates;
   late bool failUpdateRead;
   late int updateWrites;
-  late bool laminationRequired;
+  late bool printWipLabels;
+  late bool printFilmLabels;
   late int laminationWrites;
   late bool automaticQolips;
   late int qolipRevision;
@@ -58,7 +59,8 @@ void main() {
     mandatoryUpdates = false;
     failUpdateRead = false;
     updateWrites = 0;
-    laminationRequired = true;
+    printWipLabels = true;
+    printFilmLabels = true;
     laminationWrites = 0;
     automaticQolips = false;
     qolipRevision = 0;
@@ -90,13 +92,22 @@ void main() {
         if (request.method == 'PUT') {
           laminationWrites++;
           if (failWrite) return http.Response('{}', 500);
-          laminationRequired = (jsonDecode(request.body)
-              as Map)['layer_remainders_required'] as bool;
+          final input = jsonDecode(request.body) as Map;
+          expect(input, hasLength(1));
+          if (input.containsKey('print_wip_remainder_labels')) {
+            printWipLabels = input['print_wip_remainder_labels'] as bool;
+          }
+          if (input.containsKey('print_film_remainder_labels')) {
+            printFilmLabels = input['print_film_remainder_labels'] as bool;
+          }
         }
         return http.Response(
             jsonEncode({
               'ok': true,
-              'settings': {'layer_remainders_required': laminationRequired},
+              'settings': {
+                'print_wip_remainder_labels': printWipLabels,
+                'print_film_remainder_labels': printFilmLabels,
+              },
             }),
             200);
       }
@@ -152,9 +163,11 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isFalse);
   });
 
-  testWidgets('brigader can save every existing additional settings card', (tester) async {
+  testWidgets('brigader can save every existing additional settings card',
+      (tester) async {
     AppSession.instance.profile = SessionProfile.fromJson({
-      'role': 'brigader', 'ref': 'brigader_test',
+      'role': 'brigader',
+      'ref': 'brigader_test',
       'capabilities': ['brigader.access'],
     });
     expect(AppRouter.canOpenRoute(AppRoutes.adminAdditionalSettings), isTrue);
@@ -164,7 +177,8 @@ void main() {
       for (final key in [
         'mandatory-app-update-switch',
         'paddon-worker-visibility-switch',
-        'lamination-layer-remainders-switch',
+        'lamination-wip-label-switch',
+        'lamination-film-label-switch',
         'qolip-automatic-confirmation-switch',
       ]) {
         final finder = find.byKey(ValueKey(key));
@@ -177,18 +191,23 @@ void main() {
       }
       expect(mandatoryUpdates, isTrue);
       expect(workerVisibility, isTrue);
-      expect(laminationRequired, isFalse);
+      expect(printWipLabels, isFalse);
+      expect(printFilmLabels, isFalse);
       expect(automaticQolips, isTrue);
       expect(updateWrites, 1);
       expect(writes, 1);
-      expect(laminationWrites, 1);
+      expect(laminationWrites, 2);
       expect(qolipWrites, 1);
-      await tester.scrollUntilVisible(find.byKey(const ValueKey('paddon-free-movement-switch')), -180);
-      await tester.ensureVisible(find.byKey(const ValueKey('paddon-free-movement-switch')));
+      await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('paddon-free-movement-switch')), -180);
+      await tester.ensureVisible(
+          find.byKey(const ValueKey('paddon-free-movement-switch')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('paddon-free-movement-switch')));
+      await tester
+          .tap(find.byKey(const ValueKey('paddon-free-movement-switch')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('paddon-free-movement-confirm')));
+      await tester
+          .tap(find.byKey(const ValueKey('paddon-free-movement-confirm')));
       await tester.pumpAndSettle();
       expect(enabled, isTrue);
       expect(writes, 2);
@@ -321,44 +340,45 @@ void main() {
     }, () => client);
   });
 
-  testWidgets(
-      'lamination QR requirement persists independently of other settings',
+  testWidgets('lamination label switches persist independently for each layer',
       (tester) async {
-    const key = ValueKey('lamination-layer-remainders-switch');
+    const key = ValueKey('lamination-wip-label-switch');
+    const filmKey = ValueKey('lamination-film-label-switch');
     await http.runWithClient(() async {
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.byKey(key), 200);
       await tester.pumpAndSettle();
-      expect(
-          find.text(
-              'Laminatsiyachi ikki qatlamdan birini kiritish majburiyati'),
+      expect(find.text('Bosmadan ortgan rulon labelini chiqarish'),
           findsOneWidget);
       expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
       await tester.ensureVisible(find.byKey(key));
       await tester.tap(find.byKey(key));
       await tester.pumpAndSettle();
-      expect(laminationRequired, isFalse);
+      expect(printWipLabels, isFalse);
+      expect(printFilmLabels, isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.byKey(key), 200);
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
-      await tester.ensureVisible(find.byKey(key));
-      await tester.tap(find.byKey(key));
+      await tester.ensureVisible(find.byKey(filmKey));
+      await tester.tap(find.byKey(filmKey));
       await tester.pumpAndSettle();
-      expect(laminationRequired, isTrue);
+      expect(printWipLabels, isFalse);
+      expect(printFilmLabels, isFalse);
+      expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isFalse);
       expect(laminationWrites, 2);
       expect(writes, 0);
       expect(updateWrites, 0);
     }, () => client);
   });
 
-  testWidgets('failed lamination save keeps the server requirement enabled',
+  testWidgets('failed lamination save keeps both server label settings',
       (tester) async {
     failWrite = true;
-    const key = ValueKey('lamination-layer-remainders-switch');
+    const key = ValueKey('lamination-wip-label-switch');
     await http.runWithClient(() async {
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
@@ -367,7 +387,8 @@ void main() {
       await tester.ensureVisible(find.byKey(key));
       await tester.tap(find.byKey(key));
       await tester.pumpAndSettle();
-      expect(laminationRequired, isTrue);
+      expect(printWipLabels, isTrue);
+      expect(printFilmLabels, isTrue);
       expect(tester.widget<SwitchListTile>(find.byKey(key)).value, isTrue);
       expect(
           find.text('Laminatsiya sozlamasi saqlanmadi. Qayta urinib ko‘ring.'),

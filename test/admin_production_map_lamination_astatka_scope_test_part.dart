@@ -1,6 +1,7 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerLaminationAstatkaScopeTests() {
+  _registerLaminationLabelPolicyTests();
   Future<void> pumpUi(WidgetTester tester) async {
     // The disconnected-live indicator animates continuously in this fixture.
     for (var i = 0; i < 3; i++) {
@@ -124,7 +125,12 @@ void _registerLaminationAstatkaScopeTests() {
           await pumpUi(tester);
           expect(submissions, hasLength(1));
           expect(submissions.single['action'], 'complete');
-          expect(submissions.single['layer_remainders'], isEmpty);
+          expect(submissions.single, isNot(contains('layer_remainders')));
+          expect(submissions.single['layer_remainder_weights'], {
+            'wip_net_kg': double.parse(scenario.quantity),
+            'film_net_kg': double.parse(scenario.quantity),
+            'expected_sources': [],
+          });
           expect(submissions.single['lamination_print_leftover_rolls'],
               double.parse(scenario.quantity));
           expect(submissions.single['lamination_film_leftover_rolls'],
@@ -156,11 +162,19 @@ void _registerLaminationAstatkaScopeTests() {
                           },
                           'sources': [],
                           'allow_empty_sources': scenario.optional,
+                          'remainder_weights_supported': true,
                         }),
                         200);
                   }
                   submissions.add((jsonDecode(request.body) as Map)
                       .cast<String, dynamic>());
+                  if (scenario.quantity != '0') {
+                    return http.Response(
+                        jsonEncode({
+                          'error': 'lamination_remainder_source_missing',
+                        }),
+                        409);
+                  }
                   return http.Response(
                       jsonEncode({
                         'ok': true,
@@ -292,10 +306,6 @@ void _registerLaminationAstatkaScopeTests() {
           apparatus: _lamination1Id, orderId: id, control: control);
       final snapshot =
           await MobileApi.instance.adminProductionMapQueueSnapshot();
-      final apparatusCatalog =
-          await MobileApi.instance.adminApparatus(limit: 200);
-      final printedRollName = 'Bosmadan kelgan PET, apparat: '
-          '${apparatusCatalog.singleWhere((item) => item.id == _print8Id).name}, ish tugatildi';
       final pausedSnapshot = AdminApparatusQueueSnapshot(
         maps: [saved],
         sequences: {
@@ -353,18 +363,13 @@ void _registerLaminationAstatkaScopeTests() {
           await tester.ensureVisible(finish);
           await tester.tap(finish);
           if (scenario.full) {
-            await waitForSnapshotUi(
-                tester,
-                scenario.required
-                    ? find.text('Qavat astatkasi')
-                    : find.widgetWithText(
-                        TextFormField, 'Bosmadan ortgan rulon'));
+            await waitForSnapshotUi(tester,
+                find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'));
           }
         }
         await pumpUi(tester);
         final needsSnapshot = scenario.astatka || scenario.full;
-        final hasLayers = needsSnapshot && scenario.required;
-        if (needsSnapshot && !scenario.required) {
+        if (needsSnapshot) {
           await waitForSnapshotUi(tester,
               find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'));
           expect(find.widgetWithText(TextFormField, 'Plyonkadan ortgan rulon'),
@@ -377,34 +382,26 @@ void _registerLaminationAstatkaScopeTests() {
                       .productionText('worker.daily.field.total_waste')),
               findsOneWidget);
         }
-        if (hasLayers) {
-          for (var index = 0;
-              index < 30 && find.text('Qavat astatkasi').evaluate().isEmpty;
-              index++) {
-            await tester.pump(const Duration(milliseconds: 100));
-          }
-        }
         expect(snapshotReads, needsSnapshot ? 1 : 0);
-        expect(find.text('Qavat astatkasi'),
-            hasLayers ? findsOneWidget : findsNothing);
-        expect(find.text(printedRollName),
-            hasLayers ? findsOneWidget : findsNothing);
-        expect(find.text('Ulangan CPP'),
-            hasLayers ? findsOneWidget : findsNothing);
+        expect(find.text('Qavat astatkasi'), findsNothing);
+        expect(find.text('Ulangan CPP'), findsNothing);
         expect(find.textContaining('Oxirgi tayyor rulon'), findsNothing);
         expect(find.textContaining('Buyurtmani umumiy tugatish hisoboti'),
             findsNothing);
         expect(find.textContaining('apparatus:'), findsNothing);
-        if (hasLayers) {
-          expect(find.text('Qoldiqning sof og‘irligi'), findsNWidgets(2));
-          final kg = find.descendant(
-              of: find.ancestor(
-                  of: find.text(printedRollName), matching: find.byType(Card)),
-              matching: find.byType(TextFormField));
-          await tester.ensureVisible(kg);
-          await tester.enterText(kg, '20');
-          await tester.pump();
-          expect(find.text('Taxminiy metraj: ≈ 600 m'), findsOneWidget);
+        expect(find.text('Qoldiqning sof og‘irligi'), findsNothing);
+        if (needsSnapshot) {
+          for (final label in [
+            'Bosmadan ortgan rulon',
+            'Plyonkadan ortgan rulon'
+          ]) {
+            expect(
+                find.descendant(
+                  of: find.widgetWithText(TextFormField, label),
+                  matching: find.text('kg'),
+                ),
+                findsOneWidget);
+          }
         }
         expect(writes, isEmpty);
         await tester.tap(find.text('Bekor qilish'));
@@ -420,6 +417,11 @@ void _registerLaminationAstatkaScopeTests() {
                   return http.Response(
                       jsonEncode({
                         'layer_remainders_required': scenario.required,
+                        'remainder_weights_supported': true,
+                        'label_settings': {
+                          'print_wip_remainder_labels': scenario.required,
+                          'print_film_remainder_labels': !scenario.required,
+                        },
                         'session': {
                           'session_id': 'lamination-current',
                           'status': scenario.paused ? 'paused' : 'active'
@@ -449,6 +451,365 @@ void _registerLaminationAstatkaScopeTests() {
                       headers: {
                         'content-type': 'application/json; charset=utf-8'
                       });
+                }
+                return http.Response('{}', 200);
+              }));
+    });
+  }
+}
+
+void _registerLaminationLabelPolicyTests() {
+  for (final scenario in [
+    (
+      wip: false,
+      film: false,
+      cancel: false,
+      zero: false,
+      fail: false,
+      recovered: false
+    ),
+    (
+      wip: true,
+      film: false,
+      cancel: false,
+      zero: false,
+      fail: false,
+      recovered: false
+    ),
+    (
+      wip: false,
+      film: true,
+      cancel: false,
+      zero: false,
+      fail: false,
+      recovered: false
+    ),
+    (
+      wip: true,
+      film: true,
+      cancel: false,
+      zero: false,
+      fail: false,
+      recovered: false
+    ),
+    (
+      wip: true,
+      film: true,
+      cancel: true,
+      zero: false,
+      fail: false,
+      recovered: false
+    ),
+    (
+      wip: true,
+      film: true,
+      cancel: false,
+      zero: true,
+      fail: false,
+      recovered: false
+    ),
+    (
+      wip: true,
+      film: true,
+      cancel: false,
+      zero: false,
+      fail: true,
+      recovered: false
+    ),
+    (
+      wip: true,
+      film: true,
+      cancel: false,
+      zero: false,
+      fail: false,
+      recovered: true
+    ),
+  ]) {
+    testWidgets('lamination label policy saves before printing: $scenario',
+        (tester) async {
+      Future<void> pumpUi() async {
+        for (var i = 0; i < 4; i++) {
+          await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 20)));
+          await tester.pump(const Duration(milliseconds: 200));
+        }
+      }
+
+      await TestModeController.instance.setEnabled(true);
+      AppSession.instance.profile = null;
+      await AppSession.instance.setSession(
+        token: 'lamination-label-worker',
+        profile: const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Laminator',
+          legalName: '',
+          ref: 'lamination-label-worker',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [_lamination1Id],
+        ),
+      );
+      const orderId = 'zakaz-lamination-label-policy';
+      await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+        id: orderId,
+        title: 'Label policy',
+        productCode: 'PET',
+        product: 'PET',
+        orderNumber: '0088',
+        apparatusId: _lamination1Id,
+      ));
+      await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: _lamination1Id, orderIds: [orderId]);
+      await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: _lamination1Id, orderId: orderId, action: 'start');
+      setMobileApiTestModeQueueActionControlFixture(
+          apparatus: _lamination1Id,
+          orderId: orderId,
+          control: _inProgressQueueControl(completeRequiresFullReport: true));
+      final queue = await MobileApi.instance.adminProductionMapQueueSnapshot();
+      final settings = {
+        'print_wip_remainder_labels': scenario.wip,
+        'print_film_remainder_labels': scenario.film,
+      };
+      final remainders = [
+        for (final kind in ['progress_batch', 'raw_material'])
+          {
+            'operation_id': 'saved-$kind',
+            'source_kind': kind,
+            'source_id': 'original-$kind',
+            'qr_payload': 'saved-$kind-qr',
+            'remaining_net_kg': scenario.zero ? 0 : 20.125,
+            'remaining_meter': scenario.zero ? 0 : 603.75,
+            'producer_name': 'Original $kind',
+          },
+      ];
+      final printable = [
+        for (final r in remainders)
+          if (!scenario.zero &&
+              (r['source_kind'] == 'progress_batch'
+                  ? scenario.wip
+                  : scenario.film))
+            r,
+      ];
+      final submissions = <Map<String, dynamic>>[];
+      final reprints = <String>[];
+      var printerPicks = 0;
+      await http.runWithClient(() async {
+        await _usePhoneViewport(tester);
+        await tester.pumpWidget(MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+            queueSnapshotLoader: () async => queue,
+            liveEventsLoader: () => const Stream.empty(),
+            progressDriverUrlPicker: (_) async {
+              expect(submissions, hasLength(1));
+              printerPicks++;
+              return scenario.cancel ? null : 'http://printer.test';
+            },
+          ),
+        ));
+        await pumpUi();
+        if (find.text('Laminatsiya 1').evaluate().isNotEmpty) {
+          await tester.tap(find.text('Laminatsiya 1'));
+          await pumpUi();
+        }
+        await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
+        await pumpUi();
+        await TestModeController.instance.setEnabled(false);
+        final preferences = await SharedPreferences.getInstance();
+        final pendingKey =
+            'lamination_complete_pending:lamination-label-worker:$_lamination1Id:$orderId';
+        if (scenario.recovered) {
+          await preferences.setString(
+              pendingKey, jsonEncode({'request_id': 'lost-response'}));
+        }
+        await tester.ensureVisible(find.text('Tugatish'));
+        await tester.tap(find.text('Tugatish'));
+        if (scenario.recovered) {
+          for (var i = 0;
+              i < 20 &&
+                  find.byType(LaminationLayerRemainderSheet).evaluate().isEmpty;
+              i++) {
+            await pumpUi();
+          }
+          final receipt = tester.widget<LaminationLayerRemainderSheet>(
+              find.byType(LaminationLayerRemainderSheet));
+          expect(receipt.initialResult!.remainders, hasLength(2));
+          expect(receipt.printPending, isTrue);
+          expect(submissions, isEmpty);
+          expect(reprints, isEmpty);
+          expect(printerPicks, 0);
+          expect(preferences.containsKey(pendingKey), isFalse);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await pumpUi();
+          expect(tester.takeException(), isNull);
+          return;
+        }
+        final first =
+            find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon');
+        for (var i = 0; i < 50 && first.evaluate().isEmpty; i++) {
+          await pumpUi();
+        }
+        expect(first, findsOneWidget);
+        expect(find.text('Qavat astatkasi'), findsNothing);
+        final l10n = AppLocalizations(const Locale('uz'));
+        for (final entry in {
+          'worker.daily.field.roll': '1',
+          'worker.daily.field.print_leftover': scenario.zero ? '0' : '20.125',
+          'worker.daily.field.film_leftover': scenario.zero ? '0' : '20.125',
+          'worker.daily.field.total_waste': '0',
+          'worker.daily.field.length': '100',
+          'worker.daily.field.weight': '10',
+        }.entries) {
+          final field = find.widgetWithText(
+              TextFormField, l10n.productionText(entry.key));
+          await tester.ensureVisible(field);
+          await tester.enterText(field, entry.value);
+        }
+        await tester.ensureVisible(find.text('Tasdiqlash'));
+        await tester.tap(find.text('Tasdiqlash'));
+        for (var i = 0;
+            i < 20 &&
+                find.byType(LaminationLayerRemainderSheet).evaluate().isEmpty;
+            i++) {
+          await pumpUi();
+        }
+        expect(find.byType(LaminationLayerRemainderSheet), findsOneWidget);
+        expect(submissions, hasLength(1));
+        expect(submissions.single['print_transport'], 'offline');
+        expect(submissions.single['layer_remainder_weights'], {
+          'wip_net_kg': scenario.zero ? 0 : 20.125,
+          'film_net_kg': scenario.zero ? 0 : 20.125,
+          'expected_sources': [
+            for (final kind in ['progress_batch', 'raw_material'])
+              {
+                'source_kind': kind,
+                'source_id': 'original-$kind',
+                'expected_revision': 7,
+              },
+          ],
+        });
+        expect(printerPicks, printable.isEmpty ? 0 : 1);
+        expect(
+            reprints,
+            scenario.cancel
+                ? isEmpty
+                : printable.map((r) => r['operation_id']).toList());
+        final receipt = tester.widget<LaminationLayerRemainderSheet>(
+            find.byType(LaminationLayerRemainderSheet));
+        expect(receipt.initialResult!.remainders, hasLength(2));
+        expect(receipt.printPending, scenario.cancel && printable.isNotEmpty);
+        expect(receipt.printFailed, scenario.fail && printable.isNotEmpty);
+        expect(
+            preferences
+                .getKeys()
+                .where((key) => key.startsWith('lamination_complete_pending:')),
+            isEmpty);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await pumpUi();
+        expect(tester.takeException(), isNull);
+      },
+          () => MockClient((request) async {
+                if (request.url.path.endsWith('/laminatsiya-astatka')) {
+                  if (request.method == 'GET') {
+                    if (scenario.recovered) {
+                      expect(request.url.queryParameters['request_id'],
+                          'lost-response');
+                      return http.Response(
+                          jsonEncode({
+                            'remainder_weights_supported': true,
+                            'sources': [],
+                            'request_result': {
+                              'ok': true,
+                              'action': 'complete',
+                              'label_settings': settings,
+                              'session': {
+                                'session_id': 'label-policy-session',
+                                'status': 'completed'
+                              },
+                              'remainders': remainders,
+                              'progress_batches': [],
+                            },
+                          }),
+                          200);
+                    }
+                    return http.Response(
+                        jsonEncode({
+                          'remainder_weights_supported': true,
+                          'label_settings': settings,
+                          'session': {
+                            'session_id': 'label-policy-session',
+                            'status': 'active'
+                          },
+                          'sources': [
+                            for (final kind in [
+                              'progress_batch',
+                              'raw_material'
+                            ])
+                              {
+                                'source_kind': kind,
+                                'source_id': 'original-$kind',
+                                'session_id': 'label-policy-session',
+                                'revision': 7,
+                                'source_net_kg': 50,
+                                'source_meter': 1500,
+                                'tare_kg': 2,
+                              },
+                          ],
+                        }),
+                        200);
+                  }
+                  submissions.add((jsonDecode(request.body) as Map)
+                      .cast<String, dynamic>());
+                  return http.Response(
+                      jsonEncode({
+                        'ok': true,
+                        'action': 'complete',
+                        'label_settings': settings,
+                        'session': {
+                          'session_id': 'label-policy-session',
+                          'status': 'completed'
+                        },
+                        'remainders': remainders,
+                        'progress_batches': [],
+                        'prints': [
+                          for (final r in printable)
+                            {'ok': true, 'qr_payload': r['qr_payload']}
+                        ],
+                      }),
+                      200);
+                }
+                if (request.url.path.endsWith('/layer-remainders/reprint')) {
+                  final operationId = (jsonDecode(request.body)
+                      as Map)['operation_id'] as String;
+                  reprints.add(operationId);
+                  return http.Response(
+                      jsonEncode({
+                        'ok': true,
+                        'remainder': remainders.singleWhere(
+                            (r) => r['operation_id'] == operationId),
+                        'print': {
+                          'ok': !scenario.fail,
+                          'status': scenario.fail ? 'print_failed' : 'printed'
+                        },
+                      }),
+                      200);
+                }
+                if (request.url.path.endsWith('/layer-remainders')) {
+                  return http.Response(
+                      jsonEncode({'sources': [], 'remainders': remainders}),
+                      200);
                 }
                 return http.Response('{}', 200);
               }));
