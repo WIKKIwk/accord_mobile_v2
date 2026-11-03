@@ -179,7 +179,7 @@ void main() {
       await tester.tap(save);
       await tester.pumpAndSettle();
       const conflictMessage =
-          'Alining Rezka 1 bo‘yicha ochiq ishi bor. Avval ishni yakunlang yoki topshiring.';
+          'Alining Rezka 1 bo‘yicha faol ishi bor. Avval ishni yakunlang yoki topshiring.';
       expect(
         find.descendant(
           of: find.byType(BottomSheet),
