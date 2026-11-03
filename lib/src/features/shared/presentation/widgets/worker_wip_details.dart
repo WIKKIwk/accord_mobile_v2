@@ -33,9 +33,13 @@ class WorkerWipDetails extends StatelessWidget {
             ? rawGross.toDouble()
             : null);
     final bobina = _weightUnits(batch.bobinaKg);
-    final net = gross != null && gross > 0 && bobina != null && bobina <= gross
-        ? gross - bobina
-        : null;
+    final net = gross == null || gross <= 0
+        ? null
+        : batch.payloadJson['include_bobina_in_net'] == true
+            ? gross
+            : bobina != null && bobina <= gross
+                ? gross - bobina
+                : null;
     String weight(int? units) =>
         units == null ? missing : _quantity(units / 1000000, 'kg');
     final source = _apparatusName([batch.apparatus]);

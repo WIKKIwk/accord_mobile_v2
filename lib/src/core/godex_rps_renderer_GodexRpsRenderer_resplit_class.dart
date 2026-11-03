@@ -84,12 +84,14 @@ class GodexRpsRenderer {
     _PackLabelContent content, {
     required _GodexGraphicNames graphicNames,
     required double grossQty,
+    required bool netIncludesBobina,
     required double progressQty,
     required String progressUnit,
   }) =>
       _GodexRpsRenderer__buildProgressCommands_resplit2AstPart(content,
           graphicNames: graphicNames,
           grossQty: grossQty,
+          netIncludesBobina: netIncludesBobina,
           progressQty: progressQty,
           progressUnit: progressUnit);
 

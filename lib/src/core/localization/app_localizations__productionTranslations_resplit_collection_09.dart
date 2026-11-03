@@ -319,6 +319,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     "en": "Enter this roll’s length, weight, core weight and diameter.",
     "ru": "Введите метраж, вес, вес бобины и диаметр этого рулона.",
   },
+  'worker.rezka.print.fill_roll_with_bobina': {
+    'uz': 'Shu rulonning metraj, umumiy og‘irlik va diametrini kiriting.',
+    'en': 'Enter this roll’s length, total weight and diameter.',
+    'ru': 'Введите метраж, общий вес и диаметр этого рулона.',
+    'ur': 'اس رول کی لمبائی، کل وزن اور قطر درج کریں۔',
+  },
   'worker.rezka.print.saved': {
     "uz": "Saqlandi · ma’lumotlar qulflangan",
     "en": "Saved · fields locked",

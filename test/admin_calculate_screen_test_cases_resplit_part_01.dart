@@ -26,6 +26,7 @@ void _registeradmin_calculate_screen_testCases01() {
     resetMobileApiTestModeData();
 
     final result = await MobileApi.instance.adminAutoOpenProductionMap(
+      includeBobinaInNet: true,
       template: _template(itemCode: 'ITEM-1').copyWith(
         status: 'Rulon',
         kg: 120,
@@ -38,6 +39,7 @@ void _registeradmin_calculate_screen_testCases01() {
 
     expect(result.saved.map.id, 'zakaz-0001');
     expect(result.saved.map.orderNumber, '0001');
+    expect(result.saved.map.includeBobinaInNet, isTrue);
     expect(result.template?.sourceMapId, 'template-zakaz-0001');
     expect(result.saved.map.nodes.map((node) => node.id), [
       'start',

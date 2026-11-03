@@ -1,6 +1,92 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerRezkaRecordedRollTests() {
+  for (final stage in ['apparatus', 'apparatus-1']) {
+    testWidgets('bobina sale form follows repeated Rezka occurrence $stage',
+        (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      AppSession.instance.token = 'bobina-sale-worker';
+      AppSession.instance.profile = const SessionProfile(
+          role: UserRole.aparatchi,
+          displayName: 'Rezka operatori',
+          legalName: '',
+          ref: 'bobina-sale-worker',
+          phone: '',
+          avatarUrl: '',
+          capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+          assignedApparatus: [_rezkaId],
+      );
+      const order = 'zakaz-bobina-sale-dialog';
+      final map = _productionOrderMap(
+        id: order,
+        title: 'Bobina sale',
+        productCode: 'BOBINA-SALE',
+        orderNumber: '0022',
+        apparatusId: _rezkaId,
+        apparatusCopies: 2,
+        product: 'Bobina sale',
+      ).copyWith(includeBobinaInNet: true);
+      await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+        id: order,
+        title: 'Bobina sale',
+        productCode: 'BOBINA-SALE',
+        orderNumber: '0022',
+        apparatusId: _rezkaId,
+        product: 'Bobina sale',
+      ));
+      await MobileApi.instance.adminSaveProductionMapSequence(
+          apparatus: _rezkaId, orderIds: [order]);
+      await MobileApi.instance.adminApparatusQueueActionResult(
+          apparatus: _rezkaId, orderId: order, action: 'start');
+      await MobileApi.instance.adminSaveProductionMap(map);
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: _rezkaId,
+        orderId: order,
+        control: _inProgressQueueControl(
+          stageNodeId: stage,
+          allowRollComplete: true,
+          rezkaOutputKadrCounts: [1],
+          rezkaOutputReport: AdminRezkaOutputReport.tryFromJson({
+            'cycle_id': 'bobina-sale-cycle',
+            'frames': [],
+          }),
+        ),
+      );
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminProductionMapOrdersScreen(readOnly: true, workerMode: true),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rezka'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('worker-order-$order')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rulonni yechish'));
+      await tester.pumpAndSettle();
+      final bobina = find.byKey(const ValueKey('rezka-frame-0-bobina'));
+      expect(bobina, stage == 'apparatus' ? findsOneWidget : findsNothing);
+      if (stage == 'apparatus-1') {
+        expect(find.text('Rulonning umumiy og‘irligi'), findsOneWidget);
+        await tester.ensureVisible(
+            find.byKey(const ValueKey('rezka-frame-0-print')));
+        await tester.tap(find.byKey(const ValueKey('rezka-frame-0-print')));
+        await tester.pumpAndSettle();
+        expect(
+            find.text('Shu rulonning metraj, umumiy og‘irlik va diametrini kiriting.'),
+            findsOneWidget);
+      }
+    });
+  }
+
   for (final savedIssue in [false, true]) {
     testWidgets(
         'recorded Rezka roll ${savedIssue ? "issue" : "printed"} stays locked in pause and completion dialogs',

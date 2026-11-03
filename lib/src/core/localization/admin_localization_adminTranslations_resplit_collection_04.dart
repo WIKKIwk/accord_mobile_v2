@@ -68,6 +68,18 @@ const _admin_localization_adminTranslations_resplitPart04 = {
     'ru': 'Открыть заказ',
     'ur': 'آرڈر کھولیں',
   },
+  'admin.calculate.include_bobina_in_net': {
+    'uz': 'Babina bilan sotiladi',
+    'en': 'Sell with the bobbin',
+    'ru': 'Продажа с бобиной',
+    'ur': 'بوبن سمیت فروخت',
+  },
+  'admin.calculate.include_bobina_in_net_hint': {
+    'uz': 'Yakuniy rezkada rulonning umumiy vazni netto bo‘ladi.',
+    'en': 'At final cutting, the whole roll weight is used as net weight.',
+    'ru': 'На финальной резке общий вес рулона считается весом нетто.',
+    'ur': 'آخری کٹائی پر رول کا پورا وزن خالص وزن ہوگا۔',
+  },
   'admin.calculate.order_open_confirmation': {
     'uz': 'Buyurtma ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.',
     'en': 'Open the order? The system will assign its number automatically.',

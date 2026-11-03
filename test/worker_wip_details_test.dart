@@ -107,6 +107,23 @@ Future<void> _showDetails(
 }
 
 void main() {
+  for (final bobina in <double?>[null, 1.125]) {
+    testWidgets('bobina sale WIP uses total as net with core $bobina',
+        (tester) async {
+      await _showDetails(
+        tester,
+        _batch(
+          payload: const {'gross_qty': 211.675, 'include_bobina_in_net': true},
+          bobinaKg: bobina,
+        ),
+      );
+      final row = find.ancestor(of: find.text('Netto'), matching: find.byType(Row)).first;
+      expect(find.descendant(of: row, matching: find.text('211.675 kg')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('WIP retains measured length and diameter for kg quantities',
       (tester) async {
     await _showDetails(

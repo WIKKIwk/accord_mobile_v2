@@ -1,6 +1,32 @@
 part of 'admin_calculate_screen_test.dart';
 
 void _registerQuickOrderHttpTests() {
+  for (final role in [UserRole.admin, UserRole.brigader, UserRole.salesManager]) {
+    testWidgets('bobina sale switch is available before calculation for $role',
+        (tester) async {
+      await TestModeController.instance.setEnabled(true);
+      AppSession.instance.profile = SessionProfile(
+        role: role,
+        displayName: 'Test',
+        legalName: 'Test',
+        ref: 'TEST-001',
+        phone: '',
+        avatarUrl: '',
+      );
+      await _pumpCalculateScreen(tester);
+      final bobinaSwitch =
+          find.byKey(const ValueKey('calculate-include-bobina-in-net'));
+      await tester.scrollUntilVisible(bobinaSwitch, 240,
+          scrollable: find.byType(Scrollable).first);
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(bobinaSwitch).value, isFalse);
+      await tester.tap(bobinaSwitch);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(bobinaSwitch).value, isTrue);
+    });
+  }
+
   testWidgets('saved quick order opens without a preliminary template write',
       (tester) async {
     await TestModeController.instance.setEnabled(false);
@@ -94,9 +120,25 @@ void _registerQuickOrderHttpTests() {
           scrollable: find.byType(Scrollable).first,
         );
         await tester.enterText(find.widgetWithText(TextFormField, 'KG'), kg);
+        await tester.pumpAndSettle();
+        final bobinaSwitch = find.byKey(const ValueKey('calculate-include-bobina-in-net'));
+        await tester.scrollUntilVisible(bobinaSwitch, 240,
+            scrollable: find.byType(Scrollable).first);
+        expect(tester.widget<SwitchListTile>(bobinaSwitch).value, isFalse);
+        if (kg == '100') {
+          await tester.tap(bobinaSwitch);
+          await tester.pumpAndSettle();
+          expect(tester.widget<SwitchListTile>(bobinaSwitch).value, isTrue);
+          await tester.tap(bobinaSwitch);
+          await tester.pumpAndSettle();
+          expect(tester.widget<SwitchListTile>(bobinaSwitch).value, isFalse);
+          await tester.tap(bobinaSwitch);
+          await tester.pumpAndSettle();
+        }
         await tester.ensureVisible(find.text('Hisoblash'));
         await tester.tap(find.text('Hisoblash'));
         await tester.pumpAndSettle();
+        expect(tester.widget<SwitchListTile>(bobinaSwitch).value, kg == '100');
         final openLabel = AppLocalizations(const Locale('uz')).adminText('calculate.order_open');
         await tester.scrollUntilVisible(find.text(openLabel), 240,
             scrollable: find.byType(Scrollable).first);
@@ -111,6 +153,7 @@ void _registerQuickOrderHttpTests() {
         expect(opened.length, kg == '100' ? 1 : 2, reason: requests.join('\n'));
         expect(opened.last['template']['kg'], double.parse(kg));
         expect(opened.last['map']['order_kg'], double.parse(kg));
+        expect(opened.last['map']['include_bobina_in_net'], kg == '100');
         expect(opened.last['template']['source_map_id'], sourceMapId);
         expect(opened.last['template']['frame_product_size_mm'], 410);
         expect(opened.last['template']['roll_count'], 6);

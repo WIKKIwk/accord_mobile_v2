@@ -327,6 +327,9 @@ extension _AdminProductionMapTestDefinitionState
           context != null ? context.printValSizeMm : savedMap?.printValSizeMm,
       orderKg: savedMap?.orderKg,
       baseLength: savedMap?.baseLength,
+      includeBobinaInNet: widget.templateOnly
+          ? savedMap?.includeBobinaInNet
+          : context?.includeBobinaInNet ?? savedMap?.includeBobinaInNet,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),
       edges: List<ProductionMapEdge>.unmodifiable(edges),
     );

@@ -386,6 +386,7 @@ extension MobileApiAdminProgressQr on MobileApi {
         unit: 'kg',
         tareEnabled: (batch.bobinaKg ?? 0) > 0,
         tareKg: batch.bobinaKg ?? 0,
+        includeBobinaInNet: batch.payloadJson['include_bobina_in_net'] == true,
         printCount: boundedPrintCount,
         labelKind: 'progress',
         executorName: batch.executorName,

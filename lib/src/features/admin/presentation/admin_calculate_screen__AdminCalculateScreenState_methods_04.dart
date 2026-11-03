@@ -6,6 +6,22 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
     final freshResult = _hasFreshCalculation ? _result : null;
     return [
       const SizedBox(height: 22),
+      if (widget.openedOrder == null && !widget.trainingMode) ...[
+        Material(
+          color: Colors.transparent,
+          child: SwitchListTile.adaptive(
+            key: const ValueKey('calculate-include-bobina-in-net'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.adminText('calculate.include_bobina_in_net')),
+            subtitle: Text(l10n.adminText('calculate.include_bobina_in_net_hint')),
+            value: _includeBobinaInNet,
+            onChanged: _openingSavedOrder || _openingAutomaticOrder
+                ? null
+                : (value) => setState(() => _includeBobinaInNet = value),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
       SpringPressable(
         enabled:
             !_calculating && !_loadingCombo && !_savingOpenedOrder && !_openingAutomaticOrder,

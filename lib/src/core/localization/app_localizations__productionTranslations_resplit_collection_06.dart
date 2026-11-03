@@ -354,6 +354,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'Weight',
     'ru': 'Вес',
   },
+  'worker.daily.field.total_roll_weight': {
+    'uz': 'Rulonning umumiy og‘irligi',
+    'en': 'Total roll weight',
+    'ru': 'Общий вес рулона',
+    'ur': 'رول کا کل وزن',
+  },
   'worker.daily.field.roll': {
     'uz': 'Babina',
     'en': 'Roll',

@@ -67,6 +67,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   final _frameCount = TextEditingController();
   final _edgeAllowanceMm = TextEditingController();
   bool _calculateByVal = false;
+  bool _includeBobinaInNet = false;
   final _printValSizeMm = TextEditingController();
   final _wastePercent = TextEditingController(text: '5');
   final _rollCount = TextEditingController();

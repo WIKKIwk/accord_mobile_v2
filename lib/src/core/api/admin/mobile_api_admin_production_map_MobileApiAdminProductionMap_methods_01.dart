@@ -251,6 +251,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
             'order_number': '',
             'order_kg': null,
             'base_length': null,
+            'include_bobina_in_net': null,
             'nodes': [
               for (final node in map.withoutAlternativeAssignments().nodes)
                 {
@@ -408,6 +409,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
 
   Future<ProductionMapSaveWithOrderResult> adminAutoOpenProductionMap({
     required CalculateOrderTemplate template,
+    bool includeBobinaInNet = false,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final map = ProductionMapDefinition(
@@ -424,6 +426,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
         widthMm: template.widthMm,
         printValSizeMm: template.printValSizeMm,
         orderKg: template.kg,
+        includeBobinaInNet: includeBobinaInNet,
         nodes: const [
           ProductionMapNode(
             id: 'start',
@@ -462,7 +465,10 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
         ),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'template': template.toJson()}),
+        body: jsonEncode({
+          'template': template.toJson(),
+          'include_bobina_in_net': includeBobinaInNet,
+        }),
       ),
     );
     if (response.statusCode != 200) {

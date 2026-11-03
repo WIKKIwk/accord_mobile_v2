@@ -162,6 +162,7 @@ class UsbRpsPrintRequest {
     this.unit = 'kg',
     this.tareEnabled = false,
     this.tareKg = 0,
+    this.includeBobinaInNet = false,
     this.printCount = 1,
     this.labelKind = '',
     this.executorName = '',
@@ -222,6 +223,7 @@ class UsbRpsPrintRequest {
       unit: json['unit']?.toString() ?? 'kg',
       tareEnabled: json['tare_enabled'] == true || json['tare'] == true,
       tareKg: (json['tare_kg'] as num?)?.toDouble() ?? 0,
+      includeBobinaInNet: json['include_bobina_in_net'] == true,
       printCount: (json['print_count'] as num?)?.toInt() ?? 1,
       labelKind: labelKind,
       executorName: executorName,
@@ -252,6 +254,7 @@ class UsbRpsPrintRequest {
   final String unit;
   final bool tareEnabled;
   final double tareKg;
+  final bool includeBobinaInNet;
   final int printCount;
   final String labelKind;
   final String executorName;
@@ -266,7 +269,10 @@ class UsbRpsPrintRequest {
   /// Kept out of the USB/LAN printer JSON contract.
   final List<String> paddonLabelLines;
 
-  double get netQty => (grossQty - tareKg).clamp(0, double.infinity).toDouble();
+  double get netQty => (netIncludesBobina ? grossQty : grossQty - tareKg)
+      .clamp(0, double.infinity).toDouble();
+
+  bool get netIncludesBobina => includeBobinaInNet && isProgressLabel;
 
   bool get isProgressLabel {
     final kind = labelKind.trim().toLowerCase();
@@ -331,6 +337,7 @@ class UsbRpsPrintRequest {
       unit: unit,
       tareEnabled: tareEnabled,
       tareKg: tareKg,
+      includeBobinaInNet: includeBobinaInNet,
       printCount: printCount,
       labelKind: labelKind,
       executorName: executorName,
@@ -418,6 +425,7 @@ class UsbRpsPrintRequest {
       'unit': _cleanText(unit, fallback: 'kg').toLowerCase(),
       'tare_enabled': tareEnabled || tareKg > 0,
       'tare_kg': tareKg.isFinite && tareKg > 0 ? tareKg : 0.0,
+      if (netIncludesBobina) 'include_bobina_in_net': true,
       'print_count': printCount > 1 ? printCount : 1,
       if (labelKind.trim().isNotEmpty)
         'label_kind': labelKind.trim().toLowerCase(),

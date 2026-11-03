@@ -22,7 +22,8 @@ class ZebraRpsRenderer {
       request.itemName.trim().isEmpty ? request.itemCode : request.itemName,
       fallback: '-',
     );
-    final hasTare = request.tareEnabled && request.tareKg > 0;
+    final netOnly = request.netIncludesBobina;
+    final hasTare = !netOnly && request.tareEnabled && request.tareKg > 0;
     final net = '${_rounded(request.netQty)} $unit';
     final gross = '${_rounded(request.grossQty)} $unit';
     final weightBlock = hasTare
@@ -30,7 +31,7 @@ class ZebraRpsRenderer {
             '^FDNETTO: $net^FS\n'
             '^FO8,158^A0N,36,32\n'
             '^FDBRUTTO: $gross^FS\n'
-        : '^FO8,118^A0N,44,38\n^FDVAZNI: $gross^FS\n';
+        : '^FO8,118^A0N,44,38\n^FD${netOnly ? 'NETTO' : 'VAZNI'}: $gross^FS\n';
     final epcY = hasTare ? 220 : 184;
     final barcodeY = hasTare ? 272 : 236;
     final rfidBlock = request.printMode.trim().toLowerCase() == 'rfid'

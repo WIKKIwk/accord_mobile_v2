@@ -48,6 +48,7 @@ class PrintService {
         unit: request.unit,
         tareEnabled: request.tareEnabled,
         tareKg: request.tareKg,
+        includeBobinaInNet: request.includeBobinaInNet,
         printCount: request.printCount,
         labelKind: request.labelKind,
         executorName: request.executorName,

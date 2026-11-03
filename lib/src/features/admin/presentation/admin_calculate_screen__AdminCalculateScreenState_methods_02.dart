@@ -42,7 +42,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final kg = _parseRequiredDouble(_kg.text);
       final currentDraft = _buildTemplateDraft();
       final signatureFields = currentDraft.toJson()..remove('saved_at');
-      final signature = signatureFields.toString();
+      final signature = '${signatureFields.toString()}|$_includeBobinaInNet';
       if (_savedOrderRequestId.isEmpty ||
           _savedOrderRequestSignature != signature) {
         _savedOrderRequestId =
@@ -70,6 +70,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         clearPrintValSize: !_calculateByVal,
         orderKg: kg,
         baseLength: plannedLength,
+        includeBobinaInNet: _includeBobinaInNet,
       );
       final draft = currentDraft.copyWith(
         orderNumber: '',
@@ -96,6 +97,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final normalizedOrder = result.saved.map.orderNumber.trim();
       _savedOrderRequestId = '';
       _savedOrderRequestSignature = '';
+      _includeBobinaInNet = false;
       showAdminTopNotice(
         context,
         context.l10n.adminText(
@@ -156,6 +158,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     try {
       final result = await MobileApi.instance.adminAutoOpenProductionMap(
         template: _buildTemplateDraft(),
+        includeBobinaInNet: _includeBobinaInNet,
       );
       if (!mounted || !templateStore.isCurrentScope(templateScope)) {
         return;

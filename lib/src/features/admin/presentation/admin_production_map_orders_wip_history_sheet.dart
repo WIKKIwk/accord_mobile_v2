@@ -896,6 +896,7 @@ class _WorkerWipHistoryTotals {
       gross: sum(_workerWipGrossUnits),
       net: sum((batch) {
         final gross = _workerWipGrossUnits(batch);
+        if (batch.payloadJson['include_bobina_in_net'] == true) return gross;
         final bobina = _workerWipMeasurementUnits(batch.bobinaKg);
         return gross != null && bobina != null && bobina <= gross
             ? gross - bobina

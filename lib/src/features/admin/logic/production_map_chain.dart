@@ -244,6 +244,24 @@ List<ProductionMapChainStage> productionMapNextWorkStagesForNode({
   return List<ProductionMapChainStage>.unmodifiable(result);
 }
 
+bool productionMapIncludesBobinaInOutputNet({
+  required ProductionMapDefinition map,
+  required bool isRezka,
+  required String stageNodeId,
+}) {
+  final nodeId = stageNodeId.trim();
+  if (!isRezka || map.includeBobinaInNet != true || nodeId.isEmpty) {
+    return false;
+  }
+  return productionMapLinearWorkStages(map).any(
+        (stage) => stage.isApparatus && stage.nodeId.trim() == nodeId,
+      ) &&
+      productionMapNextWorkStagesForNode(
+        map: map,
+        stageNodeId: nodeId,
+      ).isEmpty;
+}
+
 List<ProductionMapChainStage> productionMapOpeningWipSourceStages({
   required ProductionMapDefinition map,
   required Map<String, String> stageStates,

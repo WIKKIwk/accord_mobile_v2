@@ -101,6 +101,7 @@ GodexRpsPrintJob _GodexRpsRenderer__renderJob_resplit2AstPart(
           content,
           graphicNames: graphicNames,
           grossQty: request.grossQty,
+          netIncludesBobina: request.netIncludesBobina,
           progressQty: request.effectiveProgressQty,
           progressUnit: request.progressUnit.trim().isEmpty
               ? request.unit
@@ -375,6 +376,7 @@ List<String> _GodexRpsRenderer__buildProgressCommands_resplit2AstPart(
   _PackLabelContent content, {
   required _GodexGraphicNames graphicNames,
   required double grossQty,
+  required bool netIncludesBobina,
   required double progressQty,
   required String progressUnit,
 }) {
@@ -407,7 +409,7 @@ List<String> _GodexRpsRenderer__buildProgressCommands_resplit2AstPart(
   final qty = GodexRpsRenderer._normalizeKgValue(progressQty.toString());
   final qtyText = unit.isEmpty ? qty : '$qty $unit';
   commands.add(
-    'AB,16,264,1,1,0,0,KG: ${GodexRpsRenderer._normalizeKgValue(grossQty.toString())}',
+    'AB,16,264,1,1,0,0,${netIncludesBobina ? 'NETTO' : 'KG'}: ${GodexRpsRenderer._normalizeKgValue(grossQty.toString())}${netIncludesBobina ? ' KG' : ''}',
   );
   commands.add('AB,16,304,1,1,0,0,METRAJ: $qtyText');
   commands.add('BA,0,24,1,2,42,0,0,${content.epc}');

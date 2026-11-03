@@ -17,6 +17,7 @@ class ProductionMapDefinition {
     this.printValSizeMm,
     this.orderKg,
     this.baseLength,
+    this.includeBobinaInNet,
     required this.nodes,
     required this.edges,
   });
@@ -38,6 +39,7 @@ class ProductionMapDefinition {
   final double? orderKg;
   /// Planned production meters including waste and rounding; legacy API name.
   final double? baseLength;
+  final bool? includeBobinaInNet;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;
 
@@ -57,6 +59,7 @@ class ProductionMapDefinition {
       printValSizeMm: (json['print_val_size_mm'] as num?)?.toDouble(),
       orderKg: (json['order_kg'] as num?)?.toDouble(),
       baseLength: (json['base_length'] as num?)?.toDouble(),
+      includeBobinaInNet: json['include_bobina_in_net'] as bool?,
       nodes: (json['nodes'] as List<dynamic>? ?? const [])
           .map(
             (item) => ProductionMapNode.fromJson(item as Map<String, dynamic>),
@@ -86,6 +89,8 @@ class ProductionMapDefinition {
       if (printValSizeMm != null) 'print_val_size_mm': printValSizeMm,
       if (orderKg != null) 'order_kg': orderKg,
       if (baseLength != null) 'base_length': baseLength,
+      if (includeBobinaInNet != null)
+        'include_bobina_in_net': includeBobinaInNet,
       'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
       'edges': edges.map((edge) => edge.toJson()).toList(growable: false),
     };
@@ -108,6 +113,7 @@ class ProductionMapDefinition {
     bool clearPrintValSize = false,
     double? orderKg,
     double? baseLength,
+    bool? includeBobinaInNet,
     List<ProductionMapNode>? nodes,
     List<ProductionMapEdge>? edges,
   }) {
@@ -127,6 +133,7 @@ class ProductionMapDefinition {
           clearPrintValSize ? null : (printValSizeMm ?? this.printValSizeMm),
       orderKg: orderKg ?? this.orderKg,
       baseLength: baseLength ?? this.baseLength,
+      includeBobinaInNet: includeBobinaInNet ?? this.includeBobinaInNet,
       nodes: nodes ?? this.nodes,
       edges: edges ?? this.edges,
     );

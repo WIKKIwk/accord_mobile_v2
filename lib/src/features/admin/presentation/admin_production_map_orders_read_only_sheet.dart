@@ -3208,6 +3208,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       apparatus: widget.apparatus,
       order: widget.order,
       returnedPaintDraft: _returnedPaintDraft,
+      stageNodeId: _queueActionControl?.stageNodeId ?? '',
       fullCompletionReportRequired:
           fullCompletionReportRequired ?? _completionNeedsFullReport(action),
       closingOutputBatchId: action == 'complete'

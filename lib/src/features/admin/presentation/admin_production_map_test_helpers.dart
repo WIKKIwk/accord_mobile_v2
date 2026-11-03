@@ -32,6 +32,7 @@ class ProductionMapOrderContext {
     this.rollCount,
     this.widthMm,
     this.printValSizeMm,
+    this.includeBobinaInNet,
     this.apparatus = '',
     this.apparatusId = '',
     this.templateDraft,
@@ -47,6 +48,7 @@ class ProductionMapOrderContext {
   final double? rollCount;
   final double? widthMm;
   final double? printValSizeMm;
+  final bool? includeBobinaInNet;
   double? get printCompatibilityWidthMm => printValSizeMm ?? widthMm;
   final String apparatus;
   final String apparatusId;

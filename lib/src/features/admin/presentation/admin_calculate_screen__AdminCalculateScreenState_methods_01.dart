@@ -315,6 +315,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     }
     setState(() {
       _applyTemplate(saved);
+      if (sourceMapId.isEmpty) _includeBobinaInNet = false;
       _editingAllFields = false;
     });
   }
@@ -368,6 +369,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
       printValSizeMm: _activePrintValSizeMm,
+      includeBobinaInNet: _includeBobinaInNet,
       apparatus: widget.trainingMode ? widget.trainingApparatus.trim() : '',
       apparatusId: widget.trainingMode ? widget.trainingApparatusId.trim() : '',
       templateDraft: _buildTemplateDraft(),

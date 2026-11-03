@@ -20,6 +20,8 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
   bool get _isPechat => widget.operation.trim().toLowerCase() == 'print';
   bool get _isLaminatsiya => apparatusUsesLaminationWorkflow(widget.operation);
   bool get _isRezka => widget.operation.trim().toLowerCase() == 'cut';
+  bool get _includesBobinaInNet =>
+      _isRezka && _batch.payloadJson['include_bobina_in_net'] == true;
   bool get _showStandardWeights => _isPechat || _isLaminatsiya || _isRezka;
   bool get _showTotalWaste => _batch.totalWaste != null;
   bool get _showRezkaWaste =>
@@ -224,6 +226,7 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                             suffix: 'kg',
                             requiredField: true,
                           ),
+                          if (!_includesBobinaInNet) ...[
                           const SizedBox(height: 10),
                           _quantityField(
                             controller: _bobina,
@@ -233,6 +236,7 @@ class _DailyWorkWipEditDialogState extends State<_DailyWorkWipEditDialog> {
                             suffix: 'kg',
                             requiredField: true,
                           ),
+                          ],
                         ],
                         if (_isRezka) ...[
                           const SizedBox(height: 10),

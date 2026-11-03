@@ -56,7 +56,8 @@ BluetoothProgressLayout buildBluetoothProgressLayout(
           : 'YARIM TAYYOR';
   final gross = (payload['gross_qty'] as num?)?.toDouble() ?? 0;
   final tare = (payload['tare_kg'] as num?)?.toDouble() ?? 0;
-  final net = math.max(0.0, gross - tare);
+  final includesBobina = payload['include_bobina_in_net'] == true;
+  final net = includesBobina ? gross : math.max(0.0, gross - tare);
   final progress = (payload['progress_qty'] as num?)?.toDouble() ?? net;
   final weightUnit = value('unit').isEmpty ? 'KG' : value('unit');
   final progressUnit =
@@ -68,7 +69,7 @@ BluetoothProgressLayout buildBluetoothProgressLayout(
     'MAHSULOT NOMI: $customer - $product',
     'METRAJ: ${quantity(progress)} $progressUnit',
     'NETTO: ${quantity(net)} $weightUnit',
-    'BRUTTO: ${quantity(gross)} $weightUnit',
+    if (!includesBobina) 'BRUTTO: ${quantity(gross)} $weightUnit',
   ];
   final secondary = <String>[
     'HOLAT: $status',

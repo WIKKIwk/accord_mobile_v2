@@ -113,6 +113,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isBosma,
   required bool isLaminatsiya,
   required bool isRezka,
+  String stageNodeId = '',
   List<AdminApparatus> apparatusCatalog = const [],
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
@@ -150,6 +151,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
+      stageNodeId: stageNodeId,
       returnedPaintDraft: draft,
       fullCompletionReportRequired: fullCompletionReportRequired,
       closingOutputBatchId: closingOutputBatchId,
@@ -173,6 +175,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required String action,
   required AdminApparatus? apparatus,
   required ProductionMapSaved order,
+  String stageNodeId = '',
   List<AdminApparatus> apparatusCatalog = const [],
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
@@ -200,6 +203,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     isBosma: operation == 'print',
     isLaminatsiya: apparatus?.usesLaminationWorkflow ?? false,
     isRezka: operation == 'cut',
+    stageNodeId: stageNodeId,
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,
     closingOutputBatchId: closingOutputBatchId,
@@ -242,6 +246,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.isBosma,
     required this.isLaminatsiya,
     required this.isRezka,
+    this.stageNodeId = '',
     required this.returnedPaintDraft,
     required this.fullCompletionReportRequired,
     required this.closingOutputBatchId,
@@ -264,6 +269,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool isBosma;
   final bool isLaminatsiya;
   final bool isRezka;
+  final String stageNodeId;
   final ReturnedPaintDraft returnedPaintDraft;
   final bool fullCompletionReportRequired;
   final String closingOutputBatchId;
@@ -571,7 +577,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final values = [
       _parseQty(frame.meter.text),
       _parseQty(frame.kg.text),
-      _parseQty(frame.bobina.text),
+      if (!_rezkaNetIncludesBobina) _parseQty(frame.bobina.text),
       _parseQty(frame.diameter.text),
     ];
     return !_rezkaBobinaTooLarge(frame) &&
@@ -580,8 +586,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         );
   }
 
-  bool _rezkaBobinaTooLarge(_RezkaFrameControllers frame) => bobinaExceedsGross(
-      _parseQty(frame.kg.text), _parseQty(frame.bobina.text));
+  bool _rezkaBobinaTooLarge(_RezkaFrameControllers frame) =>
+      !_rezkaNetIncludesBobina &&
+      bobinaExceedsGross(_parseQty(frame.kg.text), _parseQty(frame.bobina.text));
 
   bool _rezkaFrameHasAnyMetric(_RezkaFrameControllers frame) {
     return [frame.meter, frame.kg, frame.bobina, frame.diameter].any(
@@ -615,7 +622,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       final frame = _rezkaFrameControllers[index];
       final meter = _parseQty(frame.meter.text);
       final kg = _parseQty(frame.kg.text);
-      final bobina = _parseQty(frame.bobina.text);
+      final bobina = _rezkaNetIncludesBobina && saved == null
+          ? null
+          : _parseQty(frame.bobina.text);
       final diameter = _parseQty(frame.diameter.text);
       final issueNote = frame.issueNote.text.trim().isEmpty
           ? fallbackIssueNote.trim()
@@ -1265,32 +1274,38 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             controller: frame.kg,
             focusNode: frame.kgFocusNode,
             onChanged: (value) => _updateRezkaMeterFromWeight(index, value),
-            label: context.l10n.productionText('worker.daily.field.weight'),
+            label: context.l10n.productionText(_rezkaNetIncludesBobina
+                ? 'worker.daily.field.total_roll_weight'
+                : 'worker.daily.field.weight'),
             error: requiredError(
-              context.l10n.productionText('worker.daily.field.weight'),
+              context.l10n.productionText(_rezkaNetIncludesBobina
+                  ? 'worker.daily.field.total_roll_weight'
+                  : 'worker.daily.field.weight'),
             ),
             suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
             requiredField: !issueAllowed && !savedIssue,
             positive: true,
           ),
-          const SizedBox(height: 10),
-          _qtyField(
-            key: ValueKey<String>('rezka-frame-$index-bobina'),
-            enabled: fieldsEnabled,
-            controller: frame.bobina,
-            focusNode: frame.bobinaFocusNode,
-            additionalValidator: (value) => _rezkaBobinaGrossError(
-              value,
-              frame.kg.text,
+          if (!_rezkaNetIncludesBobina) ...[
+            const SizedBox(height: 10),
+            _qtyField(
+              key: ValueKey<String>('rezka-frame-$index-bobina'),
+              enabled: fieldsEnabled,
+              controller: frame.bobina,
+              focusNode: frame.bobinaFocusNode,
+              additionalValidator: (value) => _rezkaBobinaGrossError(
+                value,
+                frame.kg.text,
+              ),
+              label: context.l10n.productionText('worker.daily.field.roll'),
+              error: context.l10n.productionText(
+                'worker.progress.qty.roll_required',
+              ),
+              suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
+              requiredField: !issueAllowed && !savedIssue,
+              positive: true,
             ),
-            label: context.l10n.productionText('worker.daily.field.roll'),
-            error: context.l10n.productionText(
-              'worker.progress.qty.roll_required',
-            ),
-            suffix: context.l10n.productionText('worker.progress.qty.unit.kg'),
-            requiredField: !issueAllowed && !savedIssue,
-            positive: true,
-          ),
+          ],
           const SizedBox(height: 10),
           _qtyField(
             key: ValueKey<String>('rezka-frame-$index-diameter'),
@@ -1384,6 +1399,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       !_isRollRemoval &&
       _isRezkaProgressLabelAction &&
       _rezkaFrameCount > 0;
+  bool get _rezkaNetIncludesBobina =>
+      _showRezkaFrameInputs &&
+      productionMapIncludesBobinaInOutputNet(
+        map: widget.order.map,
+        isRezka: widget.isRezka,
+        stageNodeId: widget.stageNodeId,
+      );
 
   Widget _buildContent(BuildContext context) {
     final theme = Theme.of(context);

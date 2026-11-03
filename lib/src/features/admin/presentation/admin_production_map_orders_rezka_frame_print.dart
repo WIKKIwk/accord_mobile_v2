@@ -75,7 +75,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         }
         target.meter.text = source.meter.text;
         target.kg.text = source.kg.text;
-        target.bobina.text = source.bobina.text;
+        target.bobina.text = _rezkaNetIncludesBobina ? '' : source.bobina.text;
         target.diameter.text = source.diameter.text;
       }
       return;
@@ -287,13 +287,15 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
             _rezkaBobinaTooLarge(frame)
                 ? context.l10n
                     .productionText('worker.progress.qty.bobina_exceeds_gross')
-                : _rezkaText('fill_roll'));
+                : _rezkaText(_rezkaNetIncludesBobina
+                    ? 'fill_roll_with_bobina'
+                    : 'fill_roll'));
         return;
       }
       input = _RezkaFrameInput(
         meterQty: _parseQty(frame.meter.text),
         kgQty: _parseQty(frame.kg.text),
-        bobinaKg: _parseQty(frame.bobina.text),
+        bobinaKg: _rezkaNetIncludesBobina ? null : _parseQty(frame.bobina.text),
         diameter: _parseQty(frame.diameter.text),
       );
     }

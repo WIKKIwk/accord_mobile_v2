@@ -133,6 +133,18 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
   );
   final parentBatchId = inputBatch?.batchId.trim() ?? '';
   final map = _testModeOrderById(orderId)?.map;
+  final stageId = _testModeQueueActionControlFixtures[apparatus]
+          ?[orderId.trim()]?.stageNodeId.trim() ?? '';
+  final stages = map == null
+      ? const <ProductionMapChainStage>[]
+      : productionMapLinearWorkStages(map)
+          .where((stage) => stage.apparatusId == apparatus.trim())
+          .toList(growable: false);
+  final effectiveStageId =
+      stageId.isNotEmpty ? stageId : (stages.length == 1 ? stages.single.nodeId : '');
+  final includeBobina = map != null &&
+      productionMapIncludesBobinaInOutputNet(
+        map: map, isRezka: true, stageNodeId: effectiveStageId);
   double? labelLength;
   if (map != null) {
     for (final node in map.nodes) {
@@ -234,6 +246,7 @@ List<AdminProgressBatch> _testModeRezkaProgressBatches({
         'rezka_frame_count': frameCount,
         'rezka_output_kind': 'frame',
         'rezka_metrics_owner': explicitFrameValues || index == 0,
+        if (includeBobina) 'include_bobina_in_net': true,
         if (frameGrossQty != null) 'gross_qty': frameGrossQty,
         if (labelLength != null) 'rezka_label_length': labelLength,
         if (rezkaFrameIssues.isNotEmpty) 'rezka_frame_issues': rezkaFrameIssues,
@@ -285,6 +298,7 @@ List<UsbRpsPrintRequest> _testModeProgressPrintJobs({
         completedAtUnix: batch.completedAtUnix,
         tareEnabled: (batch.bobinaKg ?? 0) > 0,
         tareKg: batch.bobinaKg ?? 0,
+        includeBobinaInNet: batch.payloadJson['include_bobina_in_net'] == true,
         customerName: customerName.trim().isEmpty
             ? (batch.payloadJson['customer_name']?.toString() ?? '')
             : customerName.trim(),
