@@ -242,7 +242,20 @@ void _registeradmin_worker_settings_screen_testCases01() {
       find.widgetWithText(CheckboxListTile, 'Laminatsiya 1'),
     );
     expect(selectedTile.value, isTrue);
-    await tester.pump(const Duration(seconds: 2));
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Laminatsiya 1'));
+    await tester.pumpAndSettle();
+    final save = find.byKey(const ValueKey('worker-apparatus-save'));
+    expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    final cleared = await MobileApi.instance.adminRoleAssignments();
+    expect(
+      cleared
+          .firstWhere((item) => item.principalRef == worker.id)
+          .assignedApparatus,
+      isEmpty,
+    );
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('worker apparatus duplicate assignment is reported clearly', (

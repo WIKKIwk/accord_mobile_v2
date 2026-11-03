@@ -6,6 +6,7 @@ class _WorkerSettingsCard extends StatelessWidget {
     required this.slot,
     required this.worker,
     required this.showIdentityActions,
+    required this.requireCutApparatus,
     required this.apparatus,
     required this.assignedApparatus,
     required this.savingApparatus,
@@ -21,6 +22,7 @@ class _WorkerSettingsCard extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final AdminWorker worker;
   final bool showIdentityActions;
+  final bool requireCutApparatus;
   final List<AdminApparatus> apparatus;
   final List<String> assignedApparatus;
   final bool savingApparatus;
@@ -164,6 +166,7 @@ class _WorkerSettingsCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         _WorkerApparatusAssignmentField(
                           workerId: worker.id,
+                          requireCutApparatus: requireCutApparatus,
                           apparatus: apparatus,
                           selected: assignedApparatus.toSet(),
                           saving: savingApparatus,
@@ -213,6 +216,7 @@ class _WorkerSettingsCard extends StatelessWidget {
 class _WorkerApparatusAssignmentField extends StatelessWidget {
   const _WorkerApparatusAssignmentField({
     required this.workerId,
+    required this.requireCutApparatus,
     required this.apparatus,
     required this.selected,
     required this.saving,
@@ -220,6 +224,7 @@ class _WorkerApparatusAssignmentField extends StatelessWidget {
   });
 
   final String workerId;
+  final bool requireCutApparatus;
   final List<AdminApparatus> apparatus;
   final Set<String> selected;
   final bool saving;
@@ -235,6 +240,7 @@ class _WorkerApparatusAssignmentField extends StatelessWidget {
       builder: (_) => _WorkerApparatusAssignmentSheet(
         apparatus: apparatus,
         selected: selected,
+        requireCutApparatus: requireCutApparatus,
         onSave: onSave,
       ),
     );
@@ -289,11 +295,13 @@ class _WorkerApparatusAssignmentSheet extends StatefulWidget {
   const _WorkerApparatusAssignmentSheet({
     required this.apparatus,
     required this.selected,
+    required this.requireCutApparatus,
     required this.onSave,
   });
 
   final List<AdminApparatus> apparatus;
   final Set<String> selected;
+  final bool requireCutApparatus;
   final Future<bool> Function(Set<String> selected) onSave;
 
   @override
@@ -303,11 +311,19 @@ class _WorkerApparatusAssignmentSheet extends StatefulWidget {
 
 class _WorkerApparatusAssignmentSheetState
     extends State<_WorkerApparatusAssignmentSheet> {
-  late final Set<String> _selected = Set<String>.of(widget.selected);
+  late final Set<String> _selected = widget.requireCutApparatus
+      ? {
+          for (final item in widget.apparatus)
+            if (widget.selected.contains(item.id)) item.id,
+        }
+      : Set<String>.of(widget.selected);
   bool _saving = false;
 
+  bool get _canSave =>
+      !_saving && (!widget.requireCutApparatus || _selected.isNotEmpty);
+
   Future<void> _save() async {
-    if (_saving) {
+    if (!_canSave) {
       return;
     }
     setState(() => _saving = true);
@@ -360,7 +376,11 @@ class _WorkerApparatusAssignmentSheetState
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 children: [
                   Text(
-                    l10n.adminText('scope.operator_description'),
+                    l10n.adminText(
+                      widget.requireCutApparatus
+                          ? 'rezka_master.rezka_apparatus_required'
+                          : 'scope.operator_description',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -389,7 +409,7 @@ class _WorkerApparatusAssignmentSheetState
                 width: double.infinity,
                 child: FilledButton(
                   key: const ValueKey('worker-apparatus-save'),
-                  onPressed: _saving ? null : _save,
+                  onPressed: _canSave ? _save : null,
                   child: Text(
                     _saving
                         ? l10n.adminText('action.saving')

@@ -26,6 +26,12 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Назначение аппаратов изменилось. Выберите заново.',
     'ur': 'مشینوں کی تفویض بدل گئی ہے۔ دوبارہ منتخب کریں۔',
   },
+  'admin.rezka_master.rezka_apparatus_required': {
+    'uz': 'Kamida bitta rezka apparatini tanlang.',
+    'en': 'Select at least one cutting machine.',
+    'ru': 'Выберите хотя бы один аппарат резки.',
+    'ur': 'کم از کم ایک کٹائی کی مشین منتخب کریں۔',
+  },
   'admin.rezka_master.rezka_worker_has_open_run': {
     'uz': 'Bu apparatda ishchining ochiq ishi bor. Avval ishni yakunlang yoki topshiring.',
     'en': 'The worker has an open run on this apparatus. Complete or hand off the run first.',

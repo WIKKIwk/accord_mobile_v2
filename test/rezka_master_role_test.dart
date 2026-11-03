@@ -59,7 +59,7 @@ void main() {
     }
   });
 
-  testWidgets('master uses the worker picker to add another cutting apparatus',
+  testWidgets('master can move or add cutting apparatus and cannot save none',
       (tester) async {
     const cut1 = 'apparatus:default:asset-010';
     const cut2 = 'apparatus:default:asset-011';
@@ -79,6 +79,7 @@ void main() {
       session.profile = null;
     });
     List<String> assignment = [cut1];
+    var saves = 0;
     final client = MockClient((request) async {
       final path = request.url.path;
       final Object body;
@@ -100,8 +101,9 @@ void main() {
           request.method == 'PUT') {
         final input = jsonDecode(request.body) as Map<String, dynamic>;
         expect(input['worker_id'], 'worker-ali');
-        expect(input['previous_apparatus_ids'], [cut1]);
+        expect(input['previous_apparatus_ids'], assignment);
         assignment = List<String>.from(input['apparatus_ids'] as List);
+        saves++;
         body = {'ok': true};
       } else if (path == '/v1/mobile/rezka-master/workers') {
         body = {
@@ -138,14 +140,36 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Ali'));
       await tester.pumpAndSettle();
-      await tester.tap(
-          find.byKey(const ValueKey('worker-apparatus-picker-worker-ali')));
+      final picker =
+          find.byKey(const ValueKey('worker-apparatus-picker-worker-ali'));
+      final save = find.byKey(const ValueKey('worker-apparatus-save'));
+      await tester.tap(picker);
       await tester.pumpAndSettle();
+      expect(
+        find.text('Kamida bitta rezka apparatini tanlang.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Rezka 1'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(save).onPressed, isNull);
+      expect(saves, 0);
+      expect(assignment, [cut1]);
+
       await tester.tap(find.widgetWithText(CheckboxListTile, 'Rezka 2'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('worker-apparatus-save')));
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(assignment, [cut2]);
+      expect(saves, 1);
+
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Rezka 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(save);
       await tester.pumpAndSettle();
       expect(assignment, [cut1, cut2]);
+      expect(saves, 2);
       await tester.pump(const Duration(seconds: 6));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();

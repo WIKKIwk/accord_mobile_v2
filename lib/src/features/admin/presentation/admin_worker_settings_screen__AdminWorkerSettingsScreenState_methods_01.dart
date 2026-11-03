@@ -150,8 +150,12 @@ extension __AdminWorkerSettingsScreenStateAstPart01
     } catch (error) {
       if (!mounted) return false;
       final code = error is MobileApiException ? error.code : '';
+      final assignmentChanged = code == 'rezka_assignment_changed' ||
+          (_rezkaMaster && code == 'worker_not_found');
       final message = switch (code) {
-        'rezka_assignment_changed' || 'rezka_worker_has_open_run' =>
+        _ when assignmentChanged =>
+          context.l10n.adminText('rezka_master.rezka_assignment_changed'),
+        'rezka_apparatus_required' || 'rezka_worker_has_open_run' =>
           context.l10n.adminText('rezka_master.$code'),
         _ => context.l10n.adminText(
           'scope.save_failed', values: {'error': error},
@@ -160,7 +164,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       showAdminTopNotice(
         context, message, icon: Icons.error, tone: AdminTopNoticeTone.error,
       );
-      if (code == 'rezka_assignment_changed') {
+      if (assignmentChanged) {
         _reload();
         return true;
       }
