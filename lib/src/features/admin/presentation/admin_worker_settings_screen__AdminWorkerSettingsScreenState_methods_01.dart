@@ -81,6 +81,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
     Set<String> selected,
     AdminRoleAssignment? currentAssignment,
     List<AdminApparatus> apparatus,
+    ValueChanged<String> onBlocked,
   ) async {
     final workerId = worker.id.trim();
     if (workerId.isEmpty || _savingApparatusWorkerIds.contains(workerId)) {
@@ -173,6 +174,10 @@ extension __AdminWorkerSettingsScreenStateAstPart01
           'scope.save_failed', values: {'error': error},
         ),
       };
+      if (code == 'rezka_worker_has_open_run') {
+        onBlocked(message);
+        return false;
+      }
       showAdminTopNotice(
         context, message, icon: Icons.error, tone: AdminTopNoticeTone.error,
       );

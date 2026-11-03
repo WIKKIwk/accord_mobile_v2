@@ -201,12 +201,14 @@ extension __AdminWorkerSettingsScreenStateAstPart02
                             unawaited(_openWorkerLevelPicker(workers[index])),
                         onEditName: () =>
                             unawaited(_openWorkerNameEditor(workers[index])),
-                        onSaveApparatus: (selected) => _saveWorkerApparatus(
-                          workers[index],
-                          selected,
-                          data?.assignmentsByWorker[workers[index].id.trim()],
-                          data?.apparatus ?? const <AdminApparatus>[],
-                        ),
+                        onSaveApparatus: (selected, onBlocked) =>
+                            _saveWorkerApparatus(
+                              workers[index],
+                              selected,
+                              data?.assignmentsByWorker[workers[index].id.trim()],
+                              data?.apparatus ?? const <AdminApparatus>[],
+                              onBlocked,
+                            ),
                         deleting: _deactivatingWorkerId == workers[index].id,
                         onDelete: () => unawaited(
                           _deactivateWorker(

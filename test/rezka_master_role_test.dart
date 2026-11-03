@@ -178,12 +178,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(save);
       await tester.pumpAndSettle();
+      const conflictMessage =
+          'Alining Rezka 1 bo‘yicha ochiq ishi bor. Avval ishni yakunlang yoki topshiring.';
       expect(
-        find.text(
-          'Alining Rezka 1 bo‘yicha ochiq ishi bor. Avval ishni yakunlang yoki topshiring.',
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text(conflictMessage),
         ),
         findsOneWidget,
       );
+      expect(find.widgetWithText(MaterialBanner, conflictMessage), findsNothing);
       expect(assignment, [cut1]);
       expect(saves, 0);
       await tester.tap(save);
