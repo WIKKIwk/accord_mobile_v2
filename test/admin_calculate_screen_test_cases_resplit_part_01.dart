@@ -25,20 +25,23 @@ void _registeradmin_calculate_screen_testCases01() {
     await TestModeController.instance.setEnabled(true);
     resetMobileApiTestModeData();
 
-    final result = await MobileApi.instance.adminAutoOpenProductionMap(
-      includeBobinaInNet: true,
-      template: _template(itemCode: 'ITEM-1').copyWith(
-        status: 'Rulon',
-        kg: 120,
-        productionOptions: const CalculateOrderProductionOptions(
-          printMethod: 'metal',
-          coldGlue: false,
-        ),
+    final template = _template(itemCode: 'ITEM-1').copyWith(
+      status: 'Rulon',
+      kg: 120,
+      productionOptions: const CalculateOrderProductionOptions(
+        printMethod: 'metal',
+        coldGlue: false,
       ),
+    );
+    final result = await MobileApi.instance.adminAutoOpenProductionMap(
+      template: template,
+      duplicateRezkaLabels: true,
+      includeBobinaInNet: true,
     );
 
     expect(result.saved.map.id, 'zakaz-0001');
     expect(result.saved.map.orderNumber, '0001');
+    expect(result.saved.map.duplicateRezkaLabels, isTrue);
     expect(result.saved.map.includeBobinaInNet, isTrue);
     expect(result.template?.sourceMapId, 'template-zakaz-0001');
     expect(result.saved.map.nodes.map((node) => node.id), [
@@ -46,6 +49,13 @@ void _registeradmin_calculate_screen_testCases01() {
       'auto_order',
       'end',
     ]);
+    final source = await MobileApi.instance.adminProductionMap('template-zakaz-0001');
+    expect(source.map.duplicateRezkaLabels, isNull);
+    final next = await MobileApi.instance.adminAutoOpenProductionMap(template: template);
+    expect(next.saved.map.id, 'zakaz-0002');
+    expect(next.saved.map.duplicateRezkaLabels, isFalse);
+    expect((await MobileApi.instance.adminProductionMap('zakaz-0001'))
+        .map.duplicateRezkaLabels, isTrue);
   });
 
   test(

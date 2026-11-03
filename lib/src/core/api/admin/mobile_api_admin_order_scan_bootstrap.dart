@@ -183,7 +183,6 @@ List<AdminRawMaterialAssignment>? _bootstrapMaterialAssignments(
     for (final raw in rows) {
       if (raw is! Map ||
           raw['order_id'] != control.orderId ||
-          raw['apparatus'] != control.apparatus ||
           raw['barcode'] is! String ||
           (raw['barcode'] as String).trim().isEmpty ||
           !barcodes.add((raw['barcode'] as String).trim().toUpperCase()) ||
@@ -191,8 +190,10 @@ List<AdminRawMaterialAssignment>? _bootstrapMaterialAssignments(
               .any((key) => raw[key] is! String)) {
         return null;
       }
-      result.add(
-          AdminRawMaterialAssignment.fromJson(raw.cast<String, dynamic>()));
+      final assignment =
+          AdminRawMaterialAssignment.fromJson(raw.cast<String, dynamic>());
+      if (assignment.apparatus != control.apparatus) return null;
+      result.add(assignment);
     }
   } catch (_) {
     return null;

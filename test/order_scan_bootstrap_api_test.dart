@@ -22,13 +22,21 @@ void main() {
     AppSession.instance.token = null;
   });
   test('bootstrap strict complete sections retain existing decoder values', () {
+    final body = scanBootstrap();
+    final materials = body['sections']['materials']['data'] as Map;
+    for (final key in ['assignments', 'start_assignments']) {
+      final row = (materials[key] as List).single as Map;
+      row['apparatus_id'] = scanApparatus;
+      row['apparatus'] = '7 ta rangli bosma aparat';
+    }
     final result = AdminOrderScanBootstrap.fromJson(
-      scanBootstrap(),
+      body,
       apparatus: scanApparatus,
       orderId: scanOrder,
     );
     expect(result.controlState.revision, 7);
     expect(result.materials!.startAssignments.single.barcode, 'ROLL1');
+    expect(result.materials!.startAssignments.single.apparatus, scanApparatus);
     expect(result.materials!.scanSatisfied, isFalse);
     expect(result.qolips!.requiredQolipCodes, ['MOLD1']);
     expect(result.queueContext, isNull);
@@ -40,6 +48,9 @@ void main() {
       () async {
     final body = _candidateSectionsBootstrap();
     final sections = body['sections'] as Map;
+    final row = (sections['material_assignments']['data'] as List).single as Map;
+    row['apparatus_id'] = scanApparatus;
+    row['apparatus'] = '7 ta rangli bosma aparat';
     final result = AdminOrderScanBootstrap.fromJson(body,
         apparatus: scanApparatus, orderId: scanOrder);
     await http.runWithClient(() async {

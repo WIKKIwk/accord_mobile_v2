@@ -96,7 +96,7 @@ class AdminRawMaterialAssignment {
       rollWidthMm: (json['roll_width_mm'] as num?)?.toDouble(),
       orderId: json['order_id']?.toString() ?? '',
       apparatus: _requireCanonicalApparatusId(
-        json['apparatus']?.toString() ?? '',
+        (json['apparatus_id'] ?? json['apparatus'])?.toString() ?? '',
       ),
       barcode: json['barcode']?.toString() ?? '',
       itemCode: json['item_code']?.toString() ?? '',

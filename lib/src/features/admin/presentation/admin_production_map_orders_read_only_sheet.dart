@@ -3208,7 +3208,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       apparatus: widget.apparatus,
       order: widget.order,
       returnedPaintDraft: _returnedPaintDraft,
-      stageNodeId: _queueActionControl?.stageNodeId ?? '',
       fullCompletionReportRequired:
           fullCompletionReportRequired ?? _completionNeedsFullReport(action),
       closingOutputBatchId: action == 'complete'
@@ -3219,6 +3218,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       workerHandoff: workerHandoff,
       removeRollFromApparatus: removeRollFromApparatus,
       freezeRequestSafeStop: freezeRequestSafeStop,
+      stageNodeId: _queueActionControl?.stageNodeId ?? '',
       rezkaOutputKadrCounts: rezkaOutputKadrCounts,
       // Saved slots are immutable within a cycle. Keep commits made by this
       // dialog when the parent's control snapshot has not caught up yet.

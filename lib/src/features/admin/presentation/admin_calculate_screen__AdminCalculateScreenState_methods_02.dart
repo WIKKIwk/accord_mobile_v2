@@ -42,7 +42,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final kg = _parseRequiredDouble(_kg.text);
       final currentDraft = _buildTemplateDraft();
       final signatureFields = currentDraft.toJson()..remove('saved_at');
-      final signature = '${signatureFields.toString()}|$_includeBobinaInNet';
+      final signature = '${signatureFields.toString()}|$_duplicateRezkaLabels|$_includeBobinaInNet';
       if (_savedOrderRequestId.isEmpty ||
           _savedOrderRequestSignature != signature) {
         _savedOrderRequestId =
@@ -70,6 +70,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         clearPrintValSize: !_calculateByVal,
         orderKg: kg,
         baseLength: plannedLength,
+        duplicateRezkaLabels: _duplicateRezkaLabels,
         includeBobinaInNet: _includeBobinaInNet,
       );
       final draft = currentDraft.copyWith(
@@ -97,6 +98,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final normalizedOrder = result.saved.map.orderNumber.trim();
       _savedOrderRequestId = '';
       _savedOrderRequestSignature = '';
+      _duplicateRezkaLabels = false;
       _includeBobinaInNet = false;
       showAdminTopNotice(
         context,
@@ -158,6 +160,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     try {
       final result = await MobileApi.instance.adminAutoOpenProductionMap(
         template: _buildTemplateDraft(),
+        duplicateRezkaLabels: _duplicateRezkaLabels,
         includeBobinaInNet: _includeBobinaInNet,
       );
       if (!mounted || !templateStore.isCurrentScope(templateScope)) {
@@ -248,6 +251,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           baseLength: calculation != null && calculation.results.isNotEmpty
               ? calculation.results.first.roundedLength
               : null,
+          duplicateRezkaLabels: _duplicateRezkaLabels,
           nodes: productionMapOrderFlowNodes(orderContext),
           edges: productionMapOrderFlowEdges(orderContext),
         ),

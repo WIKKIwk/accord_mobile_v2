@@ -314,6 +314,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       return;
     }
     setState(() {
+      if (sourceMapId.isEmpty) _duplicateRezkaLabels = false;
       _applyTemplate(saved);
       if (sourceMapId.isEmpty) _includeBobinaInNet = false;
       _editingAllFields = false;
@@ -369,6 +370,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       rollCount: _parseOptionalDouble(_rollCount.text),
       widthMm: _derivedWidthMm(),
       printValSizeMm: _activePrintValSizeMm,
+      duplicateRezkaLabels: _duplicateRezkaLabels,
       includeBobinaInNet: _includeBobinaInNet,
       apparatus: widget.trainingMode ? widget.trainingApparatus.trim() : '',
       apparatusId: widget.trainingMode ? widget.trainingApparatusId.trim() : '',

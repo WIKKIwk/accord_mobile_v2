@@ -327,6 +327,9 @@ extension _AdminProductionMapTestDefinitionState
           context != null ? context.printValSizeMm : savedMap?.printValSizeMm,
       orderKg: savedMap?.orderKg,
       baseLength: savedMap?.baseLength,
+      duplicateRezkaLabels: widget.templateOnly
+          ? null
+          : context?.duplicateRezkaLabels ?? savedMap?.duplicateRezkaLabels,
       includeBobinaInNet: widget.templateOnly
           ? savedMap?.includeBobinaInNet
           : context?.includeBobinaInNet ?? savedMap?.includeBobinaInNet,

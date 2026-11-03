@@ -25,10 +25,21 @@ void _registerQuickOrderHttpTests() {
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(bobinaSwitch).value, isTrue);
     });
+    _registerQuickOrderHttpTest(role);
   }
+}
 
-  testWidgets('saved quick order opens without a preliminary template write',
+void _registerQuickOrderHttpTest(UserRole role) {
+  testWidgets('saved quick order opens without a preliminary template write: $role',
       (tester) async {
+    AppSession.instance.profile = SessionProfile(
+      role: role,
+      displayName: 'Test user',
+      legalName: '',
+      ref: 'TEST-USER',
+      phone: '',
+      avatarUrl: '',
+    );
     await TestModeController.instance.setEnabled(false);
     const sourceMapId = 'template-quick-order';
     var template = _template(
@@ -48,7 +59,7 @@ void _registerQuickOrderHttpTests() {
       firstLayerMicron: '12',
     );
     final sourceMap = _map(id: sourceMapId, code: '', orderNumber: '')
-        .copyWith(widthMm: 425, rollCount: 6);
+        .copyWith(widthMm: 425, rollCount: 6, duplicateRezkaLabels: true);
     final requests = <String>[];
     final opened = <Map<String, dynamic>>[];
     var templateSaved = false;
@@ -121,6 +132,16 @@ void _registerQuickOrderHttpTests() {
         );
         await tester.enterText(find.widgetWithText(TextFormField, 'KG'), kg);
         await tester.pumpAndSettle();
+        final duplicateToggle = find.byKey(
+          const ValueKey('calculate-duplicate-rezka-labels'),
+        );
+        await tester.scrollUntilVisible(duplicateToggle, 240,
+            scrollable: find.byType(Scrollable).first);
+        expect(tester.widget<SwitchListTile>(duplicateToggle).value, isFalse);
+        if (kg == '100') {
+          await tester.tap(duplicateToggle);
+          await tester.pumpAndSettle();
+        }
         final bobinaSwitch = find.byKey(const ValueKey('calculate-include-bobina-in-net'));
         await tester.scrollUntilVisible(bobinaSwitch, 240,
             scrollable: find.byType(Scrollable).first);
@@ -153,6 +174,7 @@ void _registerQuickOrderHttpTests() {
         expect(opened.length, kg == '100' ? 1 : 2, reason: requests.join('\n'));
         expect(opened.last['template']['kg'], double.parse(kg));
         expect(opened.last['map']['order_kg'], double.parse(kg));
+        expect(opened.last['map']['duplicate_rezka_labels'], kg == '100');
         expect(opened.last['map']['include_bobina_in_net'], kg == '100');
         expect(opened.last['template']['source_map_id'], sourceMapId);
         expect(opened.last['template']['frame_product_size_mm'], 410);

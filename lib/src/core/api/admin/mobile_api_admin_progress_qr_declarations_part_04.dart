@@ -341,6 +341,7 @@ extension MobileApiAdminProgressQr on MobileApi {
     String printer = '',
     String printMode = '',
     int printCount = 1,
+    bool automaticRezkaLabels = false,
     PrintTransport printTransport = PrintTransport.wifi,
   }) async {
     final normalizedQrPayload = qrPayload.trim();
@@ -420,6 +421,7 @@ extension MobileApiAdminProgressQr on MobileApi {
           if (normalizedPrinter.isNotEmpty) 'printer': normalizedPrinter,
           if (normalizedPrintMode.isNotEmpty) 'print_mode': normalizedPrintMode,
           'print_count': boundedPrintCount,
+          if (automaticRezkaLabels) 'automatic_rezka_labels': true,
         }),
       ),
     );

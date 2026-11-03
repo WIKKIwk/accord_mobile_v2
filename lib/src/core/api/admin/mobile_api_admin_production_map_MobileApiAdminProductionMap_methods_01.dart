@@ -245,6 +245,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           final source = await adminProductionMap(template.sourceMapId);
           forkMap = ProductionMapDefinition.fromJson({
             ...map.withoutAlternativeAssignments().toJson(),
+            'duplicate_rezka_labels': null,
             'id': 'template-${template.id}'.toLowerCase(),
             'product_code': template.itemCode,
             'code': '',
@@ -409,6 +410,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
 
   Future<ProductionMapSaveWithOrderResult> adminAutoOpenProductionMap({
     required CalculateOrderTemplate template,
+    bool duplicateRezkaLabels = false,
     bool includeBobinaInNet = false,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
@@ -426,6 +428,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
         widthMm: template.widthMm,
         printValSizeMm: template.printValSizeMm,
         orderKg: template.kg,
+        duplicateRezkaLabels: duplicateRezkaLabels,
         includeBobinaInNet: includeBobinaInNet,
         nodes: const [
           ProductionMapNode(
@@ -467,6 +470,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({
           'template': template.toJson(),
+          'duplicate_rezka_labels': duplicateRezkaLabels,
           'include_bobina_in_net': includeBobinaInNet,
         }),
       ),

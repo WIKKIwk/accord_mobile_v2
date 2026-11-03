@@ -32,6 +32,7 @@ class ProductionMapOrderContext {
     this.rollCount,
     this.widthMm,
     this.printValSizeMm,
+    this.duplicateRezkaLabels,
     this.includeBobinaInNet,
     this.apparatus = '',
     this.apparatusId = '',
@@ -48,6 +49,7 @@ class ProductionMapOrderContext {
   final double? rollCount;
   final double? widthMm;
   final double? printValSizeMm;
+  final bool? duplicateRezkaLabels;
   final bool? includeBobinaInNet;
   double? get printCompatibilityWidthMm => printValSizeMm ?? widthMm;
   final String apparatus;

@@ -113,7 +113,6 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   required bool isBosma,
   required bool isLaminatsiya,
   required bool isRezka,
-  String stageNodeId = '',
   List<AdminApparatus> apparatusCatalog = const [],
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
@@ -124,6 +123,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   bool astatkaReport = false,
   AdminLaminationAstatkaSnapshot? laminationAstatka,
   bool freezeRequestSafeStop = false,
+  String stageNodeId = '',
   List<int> rezkaOutputKadrCounts = const [],
   AdminRezkaOutputReport? rezkaOutputReport,
   ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged,
@@ -151,7 +151,6 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       isBosma: isBosma,
       isLaminatsiya: isLaminatsiya,
       isRezka: isRezka,
-      stageNodeId: stageNodeId,
       returnedPaintDraft: draft,
       fullCompletionReportRequired: fullCompletionReportRequired,
       closingOutputBatchId: closingOutputBatchId,
@@ -161,6 +160,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       astatkaReport: astatkaReport,
       laminationAstatka: laminationAstatka,
       freezeRequestSafeStop: freezeRequestSafeStop,
+      stageNodeId: stageNodeId,
       rezkaOutputKadrCounts: rezkaOutputKadrCounts,
       rezkaOutputReport: rezkaOutputReport,
       onRezkaOutputReportChanged: onRezkaOutputReportChanged,
@@ -175,7 +175,6 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   required String action,
   required AdminApparatus? apparatus,
   required ProductionMapSaved order,
-  String stageNodeId = '',
   List<AdminApparatus> apparatusCatalog = const [],
   ReturnedPaintDraft? returnedPaintDraft,
   bool fullCompletionReportRequired = false,
@@ -186,6 +185,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   bool astatkaReport = false,
   AdminLaminationAstatkaSnapshot? laminationAstatka,
   bool freezeRequestSafeStop = false,
+  String stageNodeId = '',
   List<int> rezkaOutputKadrCounts = const [],
   AdminRezkaOutputReport? rezkaOutputReport,
   ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged,
@@ -203,7 +203,6 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     isBosma: operation == 'print',
     isLaminatsiya: apparatus?.usesLaminationWorkflow ?? false,
     isRezka: operation == 'cut',
-    stageNodeId: stageNodeId,
     returnedPaintDraft: returnedPaintDraft,
     fullCompletionReportRequired: fullCompletionReportRequired,
     closingOutputBatchId: closingOutputBatchId,
@@ -213,6 +212,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     astatkaReport: astatkaReport,
     laminationAstatka: laminationAstatka,
     freezeRequestSafeStop: freezeRequestSafeStop,
+    stageNodeId: stageNodeId,
     rezkaOutputKadrCounts: rezkaOutputKadrCounts,
     rezkaOutputReport: rezkaOutputReport,
     onRezkaOutputReportChanged: onRezkaOutputReportChanged,
@@ -246,7 +246,6 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.isBosma,
     required this.isLaminatsiya,
     required this.isRezka,
-    this.stageNodeId = '',
     required this.returnedPaintDraft,
     required this.fullCompletionReportRequired,
     required this.closingOutputBatchId,
@@ -256,6 +255,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     required this.astatkaReport,
     this.laminationAstatka,
     required this.freezeRequestSafeStop,
+    this.stageNodeId = '',
     required this.rezkaOutputKadrCounts,
     this.rezkaOutputReport,
     this.onRezkaOutputReportChanged,
@@ -269,7 +269,6 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool isBosma;
   final bool isLaminatsiya;
   final bool isRezka;
-  final String stageNodeId;
   final ReturnedPaintDraft returnedPaintDraft;
   final bool fullCompletionReportRequired;
   final String closingOutputBatchId;
@@ -279,6 +278,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final bool astatkaReport;
   final AdminLaminationAstatkaSnapshot? laminationAstatka;
   final bool freezeRequestSafeStop;
+  final String stageNodeId;
   final List<int> rezkaOutputKadrCounts;
   final AdminRezkaOutputReport? rezkaOutputReport;
   final ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged;
@@ -335,6 +335,30 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       _rezkaIssueBusy ||
       _rezkaPrintQueueProcessing ||
       _rezkaConfirmationBusy;
+
+  bool get _duplicateRezkaLabelsForStage {
+    if (!widget.isRezka || widget.order.map.duplicateRezkaLabels != true) {
+      return false;
+    }
+    final map = widget.order.map;
+    final stages = productionMapLinearWorkStages(map)
+        .where((stage) => stage.isApparatus)
+        .toList(growable: false);
+    var stageNodeId = widget.stageNodeId.trim();
+    if (stageNodeId.isEmpty) {
+      final matches = stages
+          .where((stage) => stage.apparatusId == widget.apparatus.trim())
+          .toList(growable: false);
+      if (matches.length != 1) return false;
+      stageNodeId = matches.single.nodeId;
+    } else if (!stages.any((stage) => stage.nodeId.trim() == stageNodeId)) {
+      return false;
+    }
+    return productionMapNextWorkStagesForNode(
+      map: map,
+      stageNodeId: stageNodeId,
+    ).isEmpty;
+  }
 
   void _updateRezkaPrint(VoidCallback update) {
     if (mounted) {
@@ -1831,6 +1855,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                               values: {'count': _rezkaFrameCount},
                             ),
                           ),
+                          if (_duplicateRezkaLabelsForStage)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                _rezkaText('duplicate_labels'),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
                           if (_canPrintRezkaFrames)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 12),

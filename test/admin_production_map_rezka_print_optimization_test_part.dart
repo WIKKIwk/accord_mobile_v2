@@ -3,14 +3,24 @@ part of 'admin_production_map_test_screen_test.dart';
 void _registerRezkaPrintOptimizationTests() {
   for (final scenario in [
     'local prepared label',
+    'local duplicate label',
+    'intermediate duplicate label',
+    'intermediate duplicate older backend',
+    'intermediate duplicate stale stage',
+    'final repeated duplicate label',
+    'final repeated duplicate older backend',
+    'final repeated duplicate unknown stage',
     'local older backend',
+    'local duplicate older backend',
     'local mismatched label',
     'local printer failure',
+    'local duplicate printer failure',
     'confirmation after printer failure',
     'confirmation retries temporary sync failure',
     'confirmation rejects changed cycle',
     'save response lost',
     'wifi',
+    'wifi duplicate label',
     'committed input conflict',
     'stale cycle',
     'frame resolved as issue',
@@ -20,6 +30,16 @@ void _registerRezkaPrintOptimizationTests() {
   ]) {
     testWidgets('Rezka optimized print: $scenario', (tester) async {
       final confirmRecovery = scenario.startsWith('confirmation ');
+      final duplicateLabels = scenario.contains('duplicate');
+      final intermediate = scenario.startsWith('intermediate');
+      final repeated = intermediate || scenario.startsWith('final repeated');
+      final unknownStage = scenario.contains('unknown stage');
+      final staleStage = scenario.contains('stale stage');
+      final isWifi = scenario.startsWith('wifi');
+      final isOlderBackend = scenario.contains('older backend');
+      final isPrinterFailure = scenario.contains('printer failure');
+      final expectedCount = duplicateLabels && !intermediate ? 2 : 1;
+      final requestedCount = staleStage ? 2 : (unknownStage ? 1 : expectedCount);
       await TestModeController.instance.setEnabled(true);
       AppSession.instance.profile = const SessionProfile(
         role: UserRole.aparatchi,
@@ -33,14 +53,15 @@ void _registerRezkaPrintOptimizationTests() {
       );
       const order = 'zakaz-rezka-optimized-print';
       const cycle = 'rezka-optimized-cycle';
-      await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
+      var orderMap = _productionOrderMap(
         id: order,
         title: 'Optimized Rezka rolls',
         productCode: 'FAST',
         orderNumber: '0024',
         apparatusId: _rezkaId,
         product: 'Optimized Rezka rolls',
-      ));
+      ).copyWith(duplicateRezkaLabels: duplicateLabels);
+      await MobileApi.instance.adminSaveProductionMap(orderMap);
       await MobileApi.instance.adminSaveProductionMapSequence(
         apparatus: _rezkaId,
         orderIds: [order],
@@ -50,11 +71,42 @@ void _registerRezkaPrintOptimizationTests() {
         orderId: order,
         action: 'start',
       );
+      if (repeated) {
+        orderMap = orderMap.copyWith(
+          nodes: [
+            orderMap.nodes.first,
+            orderMap.nodes[1],
+            const ProductionMapNode(
+              id: 'lamination',
+              kind: 'apparatus',
+              title: 'Lamination',
+              apparatusId: _lamination1Id,
+            ),
+            const ProductionMapNode(
+              id: 'final-rezka',
+              kind: 'apparatus',
+              title: 'Final Rezka',
+              apparatusId: _rezkaId,
+            ),
+            orderMap.nodes.last,
+          ],
+          edges: const [
+            ProductionMapEdge(from: 'start', to: 'apparatus'),
+            ProductionMapEdge(from: 'apparatus', to: 'lamination'),
+            ProductionMapEdge(from: 'lamination', to: 'final-rezka'),
+            ProductionMapEdge(from: 'final-rezka', to: 'end'),
+          ],
+        );
+        await MobileApi.instance.adminSaveProductionMap(orderMap);
+      }
       setMobileApiTestModeQueueActionControlFixture(
         apparatus: _rezkaId,
         orderId: order,
         control: _inProgressQueueControl(
           allowRollComplete: true,
+          stageNodeId: repeated && !unknownStage
+              ? (intermediate && !staleStage ? 'apparatus' : 'final-rezka')
+              : '',
           rezkaOutputKadrCounts: [1, 1, 1, 1],
           rezkaOutputReport: const AdminRezkaOutputReport(cycleId: cycle),
         ),
@@ -67,7 +119,7 @@ void _registerRezkaPrintOptimizationTests() {
         address: '00:11:22:33:44:55',
       );
       SessionBluetoothPrinter.forget();
-      if (scenario != 'wifi') SessionBluetoothPrinter.remember(printer);
+      if (!isWifi) SessionBluetoothPrinter.remember(printer);
       final events = <String>[];
       final frames = <Map<String, dynamic>>[];
       var nativeAttempts = 0;
@@ -85,10 +137,10 @@ void _registerRezkaPrintOptimizationTests() {
         }
         expect(call.method, 'printLabel');
         expect(call.arguments, containsPair('epc', '40011890022F235A0000A1B2'));
-        expect(call.arguments, containsPair('print_count', 1));
+        expect(call.arguments, containsPair('print_count', expectedCount));
         events.add('native');
         return {
-          'ok': (scenario != 'local printer failure' && !confirmRecovery) ||
+          'ok': (!isPrinterFailure && !confirmRecovery) ||
               nativeAttempts++ > 0,
         };
       });
@@ -98,13 +150,13 @@ void _registerRezkaPrintOptimizationTests() {
         SessionBluetoothPrinter.forget();
       });
 
-      Map<String, dynamic> label(String qr) => {
+      Map<String, dynamic> label(String qr, {int? count}) => {
             'ok': true,
             'epc': qr,
             'label_kind': 'progress',
             'printer': 'xp-p323b',
             'print_mode': 'label',
-            'print_count': 1,
+            'print_count': count ?? (isOlderBackend ? 1 : expectedCount),
             'gross_qty': 20,
             'progress_qty': 1000,
             'progress_unit': 'm',
@@ -196,7 +248,7 @@ void _registerRezkaPrintOptimizationTests() {
           events.add('save');
           expect(body['rezka_output_cycle'], cycle);
           expect(body['rezka_record_frame_index'], 1);
-          if (scenario != 'wifi') {
+          if (!isWifi) {
             expect(body['print_transport'], 'offline');
             expect(body['driver_url'], 'usb://local');
             expect(body['printer'], 'xp-p323b');
@@ -227,7 +279,7 @@ void _registerRezkaPrintOptimizationTests() {
                   'rezka_output_report': frames,
                 },
               },
-              'print': scenario == 'local older backend'
+              'print': isOlderBackend
                   ? null
                   : label(scenario == 'local mismatched label'
                       ? '40011890022F235A0000FFFF'
@@ -240,6 +292,8 @@ void _registerRezkaPrintOptimizationTests() {
         events.add('reprint');
         expect(body['progress_batch_id'], 'optimized-roll-1');
         expect(body['qr_payload'], '40011890022F235A0000A1B2');
+        expect(body['print_count'], requestedCount);
+        expect(body['automatic_rezka_labels'], isTrue);
         return http.Response(
           jsonEncode({
             'ok': true,
@@ -249,7 +303,7 @@ void _registerRezkaPrintOptimizationTests() {
               'order_id': order,
               'qr_payload': body['qr_payload'],
             },
-            'print': label('40011890022F235A0000A1B2'),
+            'print': label('40011890022F235A0000A1B2', count: expectedCount),
           }),
           200,
         );
@@ -270,7 +324,7 @@ void _registerRezkaPrintOptimizationTests() {
             readOnly: true,
             workerMode: true,
             progressDriverUrlPicker:
-                scenario == 'wifi' ? (_) async => 'http://printer.test' : null,
+                isWifi ? (_) async => 'http://printer.test' : null,
           ),
         ));
         await tester.pumpAndSettle();
@@ -280,6 +334,12 @@ void _registerRezkaPrintOptimizationTests() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Rulonni yechish'));
         await tester.pumpAndSettle();
+        if (repeated && !staleStage) {
+          expect(
+            find.text('Har bir rulon uchun 2 ta yorliq: bobina ichi va rulon ustiga.'),
+            intermediate || unknownStage ? findsNothing : findsOneWidget,
+          );
+        }
         for (final field in {
           'meter': '1000',
           'kg': '20',
@@ -387,7 +447,10 @@ void _registerRezkaPrintOptimizationTests() {
           return;
         }
 
-        if (scenario == 'local prepared label') {
+        if (scenario == 'local prepared label' ||
+            scenario == 'local duplicate label' ||
+            scenario == 'intermediate duplicate label' ||
+            scenario == 'final repeated duplicate label') {
           expect(events, ['read', 'save', 'native']);
         } else if (scenario == 'legacy report endpoint') {
           expect(events, ['unsupported', 'read', 'save', 'native']);
@@ -396,16 +459,16 @@ void _registerRezkaPrintOptimizationTests() {
           await tester.pumpAndSettle();
           expect(events, ['read', 'reprint', 'native'],
               reason: 'unsupported report endpoint is probed only once');
-        } else if (scenario == 'local older backend' ||
+        } else if (isOlderBackend || unknownStage || staleStage ||
             scenario == 'local mismatched label') {
           expect(events, ['read', 'save', 'reprint', 'native']);
-        } else if (scenario == 'wifi') {
+        } else if (isWifi) {
           expect(events, ['read', 'save', 'reprint']);
-        } else if (scenario == 'local printer failure' ||
+        } else if (isPrinterFailure ||
             scenario == 'save response lost') {
           expect(
               events,
-              scenario == 'local printer failure'
+              isPrinterFailure
                   ? ['read', 'save', 'native', 'read']
                   : ['read', 'save', 'read']);
           expect(
@@ -447,7 +510,7 @@ void _registerRezkaPrintOptimizationTests() {
           expect(events, ['read', 'read']);
           expect(tester.widget<IconButton>(printButton).onPressed, isNull);
         }
-        if (scenario == 'local prepared label' || scenario == 'wifi') {
+        if (scenario == 'local prepared label' || isWifi) {
           // Reopening keeps the committed card locked without a post-save read.
           await tester.tap(find.widgetWithText(OutlinedButton, 'Bekor qilish'));
           await tester.pumpAndSettle();

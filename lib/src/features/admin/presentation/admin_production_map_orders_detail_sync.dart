@@ -9,6 +9,7 @@ const _detailRecoveryRetryDelays = <Duration>[
 
 bool _retryableMaterialSectionReadError(Object error) {
   if (error is! MobileApiException) return true;
+  if (error.code == 'apparatus_id_invalid') return false;
   final status = error.statusCode;
   return status == null || status == 408 || status == 429 || status >= 500;
 }

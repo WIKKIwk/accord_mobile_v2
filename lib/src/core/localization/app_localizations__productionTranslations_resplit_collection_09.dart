@@ -235,6 +235,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'en': 'Issue not saved. Try again.',
     'ru': 'Проблема не сохранена. Повторите попытку.',
   },
+  'worker.rezka.print.duplicate_labels': {
+    'uz': 'Har bir rulon uchun 2 ta yorliq: bobina ichi va rulon ustiga.',
+    'en': 'Two labels per roll: one inside the core and one on the roll.',
+    'ru': 'Две этикетки на рулон: одна внутри втулки, другая на рулоне.',
+  },
   'worker.rezka.print.progress_with_issues': {
     'uz': '{healthy} ta rulon · {issues} ta muammo · {pending} ta kutilmoqda',
     'en': '{healthy} rolls · {issues} issues · {pending} pending',

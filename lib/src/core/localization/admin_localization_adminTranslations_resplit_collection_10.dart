@@ -2,6 +2,16 @@
 part of 'admin_localization.dart';
 
 const _admin_localization_adminTranslations_resplitPart10 = {
+  'admin.calculate.duplicate_rezka_labels': {
+    'uz': 'Har bir rulonga 2 ta yorliq',
+    'en': 'Two labels for each roll',
+    'ru': 'Две этикетки на каждый рулон',
+  },
+  'admin.calculate.duplicate_rezka_labels_hint': {
+    'uz': 'Bittasi bobina ichiga, bittasi rulon ustiga.',
+    'en': 'One inside the core and one on the roll.',
+    'ru': 'Одна внутри втулки, другая на рулоне.',
+  },
   'admin.item_group.movable_group': {
     'uz': 'Ko‘chiriladigan group',
     'en': 'Group to move',

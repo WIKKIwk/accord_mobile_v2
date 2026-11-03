@@ -399,6 +399,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       if (!mounted) return;
       if (_rezkaPrinter == null) throw const _RezkaPrinterNotSelected();
       final printer = _rezkaPrinter!;
+      final printCount = _duplicateRezkaLabelsForStage ? 2 : 1;
       UsbRpsPrintRequest? committedPrintJob;
       var saved = _rezkaReport!.frameAt(index);
       if (saved != null &&
@@ -450,7 +451,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
             prepared != null &&
             prepared.epc == saved.qrPayload &&
             prepared.isProgressLabel &&
-            prepared.printCount == 1) {
+            prepared.printCount == printCount) {
           committedPrintJob = prepared;
         }
       }
@@ -463,7 +464,8 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           printer: printer.printer,
           printMode: printer.printMode,
           printTransport: printer.transport,
-          printCount: 1,
+          printCount: printCount,
+          automaticRezkaLabels: true,
         );
         if (!result.ok ||
             (printer.transport.isLocal && result.printJob == null)) {
