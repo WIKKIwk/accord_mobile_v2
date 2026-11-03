@@ -80,6 +80,7 @@ void main() {
     });
     List<String> assignment = [cut1];
     var saves = 0;
+    var blockFirstMove = true;
     final client = MockClient((request) async {
       final path = request.url.path;
       final Object body;
@@ -102,12 +103,25 @@ void main() {
         final input = jsonDecode(request.body) as Map<String, dynamic>;
         expect(input['worker_id'], 'worker-ali');
         expect(input['previous_apparatus_ids'], assignment);
+        if (blockFirstMove) {
+          blockFirstMove = false;
+          expect(input['apparatus_ids'], [cut2]);
+          return http.Response(
+            jsonEncode({
+              'error': 'rezka_worker_has_open_run',
+              'blocked_apparatus_ids': [cut1],
+            }),
+            409,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
         assignment = List<String>.from(input['apparatus_ids'] as List);
         saves++;
         body = {'ok': true};
       } else if (path == '/v1/mobile/rezka-master/workers') {
         body = {
           'workers': [
+            {'id': 'worker-bek', 'name': 'Bek', 'level': 'Master'},
             {'id': 'worker-ali', 'name': 'Ali', 'level': 'Master'},
           ],
           'assignments': [
@@ -146,6 +160,11 @@ void main() {
       await tester.tap(picker);
       await tester.pumpAndSettle();
       expect(
+        find.descendant(
+            of: find.byType(BottomSheet), matching: find.text('Ali')),
+        findsOneWidget,
+      );
+      expect(
         find.text('Kamida bitta rezka apparatini tanlang.'),
         findsOneWidget,
       );
@@ -157,6 +176,16 @@ void main() {
 
       await tester.tap(find.widgetWithText(CheckboxListTile, 'Rezka 2'));
       await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Alining Rezka 1 bo‘yicha ochiq ishi bor. Avval ishni yakunlang yoki topshiring.',
+        ),
+        findsOneWidget,
+      );
+      expect(assignment, [cut1]);
+      expect(saves, 0);
       await tester.tap(save);
       await tester.pumpAndSettle();
       expect(assignment, [cut2]);

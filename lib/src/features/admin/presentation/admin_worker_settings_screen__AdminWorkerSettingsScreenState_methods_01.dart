@@ -152,9 +152,21 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       final code = error is MobileApiException ? error.code : '';
       final assignmentChanged = code == 'rezka_assignment_changed' ||
           (_rezkaMaster && code == 'worker_not_found');
+      final blockedLabels = error is MobileApiException &&
+              code == 'rezka_worker_has_open_run'
+          ? canonicalApparatusDisplayLabels(error.details, apparatus)
+          : const <String>[];
       final message = switch (code) {
         _ when assignmentChanged =>
           context.l10n.adminText('rezka_master.rezka_assignment_changed'),
+        'rezka_worker_has_open_run' when blockedLabels.isNotEmpty =>
+          context.l10n.adminText(
+            'rezka_master.rezka_worker_has_open_run_details',
+            values: {
+              'worker': worker.name,
+              'apparatus': blockedLabels.join(', '),
+            },
+          ),
         'rezka_apparatus_required' || 'rezka_worker_has_open_run' =>
           context.l10n.adminText('rezka_master.$code'),
         _ => context.l10n.adminText(

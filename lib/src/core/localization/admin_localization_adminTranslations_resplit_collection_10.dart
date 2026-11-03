@@ -38,6 +38,12 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'На этом аппарате у работника есть открытая работа. Сначала завершите или передайте её.',
     'ur': 'اس مشین پر کارکن کا کام جاری ہے۔ پہلے اسے مکمل کریں یا منتقل کریں۔',
   },
+  'admin.rezka_master.rezka_worker_has_open_run_details': {
+    'uz': '{worker}ning {apparatus} bo‘yicha ochiq ishi bor. Avval ishni yakunlang yoki topshiring.',
+    'en': '{worker} has open work on {apparatus}. Complete or hand it off first.',
+    'ru': 'У работника {worker} есть незавершённая работа на {apparatus}. Сначала завершите или передайте её.',
+    'ur': '{worker} کا کام {apparatus} پر جاری ہے۔ پہلے اسے مکمل کریں یا منتقل کریں۔',
+  },
   'admin.calculate.duplicate_rezka_labels': {
     'uz': 'Har bir rulonga 2 ta yorliq',
     'en': 'Two labels for each roll',

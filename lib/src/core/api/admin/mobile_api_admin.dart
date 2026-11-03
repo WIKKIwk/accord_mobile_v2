@@ -353,6 +353,7 @@ MobileApiException _adminApiException(
 }) {
   var code = fallbackCode;
   var message = fallbackMessage;
+  var details = const <String>[];
   try {
     final payload = jsonDecode(response.body);
     if (payload is Map && payload['error'] is String) {
@@ -360,6 +361,12 @@ MobileApiException _adminApiException(
       if (error.isNotEmpty) {
         code = error;
         message = _adminErrorMessage(error);
+        if (code == 'rezka_worker_has_open_run' &&
+            payload['blocked_apparatus_ids'] is List) {
+          details = (payload['blocked_apparatus_ids'] as List)
+              .whereType<String>()
+              .toList(growable: false);
+        }
       }
     }
   } catch (_) {}
@@ -370,6 +377,7 @@ MobileApiException _adminApiException(
     code: code,
     message: message,
     statusCode: response.statusCode,
+    details: details,
   );
 }
 

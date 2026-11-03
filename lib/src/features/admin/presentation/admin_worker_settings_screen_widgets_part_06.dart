@@ -166,6 +166,7 @@ class _WorkerSettingsCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         _WorkerApparatusAssignmentField(
                           workerId: worker.id,
+                          workerName: requireCutApparatus ? worker.name : null,
                           requireCutApparatus: requireCutApparatus,
                           apparatus: apparatus,
                           selected: assignedApparatus.toSet(),
@@ -216,6 +217,7 @@ class _WorkerSettingsCard extends StatelessWidget {
 class _WorkerApparatusAssignmentField extends StatelessWidget {
   const _WorkerApparatusAssignmentField({
     required this.workerId,
+    required this.workerName,
     required this.requireCutApparatus,
     required this.apparatus,
     required this.selected,
@@ -224,6 +226,7 @@ class _WorkerApparatusAssignmentField extends StatelessWidget {
   });
 
   final String workerId;
+  final String? workerName;
   final bool requireCutApparatus;
   final List<AdminApparatus> apparatus;
   final Set<String> selected;
@@ -240,6 +243,7 @@ class _WorkerApparatusAssignmentField extends StatelessWidget {
       builder: (_) => _WorkerApparatusAssignmentSheet(
         apparatus: apparatus,
         selected: selected,
+        workerName: workerName,
         requireCutApparatus: requireCutApparatus,
         onSave: onSave,
       ),
@@ -295,12 +299,14 @@ class _WorkerApparatusAssignmentSheet extends StatefulWidget {
   const _WorkerApparatusAssignmentSheet({
     required this.apparatus,
     required this.selected,
+    required this.workerName,
     required this.requireCutApparatus,
     required this.onSave,
   });
 
   final List<AdminApparatus> apparatus;
   final Set<String> selected;
+  final String? workerName;
   final bool requireCutApparatus;
   final Future<bool> Function(Set<String> selected) onSave;
 
@@ -356,11 +362,18 @@ class _WorkerApparatusAssignmentSheetState
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      l10n.adminText('scope.operator_title'),
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.adminText('scope.operator_title'),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (widget.workerName case final workerName?)
+                          Text(workerName, style: theme.textTheme.bodyMedium),
+                      ],
                     ),
                   ),
                   IconButton(
