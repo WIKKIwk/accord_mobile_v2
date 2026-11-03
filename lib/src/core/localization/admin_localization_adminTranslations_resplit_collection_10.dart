@@ -8,6 +8,18 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Настройки резки',
     'ur': 'کٹائی کی ترتیبات',
   },
+  'admin.rezka_master.confirm_enable': {
+    'uz': 'Bu buyurtmada «{setting}» sozlamasini yoqmoqchimisiz?',
+    'en': 'Enable “{setting}” for this order?',
+    'ru': 'Включить «{setting}» для этого заказа?',
+    'ur': 'اس آرڈر کے لیے «{setting}» فعال کریں؟',
+  },
+  'admin.rezka_master.confirm_disable': {
+    'uz': 'Bu buyurtmada «{setting}» sozlamasini o‘chirmoqchimisiz?',
+    'en': 'Disable “{setting}” for this order?',
+    'ru': 'Отключить «{setting}» для этого заказа?',
+    'ur': 'اس آرڈر کے لیے «{setting}» غیر فعال کریں؟',
+  },
   'admin.rezka_master.rezka_weight_mode_run_active': {
     'uz': 'Vazn rejimini o‘zgartirish uchun yakuniy rezka ishini avval to‘xtating.',
     'en': 'Pause the final cutting run before changing the weight mode.',

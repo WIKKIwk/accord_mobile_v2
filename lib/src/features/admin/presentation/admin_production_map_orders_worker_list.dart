@@ -181,7 +181,10 @@ extension _WorkerCompactOrders on _AdminProductionMapOrdersScreenState {
       // fresh scoped read after a queue event arrives while the menu is open.
       _adminDetailOpening = false;
       await _showWatchOrderLongPress(
-          apparatus: apparatus, order: detail.maps.single);
+        apparatus: apparatus,
+        order: detail.maps.single,
+        orderStatus: detail.orderStatuses[order.map.id.trim()],
+      );
     } catch (error) {
       if (mounted) _showWorkerDetailError(error);
     } finally {

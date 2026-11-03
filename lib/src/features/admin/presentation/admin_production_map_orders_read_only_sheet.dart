@@ -646,26 +646,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   bool _savingRezkaOptions = false;
 
   bool get _canSetRezkaOptions {
-    final profile = AppSession.instance.profile;
-    if (profile?.role != UserRole.rezkaMaster ||
-        widget.detailPending ||
+    if (widget.detailPending ||
         widget.detailError != null ||
         _queueActionBusy ||
-        _savingRezkaOptions ||
-        _isTrainingOrder) {
+        _savingRezkaOptions) {
       return false;
     }
     final map = widget.order.map;
     final status =
         widget.currentQueueSnapshot?.call()?.orderStatuses[map.id.trim()] ??
             widget.initialOrderStatus;
-    if (const {'production_completed', 'closed', 'cancelled'}
-        .contains(status?.lifecycleStatus.trim().toLowerCase())) {
-      return false;
-    }
-    return productionMapLinearWorkStages(map).any(
-      (stage) => profile!.assignedApparatus.contains(stage.apparatusId),
-    );
+    return _canEditRezkaOrderOptions(map, status);
   }
 
   Future<void> _editRezkaOptions() async {
@@ -708,26 +699,17 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (!mounted || selected == null || scope != currentSessionReadScope()) return;
     setState(() => _savingRezkaOptions = true);
     try {
-      await MobileApi.instance.rezkaMasterSaveOrderSettings(
-        orderId: map.id,
+      await _saveRezkaOrderOptions(
+        map,
         duplicateLabels: selected.duplicateLabels,
         includeBobina: selected.includeBobina,
-        previousDuplicateLabels: map.duplicateRezkaLabels == true,
-        previousIncludeBobina: map.includeBobinaInNet == true,
       );
       if (!mounted || scope != currentSessionReadScope()) return;
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted || scope != currentSessionReadScope()) return;
-      final code = error is MobileApiException ? error.code : '';
-      final message = switch (code) {
-        'rezka_order_settings_order_finished' ||
-        'rezka_weight_mode_run_active' ||
-        'rezka_order_settings_changed' =>
-          context.l10n.adminText('rezka_master.$code'),
-        _ => error.toString(),
-      };
-      showAdminTopNotice(context, message, tone: AdminTopNoticeTone.error);
+      showAdminTopNotice(context, _rezkaOrderSettingsError(context, error),
+          tone: AdminTopNoticeTone.error);
     } finally {
       if (mounted) setState(() => _savingRezkaOptions = false);
     }

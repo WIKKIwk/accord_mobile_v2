@@ -64,6 +64,7 @@ class _CompactHarness {
   final orderControlStates = <String, String>{};
   final detailControlPatch = <String, dynamic>{};
   final detailNodePatch = <String, dynamic>{};
+  final detailMapPatch = <String, dynamic>{};
   final events = StreamController<Object>.broadcast();
   final details = <({String apparatus, String orderId})>[];
   Completer<AdminApparatusQueueSnapshot>? pending;
@@ -74,6 +75,7 @@ class _CompactHarness {
   String detailEpoch = _epoch;
   String detailTitle = 'Alpha package';
   String detailState = 'pending';
+  String? detailLifecycleStatus;
   Map<String, dynamic>? detailCombo;
   List<Map<String, dynamic>>? detailProducts;
   bool wrongOrder = false;
@@ -179,6 +181,7 @@ class _CompactHarness {
               'customer_name': 'Worker customer',
               'product_code': 'WORKER-FILM',
               'image_id': 'image-$id',
+              ...detailMapPatch,
               if (detailCombo != null) 'combo': detailCombo,
               if (detailProducts != null) 'products': detailProducts,
               'nodes': [
@@ -210,6 +213,10 @@ class _CompactHarness {
           stationId: {id: detailState}
         },
         queuePolicies: const {},
+        orderStatuses: {
+          if (detailLifecycleStatus case final status?)
+            id: AdminProductionOrderStatusDetail(lifecycleStatus: status),
+        },
         orderControls: {
           for (final entry in orderControlStates.entries)
             entry.key: entry.value == 'frozen'
@@ -450,6 +457,122 @@ void main() {
   });
 
   _registerHydratedSheetRecoveryTests();
+
+  testWidgets('Rezka master changes order options from the long press menu', (
+    tester,
+  ) async {
+    AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+      role: UserRole.rezkaMaster,
+      capabilities: [
+        'rezka.master.access',
+        'apparatus.queue.read',
+        'apparatus.queue.manage',
+      ],
+    );
+    final harness = _CompactHarness(catalog: _rezkaCatalog)
+      ..detailLifecycleStatus = 'released';
+    final writes = <Map<String, dynamic>>[];
+    final client = MockClient((request) async {
+      if (request.method == 'GET') return http.Response('[]', 200);
+      expect(request.method, 'PUT');
+      expect(request.url.path, '/v1/mobile/rezka-master/order-settings');
+      final input = jsonDecode(request.body) as Map<String, dynamic>;
+      writes.add(input);
+      harness.detailMapPatch.addAll({
+        'duplicate_rezka_labels': input['duplicate_rezka_labels'],
+        'include_bobina_in_net': input['include_bobina_in_net'],
+      });
+      return http.Response('{}', 200);
+    });
+    final labels = find.byKey(
+      const ValueKey('calculate-duplicate-rezka-labels'),
+    );
+    final bobina = find.byKey(
+      const ValueKey('calculate-include-bobina-in-net'),
+    );
+    final confirm = find.widgetWithText(FilledButton, 'Tasdiqlash');
+    final orderRow = _workerRow('zakaz-a');
+
+    Future<void> finishMenuAnimation() async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
+    await http.runWithClient(() async {
+      await harness.mount(tester);
+      await tester.longPress(orderRow);
+      await finishMenuAnimation();
+      expect(_sheet(), findsNothing);
+      expect(labels, findsOneWidget);
+      expect(bobina, findsOneWidget);
+      expect(harness.details, [
+        (apparatus: _rezkaCatalog.id, orderId: 'zakaz-a'),
+      ]);
+
+      await tester.tap(labels);
+      await finishMenuAnimation();
+      expect(confirm, findsOneWidget);
+      expect(writes, isEmpty);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Bekor qilish'));
+      await finishMenuAnimation();
+      expect(tester.widget<SwitchListTile>(labels).value, isFalse);
+      expect(writes, isEmpty);
+
+      await tester.tap(labels);
+      await finishMenuAnimation();
+      await tester.tap(confirm);
+      await finishMenuAnimation();
+      expect(tester.widget<SwitchListTile>(labels).value, isTrue);
+      expect(confirm, findsNothing);
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      navigator.pop();
+      await finishMenuAnimation();
+      harness
+        ..detailState = 'in_progress'
+        ..detailLifecycleStatus = 'in_progress';
+      await tester.longPress(orderRow);
+      await finishMenuAnimation();
+      expect(tester.widget<SwitchListTile>(labels).value, isTrue);
+      expect(find.text('Astatka hisobotini topshirish'), findsWidgets);
+
+      await tester.tap(bobina);
+      await finishMenuAnimation();
+      await tester.tap(confirm);
+      await finishMenuAnimation();
+      expect(tester.widget<SwitchListTile>(bobina).value, isTrue);
+      await tester.tap(labels);
+      await finishMenuAnimation();
+      expect(find.textContaining('o‘chirmoqchimisiz?'), findsOneWidget);
+      await tester.tap(confirm);
+      await finishMenuAnimation();
+      expect(tester.widget<SwitchListTile>(labels).value, isFalse);
+      expect(tester.widget<SwitchListTile>(bobina).value, isTrue);
+      expect(writes, [
+        for (final (labels, bobina, previousLabels, previousBobina) in [
+          (true, false, false, false),
+          (true, true, true, false),
+          (false, true, true, true),
+        ])
+          {
+            'order_id': 'zakaz-a',
+            'duplicate_rezka_labels': labels,
+            'include_bobina_in_net': bobina,
+            'previous_duplicate_rezka_labels': previousLabels,
+            'previous_include_bobina_in_net': previousBobina,
+          },
+      ]);
+
+      navigator.pop();
+      await finishMenuAnimation();
+      harness.detailLifecycleStatus = 'production_completed';
+      await tester.longPress(orderRow);
+      await finishMenuAnimation();
+      expect(labels, findsNothing);
+      expect(bobina, findsNothing);
+      await harness.close(tester);
+    }, () => client);
+  });
 
   testWidgets('worker does not see the combo details card', (tester) async {
     final harness = _CompactHarness()

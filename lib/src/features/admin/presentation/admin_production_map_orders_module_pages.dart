@@ -1203,6 +1203,8 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
     this.canRePause = false,
     this.canReclose = false,
     this.canCancelStart = false,
+    this.showWorkActions = true,
+    this.rezkaSettings,
   });
 
   final bool canRePause;
@@ -1211,6 +1213,8 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
   final bool canReclose;
   final bool isLamination;
   final bool canCancelStart;
+  final bool showWorkActions;
+  final Widget? rezkaSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -1221,56 +1225,198 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
           ? 'worker.rezka.astatka.title'
           : 'worker.laminatsiya.astatka.title',
     );
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+    final settings = rezkaSettings;
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (settings != null) settings,
+        if (settings != null && showWorkActions) const Divider(height: 24),
+        if (showWorkActions) ...[
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.productionText(isLamination
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.productionText(
+              isLamination
                   ? 'worker.lamination_astatka.description'
-                  : 'worker.finish.description'),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: 1.35,
-              ),
+                  : 'worker.finish.description',
             ),
-            const SizedBox(height: 16),
-            if (canCancelStart)
-              _WorkerCancelStartButton(onPressed: () => Navigator.of(context)
-                  .pop(_LaminatsiyaWorkerLongPressChoice.cancelStart)),
-            if (canTemporaryPause)
-              _WorkerTemporaryPauseButton(
-                onPressed: () => Navigator.of(context)
-                    .pop(_LaminatsiyaWorkerLongPressChoice.temporaryPause),
-              ),
-            if (canRePause)
-              _WorkerRePauseButton(onPressed: () => Navigator.of(context)
-                  .pop(_LaminatsiyaWorkerLongPressChoice.rePause)),
-            if (canReclose)
-              _WorkerRecloseButton(onPressed: () => Navigator.of(context)
-                  .pop(_LaminatsiyaWorkerLongPressChoice.reclose)),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(context).pop(
-                _LaminatsiyaWorkerLongPressChoice.finishWork,
-              ),
-              icon: const Icon(Icons.logout_rounded),
-              label: Text(canReclose
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (canCancelStart)
+            _WorkerCancelStartButton(
+              onPressed: () =>
+                  Navigator.of(context)
+                      .pop(_LaminatsiyaWorkerLongPressChoice.cancelStart),
+            ),
+          if (canTemporaryPause)
+            _WorkerTemporaryPauseButton(
+              onPressed: () => Navigator.of(context)
+                  .pop(_LaminatsiyaWorkerLongPressChoice.temporaryPause),
+            ),
+          if (canRePause)
+            _WorkerRePauseButton(
+              onPressed: () =>
+                  Navigator.of(context)
+                      .pop(_LaminatsiyaWorkerLongPressChoice.rePause),
+            ),
+          if (canReclose)
+            _WorkerRecloseButton(
+              onPressed: () =>
+                  Navigator.of(context)
+                      .pop(_LaminatsiyaWorkerLongPressChoice.reclose),
+            ),
+          FilledButton.icon(
+            onPressed: () =>
+                Navigator.of(context)
+                    .pop(_LaminatsiyaWorkerLongPressChoice.finishWork),
+            icon: const Icon(Icons.logout_rounded),
+            label: Text(
+              canReclose
                   ? context.l10n.productionText('worker.action.complete')
-                  : title),
+                  : title,
             ),
-          ],
+          ),
+        ],
+      ],
+    );
+    const padding = EdgeInsets.fromLTRB(20, 8, 20, 20);
+    return SafeArea(
+      child: settings == null
+          ? Padding(padding: padding, child: content)
+          : SingleChildScrollView(padding: padding, child: content),
+    );
+  }
+}
+
+enum _RezkaOrderOption {
+  duplicateLabels('calculate.duplicate_rezka_labels'),
+  includeBobina('calculate.include_bobina_in_net');
+
+  const _RezkaOrderOption(this.labelKey);
+
+  final String labelKey;
+}
+
+class _RezkaOrderQuickSettings extends StatefulWidget {
+  const _RezkaOrderQuickSettings({required this.map, required this.onSaved});
+
+  final ProductionMapDefinition map;
+  final VoidCallback onSaved;
+
+  @override
+  State<_RezkaOrderQuickSettings> createState() =>
+      _RezkaOrderQuickSettingsState();
+}
+
+class _RezkaOrderQuickSettingsState extends State<_RezkaOrderQuickSettings> {
+  final _scope = currentSessionReadScope();
+  late var _map = widget.map;
+  bool _busy = false;
+  bool _needsReopen = false;
+  String? _error;
+
+  Future<void> _confirmChange(_RezkaOrderOption option, bool enabled) async {
+    if (_busy || _needsReopen || _scope != currentSessionReadScope()) return;
+    final onSaved = widget.onSaved;
+    final l10n = context.l10n;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final confirmed = await showM3ConfirmDialog(
+        context: context,
+        title: l10n.confirmTitle,
+        message: l10n.adminText(
+          enabled
+              ? 'rezka_master.confirm_enable'
+              : 'rezka_master.confirm_disable',
+          values: {'setting': l10n.adminText(option.labelKey)},
         ),
-      ),
+        cancelLabel: l10n.productionText('worker.action.cancel'),
+        confirmLabel: l10n.productionText('worker.action.confirm'),
+      );
+      if (confirmed != true ||
+          !mounted ||
+          _scope != currentSessionReadScope()) {
+        return;
+      }
+      final nextDuplicate = option == _RezkaOrderOption.duplicateLabels
+          ? enabled
+          : _map.duplicateRezkaLabels == true;
+      final nextIncludeBobina = option == _RezkaOrderOption.includeBobina
+          ? enabled
+          : _map.includeBobinaInNet == true;
+      await _saveRezkaOrderOptions(
+        _map,
+        duplicateLabels: nextDuplicate,
+        includeBobina: nextIncludeBobina,
+      );
+      if (_scope != currentSessionReadScope()) return;
+      if (mounted) {
+        setState(
+          () => _map = _map.copyWith(
+            duplicateRezkaLabels: nextDuplicate,
+            includeBobinaInNet: nextIncludeBobina,
+          ),
+        );
+      }
+      onSaved();
+    } catch (error) {
+      if (!mounted || _scope != currentSessionReadScope()) return;
+      setState(() {
+        _error = _rezkaOrderSettingsError(context, error);
+        _needsReopen =
+            error is MobileApiException &&
+            const {
+              'rezka_order_settings_changed',
+              'rezka_order_settings_order_finished',
+            }.contains(error.code);
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = !_busy && !_needsReopen;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.l10n.adminText('rezka_master.order_settings'),
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        RezkaOrderOptionSwitches(
+          duplicateLabels: _map.duplicateRezkaLabels == true,
+          includeBobina: _map.includeBobinaInNet == true,
+          onDuplicateLabelsChanged: enabled
+              ? (value) =>
+                    _confirmChange(_RezkaOrderOption.duplicateLabels, value)
+              : null,
+          onIncludeBobinaChanged: enabled
+              ? (value) =>
+                    _confirmChange(_RezkaOrderOption.includeBobina, value)
+              : null,
+        ),
+        if (_error != null)
+          Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+      ],
     );
   }
 }

@@ -2109,6 +2109,7 @@ class _AdminProductionMapOrdersScreenState
   Future<void> _showWatchOrderLongPress({
     required AdminApparatus apparatus,
     required ProductionMapSaved order,
+    AdminProductionOrderStatusDetail? orderStatus,
   }) async {
     if (widget.workerMode && isWorkerListPresentationOrder(order)) {
       await _hydrateWorkerActions(apparatus, order);
@@ -2118,7 +2119,8 @@ class _AdminProductionMapOrdersScreenState
     final operation = apparatus.operation.trim().toLowerCase();
     final isLaminatsiya = apparatus.usesLaminationWorkflow;
     final isBosma = operation == 'print';
-    final supportsAstatka = isLaminatsiya || operation == 'cut' || isBosma;
+    final isRezka = operation == 'cut';
+    final supportsAstatka = isLaminatsiya || isRezka || isBosma;
     if (!widget.workerMode ||
         !_isAssignedWatchApparatus(
           apparatus,
@@ -2131,6 +2133,11 @@ class _AdminProductionMapOrdersScreenState
     if (_isWorkerOrderFrozen(order.map.id)) {
       return;
     }
+    final showRezkaSettings = isRezka &&
+        _canEditRezkaOrderOptions(
+          order.map,
+          orderStatus ?? _orderStatusesByOrderId[order.map.id.trim()],
+        );
     final queueStates = _queueStatesForApparatus(
       apparatus,
       queueStatesByApparatus: _queueStatesByApparatus,
@@ -2150,7 +2157,8 @@ class _AdminProductionMapOrdersScreenState
     final rePause = _workerRePauseControl(apparatus, order, control);
     final cancelStart = _workerCancelStartControl(apparatus, order, control);
     final reclose = _workerRecloseControl(apparatus, order, control);
-    if (stageWork?.astatkaAvailable == true &&
+    if (!showRezkaSettings &&
+        stageWork?.astatkaAvailable == true &&
         operation != 'laminate' &&
         temporaryPause == null && rePause == null && reclose == null && cancelStart == null) {
       _showWatchOrderDetail(
@@ -2255,18 +2263,31 @@ class _AdminProductionMapOrdersScreenState
         return;
       }
     }
-    if (stageWork?.astatkaAvailable == true ||
+    final showWorkActions = stageWork?.astatkaAvailable == true ||
         state == ApparatusQueueOrderState.inProgress ||
         state == ApparatusQueueOrderState.paused ||
-        state == ApparatusQueueOrderState.completed) {
+        state == ApparatusQueueOrderState.completed;
+    if (showWorkActions || showRezkaSettings) {
       final choice =
           await showModalBottomSheet<_LaminatsiyaWorkerLongPressChoice>(
         context: context,
         useSafeArea: true,
         showDragHandle: true,
+        isScrollControlled: showRezkaSettings,
         builder: (_) => _LaminatsiyaWorkerFinishSheet(
-          isRezka: operation == 'cut',
+          isRezka: isRezka,
           isLamination: operation == 'laminate',
+          showWorkActions: showWorkActions,
+          rezkaSettings: showRezkaSettings
+              ? _RezkaOrderQuickSettings(
+                  map: order.map,
+                  onSaved: () {
+                    if (mounted && scope == currentSessionReadScope()) {
+                      unawaited(_refreshLive());
+                    }
+                  },
+                )
+              : null,
           canTemporaryPause: temporaryPause != null,
           canRePause: rePause != null,
           canReclose: reclose != null,

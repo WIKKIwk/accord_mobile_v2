@@ -1,5 +1,50 @@
 part of 'admin_production_map_orders_screen.dart';
 
+bool _canEditRezkaOrderOptions(
+  ProductionMapDefinition map,
+  AdminProductionOrderStatusDetail? status,
+) {
+  final profile = AppSession.instance.profile;
+  final id = map.id.trim();
+  if (profile == null ||
+      profile.role != UserRole.rezkaMaster ||
+      id.startsWith('training-') ||
+      id.startsWith('template-') ||
+      const {
+        'production_completed',
+        'closed',
+        'cancelled',
+      }.contains(status?.lifecycleStatus.trim().toLowerCase())) {
+    return false;
+  }
+  return productionMapLinearWorkStages(map)
+      .any((stage) => profile.assignedApparatus.contains(stage.apparatusId));
+}
+
+Future<void> _saveRezkaOrderOptions(
+  ProductionMapDefinition previous, {
+  required bool duplicateLabels,
+  required bool includeBobina,
+}) => MobileApi.instance.rezkaMasterSaveOrderSettings(
+  orderId: previous.id,
+  duplicateLabels: duplicateLabels,
+  includeBobina: includeBobina,
+  previousDuplicateLabels: previous.duplicateRezkaLabels == true,
+  previousIncludeBobina: previous.includeBobinaInNet == true,
+);
+
+String _rezkaOrderSettingsError(BuildContext context, Object error) {
+  final code = error is MobileApiException ? error.code : '';
+  return switch (code) {
+    'rezka_order_settings_order_finished' ||
+    'rezka_weight_mode_run_active' ||
+    'rezka_order_settings_changed' => context.l10n.adminText(
+      'rezka_master.$code',
+    ),
+    _ => error.toString(),
+  };
+}
+
 String _openedOrderDisplayCode(ProductionMapDefinition map) {
   final code = map.code.trim();
   if (code.isNotEmpty) {
