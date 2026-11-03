@@ -148,7 +148,7 @@ class ChatRoleDock extends StatelessWidget {
           showPrimaryFab: false,
         ),
       UserRole.customer => const CustomerDock(activeTab: null),
-      UserRole.aparatchi => const AparatchiDock(
+      UserRole.aparatchi || UserRole.rezkaMaster => const AparatchiDock(
           activeTab: null,
           showPrimaryFab: false,
         ),

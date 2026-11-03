@@ -7,33 +7,13 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
     return [
       const SizedBox(height: 22),
       if (widget.openedOrder == null && !widget.trainingMode) ...[
-        Material(
-          type: MaterialType.transparency,
-          child: SwitchListTile.adaptive(
-            key: const ValueKey('calculate-duplicate-rezka-labels'),
-            contentPadding: EdgeInsets.zero,
-            title: Text(l10n.adminText('calculate.duplicate_rezka_labels')),
-            subtitle: Text(
-              l10n.adminText('calculate.duplicate_rezka_labels_hint'),
-            ),
-            value: _duplicateRezkaLabels,
-            onChanged: _openingSavedOrder || _openingAutomaticOrder
-                ? null
-                : (value) => setState(() => _duplicateRezkaLabels = value),
-          ),
-        ),
-        Material(
-          color: Colors.transparent,
-          child: SwitchListTile.adaptive(
-            key: const ValueKey('calculate-include-bobina-in-net'),
-            contentPadding: EdgeInsets.zero,
-            title: Text(l10n.adminText('calculate.include_bobina_in_net')),
-            subtitle: Text(l10n.adminText('calculate.include_bobina_in_net_hint')),
-            value: _includeBobinaInNet,
-            onChanged: _openingSavedOrder || _openingAutomaticOrder
-                ? null
-                : (value) => setState(() => _includeBobinaInNet = value),
-          ),
+        RezkaOrderOptionSwitches(
+          duplicateLabels: _duplicateRezkaLabels,
+          includeBobina: _includeBobinaInNet,
+          onDuplicateLabelsChanged: _openingSavedOrder || _openingAutomaticOrder
+              ? null : (value) => setState(() => _duplicateRezkaLabels = value),
+          onIncludeBobinaChanged: _openingSavedOrder || _openingAutomaticOrder
+              ? null : (value) => setState(() => _includeBobinaInNet = value),
         ),
         const SizedBox(height: 12),
       ],

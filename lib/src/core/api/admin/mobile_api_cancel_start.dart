@@ -49,7 +49,7 @@ extension MobileApiCancelStart on MobileApi {
     final profile = AppSession.instance.profile;
     if (order.isEmpty ||
         order.startsWith('training-') ||
-        profile?.role != UserRole.aparatchi ||
+        profile?.role.isApparatusOperator != true ||
         profile?.ref != control.workerRef ||
         AdminCancelStartControl.tryFromJson({
               'session_id': control.sessionId,

@@ -105,6 +105,7 @@ class SessionProfile {
           'raw_material.split',
           'sales.access',
           'brigader.access',
+          'rezka.master.access',
         ]) ||
         (role == UserRole.materialTaminotchi &&
             hasAnyCapability(materialTaminotchiWorkspaceCapabilities));
@@ -115,6 +116,9 @@ class SessionProfile {
   }
 
   UserRole? get accessRole {
+    if (role == UserRole.rezkaMaster && hasCapability('rezka.master.access')) {
+      return UserRole.rezkaMaster;
+    }
     if (role == UserRole.brigader && hasCapability('brigader.access')) {
       return UserRole.brigader;
     }

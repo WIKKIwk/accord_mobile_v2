@@ -60,7 +60,8 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       widget.entry.kind == AdminUserKind.tayyorlovMasteri ||
       widget.entry.kind == AdminUserKind.homashyoRezkachi ||
       widget.entry.kind == AdminUserKind.salesManager ||
-      widget.entry.kind == AdminUserKind.brigader;
+      widget.entry.kind == AdminUserKind.brigader ||
+      widget.entry.kind == AdminUserKind.rezkaMaster;
   bool get _warehouseManagementEnabled =>
       (_isQolipchi ||
           widget.entry.kind == AdminUserKind.tayyorlovMasteri ||

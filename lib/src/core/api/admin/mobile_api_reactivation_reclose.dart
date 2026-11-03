@@ -32,7 +32,7 @@ class AdminReactivationRecloseControl {
 
   bool belongsTo(SessionProfile? profile) =>
       _readScope == currentSessionReadScope() &&
-      profile?.role == UserRole.aparatchi &&
+      profile?.role.isApparatusOperator == true &&
       profile?.ref == workerRef;
 }
 

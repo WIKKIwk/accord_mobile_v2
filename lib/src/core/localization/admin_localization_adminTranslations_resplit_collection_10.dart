@@ -2,6 +2,36 @@
 part of 'admin_localization.dart';
 
 const _admin_localization_adminTranslations_resplitPart10 = {
+  'admin.rezka_master.order_settings': {
+    'uz': 'Rezka sozlamalari',
+    'en': 'Cutting settings',
+    'ru': 'Настройки резки',
+    'ur': 'کٹائی کی ترتیبات',
+  },
+  'admin.rezka_master.rezka_weight_mode_run_active': {
+    'uz': 'Vazn rejimini o‘zgartirish uchun yakuniy rezka ishini avval to‘xtating.',
+    'en': 'Pause the final cutting run before changing the weight mode.',
+    'ru': 'Приостановите финальную резку перед сменой режима веса.',
+    'ur': 'وزن کا طریقہ بدلنے سے پہلے آخری کٹائی روکیں۔',
+  },
+  'admin.rezka_master.rezka_order_settings_changed': {
+    'uz': 'Sozlamalar yangilangan. Buyurtmani qayta oching.',
+    'en': 'The settings have changed. Reopen the order.',
+    'ru': 'Настройки изменились. Откройте заказ заново.',
+    'ur': 'ترتیبات بدل گئی ہیں۔ آرڈر دوبارہ کھولیں۔',
+  },
+  'admin.rezka_master.rezka_assignment_changed': {
+    'uz': 'Biriktirilgan apparatlar yangilangan. Qayta tanlang.',
+    'en': 'The apparatus assignment has changed. Select again.',
+    'ru': 'Назначение аппаратов изменилось. Выберите заново.',
+    'ur': 'مشینوں کی تفویض بدل گئی ہے۔ دوبارہ منتخب کریں۔',
+  },
+  'admin.rezka_master.rezka_worker_has_open_run': {
+    'uz': 'Bu apparatda ishchining ochiq ishi bor. Avval ishni yakunlang yoki topshiring.',
+    'en': 'The worker has an open run on this apparatus. Complete or hand off the run first.',
+    'ru': 'На этом аппарате у работника есть открытая работа. Сначала завершите или передайте её.',
+    'ur': 'اس مشین پر کارکن کا کام جاری ہے۔ پہلے اسے مکمل کریں یا منتقل کریں۔',
+  },
   'admin.calculate.duplicate_rezka_labels': {
     'uz': 'Har bir rulonga 2 ta yorliq',
     'en': 'Two labels for each roll',

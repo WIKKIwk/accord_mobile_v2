@@ -145,7 +145,7 @@ extension MobileApiAdminOrderLifecycleAstPart01 on MobileApi {
           const <String>{};
       return [
         for (final item in _testModeCompletedQueueOrders)
-          if (profile?.role == UserRole.aparatchi
+          if (profile?.role.isApparatusOperator == true
               ? assigned.contains(item.order.apparatus.trim())
               : item.actorRef == actorRef)
             item.order,

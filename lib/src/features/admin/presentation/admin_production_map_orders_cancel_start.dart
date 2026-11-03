@@ -14,7 +14,7 @@ extension _AdminProductionMapOrdersCancelStart
     if (!widget.workerMode ||
         !synchronized ||
         !(apparatus.usesLaminationWorkflow || apparatus.operation == 'cut') ||
-        profile?.role != UserRole.aparatchi ||
+        profile?.role.isApparatusOperator != true ||
         !AppSession.instance.can('apparatus.queue.manage') ||
         !_isAssignedWatchApparatus(apparatus,
             assignedApparatus: profile!.assignedApparatus) ||

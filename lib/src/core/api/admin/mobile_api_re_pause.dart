@@ -25,7 +25,7 @@ class AdminResumePauseControl {
   }
 
   bool belongsTo(SessionProfile? profile) =>
-      profile?.role == UserRole.aparatchi &&
+      profile?.role.isApparatusOperator == true &&
       profile?.ref == workerRef &&
       workerRole == 'aparatchi';
 }

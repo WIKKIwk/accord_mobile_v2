@@ -2,6 +2,8 @@ import '../../../../app/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/shell/app_shell.dart';
 import 'admin_dock.dart';
+import '../../../aparatchi/presentation/widgets/aparatchi_dock.dart';
+import '../../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
 import 'admin_create_hub_sheet.dart';
 import 'admin_drawer_navigation.dart';
 import 'admin_navigation_drawer.dart';
@@ -21,6 +23,7 @@ class AdminShell extends StatelessWidget {
     this.bottomDockFadeStrength,
     this.contentPadding = EdgeInsets.zero,
     this.includeDrawer = true,
+    this.operatorShell = false,
     this.primaryFabActions,
     this.showPrimaryFab = true,
   });
@@ -35,6 +38,7 @@ class AdminShell extends StatelessWidget {
   final ValueListenable<double>? bottomDockFadeStrength;
   final EdgeInsets contentPadding;
   final bool includeDrawer;
+  final bool operatorShell;
   final List<AdminFabMenuAction>? primaryFabActions;
   final bool showPrimaryFab;
 
@@ -48,20 +52,28 @@ class AdminShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      drawer: includeDrawer
-          ? AdminNavigationDrawer(
+      drawer: !includeDrawer
+          ? null
+          : operatorShell
+          ? AparatchiNavigationDrawer(
+              selectedIndex: -1,
+              selectedRouteName: selectedRouteName,
+              onNavigate: (routeName) => _openDrawerRoute(context, routeName),
+            )
+          : AdminNavigationDrawer(
               selectedIndex: 0,
               selectedRouteName: selectedRouteName ?? AppRoutes.adminHome,
               onNavigate: (routeName) => _openDrawerRoute(context, routeName),
-            )
-          : null,
+            ),
       leading: leading,
       actions: actions,
       title: title,
       subtitle: subtitle,
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      bottom: AdminDock(
+      bottom: operatorShell
+          ? const AparatchiDock(activeTab: null, showPrimaryFab: false)
+          : AdminDock(
         activeTab: activeTab,
         primaryFabActions: primaryFabActions,
         showPrimaryFab: showPrimaryFab,

@@ -20,6 +20,7 @@ extension MobileApiAdminQueueState on MobileApi {
     // Recovery after a network change must not rejoin a read still waiting
     // on the old connection. Ordinary concurrent readers remain deduplicated.
     if (fresh) _queueSnapshotReadEpoch++;
+    workerScope = workerScope || AppSession.instance.profile?.role == UserRole.rezkaMaster;
     final cursor = workerScope && apparatus.trim().isEmpty && !fresh &&
         since?.revision != null && (since?.epoch.isNotEmpty ?? false) &&
         (since?.scope.isNotEmpty ?? false) ? since : null;

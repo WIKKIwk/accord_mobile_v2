@@ -39,6 +39,19 @@ extension __AdminWorkerSettingsScreenStateAstPart01
   }
 
   Future<_WorkerSettingsData> _load() async {
+    if (_rezkaMaster) {
+      final (team, apparatus) = await (
+        MobileApi.instance.rezkaMasterWorkers(),
+        MobileApi.instance.adminApparatus(limit: 500),
+      ).wait;
+      return _WorkerSettingsData(
+        workers: team.workers,
+        apparatus: apparatus,
+        assignmentsByWorker: {
+          for (final assignment in team.assignments) assignment.principalRef: assignment,
+        },
+      );
+    }
     final results = await Future.wait<Object>([
       MobileApi.instance.adminWorkers(),
       _loadWorkerApparatus(),
@@ -107,18 +120,26 @@ extension __AdminWorkerSettingsScreenStateAstPart01
     }
     setState(() => _savingApparatusWorkerIds.add(workerId));
     try {
-      await MobileApi.instance.adminUpsertRoleAssignment(
-        AdminRoleAssignment(
-          principalRole: UserRole.aparatchi,
-          principalRef: workerId,
-          roleId: currentAssignment?.roleId.trim().isNotEmpty == true
-              ? currentAssignment!.roleId.trim()
-              : 'aparatchi',
-          assignedApparatus: assignedApparatus,
-          assignedItemGroups:
-              currentAssignment?.assignedItemGroups ?? const <String>[],
-        ),
-      );
+      if (_rezkaMaster) {
+        await MobileApi.instance.rezkaMasterAssignWorker(
+          workerId: workerId,
+          apparatusIds: assignedApparatus,
+          previousApparatusIds: currentAssignment?.assignedApparatus ?? const [],
+        );
+      } else {
+        await MobileApi.instance.adminUpsertRoleAssignment(
+          AdminRoleAssignment(
+            principalRole: UserRole.aparatchi,
+            principalRef: workerId,
+            roleId: currentAssignment?.roleId.trim().isNotEmpty == true
+                ? currentAssignment!.roleId.trim()
+                : 'aparatchi',
+            assignedApparatus: assignedApparatus,
+            assignedItemGroups:
+                currentAssignment?.assignedItemGroups ?? const <String>[],
+          ),
+        );
+      }
       if (mounted) {
         showAdminTopNotice(context, context.l10n.adminText('scope.saved'), tone: AdminTopNoticeTone.success);
         setState(() {
@@ -127,16 +148,21 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       }
       return true;
     } catch (error) {
-      if (mounted) {
-        showAdminTopNotice(
-          context,
-          context.l10n.adminText(
-            'scope.save_failed',
-            values: {'error': error},
-          ),
-          icon: Icons.error,
-          tone: AdminTopNoticeTone.error,
-        );
+      if (!mounted) return false;
+      final code = error is MobileApiException ? error.code : '';
+      final message = switch (code) {
+        'rezka_assignment_changed' || 'rezka_worker_has_open_run' =>
+          context.l10n.adminText('rezka_master.$code'),
+        _ => context.l10n.adminText(
+          'scope.save_failed', values: {'error': error},
+        ),
+      };
+      showAdminTopNotice(
+        context, message, icon: Icons.error, tone: AdminTopNoticeTone.error,
+      );
+      if (code == 'rezka_assignment_changed') {
+        _reload();
+        return true;
       }
       return false;
     } finally {

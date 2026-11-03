@@ -5,6 +5,7 @@ class _WorkerSettingsCard extends StatelessWidget {
   const _WorkerSettingsCard({
     required this.slot,
     required this.worker,
+    required this.showIdentityActions,
     required this.apparatus,
     required this.assignedApparatus,
     required this.savingApparatus,
@@ -19,6 +20,7 @@ class _WorkerSettingsCard extends StatelessWidget {
 
   final M3SegmentVerticalSlot slot;
   final AdminWorker worker;
+  final bool showIdentityActions;
   final List<AdminApparatus> apparatus;
   final List<String> assignedApparatus;
   final bool savingApparatus;
@@ -168,7 +170,7 @@ class _WorkerSettingsCard extends StatelessWidget {
                           onSave: onSaveApparatus,
                         ),
                         const SizedBox(height: 12),
-                        Row(
+                        if (showIdentityActions) Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             IconButton.filledTonal(

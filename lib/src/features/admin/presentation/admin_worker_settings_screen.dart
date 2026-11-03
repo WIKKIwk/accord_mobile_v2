@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
+import '../../../core/session/state/app_session.dart';
+import '../../aparatchi/presentation/widgets/aparatchi_dock.dart';
+import '../../aparatchi/presentation/widgets/aparatchi_navigation_drawer.dart';
+
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -54,6 +58,7 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     with SingleTickerProviderStateMixin {
   late Future<_WorkerSettingsData> _future;
   late TabController _tabController;
+  bool get _rezkaMaster => AppSession.instance.profile?.role == UserRole.rezkaMaster;
   int _workersVersion = 0;
   int _groupsVersion = 0;
   String? _selectedWorkerId;
@@ -75,6 +80,22 @@ class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_rezkaMaster) {
+      return AppShell(
+        drawer: AparatchiNavigationDrawer(
+          selectedIndex: -1,
+          selectedRouteName: AppRoutes.adminWorkerSettings,
+          onNavigate: _openDrawerRoute,
+        ),
+        title: context.l10n.adminText('worker.title'),
+        subtitle: '',
+        nativeTopBar: true,
+        nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+        bottom: const AparatchiDock(activeTab: null, showPrimaryFab: false),
+        contentPadding: EdgeInsets.zero,
+        child: _buildWorkersTab(),
+      );
+    }
     return AppShell(
       drawer: AdminNavigationDrawer(
         selectedIndex: 1,

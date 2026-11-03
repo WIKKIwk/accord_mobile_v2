@@ -17,7 +17,7 @@ extension _PaddonTransferActions on _AparatchiPaddonTransferScreenState {
         return;
       }
       final List<AdminPaddon> paddons;
-      if (profile?.role == UserRole.aparatchi) {
+      if (profile?.role.isApparatusOperator == true) {
         final assigned = assignedPaddonApparatus(
           catalog,
           profile!.assignedApparatus,

@@ -50,7 +50,7 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
 
   bool get _needsApparatus =>
       widget.loader == null &&
-      AppSession.instance.profile?.role == UserRole.aparatchi &&
+      AppSession.instance.profile?.role.isApparatusOperator == true &&
       _apparatusId.isEmpty;
 
   String get _title => _apparatusName.isEmpty
@@ -98,7 +98,7 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
     final loader = widget.loader;
     var canTransfer = false;
     final profile = AppSession.instance.profile;
-    if (loader == null && profile?.role == UserRole.aparatchi) {
+    if (loader == null && profile?.role.isApparatusOperator == true) {
       final catalog = await MobileApi.instance.adminApparatus(limit: 10000);
       if (!mounted ||
           scope != currentSessionReadScope() ||

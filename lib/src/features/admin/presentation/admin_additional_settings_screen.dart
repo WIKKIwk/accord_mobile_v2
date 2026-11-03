@@ -13,6 +13,7 @@ import 'widgets/admin_lamination_settings_card.dart';
 import 'widgets/admin_qolip_start_settings_card.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_shell.dart';
+import '../../shared/models/app_models.dart';
 
 class AdminAdditionalSettingsScreen extends StatefulWidget {
   const AdminAdditionalSettingsScreen({super.key});
@@ -26,16 +27,20 @@ class _AdminAdditionalSettingsScreenState
     extends State<AdminAdditionalSettingsScreen> {
   Future<PaddonManagementSettings>? _future;
   bool _saving = false;
-  bool get _isAdmin => AppSession.instance.profile?.isAdminOrBrigader == true;
+  bool get _rezkaMaster =>
+      AppSession.instance.profile?.role == UserRole.rezkaMaster &&
+      AppSession.instance.can('rezka.master.access');
+  bool get _canManagePaddons =>
+      AppSession.instance.profile?.isAdminOrBrigader == true || _rezkaMaster;
 
   @override
   void initState() {
     super.initState();
-    if (_isAdmin) _future = MobileApi.instance.paddonManagementSettings();
+    if (_canManagePaddons) _future = MobileApi.instance.paddonManagementSettings();
   }
 
   Future<void> _refresh() async {
-    if (!_isAdmin || _saving) return;
+    if (!_canManagePaddons || _saving) return;
     final future = MobileApi.instance.paddonManagementSettings();
     setState(() {
       _future = future;
@@ -46,7 +51,7 @@ class _AdminAdditionalSettingsScreenState
   }
 
   Future<void> _setEnabled(bool enabled) async {
-    if (_saving || !_isAdmin) return;
+    if (_saving || !_canManagePaddons) return;
     final scope = currentSessionReadScope();
     if (enabled) {
       final confirmed = await showM3ConfirmDialog(
@@ -62,7 +67,7 @@ class _AdminAdditionalSettingsScreenState
       );
       if (confirmed != true ||
           !mounted ||
-          !_isAdmin ||
+          !_canManagePaddons ||
           scope != currentSessionReadScope()) {
         return;
       }
@@ -74,7 +79,7 @@ class _AdminAdditionalSettingsScreenState
     bool? freeMovementEnabled,
     bool? workerVisibilityEnabled,
   }) async {
-    if (_saving || !_isAdmin) return;
+    if (_saving || !_canManagePaddons) return;
     final scope = currentSessionReadScope();
     setState(() => _saving = true);
     try {
@@ -105,7 +110,8 @@ class _AdminAdditionalSettingsScreenState
   @override
   Widget build(BuildContext context) => AdminShell(
         title: context.l10n.productionText('paddon.management.settings.title'),
-        activeTab: AdminDockTab.settings,
+        activeTab: _rezkaMaster ? null : AdminDockTab.settings,
+        operatorShell: _rezkaMaster,
         selectedRouteName: AppRoutes.adminAdditionalSettings,
         showPrimaryFab: false,
         actions: [
@@ -113,7 +119,7 @@ class _AdminAdditionalSettingsScreenState
               onPressed: _saving ? null : _refresh,
               icon: const Icon(Icons.refresh))
         ],
-        child: !_isAdmin
+        child: !_canManagePaddons
             ? Center(
                 child: Text(context.l10n.productionErrorMessage('forbidden')))
             : FutureBuilder<PaddonManagementSettings>(
@@ -128,7 +134,7 @@ class _AdminAdditionalSettingsScreenState
                   return ListView(
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 144),
                       children: [
-                        const AdminAppUpdateSettingsCard(),
+                        if (!_rezkaMaster) const AdminAppUpdateSettingsCard(),
                         Card(
                             child: SwitchListTile(
                           key: const ValueKey('paddon-free-movement-switch'),
@@ -154,8 +160,8 @@ class _AdminAdditionalSettingsScreenState
                               : (enabled) => _saveSettings(
                                   workerVisibilityEnabled: enabled),
                         )),
-                        const AdminLaminationSettingsCard(),
-                        const AdminQolipStartSettingsCard(),
+                        if (!_rezkaMaster) const AdminLaminationSettingsCard(),
+                        if (!_rezkaMaster) const AdminQolipStartSettingsCard(),
                         if (_saving) const LinearProgressIndicator(),
                       ]);
                 },

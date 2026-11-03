@@ -113,6 +113,7 @@ part 'admin/mobile_api_admin_telegram.dart';
 part 'admin/mobile_api_admin_items.dart';
 part 'admin/mobile_api_admin_item_groups.dart';
 part 'admin/mobile_api_paddons.dart';
+part 'admin/mobile_api_rezka_master.dart';
 part 'admin/mobile_api_paddon_transfer.dart';
 part 'admin/mobile_api_re_pause.dart';
 part 'admin/mobile_api_temporary_pause.dart';

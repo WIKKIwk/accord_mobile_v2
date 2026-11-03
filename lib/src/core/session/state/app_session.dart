@@ -46,6 +46,10 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.rezkaMaster &&
+        profile.hasCapability('rezka.master.access')) {
+      return '/apparatus-queue';
+    }
     if (profile.role == UserRole.brigader && profile.hasCapability('brigader.access')) {
       return '/brigader-home';
     }

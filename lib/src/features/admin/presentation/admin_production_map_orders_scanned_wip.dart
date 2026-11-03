@@ -17,7 +17,7 @@ extension _ReadOnlyScannedWipHistory on _ReadOnlyOrderDetailSheetState {
         !widget.detailPending &&
         apparatus != null &&
         (apparatus.usesLaminationWorkflow || apparatus.operation == 'cut') &&
-        profile?.role == UserRole.aparatchi &&
+        profile?.role.isApparatusOperator == true &&
         AppSession.instance.can('apparatus.queue.read') &&
         profile!.assignedApparatus.contains(apparatus.id) &&
         _scannedWipStage.isNotEmpty;

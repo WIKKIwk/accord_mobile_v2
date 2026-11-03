@@ -181,6 +181,7 @@ extension __AdminWorkerSettingsScreenStateAstPart02
                           workers.length,
                         ),
                         worker: workers[index],
+                        showIdentityActions: !_rezkaMaster,
                         apparatus: data?.apparatus ?? const <AdminApparatus>[],
                         assignedApparatus: data
                                 ?.assignmentsByWorker[workers[index].id.trim()]

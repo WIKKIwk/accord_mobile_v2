@@ -168,7 +168,7 @@ class _WorkerWipHistorySheetState extends State<_WorkerWipHistorySheet> {
       if (orderId.isEmpty ||
           apparatusId.isEmpty ||
           profile == null ||
-          profile.role != UserRole.aparatchi ||
+          !profile.role.isApparatusOperator ||
           profile.ref.trim().isEmpty ||
           !profile.assignedApparatus.any((id) => id.trim() == apparatusId)) {
         throw const MobileApiException(

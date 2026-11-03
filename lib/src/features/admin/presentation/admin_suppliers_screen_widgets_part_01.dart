@@ -25,6 +25,7 @@ String _adminUserKindLabel(AppLocalizations l10n, AdminUserKind kind) {
     AdminUserKind.tayyorlovMasteri => 'Tayyorlov masteri',
     AdminUserKind.homashyoRezkachi => 'Homashyo rezkachisi',
     AdminUserKind.brigader => 'Brigader',
+    AdminUserKind.rezkaMaster => 'Rezka master',
     AdminUserKind.salesManager => 'Sotuv manageri',
   };
 }
@@ -41,6 +42,7 @@ String _adminUserKindRoleQuery(AdminUserKind kind) {
     AdminUserKind.tayyorlovMasteri => 'tayyorlov_masteri',
     AdminUserKind.homashyoRezkachi => 'homashyo_rezkachi',
     AdminUserKind.brigader => 'brigader',
+    AdminUserKind.rezkaMaster => 'rezka_master',
     AdminUserKind.salesManager => 'sales_manager',
   };
 }

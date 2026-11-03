@@ -39,7 +39,7 @@ class _AparatchiNavigationDrawerState extends State<AparatchiNavigationDrawer> {
 
   Future<List<AdminApparatus>> _loadApparatus() {
     final profile = AppSession.instance.profile;
-    if (profile?.role != UserRole.aparatchi ||
+    if (profile?.role.isApparatusOperator != true ||
         profile!.assignedApparatus.isEmpty) {
       return Future.value(const []);
     }
@@ -82,7 +82,7 @@ class _AparatchiNavigationDrawerState extends State<AparatchiNavigationDrawer> {
     final l10n = context.l10n;
     final profile = AppSession.instance.profile;
     final showDailyWork = profile != null &&
-        profile.role == UserRole.aparatchi &&
+        profile.role.isApparatusOperator &&
         profile.assignedApparatus.any(
           isCanonicalApparatusId,
         );
@@ -99,6 +99,20 @@ class _AparatchiNavigationDrawerState extends State<AparatchiNavigationDrawer> {
             label: l10n.monitoringNavTitle,
             routeName: AppRoutes.apparatusQueue,
           ),
+          if (profile?.role == UserRole.rezkaMaster) ...[
+            RoleNavigationDrawerDestination(
+              icon: Icons.groups_outlined,
+              selectedIcon: Icons.groups,
+              label: l10n.adminText('worker.title'),
+              routeName: AppRoutes.adminWorkerSettings,
+            ),
+            RoleNavigationDrawerDestination(
+              icon: Icons.settings_outlined,
+              selectedIcon: Icons.settings,
+              label: l10n.productionText('paddon.management.settings.title'),
+              routeName: AppRoutes.adminAdditionalSettings,
+            ),
+          ],
           if (showDailyWork)
             RoleNavigationDrawerDestination(
               icon: Icons.today_outlined,

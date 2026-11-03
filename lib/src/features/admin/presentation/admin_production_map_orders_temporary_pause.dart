@@ -13,7 +13,7 @@ AdminTemporaryPauseControl? _eligibleWorkerTemporaryPause({
   if (!workerMode ||
       !synchronized ||
       apparatus == null ||
-      profile?.role != UserRole.aparatchi ||
+      profile?.role.isApparatusOperator != true ||
       !AppSession.instance.can('apparatus.queue.manage') ||
       !_isAssignedWatchApparatus(apparatus,
           assignedApparatus: profile!.assignedApparatus) ||
