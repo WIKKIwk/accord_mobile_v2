@@ -57,6 +57,7 @@ class _AdminProductionMapOrdersScreenState
   bool _workerCatalogReady = false;
   Object? _workerWarmLease;
   bool _workerForeground = true;
+  bool _workerAssignmentRefreshInFlight = false;
   bool _workerRetryAllowed = true;
   bool _workerQrScanInFlight = false;
   bool _workerQrGuidanceOpen = false;

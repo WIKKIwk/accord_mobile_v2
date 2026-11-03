@@ -130,7 +130,36 @@ extension _AdminProductionMapOrdersLiveState
     await _restartWorkerLiveStream();
   }
 
+  Future<bool> _refreshWorkerAssignments() async {
+    if (!widget.workerMode || widget.queueSnapshotLoader != null ||
+        AppSession.instance.isTestModeSession || _workerAssignmentRefreshInFlight ||
+        AppSession.instance.profile?.role.isApparatusOperator != true) {
+      return false;
+    }
+    _workerAssignmentRefreshInFlight = true;
+    final previousScope = currentSessionReadScope();
+    try {
+      await MobileApi.instance.profile(onlyWhenApparatusChanged: true);
+      if (!mounted || previousScope == currentSessionReadScope()) return false;
+      _workerQrTabRevision++;
+      _recreateWorkerTabController(_apparatus);
+      _queueSnapshotNeedsReconcile = true;
+      _sheetQueueSnapshot.value = null;
+      setState(() {});
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _workerAssignmentRefreshInFlight = false;
+    }
+  }
+
   Future<void> _resumeWorkerLive() async {
+    if (await _refreshWorkerAssignments()) {
+      if (mounted && _workerForeground) await _startWorkerLive();
+      return;
+    }
+    if (!mounted || !_workerForeground) return;
     final snapshot = _canonicalQueueSnapshot;
     if (_liveRecoverySupported && _workerCatalogReady &&
         _snapshotReadScope == currentSessionReadScope() &&
@@ -266,6 +295,13 @@ extension _AdminProductionMapOrdersLiveState
         _workerLiveHealthy = false;
         final error = streamError ?? const MobileApiException(
           code: 'live_closed', message: 'Live connection closed');
+        if (error is MobileApiException &&
+            (error.statusCode == 403 || error.code == 'forbidden') &&
+            await _refreshWorkerAssignments()) {
+          if (mounted && _workerForeground) unawaited(_startWorkerLive());
+          return;
+        }
+        if (!mounted || generation != _liveStreamGeneration) return;
         _workerRetryAllowed = _canRetryWorkerRead(error);
         _invalidateQueueSnapshotContract(_workerReadErrorText(error),
           retryRead: false, reconnecting: _workerRetryAllowed);
@@ -413,6 +449,17 @@ extension _AdminProductionMapOrdersLiveState
             _canonicalCacheAwaitingValidation = false;
             _queueSnapshotNeedsReconcile = false;
             _updateScreenState(_clearOrdersLoadError);
+          } else if (widget.workerMode && message.resync &&
+              _canonicalQueueSnapshot?.scope.isNotEmpty == true &&
+              message.scope != _canonicalQueueSnapshot?.scope) {
+            unawaited(_refreshWorkerAssignments().then((changed) {
+              if (!mounted || !_workerForeground) return;
+              if (changed) {
+                unawaited(_startWorkerLive());
+              } else {
+                _requestStateReconcile();
+              }
+            }));
           } else {
             _requestStateReconcile();
           }
@@ -921,6 +968,12 @@ extension _AdminProductionMapOrdersLiveState
       });
     } catch (error) {
       if (mounted && requestGeneration == _queueSnapshotGeneration) {
+        if (error is MobileApiException && error.statusCode == 403 &&
+            await _refreshWorkerAssignments()) {
+          if (mounted && _workerForeground) unawaited(_startWorkerLive());
+          return;
+        }
+        if (!mounted || requestGeneration != _queueSnapshotGeneration) return;
         _discardCanonicalCacheOnError(error);
         if (widget.workerMode) _workerRetryAllowed = _canRetryWorkerRead(error);
         _invalidateQueueSnapshotContract(

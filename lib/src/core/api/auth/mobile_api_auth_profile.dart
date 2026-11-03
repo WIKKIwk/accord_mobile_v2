@@ -259,7 +259,8 @@ extension MobileApiAuthProfile on MobileApi {
     );
   }
 
-  Future<SessionProfile> profile() async {
+  Future<SessionProfile> profile({bool onlyWhenApparatusChanged = false}) async {
+    final readScope = currentSessionReadScope();
     final http.Response response = await _sendAuthorized(
       () => _get(
         Uri.parse('$baseUrl/v1/mobile/profile'),
@@ -272,7 +273,16 @@ extension MobileApiAuthProfile on MobileApi {
     final SessionProfile profile = _profilePreservingCapabilities(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
-    await AppSession.instance.updateProfile(profile);
+    if (readScope != currentSessionReadScope()) {
+      throw const MobileApiException(code: 'session_scope_changed', message: '');
+    }
+    if (!onlyWhenApparatusChanged ||
+        !setEquals(
+          profile.assignedApparatus.toSet(),
+          AppSession.instance.profile?.assignedApparatus.toSet(),
+        )) {
+      await AppSession.instance.updateProfile(profile);
+    }
     return profile;
   }
 
