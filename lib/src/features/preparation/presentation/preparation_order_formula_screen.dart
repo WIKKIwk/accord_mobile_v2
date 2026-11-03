@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
@@ -172,6 +173,12 @@ class _FormulaRow {
 
 class _PreparationOrderFormulaScreenState
     extends State<PreparationOrderFormulaScreen> {
+  final _scope = currentSessionReadScope();
+  bool get _sameScope => _scope == currentSessionReadScope();
+  late String _variantName = widget.variantName;
+  String? _recipeKey;
+  String get _recipeOrderId =>
+      widget.manageSavedFormula || widget.variantId.isEmpty ? '' : widget.orderId;
   List<PreparationFormula> _formulas = const [];
   List<PreparationMaterial> _materials = const [];
   String? _estimatedMaterialKg;
@@ -200,6 +207,7 @@ class _PreparationOrderFormulaScreenState
   }
 
   Future<void> _reload() async {
+    if (!_sameScope) return;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -208,31 +216,34 @@ class _PreparationOrderFormulaScreenState
     }
     try {
       final snapshot = await MobileApi.instance.preparationSnapshot();
-      final formulas = await MobileApi.instance.preparationFormulas(
+      final details = await MobileApi.instance.preparationFormulaDetails(
         widget.productCode,
         materialId: widget.materialId,
         savedOnly: widget.manageSavedFormula,
         variantId: widget.variantId,
+        orderId: _recipeOrderId,
       );
       final estimatedKg = await _loadEstimatedMaterialKg();
-      if (!mounted) return;
+      if (!mounted || !_sameScope) return;
       final materials = [...snapshot.materials]..sort((a, b) {
           final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
           return byName != 0 ? byName : a.code.compareTo(b.code);
         });
       setState(() {
         _materials = materials;
-        _formulas = formulas;
+        _formulas = details.formulas;
+        _variantName = details.name ?? _variantName;
+        _recipeKey = details.recipeKey;
         _estimatedMaterialKg = estimatedKg;
       });
       if (!_initialEditorOpened &&
           (widget.initialFormulaName != null || widget.openEditorOnLoad)) {
-        final formula = formulas
+        final formula = details.formulas
             .where((f) => f.name == widget.initialFormulaName)
             .firstOrNull;
         _initialEditorOpened = true;
         if (widget.initialFormulaName == null) {
-          _openEditor(existing: formulas.firstOrNull);
+          _openEditor(existing: details.formulas.firstOrNull);
         } else if (formula != null) {
           _openEditor(existing: formula);
         } else {
@@ -264,14 +275,22 @@ class _PreparationOrderFormulaScreenState
   }
 
   Future<void> _refreshFormulas() async {
+    if (!_sameScope) return;
     try {
-      final formulas = await MobileApi.instance.preparationFormulas(
+      final details = await MobileApi.instance.preparationFormulaDetails(
         widget.productCode,
         materialId: widget.materialId,
         savedOnly: widget.manageSavedFormula,
         variantId: widget.variantId,
+        orderId: _recipeOrderId,
       );
-      if (mounted) setState(() => _formulas = formulas);
+      if (mounted && _sameScope) {
+        setState(() {
+          _formulas = details.formulas;
+          _variantName = details.name ?? _variantName;
+          _recipeKey = details.recipeKey;
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -282,18 +301,22 @@ class _PreparationOrderFormulaScreenState
   }
 
   Future<void> _editShares() async {
-    if (_loading || _saving || _deleting || _formulas.isEmpty) return;
+    if (_loading || _saving || _deleting || _formulas.isEmpty || !_sameScope) return;
     final formulas = await showPreparationFormulaSharesEditor(context,
       productCode: widget.productCode, materialId: widget.materialId,
       materialName: widget.materialName, formulas: _formulas,
       savedOnly: widget.manageSavedFormula,
       variantId: widget.variantId,
+      orderId: _recipeOrderId,
     );
-    if (mounted && formulas != null) setState(() => _formulas = formulas);
+    if (mounted && _sameScope && formulas != null) {
+      setState(() => _formulas = formulas);
+      if (_recipeOrderId.isNotEmpty) await _refreshFormulas();
+    }
   }
 
   Future<void> _startProduction() async {
-    if (_loading || _saving || _deleting || _openingReceipt ||
+    if (_loading || _saving || _deleting || _openingReceipt || !_sameScope ||
         widget.manageSavedFormula ||
         !AppRouter.canOpenRoute(AppRoutes.gscaleMode) ||
         widget.orderId.trim().isEmpty || widget.materialId.trim().isEmpty) {
@@ -301,6 +324,17 @@ class _PreparationOrderFormulaScreenState
     }
     setState(() => _openingReceipt = true);
     try {
+      if (_recipeOrderId.isNotEmpty) {
+        final selected = await MobileApi.instance.preparationSelectFormulaVariant(
+          productCode: widget.productCode,
+          materialId: widget.materialId,
+          variantId: widget.variantId,
+          orderId: _recipeOrderId,
+          recipeKey: _recipeKey,
+        );
+        if (!mounted || !_sameScope) return;
+        setState(() => _variantName = selected.name);
+      }
       await Navigator.of(context).pushNamed(
         AppRoutes.gscaleMode,
         arguments: GScaleModeArgs(
@@ -317,6 +351,14 @@ class _PreparationOrderFormulaScreenState
           freshForm: true,
         ),
       );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(preparationFormulaErrorMessage(error))),
+      );
+      if (error is MobileApiException && error.statusCode == 409) {
+        await _refreshFormulas();
+      }
     } finally {
       if (mounted) setState(() => _openingReceipt = false);
     }
@@ -503,7 +545,7 @@ class _PreparationOrderFormulaScreenState
   }
 
   Future<void> _save() async {
-    if (!_canSave || _saving) return;
+    if (!_canSave || _saving || !_sameScope) return;
     setState(() => _saving = true);
     try {
       final lines = [
@@ -524,6 +566,7 @@ class _PreparationOrderFormulaScreenState
         savedOnly: widget.manageSavedFormula &&
             (_editingName != null || !widget.allowAddingFormula),
         variantId: widget.variantId,
+        orderId: _recipeOrderId,
       );
       if (!mounted) return;
       setState(() => _saving = false);
@@ -554,7 +597,7 @@ class _PreparationOrderFormulaScreenState
           destructive: true,
         ) ??
         false;
-    if (!confirmed || !mounted) return;
+    if (!confirmed || !mounted || !_sameScope) return;
     setState(() => _deleting = true);
     try {
       await MobileApi.instance.preparationDeleteFormula(
@@ -563,6 +606,7 @@ class _PreparationOrderFormulaScreenState
         materialId: widget.materialId,
         savedOnly: widget.manageSavedFormula,
         variantId: widget.variantId,
+        orderId: _recipeOrderId,
       );
       if (!mounted) return;
       setState(() => _deleting = false);
@@ -621,7 +665,7 @@ class _PreparationOrderFormulaScreenState
     ].where((part) => part.isNotEmpty).join(' • ');
 
     return AppShell(
-      title: widget.variantName.isEmpty ? 'Formulalar' : widget.variantName,
+      title: _variantName.isEmpty ? 'Formulalar' : _variantName,
       subtitle: subtitleParts,
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_create_hub_sheet.dart';
@@ -20,6 +22,8 @@ class _ActionsApi extends variants.VariantApi {
   final removed = <String>{};
   final deletes = <Map<String, String>>[];
   bool failNext = false;
+  final renames = <http.Request>[];
+  bool rejectRename = false;
 
   @override
   Future<http.Response> respond(http.Request request) async {
@@ -36,6 +40,21 @@ class _ActionsApi extends variants.VariantApi {
             .variants
             .where((v) => !removed.contains('${query['order_id']}:${v['id']}'))
             .toList(),
+      });
+    }
+    if (request.url.path.endsWith('/formula-variants') &&
+        request.method == 'PATCH') {
+      renames.add(request);
+      if (rejectRename) {
+        return fixtures.response({'error': 'Bunday nomli shnek varianti mavjud'}, 409);
+      }
+      return fixtures.response({
+        'id': query['variant_id'],
+        'name': (jsonDecode(request.body) as Map)['name'],
+        'formula_code': '950400000007',
+        'formula_count': 1,
+        'shares_complete': true,
+        'revision_id': 4,
       });
     }
     if (request.url.path.endsWith('/formula-variants/order')) {
@@ -136,6 +155,38 @@ void main() {
       });
     });
   }
+
+  testWidgets('long press renames the same variant for this order', (tester) async {
+    final api = _ActionsApi()..rejectRename = true;
+    await _withApi(tester, api, () async {
+      await _actions(tester);
+      await tester.tap(find.text('Nomini o‘zgartirish'));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const ValueKey('preparation-variant-name'));
+      final save = find.byKey(const ValueKey('preparation-variant-rename'));
+      expect(tester.widget<TextFormField>(field).controller!.text, 'Asosiy');
+      expect(tester.widget<FilledButton>(save).onPressed, isNull);
+      await tester.enterText(field, '  Buyurtma   LG  ');
+      await tester.pump();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('Bunday nomli shnek varianti mavjud'), findsOneWidget);
+      api.rejectRename = false;
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('Buyurtma LG'), findsOneWidget);
+      expect(find.byKey(const ValueKey('preparation-formula-variant-legacy')), findsOneWidget);
+      expect(api.renames.last.url.queryParameters, {
+        'order_id': 'order-1',
+        'product_code': 'P',
+        'material_id': 'pe-pr',
+        'variant_id': 'legacy',
+      });
+      expect(jsonDecode(api.renames.last.body), {'name': 'Buyurtma LG'});
+      expect(api.creates, isEmpty);
+      expect(api.deletes, isEmpty);
+    });
+  });
 
   testWidgets('deletion persists only for the selected order', (tester) async {
     final api = _ActionsApi();

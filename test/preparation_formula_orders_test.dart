@@ -254,7 +254,7 @@ void main() {
       expect(formulaRow.title, 'Mat A • A');
       expect(formulaRow.subtitle, 'Shnek ulushi: 100%\nKley • 60%\nUn • 40%');
       expect(formulaRow.subtitleMaxLines, 3);
-      expect(find.textContaining('boshqa buyurtmalarda'), findsOneWidget);
+      expect(find.textContaining('keyingi safar buyurtmaga biriktirilganda'), findsOneWidget);
       await tester.tap(formulaCard());
       await tester.pumpAndSettle();
       expect(find.text('Formula ma’lumotlari'), findsOneWidget);

@@ -124,6 +124,43 @@ void main() {
             }));
   });
 
+  testWidgets('catalog rename saves the same recipe without an order scope',
+      (tester) async {
+    var name = 'LG';
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+          fixtures.app(home: const PreparationFormulaCatalogScreen()));
+      await tester.pumpAndSettle();
+      final row = find.byKey(const ValueKey('preparation-catalog-formula-v1'));
+      await tester.longPress(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nomini o‘zgartirish'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byKey(const ValueKey('preparation-variant-name')), 'Catalog LG');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('preparation-variant-rename')));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: row, matching: find.text('Catalog LG')),
+          findsOneWidget);
+      expect(find.textContaining('950400000001'), findsOneWidget);
+    }, () => MockClient((request) async {
+      if (request.method == 'GET') {
+        expect(request.url.path, endsWith('/formula-catalog'));
+        return fixtures.response({'formulas': [recipe(1, name: name)]});
+      }
+      expect(request.method, 'PATCH');
+      expect(request.url.path, endsWith('/formula-variants'));
+      expect(request.url.queryParameters, {
+        'product_code': 'P1',
+        'material_id': 'mat-a',
+        'variant_id': 'v1',
+      });
+      name = (jsonDecode(request.body) as Map)['name'] as String;
+      return fixtures.response({'id': 'v1', 'name': name});
+    }));
+  });
+
   testWidgets('opening LG shows and manages A, B and C inside the same recipe',
       (tester) async {
     tester.view.physicalSize = const Size(390, 1200);

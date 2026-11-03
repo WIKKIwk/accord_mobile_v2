@@ -165,6 +165,21 @@ extension MobileApiPreparation on MobileApi {
     bool savedOnly = false,
     String variantId = '',
   }) async {
+    final details = await preparationFormulaDetails(
+      productCode, materialId: materialId, savedOnly: savedOnly,
+      variantId: variantId,
+    );
+    return details.formulas;
+  }
+
+  Future<({List<PreparationFormula> formulas, String? name, String? recipeKey})>
+      preparationFormulaDetails(
+    String productCode, {
+    required String materialId,
+    bool savedOnly = false,
+    String variantId = '',
+    String orderId = '',
+  }) async {
     final code = productCode.trim();
     final material = materialId.trim();
     if (code.isEmpty) {
@@ -182,6 +197,7 @@ extension MobileApiPreparation on MobileApi {
       'product_code': code,
       'material_id': material,
       if (variantId.isNotEmpty) 'variant_id': variantId,
+      if (!savedOnly && orderId.isNotEmpty) 'order_id': orderId,
     });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
@@ -190,7 +206,12 @@ extension MobileApiPreparation on MobileApi {
       return _get(uri, headers: _headers(requireToken()));
     });
     if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
-    return PreparationFormula.listFromJson(_preparationResponse(response));
+    final data = _preparationResponse(response);
+    return (
+      formulas: PreparationFormula.listFromJson(data),
+      name: data['variant_name'] as String?,
+      recipeKey: data['recipe_key'] as String?,
+    );
   }
 
   Future<List<PreparationFormulaCatalogEntry>> preparationFormulaCatalog({
@@ -272,6 +293,7 @@ extension MobileApiPreparation on MobileApi {
     required String materialId,
     bool savedOnly = false,
     String variantId = '',
+    String orderId = '',
   }) async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
@@ -281,7 +303,10 @@ extension MobileApiPreparation on MobileApi {
       return (savedOnly ? _patch : _post)(
           Uri.parse(
               '${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}')
-              .replace(queryParameters: variantId.isEmpty ? null : {'variant_id': variantId}),
+              .replace(queryParameters: {
+                if (variantId.isNotEmpty) 'variant_id': variantId,
+                if (!savedOnly && orderId.isNotEmpty) 'order_id': orderId,
+              }),
           headers: _headers(requireToken())
             ..['Content-Type'] = 'application/json',
           body: jsonEncode({
@@ -301,6 +326,7 @@ extension MobileApiPreparation on MobileApi {
     required String materialId,
     bool savedOnly = false,
     String variantId = '',
+    String orderId = '',
   }) async {
     final key = _preparationStorageKey();
     final uri = Uri.parse(
@@ -310,6 +336,7 @@ extension MobileApiPreparation on MobileApi {
       'name': name.trim(),
       'material_id': materialId.trim(),
       if (variantId.isNotEmpty) 'variant_id': variantId,
+      if (!savedOnly && orderId.isNotEmpty) 'order_id': orderId,
     });
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) {
@@ -332,13 +359,17 @@ extension MobileApiPreparation on MobileApi {
     required List<Map<String, String>> shares,
     bool savedOnly = false,
     String variantId = '',
+    String orderId = '',
   }) async {
     final key = _preparationStorageKey();
     final response = await _sendAuthorized(() {
       if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
       return _patch(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/formulas${savedOnly ? '/saved' : ''}/shares')
-            .replace(queryParameters: variantId.isEmpty ? null : {'variant_id': variantId}),
+            .replace(queryParameters: {
+                if (variantId.isNotEmpty) 'variant_id': variantId,
+                if (!savedOnly && orderId.isNotEmpty) 'order_id': orderId,
+              }),
         headers: _headers(requireToken())..['Content-Type'] = 'application/json',
         body: jsonEncode({'product_code': productCode.trim(), 'material_id': materialId.trim(), 'shares': shares}),
       );
@@ -378,6 +409,81 @@ extension MobileApiPreparation on MobileApi {
     }
     return (data['variants'] as List).map((v) => PreparationFormulaVariant.fromJson(
         Map<String, dynamic>.from(v as Map))).toList();
+  }
+
+  Future<PreparationFormulaVariant> preparationSelectFormulaVariant({
+    required String productCode,
+    required String materialId,
+    required String variantId,
+    required String orderId,
+    String? recipeKey,
+  }) =>
+      _writePreparationFormulaVariant(
+        productCode: productCode, materialId: materialId, variantId: variantId,
+        orderId: orderId, recipeKey: recipeKey,
+      );
+
+  Future<PreparationFormulaVariant> preparationRenameFormulaVariant({
+    required String productCode,
+    required String materialId,
+    required String variantId,
+    required String name,
+    String orderId = '',
+  }) =>
+      _writePreparationFormulaVariant(
+        productCode: productCode, materialId: materialId, variantId: variantId,
+        orderId: orderId, name: name,
+      );
+
+  Future<PreparationFormulaVariant> _writePreparationFormulaVariant({
+    required String productCode,
+    required String materialId,
+    required String variantId,
+    required String orderId,
+    String? recipeKey,
+    String? name,
+  }) async {
+    final scope = _preparationStorageKey();
+    final path = name == null ? 'formula-variants/order' : 'formula-variants';
+    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/$path')
+        .replace(queryParameters: {
+      'product_code': productCode.trim(),
+      'material_id': materialId.trim(),
+      'variant_id': variantId,
+      if (orderId.isNotEmpty) 'order_id': orderId,
+      if (recipeKey != null) 'recipe_key': recipeKey,
+    });
+    void checkScope() {
+      if (_preparationStorageKey() != scope) {
+        throw const MobileApiException(
+          code: 'account_changed',
+          message: 'Akkaunt o‘zgargan. Sahifani qayta oching',
+        );
+      }
+    }
+
+    final response = await _sendAuthorized(() {
+      checkScope();
+      final headers = _headers(requireToken());
+      if (name == null) return _post(uri, headers: headers);
+      return _patch(
+        uri,
+        headers: headers..['Content-Type'] = 'application/json',
+        body: jsonEncode({'name': name}),
+      );
+    });
+    checkScope();
+    final data = _preparationResponse(response);
+    if (data['id'] != variantId ||
+        data['name'] is! String ||
+        (data['name'] as String).isEmpty ||
+        (orderId.isNotEmpty && data['revision_id'] is! num)) {
+      throw const MobileApiException(
+        code: 'preparation_invalid_response',
+        message: 'Shnek formulasi saqlangani tasdiqlanmadi. Ro‘yxatni yangilang',
+      );
+    }
+    return PreparationFormulaVariant.fromJson(data);
   }
 
   Future<PreparationFormulaVariant> preparationCreateFormulaVariant({

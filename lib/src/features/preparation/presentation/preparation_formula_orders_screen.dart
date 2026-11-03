@@ -3,7 +3,7 @@ part of 'preparation_screen.dart';
 String _formulaPageError(Object error) => preparationFormulaErrorMessage(error);
 
 const _sharedFormulaWarning =
-    'Formula mahsulot va homashyo turi uchun umumiy. O‘zgarishlar shu mahsulotli boshqa buyurtmalarda ham ko‘rinadi.';
+    'Katalogdagi o‘zgarishlar formula keyingi safar buyurtmaga biriktirilganda olinadi.';
 
 class PreparationFormulaOrdersScreen extends StatefulWidget {
   const PreparationFormulaOrdersScreen({super.key});
@@ -275,6 +275,15 @@ class _PreparationFormulaSetDetailsState
     }
   }
 
+  Future<void> _renameRecipe(PreparationFormulaCatalogEntry entry) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final renamed = await _renameCatalogRecipe(context, entry);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (renamed) await _reload();
+  }
+
   Future<void> _actions(PreparationScopedFormula entry) async {
     if (_busy) return;
     final action = await showPreparationFormulaDetails(
@@ -385,6 +394,7 @@ class _PreparationFormulaSetDetailsState
                           .where((part) => part.isNotEmpty)
                           .join(' • '),
                       onTap: _busy ? null : () => _openRecipe(entry),
+                      onLongPress: _busy ? null : () => _renameRecipe(entry),
                     ),
                   for (final (index, entry) in legacyFormulas.indexed)
                     AdminCatalogListRow(

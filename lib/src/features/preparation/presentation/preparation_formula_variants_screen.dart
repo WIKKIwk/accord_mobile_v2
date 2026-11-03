@@ -98,10 +98,18 @@ class _PreparationFormulaVariantsScreenState
   Future<void> _create() async {
     if (_creating || _opening || _removing || !_sameScope) return;
     setState(() => _creating = true);
+    final requestId = newPreparationRequestId();
     final variant = await showDialog<PreparationFormulaVariant>(
-        context: context,
-        builder: (_) => _CreateVariantDialog(
-            productCode: widget.productCode, materialId: widget.materialId));
+      context: context,
+      builder: (_) => _VariantNameDialog(
+        onSave: (name) => MobileApi.instance.preparationCreateFormulaVariant(
+          productCode: widget.productCode,
+          materialId: widget.materialId,
+          name: name,
+          requestId: requestId,
+        ),
+      ),
+    );
     if (!mounted || !_sameScope) return;
     setState(() {
       _creating = false;
@@ -209,6 +217,11 @@ class _PreparationFormulaVariantsScreenState
           AppActionSheetAction(title: 'Tahrirlash', icon: Icons.edit_outlined, value: 'edit'),
           AppActionSheetAction(title: 'O‘chirish', icon: Icons.delete_outline_rounded,
               value: 'delete', destructive: true),
+          AppActionSheetAction(
+            title: 'Nomini o‘zgartirish',
+            icon: Icons.drive_file_rename_outline,
+            value: 'rename',
+          ),
         ],
       ),
     );
@@ -217,6 +230,28 @@ class _PreparationFormulaVariantsScreenState
     if (!_sameScope) return;
     if (action == 'edit') await _open(variant, edit: true);
     if (action == 'delete') await _remove(variant);
+    if (action == 'rename') await _rename(variant);
+  }
+
+  Future<void> _rename(PreparationFormulaVariant variant) async {
+    setState(() => _creating = true);
+    try {
+      final saved = await showPreparationFormulaRenameDialog(
+        context,
+        variantId: variant.id,
+        name: variant.name,
+        productCode: widget.productCode,
+        materialId: widget.materialId,
+        orderId: widget.orderId,
+      );
+      if (!mounted || !_sameScope || saved == null) return;
+      setState(() => _variants = [
+        for (final entry in _variants)
+          if (entry.id == saved.id) saved else entry,
+      ]);
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   Future<void> _remove(PreparationFormulaVariant variant) async {
@@ -328,21 +363,55 @@ class _PreparationFormulaVariantsScreenState
       );
 }
 
-class _CreateVariantDialog extends StatefulWidget {
-  const _CreateVariantDialog(
-      {required this.productCode, required this.materialId});
-  final String productCode, materialId;
+Future<PreparationFormulaVariant?> showPreparationFormulaRenameDialog(
+  BuildContext context, {
+  required String variantId,
+  required String name,
+  required String productCode,
+  required String materialId,
+  String orderId = '',
+}) =>
+    showDialog<PreparationFormulaVariant>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _VariantNameDialog(
+        initialName: name,
+        orderScoped: orderId.isNotEmpty,
+        onSave: (name) => MobileApi.instance.preparationRenameFormulaVariant(
+          productCode: productCode,
+          materialId: materialId,
+          variantId: variantId,
+          orderId: orderId,
+          name: name,
+        ),
+      ),
+    );
+
+class _VariantNameDialog extends StatefulWidget {
+  const _VariantNameDialog({
+    required this.onSave,
+    this.initialName,
+    this.orderScoped = false,
+  });
+
+  final Future<PreparationFormulaVariant> Function(String) onSave;
+  final String? initialName;
+  final bool orderScoped;
+
   @override
-  State<_CreateVariantDialog> createState() => _CreateVariantDialogState();
+  State<_VariantNameDialog> createState() => _VariantNameDialogState();
 }
 
-class _CreateVariantDialogState extends State<_CreateVariantDialog> {
-  final _name = TextEditingController();
-  final _requestId = newPreparationRequestId();
+class _VariantNameDialogState extends State<_VariantNameDialog> {
+  late final _name = TextEditingController(text: widget.initialName);
+  final _scope = currentSessionReadScope();
   bool _saving = false;
   String? _error;
   String get _value =>
       _name.text.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).join(' ');
+  bool get _canSave =>
+      !_saving && _value.isNotEmpty && _value.runes.length <= 160 &&
+      _value != widget.initialName;
   @override
   void dispose() {
     _name.dispose();
@@ -350,17 +419,19 @@ class _CreateVariantDialogState extends State<_CreateVariantDialog> {
   }
 
   Future<void> _save() async {
-    if (_saving || _value.isEmpty || _value.runes.length > 160) return;
+    if (!_canSave) return;
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      final variant = await MobileApi.instance.preparationCreateFormulaVariant(
-          productCode: widget.productCode,
-          materialId: widget.materialId,
-          name: _value,
-          requestId: _requestId);
+      if (_scope != currentSessionReadScope()) {
+        throw const MobileApiException(
+          code: 'account_changed',
+          message: 'Akkaunt o‘zgargan. Sahifani qayta oching',
+        );
+      }
+      final variant = await widget.onSave(_value);
       if (mounted) Navigator.of(context).pop(variant);
     } catch (error) {
       if (mounted) {
@@ -375,7 +446,9 @@ class _CreateVariantDialogState extends State<_CreateVariantDialog> {
   Widget build(BuildContext context) => PopScope(
       canPop: !_saving,
       child: AlertDialog(
-        title: const UrduAwareText('Shnek variantiga nom bering'),
+        title: UrduAwareText(widget.initialName == null
+            ? 'Shnek variantiga nom bering'
+            : 'Nomini o‘zgartirish'),
         content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextFormField(
@@ -387,6 +460,10 @@ class _CreateVariantDialogState extends State<_CreateVariantDialog> {
               decoration: const InputDecoration(labelText: 'Variant nomi'),
               onChanged: (_) => setState(() => _error = null),
               onFieldSubmitted: (_) => _save()),
+          if (widget.initialName != null)
+            UrduAwareText(widget.orderScoped
+                ? 'Bu nom faqat shu buyurtma uchun saqlanadi.'
+                : 'Yangi nom keyingi buyurtmalarga biriktirishda olinadi.'),
           if (_error != null)
             Text(_error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -396,11 +473,10 @@ class _CreateVariantDialogState extends State<_CreateVariantDialog> {
               onPressed: _saving ? null : () => Navigator.of(context).pop(),
               child: const UrduAwareText('Bekor qilish')),
           FilledButton(
-              key: const ValueKey('preparation-variant-create'),
-              onPressed:
-                  !_saving && _value.isNotEmpty && _value.runes.length <= 160
-                      ? _save
-                      : null,
+              key: ValueKey(widget.initialName == null
+                  ? 'preparation-variant-create'
+                  : 'preparation-variant-rename'),
+              onPressed: _canSave ? _save : null,
               child: UrduAwareText(_saving ? 'Saqlanmoqda…' : 'Saqlash')),
         ],
       ));

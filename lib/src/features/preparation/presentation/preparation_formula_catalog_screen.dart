@@ -85,6 +85,15 @@ class _PreparationFormulaCatalogScreenState
     }
   }
 
+  Future<void> _rename(PreparationFormulaCatalogEntry entry) async {
+    if (_busy || _loading || !_sameScope) return;
+    setState(() => _busy = true);
+    final renamed = await _renameCatalogRecipe(context, entry);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (renamed && _sameScope) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final query = _search.text.trim().toLowerCase();
@@ -165,6 +174,7 @@ class _PreparationFormulaCatalogScreenState
                           'Buyurtmalar: ${entry.orderCodes.join(', ')}',
                       ].join(' • '),
                       onTap: _busy ? null : () => _open(entry),
+                      onLongPress: _busy ? null : () => _rename(entry),
                     ),
                   );
                 },
@@ -172,4 +182,35 @@ class _PreparationFormulaCatalogScreenState
             ),
     );
   }
+}
+
+Future<bool> _renameCatalogRecipe(
+  BuildContext context, PreparationFormulaCatalogEntry entry,
+) async {
+  final scope = currentSessionReadScope();
+  final rename = await showSpringBottomSheet<bool>(
+    context: context,
+    builder: (_) => AppActionSheet<bool>(
+      title: entry.name,
+      subtitle: entry.code,
+      actions: const [
+        AppActionSheetAction(
+          title: 'Nomini o‘zgartirish',
+          icon: Icons.drive_file_rename_outline,
+          value: true,
+        ),
+      ],
+    ),
+  );
+  if (rename != true || !context.mounted || scope != currentSessionReadScope()) {
+    return false;
+  }
+  final saved = await showPreparationFormulaRenameDialog(
+    context,
+    variantId: entry.id,
+    name: entry.name,
+    productCode: entry.productCode,
+    materialId: entry.materialId,
+  );
+  return saved != null && scope == currentSessionReadScope();
 }

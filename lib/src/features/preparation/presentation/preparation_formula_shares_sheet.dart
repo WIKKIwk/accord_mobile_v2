@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/urdu_aware_text.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../models/preparation_models.dart';
 
 Future<List<PreparationFormula>?> showPreparationFormulaSharesEditor(
@@ -12,6 +13,7 @@ Future<List<PreparationFormula>?> showPreparationFormulaSharesEditor(
   required List<PreparationFormula> formulas,
   bool savedOnly = false,
   String variantId = '',
+  String orderId = '',
 }) =>
     showModalBottomSheet<List<PreparationFormula>>(
       context: context,
@@ -24,7 +26,7 @@ Future<List<PreparationFormula>?> showPreparationFormulaSharesEditor(
           materialName: materialName,
           formulas: formulas,
           savedOnly: savedOnly,
-          variantId: variantId),
+          variantId: variantId, orderId: orderId),
     );
 
 class _FormulaSharesSheet extends StatefulWidget {
@@ -34,11 +36,12 @@ class _FormulaSharesSheet extends StatefulWidget {
       required this.materialName,
       required this.formulas,
       required this.savedOnly,
-      required this.variantId});
+      required this.variantId,
+      required this.orderId});
   final String productCode, materialId, materialName;
   final List<PreparationFormula> formulas;
   final bool savedOnly;
-  final String variantId;
+  final String variantId, orderId;
   @override
   State<_FormulaSharesSheet> createState() => _FormulaSharesSheetState();
 }
@@ -50,6 +53,7 @@ class _FormulaSharesSheetState extends State<_FormulaSharesSheet> {
           text:
               f.sharePercent == null ? '' : preparationDisplay(f.sharePercent!))
   ];
+  final _scope = currentSessionReadScope();
   bool _saving = false;
   String? _error;
 
@@ -82,11 +86,18 @@ class _FormulaSharesSheetState extends State<_FormulaSharesSheet> {
       _error = null;
     });
     try {
+      if (_scope != currentSessionReadScope()) {
+        throw const MobileApiException(
+          code: 'account_changed',
+          message: 'Akkaunt o‘zgargan. Sahifani qayta oching',
+        );
+      }
       final formulas = await MobileApi.instance.preparationUpdateFormulaShares(
         productCode: widget.productCode,
         materialId: widget.materialId,
         savedOnly: widget.savedOnly,
         variantId: widget.variantId,
+        orderId: widget.orderId,
         shares: [
           for (var i = 0; i < widget.formulas.length; i++)
             {

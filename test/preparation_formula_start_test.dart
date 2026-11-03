@@ -102,14 +102,29 @@ void main() {
       expect(destination!.initialWarehouse, isNull);
       expect(destination!.freshForm, isTrue);
       expect(AppSession.instance.profile!.role, UserRole.tayyorlovMasteri);
-      expect(writes, isEmpty);
+      expect(writes, hasLength(1));
+      expect(writes.single.method, 'POST');
+      expect(writes.single.url.path, endsWith('/formula-variants/order'));
+      expect(writes.single.url.queryParameters, {
+        'product_code': 'P',
+        'material_id': 'pe-pr',
+        'variant_id': 'legacy',
+        'order_id': 'order-1',
+      });
       Navigator.of(tester.element(find.text('Homashyo kirimi'))).pop();
       await tester.pumpAndSettle();
       expect(find.byType(PreparationOrderFormulaScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
         () => MockClient((request) {
-              if (request.method != 'GET') writes.add(request);
+              if (request.method == 'POST') {
+                writes.add(request);
+                return Future.value(fixtures.response({
+                  'id': 'legacy',
+                  'name': 'Asosiy',
+                  'revision_id': 1,
+                }));
+              }
               return api.respond(request);
             })).whenComplete(semantics.dispose);
   });
