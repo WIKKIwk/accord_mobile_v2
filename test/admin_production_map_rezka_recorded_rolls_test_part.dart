@@ -1,6 +1,109 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerRezkaRecordedRollTests() {
+  testWidgets('Rezka master order settings stay open until production ends',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.rezkaMaster,
+      displayName: 'Rezka master',
+      legalName: '',
+      ref: 'rezka-master',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['rezka.master.access', 'apparatus.queue.read'],
+      assignedApparatus: [_rezkaId],
+    );
+    final map = _twoStageProductionOrderMap(
+      id: 'zakaz-rezka-master-settings',
+      title: 'Rezka master order',
+      productCode: 'REZKA-MASTER',
+      product: 'Rezka master order',
+      firstApparatusId: _rezkaId,
+      secondApparatusId: _print7Id,
+    );
+    final order = ProductionMapSaved(
+      map: map,
+      program: ProductionMapProgram(
+        mapId: map.id,
+        productCode: map.productCode,
+        operations: const [],
+      ),
+    );
+    await _usePhoneViewport(tester);
+    var status = 'released';
+    var control = _freshStartQueueControl();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showAdminProductionMapOrderReadOnlyDetail(
+              context,
+              order: order,
+              apparatus: const AdminApparatus(id: _rezkaId, name: 'Rezka'),
+              queueSnapshot: AdminApparatusQueueSnapshot(
+                sequences: const {},
+                visibleOrderIds: const {},
+                queueStates: {
+                  _rezkaId: {map.id: control.state},
+                },
+                queuePolicies: const {},
+                orderControls: const {},
+                orderStatuses: {
+                  map.id: AdminProductionOrderStatusDetail(
+                    lifecycleStatus: status,
+                  ),
+                },
+              ),
+            ),
+            child: const Text('Open order'),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    final settings = find.byKey(const ValueKey('rezka-master-order-settings'));
+    for (final (lifecycle, editable) in [
+      ('released', true),
+      ('in_progress', true),
+      ('production_completed', false),
+    ]) {
+      status = lifecycle;
+      control = switch (status) {
+        'released' => _freshStartQueueControl(),
+        'in_progress' => _inProgressQueueControl(),
+        _ => _completedQueueControl(),
+      };
+      setMobileApiTestModeQueueActionControlFixture(
+        apparatus: _rezkaId,
+        orderId: map.id,
+        control: control,
+      );
+      await tester.tap(find.text('Open order'));
+      await tester.pumpAndSettle();
+      expect(settings, editable ? findsOneWidget : findsNothing,
+          reason: lifecycle);
+      if (editable) {
+        await tester.tap(settings);
+        await tester.pumpAndSettle();
+        expect(find.byType(Switch), findsNWidgets(2));
+        navigator.pop();
+        await tester.pumpAndSettle();
+      }
+      navigator.pop();
+      await tester.pumpAndSettle();
+    }
+  });
+
   for (final stage in ['apparatus', 'apparatus-1']) {
     testWidgets('bobina sale form follows repeated Rezka occurrence $stage',
         (tester) async {

@@ -647,19 +647,29 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
 
   bool get _canSetRezkaOptions {
     final profile = AppSession.instance.profile;
-    if (profile?.role != UserRole.rezkaMaster || widget.detailPending ||
-        widget.detailError != null || _queueActionBusy || _savingRezkaOptions || _isTrainingOrder) {
+    if (profile?.role != UserRole.rezkaMaster ||
+        widget.detailPending ||
+        widget.detailError != null ||
+        _queueActionBusy ||
+        _savingRezkaOptions ||
+        _isTrainingOrder) {
       return false;
     }
     final map = widget.order.map;
-    return productionMapLinearWorkStages(map).any((stage) =>
-        profile!.assignedApparatus.contains(stage.apparatusId) &&
-        productionMapNextWorkStagesForNode(
-          map: map, stageNodeId: stage.nodeId,
-        ).isEmpty);
+    final status =
+        widget.currentQueueSnapshot?.call()?.orderStatuses[map.id.trim()] ??
+            widget.initialOrderStatus;
+    if (const {'production_completed', 'closed', 'cancelled'}
+        .contains(status?.lifecycleStatus.trim().toLowerCase())) {
+      return false;
+    }
+    return productionMapLinearWorkStages(map).any(
+      (stage) => profile!.assignedApparatus.contains(stage.apparatusId),
+    );
   }
 
   Future<void> _editRezkaOptions() async {
+    if (!_canSetRezkaOptions) return;
     final scope = currentSessionReadScope();
     final map = widget.order.map;
     var duplicateLabels = map.duplicateRezkaLabels == true;
@@ -711,7 +721,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       if (!mounted || scope != currentSessionReadScope()) return;
       final code = error is MobileApiException ? error.code : '';
       final message = switch (code) {
-        'rezka_weight_mode_run_active' || 'rezka_order_settings_changed' =>
+        'rezka_order_settings_order_finished' ||
+        'rezka_weight_mode_run_active' ||
+        'rezka_order_settings_changed' =>
           context.l10n.adminText('rezka_master.$code'),
         _ => error.toString(),
       };
@@ -3959,6 +3971,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   const _ReadOnlyOrderDetailSheet({
     this.scopedWorkerDetail = false,
     required this.order,
+    this.initialOrderStatus,
     this.detailPending = false,
     this.detailError,
     this.onRetryDetail,
@@ -4006,6 +4019,7 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.busyOrderTitleLookup,
   });
   final ProductionMapSaved order;
+  final AdminProductionOrderStatusDetail? initialOrderStatus;
 
   /// A list summary may render the real UI but cannot start detail effects or
   /// authorize any action until its scoped full map has been validated.

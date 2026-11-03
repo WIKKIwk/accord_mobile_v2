@@ -255,11 +255,14 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                 ),
                 children: [
                   if (onRezkaSettings != null)
-                    ListTile(
-                      key: const ValueKey('rezka-master-order-settings'),
-                      leading: const Icon(Icons.tune),
-                      title: Text(context.l10n.adminText('rezka_master.order_settings')),
-                      onTap: onRezkaSettings,
+                    Material(
+                      type: MaterialType.transparency,
+                      child: ListTile(
+                        key: const ValueKey('rezka-master-order-settings'),
+                        leading: const Icon(Icons.tune),
+                        title: Text(context.l10n.adminText('rezka_master.order_settings')),
+                        onTap: onRezkaSettings,
+                      ),
                     ),
                   if (detailError != null)
                     Padding(

@@ -20,6 +20,12 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Настройки изменились. Откройте заказ заново.',
     'ur': 'ترتیبات بدل گئی ہیں۔ آرڈر دوبارہ کھولیں۔',
   },
+  'admin.rezka_master.rezka_order_settings_order_finished': {
+    'uz': 'Bu buyurtma yakunlangan. Rezka sozlamalari yopilgan.',
+    'en': 'This order is finished. Cutting settings are locked.',
+    'ru': 'Заказ завершён. Настройки резки заблокированы.',
+    'ur': 'یہ آرڈر ختم ہو چکا ہے۔ کٹائی کی ترتیبات بند ہیں۔',
+  },
   'admin.rezka_master.rezka_assignment_changed': {
     'uz': 'Biriktirilgan apparatlar yangilangan. Qayta tanlang.',
     'en': 'The apparatus assignment has changed. Select again.',

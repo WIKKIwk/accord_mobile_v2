@@ -1093,6 +1093,7 @@ class _AdminProductionMapOrdersScreenState
       sheetAnimationStyle: AppMotion.sheetEaseOut,
       builder: (context) => _ReadOnlyOrderDetailSheet(
         order: order,
+        initialOrderStatus: _orderStatusesByOrderId[mapId],
         apparatusCatalog: _apparatus,
         busyOrderTitleLookup: (orderId) {
           for (final candidate in _orders) {
@@ -1221,6 +1222,8 @@ class _AdminProductionMapOrdersScreenState
             detailError: detailError,
             onRetryDetail: onRetryDetail,
             order: detailOrder,
+            initialOrderStatus:
+                detail?.orderStatuses[mapId] ?? _orderStatusesByOrderId[mapId],
             apparatus: apparatus,
             apparatusCatalog: _apparatus,
             busyOrderTitleLookup: (orderId) {
