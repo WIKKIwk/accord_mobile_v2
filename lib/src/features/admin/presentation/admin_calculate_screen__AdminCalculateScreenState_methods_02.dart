@@ -43,7 +43,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       final currentDraft = _buildTemplateDraft();
       final signatureFields = currentDraft.toJson()..remove('saved_at');
       final signature = '$signatureFields|$_duplicateRezkaLabels|'
-          '$_includeBobinaInNet|$_standardPrintSide';
+          '$_includeBobinaInNet|$_printSideForSave';
       if (_savedOrderRequestId.isEmpty ||
           _savedOrderRequestSignature != signature) {
         _savedOrderRequestId =
@@ -73,7 +73,8 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         baseLength: plannedLength,
         duplicateRezkaLabels: _duplicateRezkaLabels,
         includeBobinaInNet: _includeBobinaInNet,
-        standardPrintSide: _standardPrintSide,
+        standardPrintSide: _printSideForSave,
+        clearStandardPrintSide: _printSideForSave == null,
       );
       final draft = currentDraft.copyWith(
         orderNumber: '',
@@ -102,7 +103,10 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       _savedOrderRequestSignature = '';
       _duplicateRezkaLabels = false;
       _includeBobinaInNet = false;
-      _standardPrintSide = true;
+      _standardPrintSide = null;
+      _printSideTimer?.cancel();
+      _printSideRead++;
+      _rememberedPrintSide = result.saved.map.standardPrintSide;
       showAdminTopNotice(
         context,
         context.l10n.adminText(
@@ -165,7 +169,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
         template: _buildTemplateDraft(),
         duplicateRezkaLabels: _duplicateRezkaLabels,
         includeBobinaInNet: _includeBobinaInNet,
-        standardPrintSide: _standardPrintSide,
+        standardPrintSide: _printSideForSave,
       );
       if (!mounted || !templateStore.isCurrentScope(templateScope)) {
         return;

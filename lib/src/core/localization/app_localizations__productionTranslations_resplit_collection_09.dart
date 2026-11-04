@@ -20,6 +20,18 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'ru': 'Нестандартная',
     'ur': 'غیر معیاری',
   },
+  'order.print_side.confirm': {
+    'uz': 'Tarafni «{side}» qilib saqlaysizmi?',
+    'en': 'Set the print side to {side}?',
+    'ru': 'Сохранить сторону печати «{side}»?',
+    'ur': 'پرنٹ کی سمت {side} مقرر کریں؟',
+  },
+  'order.print_side.changed': {
+    'uz': 'Taraf yangilangan. Buyurtmani qayta oching.',
+    'en': 'The print side changed. Reopen the order.',
+    'ru': 'Сторона печати изменилась. Откройте заказ заново.',
+    'ur': 'پرنٹ کی سمت بدل گئی ہے۔ آرڈر دوبارہ کھولیں۔',
+  },
   'worker.order.info': {
     'uz': 'Buyurtma ma’lumotlari',
     'en': 'Order details',

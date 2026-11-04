@@ -1,6 +1,36 @@
 part of '../mobile_api.dart';
 
 extension MobileApiRezkaMaster on MobileApi {
+  Future<bool?> orderPrintSidePreference(
+    CalculateOrderTemplate template,
+  ) async {
+    if (await TestModeController.instance.isEnabled()) return null;
+    final response = await _sendAuthorized(() => _post(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/calculate/print-side'),
+          headers: _headers(requireToken())
+            ..['Content-Type'] = 'application/json',
+          body: jsonEncode(template.toJson()),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminApiException(response,
+          fallbackCode: 'print_side_preference_failed',
+          fallbackMessage: 'Saqlangan taraf yuklanmadi');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return data['standard_print_side'] as bool?;
+  }
+
+  Future<void> rezkaMasterSavePrintSide({
+    required String orderId,
+    required bool standard,
+    required bool previous,
+  }) =>
+      _saveRezkaMasterSettings('print-side', {
+        'order_id': orderId,
+        'standard_print_side': standard,
+        'previous_standard_print_side': previous,
+      });
+
   Future<
       ({
         List<AdminWorker> workers,

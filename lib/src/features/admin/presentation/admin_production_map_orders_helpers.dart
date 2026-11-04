@@ -1,25 +1,26 @@
 part of 'admin_production_map_orders_screen.dart';
 
-bool _canEditRezkaOrderOptions(
-  ProductionMapDefinition map,
-  AdminProductionOrderStatusDetail? status,
-) {
+bool _canEditRezkaPrintSide(ProductionMapDefinition map) {
   final profile = AppSession.instance.profile;
   final id = map.id.trim();
   if (profile == null ||
       profile.role != UserRole.rezkaMaster ||
       id.startsWith('training-') ||
-      id.startsWith('template-') ||
-      const {
-        'production_completed',
-        'closed',
-        'cancelled',
-      }.contains(status?.lifecycleStatus.trim().toLowerCase())) {
+      id.startsWith('template-')) {
     return false;
   }
   return productionMapLinearWorkStages(map)
       .any((stage) => profile.assignedApparatus.contains(stage.apparatusId));
 }
+
+bool _canEditRezkaOrderOptions(
+  ProductionMapDefinition map,
+  AdminProductionOrderStatusDetail? status,
+) =>
+    _canEditRezkaPrintSide(map) &&
+    !const {'production_completed', 'closed', 'cancelled'}.contains(
+      status?.lifecycleStatus.trim().toLowerCase(),
+    );
 
 Future<void> _saveRezkaOrderOptions(
   ProductionMapDefinition previous, {
@@ -36,6 +37,7 @@ Future<void> _saveRezkaOrderOptions(
 String _rezkaOrderSettingsError(BuildContext context, Object error) {
   final code = error is MobileApiException ? error.code : '';
   return switch (code) {
+    'print_side_changed' => context.l10n.productionText('order.print_side.changed'),
     'rezka_order_settings_order_finished' ||
     'rezka_weight_mode_run_active' ||
     'rezka_order_settings_changed' => context.l10n.adminText(

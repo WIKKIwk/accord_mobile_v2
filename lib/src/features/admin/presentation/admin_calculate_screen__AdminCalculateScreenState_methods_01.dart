@@ -59,7 +59,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     if (_applyingTemplate || !mounted) {
       return;
     }
-    if (_result == null &&
+    if (_customerRef.isEmpty && _result == null &&
         _lastCalculatedSignature.isEmpty &&
         !(_isFlexo && !_editingAllFields)) {
       return;
@@ -71,6 +71,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     if (template == null) {
       return;
     }
+    _standardPrintSide = null;
     _applyingTemplate = true;
     try {
       _templateId = template.id;
@@ -318,7 +319,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       _applyTemplate(saved);
       if (sourceMapId.isEmpty) {
         _includeBobinaInNet = false;
-        _standardPrintSide = true;
+        _standardPrintSide = null;
       }
       _editingAllFields = false;
     });
@@ -375,7 +376,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       printValSizeMm: _activePrintValSizeMm,
       duplicateRezkaLabels: _duplicateRezkaLabels,
       includeBobinaInNet: _includeBobinaInNet,
-      standardPrintSide: _standardPrintSide,
+      standardPrintSide: _printSideForSave,
       apparatus: widget.trainingMode ? widget.trainingApparatus.trim() : '',
       apparatusId: widget.trainingMode ? widget.trainingApparatusId.trim() : '',
       templateDraft: _buildTemplateDraft(),

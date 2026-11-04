@@ -203,7 +203,7 @@ extension _WorkerCompactOrders on _AdminProductionMapOrdersScreenState {
   }
 
   Future<void> _hydrateWorkerHistory(_WorkerCompletedOrderEntry entry,
-      {bool reactivate = false}) async {
+      {bool showActions = false}) async {
     final apparatus = entry.apparatus;
     if (apparatus == null || _adminDetailOpening) return;
     _adminDetailOpening = true;
@@ -216,8 +216,8 @@ extension _WorkerCompactOrders on _AdminProductionMapOrdersScreenState {
           apparatusId: entry.apparatusId,
           status: entry.status,
           issueNote: entry.issueNote);
-      if (reactivate) {
-        await _showCompletedOrderReactivation(full);
+      if (showActions) {
+        await _showCompletedOrderActions(full);
       } else {
         _showCompletedOrderDetail(full);
       }

@@ -2,12 +2,45 @@ part of 'admin_production_map_orders_screen.dart';
 
 extension _AdminProductionMapOrdersReactivation
     on _AdminProductionMapOrdersScreenState {
-  Future<void> _showCompletedOrderReactivation(
+  Future<void> _showCompletedOrderActions(
       _WorkerCompletedOrderEntry entry) async {
     if (isWorkerListPresentationOrder(entry.order)) {
-      await _hydrateWorkerHistory(entry, reactivate: true);
+      await _hydrateWorkerHistory(entry, showActions: true);
       return;
     }
+    if (entry.apparatus?.operation.trim() == 'cut' &&
+        _canEditRezkaPrintSide(entry.order.map)) {
+      await _showRezkaPrintSideSheet(entry.order.map);
+      return;
+    }
+    await _showCompletedOrderReactivation(entry);
+  }
+
+  Future<void> _showRezkaPrintSideSheet(ProductionMapDefinition map) {
+    final scope = currentSessionReadScope();
+    return showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: _RezkaOrderQuickSettings(
+            map: map,
+            showWorkOptions: false,
+            onSaved: () {
+              if (mounted && scope == currentSessionReadScope()) {
+                unawaited(_refreshLive());
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCompletedOrderReactivation(
+      _WorkerCompletedOrderEntry entry) async {
     final apparatus = entry.apparatus;
     if (!widget.workerMode ||
         apparatus?.operation.trim() != 'print' ||

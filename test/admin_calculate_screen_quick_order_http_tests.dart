@@ -63,6 +63,11 @@ void _registerQuickOrderHttpTest(UserRole role) {
     final requests = <String>[];
     final opened = <Map<String, dynamic>>[];
     var templateSaved = false;
+    // Some customers already have a nonstandard preference on the server.
+    bool? rememberedSide = role == UserRole.salesManager ? false : null;
+    final firstSide = rememberedSide ?? true;
+    final selectedSide = !firstSide;
+    var preferenceReads = 0;
     final client = MockClient((request) async {
       final path = request.url.path;
       requests.add('${request.method} $path');
@@ -82,6 +87,12 @@ void _registerQuickOrderHttpTest(UserRole role) {
             'templates': [template.toJson()]
           };
         }
+      } else if (path == '/v1/mobile/calculate/print-side') {
+        final input = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(input['customer_ref'], template.customerRef);
+        expect(input['item_code'], template.itemCode);
+        preferenceReads++;
+        payload = {'standard_print_side': rememberedSide};
       } else if (path == '/v1/mobile/calculate') {
         final input = jsonDecode(request.body) as Map<String, dynamic>;
         payload = {
@@ -103,12 +114,14 @@ void _registerQuickOrderHttpTest(UserRole role) {
         final input = jsonDecode(request.body) as Map<String, dynamic>;
         opened.add(input);
         final map = (input['map'] as Map).cast<String, dynamic>();
+        rememberedSide = map['standard_print_side'] as bool? ?? rememberedSide ?? true;
         final number = (12 + opened.length).toString().padLeft(4, '0');
         payload = {
           'ok': true,
           'saved': {
             'map': {
               ...map,
+              'standard_print_side': rememberedSide,
               'id': 'zakaz-$number',
               'code': number,
               'order_number': number
@@ -124,6 +137,9 @@ void _registerQuickOrderHttpTest(UserRole role) {
     });
     await http.runWithClient(() async {
       await _pumpCalculateScreen(tester, template: template);
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+      expect(preferenceReads, 1);
       for (final kg in ['100', '1000']) {
         await tester.scrollUntilVisible(
           find.widgetWithText(TextFormField, 'KG'),
@@ -136,14 +152,15 @@ void _registerQuickOrderHttpTest(UserRole role) {
             find.byKey(const ValueKey('calculate-standard-print-side'));
         await tester.scrollUntilVisible(printSideSwitch, 240,
             scrollable: find.byType(Scrollable).first);
-        expect(tester.widget<SwitchListTile>(printSideSwitch).value, isTrue);
-        expect(find.widgetWithText(SwitchListTile, 'Standart'), findsOneWidget);
+        final expectedSide = kg == '100' ? firstSide : selectedSide;
+        expect(tester.widget<SwitchListTile>(printSideSwitch).value, expectedSide);
+        expect(find.widgetWithText(
+          SwitchListTile, expectedSide ? 'Standart' : 'Nostandart',
+        ), findsOneWidget);
         if (kg == '100') {
           await tester.tap(printSideSwitch);
           await tester.pumpAndSettle();
-          expect(tester.widget<SwitchListTile>(printSideSwitch).value, isFalse);
-          expect(
-              find.widgetWithText(SwitchListTile, 'Nostandart'), findsOneWidget);
+          expect(tester.widget<SwitchListTile>(printSideSwitch).value, selectedSide);
         }
         final duplicateToggle = find.byKey(
           const ValueKey('calculate-duplicate-rezka-labels'),
@@ -189,7 +206,7 @@ void _registerQuickOrderHttpTest(UserRole role) {
         expect(opened.last['map']['order_kg'], double.parse(kg));
         expect(opened.last['map']['duplicate_rezka_labels'], kg == '100');
         expect(opened.last['map']['include_bobina_in_net'], kg == '100');
-        expect(opened.last['map']['standard_print_side'], kg != '100');
+        expect(opened.last['map']['standard_print_side'], selectedSide);
         expect(opened.last['template']['source_map_id'], sourceMapId);
         expect(opened.last['template']['frame_product_size_mm'], 410);
         expect(opened.last['template']['roll_count'], 6);

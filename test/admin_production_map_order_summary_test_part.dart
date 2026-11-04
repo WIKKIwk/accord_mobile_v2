@@ -76,6 +76,128 @@ Future<void> _openExpectedOrderSummary(WidgetTester tester) async {
 }
 
 void _registerOrderSummaryTests() {
+  for (final closed in [false, true]) {
+    testWidgets('Rezka master can update print side when closed is $closed',
+        (tester) async {
+      const id = 'zakaz-0312';
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.rezkaMaster,
+        displayName: 'Rezka master',
+        legalName: '',
+        ref: 'master',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['rezka.master.access', 'apparatus.queue.read'],
+        assignedApparatus: [_rezkaId],
+      );
+      await TestModeController.instance.setEnabled(false);
+      var standard = true;
+      var writes = 0;
+      final map = _productionOrderMap(
+        id: id,
+        title: 'Rezka print side',
+        orderNumber: '0312',
+        productCode: 'SIDE',
+        apparatusId: _rezkaId,
+        product: 'Print side',
+      );
+      await _usePhoneViewport(tester);
+      await http.runWithClient(() async {
+        await tester.pumpWidget(MaterialApp(
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AdminProductionMapOrdersScreen(
+            readOnly: true,
+            workerMode: true,
+            queueSnapshotLoader: () async => AdminApparatusQueueSnapshot(
+              maps: [ProductionMapSaved(
+                map: map.copyWith(standardPrintSide: standard),
+                program: ProductionMapProgram(
+                  mapId: id, productCode: 'SIDE', operations: const [],
+                ),
+              )],
+              sequences: const {_rezkaId: [id]},
+              visibleOrderIds: const {_rezkaId: [id]},
+              queueStates: {_rezkaId: {id: closed ? 'completed' : 'pending'}},
+              queuePolicies: const {},
+              queueActionControls: {
+                _rezkaId: {id: _freshStartQueueControl()},
+              },
+              orderControls: const {},
+              revision: writes + 1,
+              epoch: 'rezka-print-side-test',
+            ),
+            apparatusLoader: () async => const [
+              AdminApparatus(id: _rezkaId, name: 'Rezka', operation: 'cut'),
+            ],
+            liveEventsLoader: () => const Stream.empty(),
+          ),
+        ));
+        await _pumpCompletedWorkFrames(tester);
+        if (closed) {
+          final tab = find.text('Tugallangan');
+          await tester.ensureVisible(tab);
+          await tester.tap(tab);
+          await _pumpCompletedWorkFrames(tester);
+        }
+        final row = find.byKey(closed
+            ? const ValueKey(('worker-completed-order', id, _rezkaId))
+            : const ValueKey('worker-order-$id'));
+        final side = find.byKey(const ValueKey('rezka-master-print-side'));
+        await tester.longPress(row);
+        await _pumpCompletedWorkFrames(tester);
+        expect(tester.widget<SwitchListTile>(side).value, isTrue);
+        expect(
+          find.byKey(const ValueKey('calculate-duplicate-rezka-labels')),
+          closed ? findsNothing : findsOneWidget,
+        );
+        await tester.ensureVisible(side);
+        await tester.tap(side);
+        await _pumpCompletedWorkFrames(tester);
+        await tester.tap(find.text(
+          AppLocalizations(const Locale('uz')).productionText('worker.action.confirm'),
+        ).last);
+        await _pumpCompletedWorkFrames(tester);
+        expect(writes, 1);
+        expect(tester.widget<SwitchListTile>(side).value, isFalse);
+        Navigator.of(tester.element(side)).pop();
+        await _pumpCompletedWorkFrames(tester);
+        await tester.longPress(row);
+        await _pumpCompletedWorkFrames(tester);
+        expect(tester.widget<SwitchListTile>(side).value, isFalse);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }, () => MockClient((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/completed-orders')) {
+          return http.Response(jsonEncode({'completed_orders': [
+            if (closed) {
+              'apparatus': _rezkaId, 'order_id': id, 'completed_at_unix': 100,
+            },
+          ]}), 200);
+        }
+        if (path.endsWith('/rezka-master/print-side')) {
+          expect(request.method, 'PUT');
+          expect(jsonDecode(request.body), {
+            'order_id': id,
+            'previous_standard_print_side': true,
+            'standard_print_side': false,
+          });
+          standard = false;
+          writes++;
+          return http.Response('{"standard_print_side":false}', 200);
+        }
+        return http.Response('{}', 200);
+      }));
+    });
+  }
+
   for (final standard in [true, false, null]) {
     testWidgets('worker expected summary shows print side $standard',
         (tester) async {

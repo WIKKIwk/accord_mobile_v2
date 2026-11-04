@@ -413,7 +413,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
     required CalculateOrderTemplate template,
     bool duplicateRezkaLabels = false,
     bool includeBobinaInNet = false,
-    bool standardPrintSide = true,
+    bool? standardPrintSide = true,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final map = ProductionMapDefinition(
@@ -475,7 +475,8 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           'template': template.toJson(),
           'duplicate_rezka_labels': duplicateRezkaLabels,
           'include_bobina_in_net': includeBobinaInNet,
-          'standard_print_side': standardPrintSide,
+          if (standardPrintSide != null)
+            'standard_print_side': standardPrintSide,
         }),
       ),
     );

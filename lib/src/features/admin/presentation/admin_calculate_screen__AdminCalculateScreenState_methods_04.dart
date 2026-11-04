@@ -2,7 +2,62 @@
 part of 'admin_calculate_screen.dart';
 
 extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
+  void _requestRememberedPrintSide() {
+    if (widget.trainingMode || widget.openedOrder != null) return;
+    final template = _buildTemplateDraft();
+    final scope = currentSessionReadScope();
+    final productKey = jsonEncode([
+      scope,
+      template.customerRef.trim(),
+      template.itemCode.trim(),
+      template.variantId,
+      template.sourceMapId,
+      for (final product in template.products) product.itemCode.trim(),
+    ]);
+    if (_printSideProductKey != productKey) {
+      _printSideProductKey = productKey;
+      _standardPrintSide = null;
+    }
+    final layoutKey = jsonEncode([
+      productKey,
+      template.frameProductSizeMm,
+      template.frameCount,
+      template.printValSizeMm,
+      template.effectivePrintMethod,
+      template.color.trim(),
+      template.imageId.trim(),
+      template.combo?.itemCode,
+      for (final product in template.products)
+        [product.frameProductSizeMm, product.frameCount],
+    ]);
+    if (_printSideLayoutKey == layoutKey) return;
+    _printSideLayoutKey = layoutKey;
+    _rememberedPrintSide = null;
+    _printSideTimer?.cancel();
+    final read = ++_printSideRead;
+    if (template.customerRef.trim().isEmpty ||
+        (template.itemCode.trim().isEmpty && template.products.isEmpty)) {
+      return;
+    }
+    _printSideTimer = Timer(const Duration(milliseconds: 200), () async {
+      if (!mounted || read != _printSideRead ||
+          scope != currentSessionReadScope()) return;
+      bool? side;
+      try {
+        side = await MobileApi.instance.orderPrintSidePreference(template);
+      } catch (_) {
+        return; // The create endpoint can still apply the current preference.
+      }
+      if (mounted && read == _printSideRead &&
+          scope == currentSessionReadScope() && side != _rememberedPrintSide) {
+        setState(() => _rememberedPrintSide = side);
+      }
+    });
+  }
+
   List<Widget> _calculateActionChildren(AppLocalizations l10n) {
+    _requestRememberedPrintSide();
+    final standard = _printSideForSave ?? true;
     final freshResult = _hasFreshCalculation ? _result : null;
     return [
       const SizedBox(height: 22),
@@ -13,10 +68,10 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             key: const ValueKey('calculate-standard-print-side'),
             contentPadding: EdgeInsets.zero,
             title: Text(l10n.productionText('order.print_side')),
-            subtitle: Text(l10n.productionText(_standardPrintSide
+            subtitle: Text(l10n.productionText(standard
                 ? 'order.print_side.standard'
                 : 'order.print_side.nonstandard')),
-            value: _standardPrintSide,
+            value: standard,
             onChanged: _openingSavedOrder || _openingAutomaticOrder
                 ? null
                 : (value) => setState(() => _standardPrintSide = value),

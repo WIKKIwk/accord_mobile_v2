@@ -125,6 +125,7 @@ class ProductionMapDefinition {
     bool? duplicateRezkaLabels,
     bool? includeBobinaInNet,
     bool? standardPrintSide,
+    bool clearStandardPrintSide = false,
     List<ProductionMapNode>? nodes,
     List<ProductionMapEdge>? edges,
   }) {
@@ -146,7 +147,8 @@ class ProductionMapDefinition {
       baseLength: baseLength ?? this.baseLength,
       duplicateRezkaLabels: duplicateRezkaLabels ?? this.duplicateRezkaLabels,
       includeBobinaInNet: includeBobinaInNet ?? this.includeBobinaInNet,
-      standardPrintSide: standardPrintSide ?? this.standardPrintSide,
+      standardPrintSide:
+          clearStandardPrintSide ? null : standardPrintSide ?? this.standardPrintSide,
       nodes: nodes ?? this.nodes,
       edges: edges ?? this.edges,
     );

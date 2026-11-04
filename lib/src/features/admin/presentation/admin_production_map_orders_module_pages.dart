@@ -1300,7 +1300,8 @@ class _LaminatsiyaWorkerFinishSheet extends StatelessWidget {
 
 enum _RezkaOrderOption {
   duplicateLabels('calculate.duplicate_rezka_labels'),
-  includeBobina('calculate.include_bobina_in_net');
+  includeBobina('calculate.include_bobina_in_net'),
+  printSide('order.print_side');
 
   const _RezkaOrderOption(this.labelKey);
 
@@ -1308,10 +1309,15 @@ enum _RezkaOrderOption {
 }
 
 class _RezkaOrderQuickSettings extends StatefulWidget {
-  const _RezkaOrderQuickSettings({required this.map, required this.onSaved});
+  const _RezkaOrderQuickSettings({
+    required this.map,
+    required this.onSaved,
+    this.showWorkOptions = true,
+  });
 
   final ProductionMapDefinition map;
   final VoidCallback onSaved;
+  final bool showWorkOptions;
 
   @override
   State<_RezkaOrderQuickSettings> createState() =>
@@ -1337,18 +1343,37 @@ class _RezkaOrderQuickSettingsState extends State<_RezkaOrderQuickSettings> {
       final confirmed = await showM3ConfirmDialog(
         context: context,
         title: l10n.confirmTitle,
-        message: l10n.adminText(
-          enabled
-              ? 'rezka_master.confirm_enable'
-              : 'rezka_master.confirm_disable',
-          values: {'setting': l10n.adminText(option.labelKey)},
-        ),
+        message: option == _RezkaOrderOption.printSide
+            ? l10n.productionText('order.print_side.confirm', values: {
+                'side': l10n.productionText(enabled
+                    ? 'order.print_side.standard'
+                    : 'order.print_side.nonstandard'),
+              })
+            : l10n.adminText(
+                enabled
+                    ? 'rezka_master.confirm_enable'
+                    : 'rezka_master.confirm_disable',
+                values: {'setting': l10n.adminText(option.labelKey)},
+              ),
         cancelLabel: l10n.productionText('worker.action.cancel'),
         confirmLabel: l10n.productionText('worker.action.confirm'),
       );
       if (confirmed != true ||
           !mounted ||
           _scope != currentSessionReadScope()) {
+        return;
+      }
+      if (option == _RezkaOrderOption.printSide) {
+        await MobileApi.instance.rezkaMasterSavePrintSide(
+          orderId: _map.id,
+          standard: enabled,
+          previous: _map.standardPrintSide != false,
+        );
+        if (_scope != currentSessionReadScope()) return;
+        if (mounted) {
+          setState(() => _map = _map.copyWith(standardPrintSide: enabled));
+        }
+        onSaved();
         return;
       }
       final nextDuplicate = option == _RezkaOrderOption.duplicateLabels
@@ -1379,6 +1404,7 @@ class _RezkaOrderQuickSettingsState extends State<_RezkaOrderQuickSettings> {
         _needsReopen =
             error is MobileApiException &&
             const {
+              'print_side_changed',
               'rezka_order_settings_changed',
               'rezka_order_settings_order_finished',
             }.contains(error.code);
@@ -1399,17 +1425,35 @@ class _RezkaOrderQuickSettingsState extends State<_RezkaOrderQuickSettings> {
           context.l10n.adminText('rezka_master.order_settings'),
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        RezkaOrderOptionSwitches(
-          duplicateLabels: _map.duplicateRezkaLabels == true,
-          includeBobina: _map.includeBobinaInNet == true,
-          onDuplicateLabelsChanged: enabled
-              ? (value) =>
-                    _confirmChange(_RezkaOrderOption.duplicateLabels, value)
-              : null,
-          onIncludeBobinaChanged: enabled
-              ? (value) =>
-                    _confirmChange(_RezkaOrderOption.includeBobina, value)
-              : null,
+        if (widget.showWorkOptions)
+          RezkaOrderOptionSwitches(
+            duplicateLabels: _map.duplicateRezkaLabels == true,
+            includeBobina: _map.includeBobinaInNet == true,
+            onDuplicateLabelsChanged: enabled
+                ? (value) =>
+                      _confirmChange(_RezkaOrderOption.duplicateLabels, value)
+                : null,
+            onIncludeBobinaChanged: enabled
+                ? (value) =>
+                      _confirmChange(_RezkaOrderOption.includeBobina, value)
+                : null,
+          ),
+        Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile.adaptive(
+            key: const ValueKey('rezka-master-print-side'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.l10n.productionText('order.print_side')),
+            subtitle: Text(context.l10n.productionText(
+              _map.standardPrintSide != false
+                  ? 'order.print_side.standard'
+                  : 'order.print_side.nonstandard',
+            )),
+            value: _map.standardPrintSide != false,
+            onChanged: enabled
+                ? (value) => _confirmChange(_RezkaOrderOption.printSide, value)
+                : null,
+          ),
         ),
         if (_error != null)
           Text(
@@ -1545,6 +1589,9 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                     builder: (context) {
                       final frozen = orders[index].isFrozen;
                       final partial = !frozen && orders[index].isInProgress;
+                      final operation = orders[index].apparatus?.operation.trim();
+                      final rezkaMaster = AppSession.instance.profile?.role ==
+                          UserRole.rezkaMaster;
                       return _SequenceOrderRow(
                         slot:
                             M3SegmentedListGeometry.standaloneListSlotForIndex(
@@ -1557,10 +1604,9 @@ class _AparatchiCompletedOrdersPage extends StatelessWidget {
                         index: index,
                         readOnly: true,
                         onTap: () => onTapOrder(orders[index]),
-                        onLongPress: !frozen &&
-                                !orders[index].hasFreezeIssue &&
-                                orders[index].apparatus?.operation.trim() ==
-                                    'print'
+                        onLongPress: (rezkaMaster && operation == 'cut') ||
+                                (!frozen && !orders[index].hasFreezeIssue &&
+                                    operation == 'print')
                             ? () => onLongPressOrder(orders[index])
                             : null,
                         backgroundColor: frozen

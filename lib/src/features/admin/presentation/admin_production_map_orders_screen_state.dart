@@ -669,7 +669,7 @@ class _AdminProductionMapOrdersScreenState
                               tabController: _tabController,
                               onTapCompletedOrder: _showCompletedOrderDetail,
                               onLongPressCompletedOrder: (entry) => unawaited(
-                                  _showCompletedOrderReactivation(entry)),
+                                  _showCompletedOrderActions(entry)),
                               onTapWatchOrder: _showWatchOrderInfo,
                               onLongPressWatchOrder: _showWatchOrderLongPress,
                             )
@@ -2210,10 +2210,12 @@ class _AdminProductionMapOrdersScreenState
         !supportsAstatka) {
       return;
     }
+    final showPrintSide = isRezka && _canEditRezkaPrintSide(order.map);
     if (_isWorkerOrderFrozen(order.map.id)) {
+      if (showPrintSide) await _showRezkaPrintSideSheet(order.map);
       return;
     }
-    final showRezkaSettings = isRezka &&
+    final showRezkaSettings = showPrintSide &&
         _canEditRezkaOrderOptions(
           order.map,
           orderStatus ?? _orderStatusesByOrderId[order.map.id.trim()],
@@ -2237,7 +2239,7 @@ class _AdminProductionMapOrdersScreenState
     final rePause = _workerRePauseControl(apparatus, order, control);
     final cancelStart = _workerCancelStartControl(apparatus, order, control);
     final reclose = _workerRecloseControl(apparatus, order, control);
-    if (!showRezkaSettings &&
+    if (!showPrintSide &&
         stageWork?.astatkaAvailable == true &&
         operation != 'laminate' &&
         temporaryPause == null && rePause == null && reclose == null && cancelStart == null) {
@@ -2347,20 +2349,21 @@ class _AdminProductionMapOrdersScreenState
         state == ApparatusQueueOrderState.inProgress ||
         state == ApparatusQueueOrderState.paused ||
         state == ApparatusQueueOrderState.completed;
-    if (showWorkActions || showRezkaSettings) {
+    if (showWorkActions || showPrintSide) {
       final choice =
           await showModalBottomSheet<_LaminatsiyaWorkerLongPressChoice>(
         context: context,
         useSafeArea: true,
         showDragHandle: true,
-        isScrollControlled: showRezkaSettings,
+        isScrollControlled: showPrintSide,
         builder: (_) => _LaminatsiyaWorkerFinishSheet(
           isRezka: isRezka,
           isLamination: operation == 'laminate',
           showWorkActions: showWorkActions,
-          rezkaSettings: showRezkaSettings
+          rezkaSettings: showPrintSide
               ? _RezkaOrderQuickSettings(
                   map: order.map,
+                  showWorkOptions: showRezkaSettings,
                   onSaved: () {
                     if (mounted && scope == currentSessionReadScope()) {
                       unawaited(_refreshLive());

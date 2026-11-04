@@ -70,7 +70,13 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   bool _calculateByVal = false;
   bool _duplicateRezkaLabels = false;
   bool _includeBobinaInNet = false;
-  bool _standardPrintSide = true;
+  bool? _standardPrintSide;
+  bool? _rememberedPrintSide;
+  String? _printSideProductKey;
+  String? _printSideLayoutKey;
+  int _printSideRead = 0;
+  Timer? _printSideTimer;
+  bool? get _printSideForSave => _standardPrintSide ?? _rememberedPrintSide;
   final _printValSizeMm = TextEditingController();
   final _wastePercent = TextEditingController(text: '5');
   final _rollCount = TextEditingController();
@@ -133,6 +139,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
 
   @override
   void dispose() {
+    _printSideTimer?.cancel();
     for (final controller in _calculationInputControllers) {
       controller.removeListener(_handleCalculationInputChanged);
     }
