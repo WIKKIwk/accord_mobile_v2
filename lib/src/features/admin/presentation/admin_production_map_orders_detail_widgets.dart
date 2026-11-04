@@ -223,13 +223,24 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
             ? context.l10n.adminText('detail.creator_missing')
             : '$creatorRole · ${creator.displayName}';
     final cardUiState = presentationUiState ?? uiState;
-    final rezkaInstructionLines = _rezkaWipSplitInstructionLines(
-      map: map,
-      station: cardUiState.station,
-      stageNodeId: cardUiState.stageNodeId,
-      outputKadrCounts: cardUiState.rezkaOutputKadrCounts,
-      l10n: context.l10n,
-    );
+    final rezkaInstructionLines = [
+      if (workerMode && !detailPending && detailError == null)
+        ..._scannedRezkaOutputLines(
+          map: map,
+          state: uiState,
+          progress: previousProgressBatch,
+          opening: openingWipBatch,
+          apparatus: apparatusCatalog,
+          l10n: context.l10n,
+        ),
+      ..._rezkaWipSplitInstructionLines(
+        map: map,
+        station: cardUiState.station,
+        stageNodeId: cardUiState.stageNodeId,
+        outputKadrCounts: cardUiState.rezkaOutputKadrCounts,
+        l10n: context.l10n,
+      ),
+    ];
     final rezkaMergeStateLines = _rezkaMergeStateLines(
       inputLineage: cardUiState.rezkaInputLineage,
       l10n: context.l10n,

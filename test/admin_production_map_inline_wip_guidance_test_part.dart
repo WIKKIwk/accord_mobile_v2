@@ -307,6 +307,23 @@ class _InlineWipFixture {
     return http.Response('{"error":"not_found"}', 404);
   }
 
+  ProductionMapDefinition orderMap({required bool other}) =>
+      _twoStageProductionOrderMap(
+        id: other ? _inlineOtherOrderId : _inlineOrderId,
+        title: other ? 'Other inline work' : 'Inline work',
+        productCode: other ? 'INLINE-OTHER' : 'INLINE',
+        product: 'Inline product',
+        firstApparatusId: _print9Id,
+        secondApparatusId: station,
+      );
+
+  Stream<AdminProductionMapLiveSnapshot> liveEvents() async* {
+    yield snapshot();
+    yield* events.stream;
+  }
+
+  bool get scanViaFab => false;
+
   Future<void> open(WidgetTester tester) async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = SessionProfile(
@@ -321,15 +338,7 @@ class _InlineWipFixture {
     );
     maps = [
       for (final other in [false, true])
-        await MobileApi.instance
-            .adminSaveProductionMap(_twoStageProductionOrderMap(
-          id: other ? _inlineOtherOrderId : _inlineOrderId,
-          title: other ? 'Other inline work' : 'Inline work',
-          productCode: other ? 'INLINE-OTHER' : 'INLINE',
-          product: 'Inline product',
-          firstApparatusId: _print9Id,
-          secondApparatusId: station,
-        )),
+        await MobileApi.instance.adminSaveProductionMap(orderMap(other: other)),
     ];
     apparatus = await MobileApi.instance.adminApparatus(limit: 200);
     snapshot().validateContract();
@@ -354,13 +363,22 @@ class _InlineWipFixture {
         GlobalWidgetsLocalizations.delegate
       ],
       supportedLocales: AppLocalizations.supportedLocales,
+      onGenerateRoute: scanViaFab ? (settings) {
+        expect(settings.name, AppRoutes.adminProgressQrScan);
+        return MaterialPageRoute<String>(builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.of(context).pop(_inlineWipQr),
+            child: const Text('Scan Rezka WIP'),
+          ),
+        ));
+      } : null,
       home: AdminProductionMapOrdersScreen(
         readOnly: true,
         workerMode: true,
         initialWorkerQrPayload: consumeInitialQr ? _inlineWipQr : '',
         queueSnapshotLoader: () async => snapshot(),
         apparatusLoader: () async => apparatus,
-        liveEventsLoader: () => events.stream,
+        liveEventsLoader: liveEvents,
       ),
     ));
     await tester.pumpAndSettle();
@@ -368,6 +386,15 @@ class _InlineWipFixture {
     await tester.tap(find.text(_fixtureApparatusName(station)));
     await tester.pumpAndSettle();
     await TestModeController.instance.setEnabled(false);
+    if (scanViaFab) {
+      final scan = tester.widget<AparatchiDock>(find.byType(AparatchiDock))
+          .onQrScanRequested!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Scan Rezka WIP'));
+      await tester.pumpAndSettle();
+      await scan;
+      return;
+    }
     await tester
         .tap(find.byKey(const ValueKey('worker-order-$_inlineOrderId')));
     await tester.pumpAndSettle();
@@ -392,6 +419,89 @@ class _InlineWipFixture {
     if (next == 'active-no-merge') allowMerge = false;
     revision++;
     if (publish) events.add(snapshot());
+  }
+}
+
+class _RezkaStageScanFixture extends _InlineWipFixture {
+  _RezkaStageScanFixture({
+    required this.finalStage,
+    required this.scanViaFab,
+    required this.ambiguous,
+  })
+      : super('start', station: _rezkaId);
+
+  final bool finalStage;
+  @override
+  final bool scanViaFab;
+  final bool ambiguous;
+  String get destination => finalStage ? 'final-rezka' : 'second-apparatus';
+  String get source => finalStage ? 'lamination' : 'first-apparatus';
+  String get sourceApparatus => finalStage ? _lamination1Id : _print9Id;
+
+  @override
+  ProductionMapDefinition orderMap({required bool other}) {
+    final map = super.orderMap(other: other);
+    return map.copyWith(
+      nodes: [
+        ...map.nodes,
+        ProductionMapNode(
+          id: 'lamination',
+          kind: 'apparatus',
+          title: _fixtureApparatusName(_lamination1Id),
+          apparatusId: _lamination1Id,
+        ),
+        ProductionMapNode(
+          id: 'final-rezka',
+          kind: 'apparatus',
+          title: _fixtureApparatusName(_rezkaId),
+          apparatusId: _rezkaId,
+        ),
+      ],
+      edges: [
+        ...map.edges.where((edge) => edge.from != 'second-apparatus'),
+        const ProductionMapEdge(from: 'second-apparatus', to: 'lamination'),
+        const ProductionMapEdge(from: 'lamination', to: 'final-rezka'),
+        const ProductionMapEdge(from: 'final-rezka', to: 'end'),
+      ],
+    );
+  }
+
+  @override
+  Map<String, dynamic> control({bool other = false}) => {
+        ...super.control(other: other),
+        'stage_node_id': destination,
+        'previous_stage': sourceApparatus,
+      };
+
+  @override
+  Map<String, dynamic> batch({bool other = false}) => {
+        ...super.batch(other: other),
+        'apparatus': sourceApparatus,
+        'current_apparatus': sourceApparatus,
+        'payload_json': {
+          'stage_node_id': source,
+          'next_stage_node_id': destination,
+        },
+      };
+
+  @override
+  Future<http.Response> respond(http.Request request) async {
+    final response = await super.respond(request);
+    if (!request.url.path.endsWith('/progress-qr/lookup') ||
+        response.statusCode != 200) {
+      return response;
+    }
+    return http.Response(jsonEncode({
+      ...jsonDecode(response.body) as Map,
+      'input_route': ambiguous ? null : {
+        'source_stage_node_id': source,
+        'stage_node_id': destination,
+        'consumer_apparatus_ids': [station],
+        'map_fingerprint': List.filled(64, 'a').join(),
+        'remapped': false,
+      },
+      'input_route_error': ambiguous ? 'wip_route_ambiguous' : null,
+    }), 200);
   }
 }
 
@@ -423,6 +533,49 @@ Future<void> _closeInlineWipGuidance(WidgetTester tester) async {
 }
 
 void _registerInlineWipGuidanceTests() {
+  for (final (finalStage, fab, ambiguous) in [
+    (false, false, false),
+    (true, true, false),
+    (false, false, true),
+  ]) {
+    testWidgets('Rezka WIP scan shows the validated output stage '
+        '(final=$finalStage, FAB=$fab, ambiguous=$ambiguous)', (tester) async {
+      final fixture = _RezkaStageScanFixture(
+        finalStage: finalStage,
+        scanViaFab: fab,
+        ambiguous: ambiguous,
+      );
+      await http.runWithClient(() async {
+        await fixture.open(tester);
+        Future<void>? scan;
+        if (!fab) {
+          expect(find.text('Yakuniy rezka — tayyor mahsulot'), findsNothing);
+          expect(find.textContaining('Oraliq rezka'), findsNothing);
+          scan = fixture.scanner(tester)(_inlineWipQr);
+          await tester.pumpAndSettle();
+        }
+        final start = find.byKey(const ValueKey('production-order-start-action'));
+        if (ambiguous) {
+          expect(find.textContaining('Oraliq rezka'), findsNothing);
+          expect(find.text('Yakuniy rezka — tayyor mahsulot'), findsNothing);
+          expect(tester.widget<FilledButton>(start).onPressed, isNull);
+          await _closeInlineWipGuidance(tester);
+        } else {
+          expect(find.text('Yakuniy rezka — tayyor mahsulot'),
+              finalStage ? findsOneWidget : findsNothing);
+          expect(find.textContaining('Oraliq rezka'),
+              finalStage ? findsNothing : findsOneWidget);
+          expect(find.text('Keyingi bosqich — Laminatsiya 1'),
+              finalStage ? findsNothing : findsOneWidget);
+          expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+          expect(find.byType(AlertDialog), findsNothing);
+        }
+        if (scan != null) await scan;
+        expect(fixture.mutations, isEmpty);
+      }, () => MockClient(fixture.respond));
+    });
+  }
+
   testWidgets(
       'worker inline WIP guidance: initial queue QR is consumed once without a camera',
       (tester) async {

@@ -457,6 +457,21 @@ const _app_localizations_declarations__productionTranslations_resplitPart07 = {
     'en': 'The work status changed during scanning. Check the order’s new status and available actions, then scan the QR again.',
     'ru': 'Во время сканирования состояние работы изменилось. Проверьте новое состояние заказа и доступные действия, затем повторите сканирование.',
   },
+  'worker.qr.rezka_final_output': {
+    'uz': 'Yakuniy rezka — tayyor mahsulot',
+    'en': 'Final cutting — finished product',
+    'ru': 'Финальная резка — готовая продукция',
+  },
+  'worker.qr.rezka_intermediate_output': {
+    'uz': 'Oraliq rezka — keyingi bosqich uchun rulon',
+    'en': 'Intermediate cutting — roll for the next stage',
+    'ru': 'Промежуточная резка — рулон для следующего этапа',
+  },
+  'worker.qr.rezka_next_stage': {
+    'uz': 'Keyingi bosqich — {apparatus}',
+    'en': 'Next stage — {apparatus}',
+    'ru': 'Следующий этап — {apparatus}',
+  },
   'worker.qr.resume_molds': {
     'uz': 'Davom ettirishdan oldin talab qilingan qolip QRlarini skanerlang.',
     'en': 'Scan the required mold QR codes before resuming.',

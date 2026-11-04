@@ -116,6 +116,54 @@ List<String> _workerWipConsumerIds(
       .toList();
 }
 
+List<String> _scannedRezkaOutputLines({
+  required ProductionMapDefinition map,
+  required _ReadOnlyOrderDetailUiState state,
+  required AdminProgressBatch? progress,
+  required AdminOpeningWipBatch? opening,
+  required List<AdminApparatus> apparatus,
+  required AppLocalizations l10n,
+}) {
+  final stageNodeId = state.stageNodeId.trim();
+  if (!state.contractSynchronized ||
+      !(state.showStart || state.showResume) ||
+      !state.previousProgressRequired ||
+      !state.previousProgressReady ||
+      (progress == null && opening == null) ||
+      stageNodeId.isEmpty ||
+      !apparatus.any((item) =>
+          item.id == state.station && item.operation.trim() == 'cut') ||
+      !productionMapLinearWorkStages(map).any((stage) =>
+          stage.nodeId == stageNodeId && stage.apparatusId == state.station)) {
+    return const [];
+  }
+  if (progress != null &&
+      (progress.inputRouteError.isNotEmpty ||
+          !_workerWipConsumerIds(_ScannedWorkerWip(progress: progress), map,
+                  consumerStageNodeId: stageNodeId)
+              .contains(state.station))) {
+    return const [];
+  }
+  final next = productionMapNextWorkStagesForNode(
+    map: map,
+    stageNodeId: stageNodeId,
+  );
+  if (next.isEmpty) {
+    return [l10n.productionText('worker.qr.rezka_final_output')];
+  }
+  final names = canonicalApparatusNamesById(apparatus);
+  final destinations = next
+      .map((stage) => names[stage.apparatusId] ?? stage.displayTitle.trim())
+      .where((name) => name.isNotEmpty)
+      .toSet();
+  return [
+    l10n.productionText('worker.qr.rezka_intermediate_output'),
+    if (destinations.isNotEmpty)
+      l10n.productionText('worker.qr.rezka_next_stage',
+          values: {'apparatus': destinations.join(', ')}),
+  ];
+}
+
 String _workerWipRouteGuidance({
   required AppLocalizations l10n,
   required _ScannedWorkerWip wip,
