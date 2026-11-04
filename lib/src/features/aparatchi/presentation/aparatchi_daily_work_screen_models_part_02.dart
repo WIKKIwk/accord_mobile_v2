@@ -7,6 +7,8 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
   final Map<String, AdminProgressBatch> _correctedBatches = {};
   final Set<String> _correctingBatchIds = {};
   List<AdminApparatus> _apparatus = const [];
+  bool get _showsRezkaTeam =>
+      AppSession.instance.profile?.role == UserRole.rezkaMaster;
 
   @override
   void initState() {
@@ -97,7 +99,9 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
     if (loader != null) {
       return loader();
     }
-    return MobileApi.instance.adminProgressQrHistory(limit: 200);
+    return MobileApi.instance.adminProgressQrHistory(
+      rezkaTeamDay: _showsRezkaTeam ? _selectedDate : null,
+    );
   }
 
   Future<void> _retry() async {
@@ -119,7 +123,14 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
     if (!mounted || selected == null) {
       return;
     }
-    setState(() => _selectedDate = _dailyWorkDateOnly(selected));
+    final date = _dailyWorkDateOnly(selected);
+    if (date == _selectedDate) return;
+    setState(() {
+      _selectedDate = date;
+      if (_showsRezkaTeam && widget.historyLoader == null) {
+        _future = _loadHistory();
+      }
+    });
   }
 
   Future<void> _showWip(AdminProgressBatch batch) async {
@@ -399,11 +410,13 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       _apparatus,
       context.l10n,
     );
-    final workerName = _dailyWorkFirstNotEmpty([
-      profile?.displayName ?? '',
-      profile?.legalName ?? '',
-      apparatusLabel,
-    ]);
+    final workerName = _showsRezkaTeam
+        ? context.l10n.productionText('worker.daily.rezka_team')
+        : _dailyWorkFirstNotEmpty([
+            profile?.displayName ?? '',
+            profile?.legalName ?? '',
+            apparatusLabel,
+          ]);
     return AppShell(
       title: context.l10n.productionText('worker.daily'),
       subtitle: context.l10n.productionText(
@@ -431,7 +444,7 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done &&
-            !snapshot.hasData) {
+            (_showsRezkaTeam || !snapshot.hasData)) {
           return const Center(child: AppLoadingIndicator());
         }
         if (snapshot.hasError && !snapshot.hasData) {
@@ -444,7 +457,6 @@ class _AparatchiDailyWorkScreenState extends State<AparatchiDailyWorkScreen> {
           for (final batch in snapshot.data ?? const <AdminProgressBatch>[])
             _correctedBatches[batch.batchId.trim()] ?? batch,
         ];
-        // The history endpoint is already scoped to the authenticated worker.
         final batches = adminProgressBatchesForLocalDay(
           allBatches,
           _selectedDate,

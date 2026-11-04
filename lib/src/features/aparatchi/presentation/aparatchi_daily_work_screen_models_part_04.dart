@@ -9,6 +9,12 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final itemName = _dailyWorkProductTitle(widget.batch, widget.index + 1);
+    final workerName = AppSession.instance.profile?.role == UserRole.rezkaMaster
+        ? _dailyWorkFirstNotEmpty([
+            widget.batch.workerDisplayName,
+            widget.batch.executorName,
+          ])
+        : '';
     final current = _dailyWorkFirstNotEmpty([
       widget.batch.currentLocation,
       widget.batch.currentApparatus,
@@ -57,6 +63,14 @@ class _DailyWorkWipCardState extends State<_DailyWorkWipCard> {
                   ),
                 ],
               ),
+              if (workerName.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: _DailyWorkInfoRow(
+                    label: context.l10n.productionText('worker.wip.info.worker'),
+                    value: workerName,
+                  ),
+                ),
               const SizedBox(height: 10),
               AnimatedSize(
                 duration: const Duration(milliseconds: 180),

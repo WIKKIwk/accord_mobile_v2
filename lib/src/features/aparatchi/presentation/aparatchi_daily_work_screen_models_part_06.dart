@@ -198,8 +198,12 @@ String _dailyWorkStatusLabel(
   };
 }
 
-bool _canCorrectWip(AdminProgressBatch batch) =>
-    batch.wipStatus.trim().toLowerCase() == 'waiting';
+bool _canCorrectWip(AdminProgressBatch batch) {
+  final profile = AppSession.instance.profile;
+  return batch.wipStatus.trim().toLowerCase() == 'waiting' &&
+      (profile?.role != UserRole.rezkaMaster ||
+          batch.workerRef.trim() == profile!.ref.trim());
+}
 
 String _dailyWorkFirstNotEmpty(Iterable<String> values) {
   for (final value in values) {

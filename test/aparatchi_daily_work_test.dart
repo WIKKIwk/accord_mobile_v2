@@ -1,11 +1,16 @@
+import 'dart:convert';
+
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_daily_work_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'aparatchi_daily_work_test_helpers_part_01.dart';
@@ -43,6 +48,103 @@ const _dailyWorkApparatusCatalog = <AdminApparatus>[
 ];
 
 void main() {
+  testWidgets('Rezka master loads and pages team output for the selected day',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    await TestModeController.instance.setEnabled(false);
+    AppSession.instance.token = 'token';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.rezkaMaster,
+      displayName: 'Master',
+      legalName: '',
+      ref: 'rezka-master',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['apparatus.queue.read'],
+      assignedApparatus: ['apparatus:default:asset-010'],
+    );
+    addTearDown(() {
+      AppSession.instance.token = null;
+      AppSession.instance.profile = null;
+    });
+    final selected = DateTime(2026, 10, 30);
+    final prior = DateTime(2026, 10, 29);
+    int unix(DateTime value) => value.millisecondsSinceEpoch ~/ 1000;
+    final requests = <Map<String, String>>[];
+    final select = AppLocalizations(const Locale('uz'))
+        .productionText('worker.action.select');
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AparatchiDailyWorkScreen(
+          initialDate: selected,
+          apparatusLoader: () async => _dailyWorkApparatusCatalog,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(requests, hasLength(2));
+      expect(requests.first['rezka_team'], 'true');
+      expect(requests.first['from_unix'], '${unix(selected)}');
+      expect(requests.first['until_unix'], '${unix(DateTime(2026, 10, 31))}');
+      expect(requests.last['before_batch_id'], 'rezka-anis');
+      expect(find.byKey(const ValueKey('daily-work-order-group-second')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('daily-work-order-header-anis')));
+      await tester.pumpAndSettle();
+      expect(find.text('Anis'), findsOneWidget);
+      final wip = find.byKey(const ValueKey('daily-work-wip-card-rezka-anis'));
+      await tester.ensureVisible(wip);
+      await tester.tap(wip);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('daily-work-wip-edit-rezka-anis')), findsNothing);
+      final dateButton = find.text(select).first;
+      await tester.ensureVisible(dateButton);
+      await tester.tap(dateButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(
+          of: find.byType(CalendarDatePicker), matching: find.text('29')));
+      await tester.tap(find.descendant(
+          of: find.byType(Dialog), matching: find.text(select)));
+      await tester.pumpAndSettle();
+      expect(requests, hasLength(3));
+      expect(requests.last['from_unix'], '${unix(prior)}');
+      expect(find.byKey(const ValueKey('daily-work-order-group-prior')), findsOneWidget);
+      expect(find.byKey(const ValueKey('daily-work-order-group-anis')), findsNothing);
+    }, () => MockClient((request) async {
+      expect(request.url.path, endsWith('/progress-qr/history'));
+      final query = request.url.queryParameters;
+      requests.add(query);
+      final first = query['from_unix'] == '${unix(selected)}' &&
+          !query.containsKey('before_batch_id');
+      final order = first ? 'anis' : query.containsKey('before_batch_id') ? 'second' : 'prior';
+      return http.Response(jsonEncode({
+        'batches': [
+          {
+            'batch_id': 'rezka-$order',
+            'order_id': order,
+            'apparatus': 'apparatus:default:asset-010',
+            'started_at_unix': int.parse(query['from_unix']!) + 3600,
+            'completed_at_unix': int.parse(query['from_unix']!) + 7200,
+            'worker_display_name': first ? 'Anis' : 'Abdusamad',
+            'worker_ref': order,
+            'wip_status': 'waiting',
+          },
+        ],
+        'next_before_batch_id': first ? 'rezka-anis' : null,
+      }), 200);
+    }));
+  });
+
   test('daily WIP history is date sorted and counts unique orders', () {
     final day = DateTime(2026, 8, 1);
     final batches = [

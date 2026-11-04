@@ -181,12 +181,44 @@ extension MobileApiAdminProgressQr on MobileApi {
 
   Future<List<AdminProgressBatch>> adminProgressQrHistory({
     int limit = 200,
+    DateTime? rezkaTeamDay,
   }) async {
     final boundedLimit = limit.clamp(1, 200).toInt();
     final profile = AppSession.instance.profile;
+    final scope = currentSessionReadScope();
+    final day = rezkaTeamDay?.toLocal();
+    if (day != null && profile?.role != UserRole.rezkaMaster) {
+      throw const MobileApiException(code: 'forbidden', message: '');
+    }
+    final from = day == null
+        ? null
+        : DateTime(day.year, day.month, day.day).millisecondsSinceEpoch ~/ 1000;
+    final until = day == null
+        ? null
+        : DateTime(day.year, day.month, day.day + 1).millisecondsSinceEpoch ~/ 1000;
     final workerRef = profile?.ref.trim() ?? '';
     final workerName = profile?.displayName.trim() ?? '';
     if (await TestModeController.instance.isEnabled()) {
+      if (from != null && until != null) {
+        final allowed = {
+          for (final apparatus in _testModeApparatusCatalog())
+            if (apparatus.operation == 'cut' &&
+                apparatus.lifecycleState == 'active' &&
+                profile!.assignedApparatus.contains(apparatus.id))
+              apparatus.id,
+        };
+        return _testModeProgressBatchesByQr.values.where((batch) {
+          final started = batch.startedAtUnix > 0
+              ? batch.startedAtUnix
+              : batch.completedAtUnix;
+          final completed = batch.completedAtUnix > 0
+              ? batch.completedAtUnix
+              : started;
+          return allowed.contains(batch.apparatus) &&
+              batch.payloadJson['origin'] != 'layer_remainder' &&
+              started < until && completed >= from;
+        }).toList(growable: false);
+      }
       if (workerRef.isEmpty && workerName.isEmpty) {
         return const [];
       }
@@ -201,24 +233,48 @@ extension MobileApiAdminProgressQr on MobileApi {
           .take(boundedLimit)
           .toList(growable: false);
     }
-    final response = await _sendAuthorized(
-      () => _get(
-        Uri.parse(
-          '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/progress-qr/history',
-        ).replace(queryParameters: {'limit': boundedLimit.toString()}),
-        headers: _headers(requireToken()),
-      ),
-    );
-    if (response.statusCode != 200) {
-      throw _adminProductionMapException(response, 'progress_qr_history');
-    }
-    final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    final raw = payload['batches'];
-    return [
-      if (raw is List)
-        for (final item in raw)
-          AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>()),
-    ];
+    final batches = <AdminProgressBatch>[];
+    final cursors = <String>{};
+    String? cursor;
+    do {
+      final uri = Uri.parse(
+        '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/progress-qr/history',
+      ).replace(queryParameters: {
+        'limit': boundedLimit.toString(),
+        if (from != null && until != null) ...{
+          'rezka_team': 'true',
+          'from_unix': from.toString(),
+          'until_unix': until.toString(),
+          if (cursor != null) 'before_batch_id': cursor,
+        },
+      });
+      final response = await _sendAuthorized(() {
+        if (scope != currentSessionReadScope()) {
+          throw const MobileApiException(code: 'session_scope_changed', message: '');
+        }
+        return _get(uri, headers: _headers(requireToken()));
+      });
+      if (scope != currentSessionReadScope()) {
+        throw const MobileApiException(code: 'session_scope_changed', message: '');
+      }
+      if (response.statusCode != 200) {
+        throw _adminProductionMapException(response, 'progress_qr_history');
+      }
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final raw = payload['batches'];
+      if (raw is List) {
+        batches.addAll(raw.map((item) =>
+            AdminProgressBatch.fromJson((item as Map).cast<String, dynamic>())));
+      }
+      if (day == null) break;
+      final next = payload['next_before_batch_id'];
+      if (raw is! List || !payload.containsKey('next_before_batch_id') ||
+          (next != null && (next is! String || next.isEmpty || !cursors.add(next)))) {
+        throw const MobileApiException(code: 'progress_qr_history', message: '');
+      }
+      cursor = next as String?;
+    } while (cursor != null);
+    return batches;
   }
 
   Future<AdminProgressBatch> adminProgressBatchCorrect(

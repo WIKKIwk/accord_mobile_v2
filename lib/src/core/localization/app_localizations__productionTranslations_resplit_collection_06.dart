@@ -289,6 +289,11 @@ const _app_localizations_declarations__productionTranslations_resplitPart06 = {
     'en': 'WIPs and orders produced by {apparatus}',
     'ru': 'WIP и заказы, выпущенные аппаратом «{apparatus}»',
   },
+  'worker.daily.rezka_team': {
+    'uz': 'Rezka jamoasi',
+    'en': 'Cutting team',
+    'ru': 'Команда резки',
+  },
   'worker.daily.choose_date': {
     'uz': 'Kun tanlash',
     'en': 'Choose date',

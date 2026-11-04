@@ -29,7 +29,7 @@ bool adminProgressBatchTouchesLocalDay(
   DateTime day,
 ) {
   final dayStart = _dailyWorkDateOnly(day);
-  final dayEnd = dayStart.add(const Duration(days: 1));
+  final dayEnd = DateTime(dayStart.year, dayStart.month, dayStart.day + 1);
   final startedAt = batch.startedAtUnix > 0
       ? _dailyWorkUnixDateTime(batch.startedAtUnix)
       : null;
