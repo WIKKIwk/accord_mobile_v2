@@ -240,6 +240,12 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'ru': 'Рулон {index}',
     'ur': 'رول {index}',
   },
+  'worker.rezka.print.peremotka_unsupported': {
+    'uz': 'Peremotka uchun serverni yangilash kerak.',
+    'en': 'Update the server to save rewinding tasks.',
+    'ru': 'Для сохранения задач перемотки обновите сервер.',
+    'ur': 'دوبارہ لپیٹنے کا کام محفوظ کرنے کے لیے سرور اپ ڈیٹ کریں۔',
+  },
   'worker.rezka.print.peremotka_pending': {
     'uz': 'Peremotka hali saqlanmadi. Shu rulonni chop etishni qayta urinib ko‘ring.',
     'en': 'Rewinding has not been saved yet. Retry printing this roll.',

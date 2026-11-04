@@ -139,16 +139,9 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
   }
 
   Future<void> _confirmRezkaPeremotka(int index) async {
-    if (!_rezkaPeremotkaSupported ||
-        _rezkaReport?.frameAt(index) != null ||
+    if (_rezkaReport?.frameAt(index) != null ||
         _rezkaQueuedFrameIndexes.contains(index) ||
         _rezkaSyncRequired) {
-      return;
-    }
-    final frame = _rezkaFrameControllers[index];
-    if (!_rezkaFrameMetricsComplete(frame)) {
-      _updateRezkaPrint(() => _rezkaPrintStatus[index] =
-          _rezkaText(_rezkaNetIncludesBobina ? 'fill_roll_with_bobina' : 'fill_roll'));
       return;
     }
     final formKey = GlobalKey<FormState>();
@@ -354,9 +347,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
 
   void _printRezkaFrame(int index, {String peremotkaReason = ''}) {
     if (peremotkaReason.isNotEmpty &&
-        (!_rezkaPeremotkaSupported ||
-            _rezkaPrintQueuePaused ||
-            _rezkaReport?.frameAt(index) != null)) {
+        (_rezkaPrintQueuePaused || _rezkaReport?.frameAt(index) != null)) {
       return;
     }
     if (!_canPrintRezkaFrames ||
@@ -483,7 +474,9 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       // Previously saved cards still need a fresh read before a reprint.
       // New cards can use the write as their freshness check once the
       // scoped report has confirmed the server supports it.
-      final canSaveDirectly = _rezkaAtomicSaveEpoch.isNotEmpty &&
+      final holdForPeremotka = request.input?.peremotkaReason.isNotEmpty == true;
+      final canSaveDirectly = !holdForPeremotka &&
+          _rezkaAtomicSaveEpoch.isNotEmpty &&
           request.input != null &&
           _rezkaReport?.frameAt(index) == null;
       final latest = canSaveDirectly
@@ -507,9 +500,11 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         throw const MobileApiException(
             code: 'rezka_output_cycle_conflict', message: '');
       }
-      final holdForPeremotka = request.input?.peremotkaReason.isNotEmpty == true;
-      if (holdForPeremotka && !_rezkaPeremotkaSupported) {
-        throw const _RezkaFrameInputConflict();
+      if (holdForPeremotka && !latest.peremotkaSupported) {
+        _updateRezkaPrint(() {
+          _rezkaPrintStatus[index] = _rezkaText('peremotka_unsupported');
+        });
+        return;
       }
       if (_rezkaReport?.frameAt(index) == null &&
           request.input != null &&

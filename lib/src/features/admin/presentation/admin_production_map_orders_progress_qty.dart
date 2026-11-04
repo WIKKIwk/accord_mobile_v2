@@ -1296,9 +1296,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                 onPressed: savedIssue || (!canQueuePrint && !canRetryPrint)
                     ? null
                     : () => _printRezkaFrame(index),
-                onLongPress: _rezkaPeremotkaSupported &&
-                        fieldsEnabled &&
-                        canQueuePrint
+                onLongPress: fieldsEnabled && canQueuePrint
                     ? () => _confirmRezkaPeremotka(index)
                     : null,
                 icon: const Icon(Icons.print_outlined),

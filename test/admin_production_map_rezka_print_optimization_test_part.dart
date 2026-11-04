@@ -5,6 +5,7 @@ void _registerRezkaPrintOptimizationTests() {
     'local prepared label',
     'local duplicate label',
     'atomic duplicate peremotka label',
+    'atomic peremotka older server',
     'intermediate duplicate label',
     'intermediate duplicate older backend',
     'intermediate duplicate stale stage',
@@ -36,6 +37,8 @@ void _registerRezkaPrintOptimizationTests() {
       final confirmRecovery = scenario.startsWith('confirmation ');
       final duplicateLabels = scenario.contains('duplicate');
       final isPeremotka = scenario.contains('peremotka');
+      final supportsPeremotka =
+          isPeremotka && scenario != 'atomic peremotka older server';
       final intermediate = scenario.startsWith('intermediate');
       final repeated = intermediate || scenario.startsWith('final repeated');
       final unknownStage = scenario.contains('unknown stage');
@@ -121,10 +124,8 @@ void _registerRezkaPrintOptimizationTests() {
               ? (intermediate && !staleStage ? 'apparatus' : 'final-rezka')
               : modeConflict ? 'apparatus' : '',
           rezkaOutputKadrCounts: [1, 1, 1, 1],
-          rezkaOutputReport: AdminRezkaOutputReport(
-            cycleId: cycle,
-            peremotkaSupported: isPeremotka,
-          ),
+          // The cached report on first open may predate the server's capability.
+          rezkaOutputReport: const AdminRezkaOutputReport(cycleId: cycle),
         ),
       );
       await _usePhoneViewport(tester);
@@ -214,7 +215,7 @@ void _registerRezkaPrintOptimizationTests() {
               jsonEncode({
                 'ok': true,
                 if (atomicSave) 'atomic_frame_save': true,
-                if (isPeremotka) 'peremotka_supported': true,
+                if (supportsPeremotka) 'peremotka_supported': true,
                 'apparatus': _rezkaId,
                 'order_id': order,
                 'rezka_output_report': {
@@ -443,6 +444,16 @@ void _registerRezkaPrintOptimizationTests() {
           );
           await tester.tap(find.byKey(const ValueKey('rezka-peremotka-confirm')));
           await tester.pumpAndSettle();
+          if (!supportsPeremotka) {
+            expect(events, ['read']);
+            expect(frames, isEmpty);
+            expect(
+              find.text('Peremotka uchun serverni yangilash kerak.'),
+              findsOneWidget,
+            );
+            await tester.pumpWidget(const SizedBox.shrink());
+            return;
+          }
           expect(events, ['read', 'save', 'reprint', 'native', 'read']);
           expect(find.text('Peremotka · Notekis o‘ralgan'), findsOneWidget);
           expect(frames, hasLength(1));
