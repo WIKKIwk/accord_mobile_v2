@@ -1222,7 +1222,7 @@ class _OrderSummaryCard extends StatelessWidget {
         ),
       );
     }
-    if (workerMode && !detailPending) {
+    if (!detailPending) {
       final standard = map.standardPrintSide != false;
       rows.add(
         AppInfoRow(

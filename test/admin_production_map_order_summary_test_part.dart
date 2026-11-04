@@ -39,7 +39,10 @@ CalculateOrderTemplate _summaryCalculation({bool multipleProducts = false}) =>
         ],
     });
 
-Future<void> _openExpectedOrderSummary(WidgetTester tester) async {
+Future<void> _openExpectedOrderSummary(
+  WidgetTester tester, {
+  bool? standardPrintSide,
+}) async {
   await MobileApi.instance.adminSaveProductionMap(
     _productionOrderMap(
       id: 'zakaz-summary',
@@ -51,7 +54,11 @@ Future<void> _openExpectedOrderSummary(WidgetTester tester) async {
       orderNumber: '0309',
       rollCount: 5,
       widthMm: 415,
-    ).copyWith(orderKg: 400, baseLength: 18000),
+    ).copyWith(
+      orderKg: 400,
+      baseLength: 18000,
+      standardPrintSide: standardPrintSide,
+    ),
   );
   await _usePhoneViewport(tester);
   await tester.pumpWidget(MaterialApp(
@@ -292,7 +299,7 @@ void _registerOrderSummaryTests() {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance
         .upsertCalculateOrderTemplate(_summaryCalculation());
-    await _openExpectedOrderSummary(tester);
+    await _openExpectedOrderSummary(tester, standardPrintSide: false);
     expect(find.text('18000 metr'), findsOneWidget);
     expect(find.text('400 kg'), findsOneWidget);
     for (final label in ['Val', 'Kadr soni', 'Bitta kadr eni']) {
@@ -301,6 +308,8 @@ void _registerOrderSummaryTests() {
     final details =
         find.byKey(const ValueKey('production-order-calculation-details'));
     for (final value in [
+      'Taraf',
+      'Nostandart',
       '415 mm',
       '5 %',
       'PET · 12 mikron',
@@ -368,6 +377,8 @@ void _registerOrderSummaryTests() {
     );
     await _openExpectedOrderSummary(tester);
     expect(find.text('18000 metr'), findsOneWidget);
+    expect(find.text('Taraf'), findsOneWidget);
+    expect(find.text('Standart'), findsOneWidget);
     expect(find.text('PET · 12 mikron'), findsNothing);
     final retry = find.widgetWithText(TextButton, 'Qayta yuklash');
     expect(retry, findsOneWidget);
