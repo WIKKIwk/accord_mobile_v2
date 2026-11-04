@@ -183,8 +183,10 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
         await preferences.remove(pendingKey);
       }
       if (!contextCurrent()) return _ProgressActionOutcome.completed;
+      final hasOutput = result.progressBatches.isNotEmpty;
       setState(() {
         _actionInFlight = false;
+        if (hasOutput) _workerOutputRevision++;
         _queueActionControl = null;
         _scannedMaterialBarcodes.clear();
         _startInputProgressBatch = null;

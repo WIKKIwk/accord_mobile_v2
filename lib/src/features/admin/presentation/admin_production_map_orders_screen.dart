@@ -181,6 +181,7 @@ part 'admin_production_map_orders_reactivation.dart';
 part 'admin_production_map_orders_reactivation_reclose.dart';
 part 'admin_production_map_orders_screen_widgets.dart';
 part 'admin_production_map_orders_start_card.dart';
+part 'admin_production_map_orders_worker_output_progress.dart';
 
 const double _openedOrderPanelCardGap = 4;
 const double _openedOrderPanelTopGap = 8;

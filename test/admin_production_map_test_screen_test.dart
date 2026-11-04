@@ -101,6 +101,7 @@ part 'admin_production_map_order_image_zoom_test_part.dart';
 part 'admin_production_map_worker_wip_accuracy_test_part.dart';
 part 'admin_production_map_worker_completed_wip_test_part.dart';
 part 'admin_production_map_worker_map_wip_test_part.dart';
+part 'admin_production_map_worker_output_progress_test_part.dart';
 part 'admin_production_map_wip_facts_test_part.dart';
 part 'admin_production_map_stage_participants_test_part.dart';
 part 'admin_production_map_admin_status_scope_test_part.dart';
@@ -300,6 +301,7 @@ void main() {
   _registerWorkerWipAccuracyTests();
   _registerWorkerCompletedWipTests();
   _registerWorkerMapWipTests();
+  _registerWorkerOutputProgressTests();
   _registerFrozenWorkerVisibilityTests();
   _registerStageFreezeScopeTests();
   _registerAdminMapWipFactsTests();

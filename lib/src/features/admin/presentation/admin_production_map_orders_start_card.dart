@@ -4,6 +4,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
   const _OrderStartUnifiedCard({
     required this.uiState,
     this.actionsEnabled = true,
+    this.outputProgress,
     required this.apparatusCatalog,
     required this.orderCode,
     required this.orderImageBytes,
@@ -141,6 +142,7 @@ class _OrderStartUnifiedCard extends StatelessWidget {
 
   final _ReadOnlyOrderDetailUiState uiState;
   final bool actionsEnabled;
+  final Widget? outputProgress;
 
   Widget _workerStartMaterials(BuildContext context) {
     final assignments = uiState.assignedMaterialAssignments;
@@ -1054,6 +1056,10 @@ class _OrderStartUnifiedCard extends StatelessWidget {
                           key: ValueKey('production-order-start-action-hidden'),
                         ),
             ),
+            if (outputProgress != null) ...[
+              const SizedBox(height: 10),
+              outputProgress!,
+            ],
             AnimatedSize(
               key: const ValueKey('production-order-pause-complete-motion'),
               duration: AppMotion.medium,

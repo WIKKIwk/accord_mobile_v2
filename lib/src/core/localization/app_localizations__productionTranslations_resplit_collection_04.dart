@@ -397,6 +397,36 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'en': 'Length',
     'ru': 'Метраж',
   },
+  'worker.output_progress.print': {
+    'uz': 'Bosma progressi',
+    'en': 'Printing progress',
+    'ru': 'Ход печати',
+    'ur': 'پرنٹنگ کی پیش رفت',
+  },
+  'worker.output_progress.laminate': {
+    'uz': 'Laminatsiya progressi',
+    'en': 'Lamination progress',
+    'ru': 'Ход ламинации',
+    'ur': 'لیمینیشن کی پیش رفت',
+  },
+  'worker.output_progress.remaining': {
+    'uz': '{value} m qoldi',
+    'en': '{value} m remaining',
+    'ru': 'Осталось {value} м',
+    'ur': '{value} میٹر باقی',
+  },
+  'worker.output_progress.missing': {
+    'uz': '{count} ta rulonning metraji noma’lum',
+    'en': 'Length missing for {count} roll(s)',
+    'ru': 'Метраж не указан для {count} рул.',
+    'ur': '{count} رول کی لمبائی معلوم نہیں',
+  },
+  'worker.output_progress.unavailable': {
+    'uz': 'Metraj progressini yuklab bo‘lmadi',
+    'en': 'Could not load output progress',
+    'ru': 'Не удалось загрузить метраж',
+    'ur': 'پیداوار کی پیش رفت لوڈ نہیں ہو سکی',
+  },
   'worker.summary.weight': {
     'uz': 'Og‘irlik',
     'en': 'Weight',

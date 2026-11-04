@@ -902,20 +902,21 @@ class _WorkerWipHistoryTotals {
             ? gross - bobina
             : null;
       }),
-      meters: sum((batch) {
-        final meter = batch.finishedGoodsMeter;
-        if (meter != null) return _workerWipMeasurementUnits(meter);
-        return const {'m', 'meter', 'metr'}
-                .contains(batch.uom.trim().toLowerCase())
-            ? _workerWipMeasurementUnits(batch.producedQty)
-            : null;
-      }),
+      meters: sum(_workerWipMeterUnits),
     );
   }
 
   final _WorkerWipHistoryTotal gross;
   final _WorkerWipHistoryTotal net;
   final _WorkerWipHistoryTotal meters;
+}
+
+int? _workerWipMeterUnits(AdminProgressBatch batch) {
+  final meters = batch.finishedGoodsMeter;
+  if (meters != null) return _workerWipMeasurementUnits(meters);
+  return const {'m', 'meter', 'metr'}.contains(batch.uom.trim().toLowerCase())
+      ? _workerWipMeasurementUnits(batch.producedQty)
+      : null;
 }
 
 int? _workerWipMeasurementUnits(double? value) {

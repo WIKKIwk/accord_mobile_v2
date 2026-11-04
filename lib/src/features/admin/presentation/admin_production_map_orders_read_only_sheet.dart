@@ -118,6 +118,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
   ({String epoch, int? revision})? _adminDetailSectionsCursor;
   bool _mapExpanded = false;
   bool _summaryExpanded = false;
+  int _workerOutputRevision = 0;
 
   ReturnedPaintDraft? _returnedPaintDraft;
   String _returnedPaintDraftScope = '';
@@ -728,6 +729,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
                 : 'worker.action.detach_roll')
         : context.l10n.productionText('worker.action.pause');
     final presentation = _workerPresentationFor(uiState, pauseLabel);
+    final outputUiState = presentation?.uiState ?? uiState;
     final retainingPresentation = presentation != null &&
         !uiState.contractSynchronized;
     final requiresQolipScan = uiState.qolipScanRequired;
@@ -791,6 +793,18 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         apparatusCatalog: widget.apparatusCatalog,
         baseMetraj: widget.baseMetraj,
         orderKg: widget.orderKg,
+        outputProgress: widget.workerMode &&
+                !widget.detailPending &&
+                !_workerPresentationDenied &&
+                _detailReadScope == currentSessionReadScope()
+            ? _workerOrderOutputProgress(
+                map: map,
+                apparatus: widget.apparatus,
+                uiState: outputUiState,
+                baseMetraj: widget.baseMetraj,
+                outputRevision: _workerOutputRevision,
+              )
+            : null,
         customerName: widget.customerName,
         steps: steps,
         uiState: uiState,
@@ -1862,6 +1876,9 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       }
       setState(() {
         _actionInFlight = false;
+        if (states != null && progressInput != null) {
+          _workerOutputRevision++;
+        }
         if (states != null &&
             !(widget.workerMode && states.hasSnapshotCursor && !_isTrainingOrder)) {
           _queueStates = states.states;

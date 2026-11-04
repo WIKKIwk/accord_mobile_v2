@@ -2,6 +2,7 @@ part of 'admin_production_map_orders_screen.dart';
 
 class _ReadOnlyOrderDetailContent extends StatelessWidget {
   const _ReadOnlyOrderDetailContent({
+    this.outputProgress,
     this.detailPending = false,
     this.detailError,
     this.onRetryDetail,
@@ -193,6 +194,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   // "Kutilayotgan buyurtma ko'rsatkichlari" ko'rinadi.
   // Boshqa rollar uchun false bo'lib qoladi — ularga ta'sir qilmaydi.
   final bool summaryOnlyMode;
+  final Widget? outputProgress;
   final VoidCallback? onMaterialsLinked;
   final ValueChanged<String>? onWorkerMaterialUsed;
   final VoidCallback? onReceiveMaterial;
@@ -412,6 +414,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   if (!summaryOnlyMode)
                     _OrderStartUnifiedCard(
                       uiState: cardUiState,
+                      outputProgress: outputProgress,
                       actionsEnabled: actionsEnabled,
                       apparatusCatalog: apparatusCatalog,
                       orderCode: _openedOrderDisplayCode(map),
@@ -1186,15 +1189,14 @@ class _OrderSummaryCard extends StatelessWidget {
     final rows = <Widget>[];
     final showCalculationDetails = !workerMode &&
         AppSession.instance.profile?.isAdminOrBrigader == true;
-    final baseLength = baseMetraj ?? map.baseLength;
-    if (baseLength != null && baseLength > 0) {
-      final roundedMetraj = ((baseLength / 500).ceil() * 500).toString();
+    final plannedMeters = _workerOrderPlannedMeters(baseMetraj ?? map.baseLength);
+    if (plannedMeters != null) {
       rows.add(
         AppInfoRow(
           label: context.l10n.productionText('worker.summary.length'),
           value: context.l10n.productionText(
             'worker.summary.length_value',
-            values: {'value': roundedMetraj},
+            values: {'value': plannedMeters.toString()},
           ),
           icon: Icons.straighten_rounded,
         ),
