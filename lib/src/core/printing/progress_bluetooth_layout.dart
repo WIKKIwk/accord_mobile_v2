@@ -16,7 +16,11 @@ BluetoothProgressLayout buildBluetoothProgressLayout(
       value('item_name').isNotEmpty ? value('item_name') : value('item_code');
   final customer =
       value('customer_name').isEmpty ? '-' : value('customer_name');
-  var product = rawProduct;
+  const peremotkaPrefix = 'PEREMOTKA - ';
+  final isPeremotka = rawProduct.startsWith(peremotkaPrefix);
+  var product = isPeremotka
+      ? rawProduct.substring(peremotkaPrefix.length)
+      : rawProduct;
   for (final marker in const [
     ' YARIM TAYYOR MAHSULOT',
     ' YARIM TAYYOR',
@@ -49,11 +53,13 @@ BluetoothProgressLayout buildBluetoothProgressLayout(
     '' => '-',
     _ => apparatus,
   };
-  final status = rawProduct.contains('YARIM TAYYOR')
-      ? 'YARIM TAYYOR'
-      : rawProduct.contains('TAYYOR')
-          ? 'TAYYOR MAHSULOT'
-          : 'YARIM TAYYOR';
+  final status = isPeremotka
+      ? 'PEREMOTKA'
+      : rawProduct.contains('YARIM TAYYOR')
+          ? 'YARIM TAYYOR'
+          : rawProduct.contains('TAYYOR')
+              ? 'TAYYOR MAHSULOT'
+              : 'YARIM TAYYOR';
   final gross = (payload['gross_qty'] as num?)?.toDouble() ?? 0;
   final tare = (payload['tare_kg'] as num?)?.toDouble() ?? 0;
   final includesBobina = payload['include_bobina_in_net'] == true;

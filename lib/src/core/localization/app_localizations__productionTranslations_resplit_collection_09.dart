@@ -210,6 +210,48 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     'ru': 'Подтвердить эти значения',
     'ur': 'ان اقدار کی تصدیق کریں',
   },
+  'worker.rezka.print.peremotka': {
+    'uz': 'Peremotka',
+    'en': 'Rewinding',
+    'ru': 'Перемотка',
+    'ur': 'دوبارہ لپیٹنا',
+  },
+  'worker.rezka.print.peremotka_confirm': {
+    'uz': '{index}-rulonni peremotkaga qoldiraymi?',
+    'en': 'Hold roll {index} for rewinding?',
+    'ru': 'Оставить рулон {index} на перемотку?',
+    'ur': 'رول {index} دوبارہ لپیٹنے کے لیے روکیں؟',
+  },
+  'worker.rezka.print.peremotka_reason_required': {
+    'uz': 'Sababni kiriting (250 belgigacha).',
+    'en': 'Enter a reason (up to 250 characters).',
+    'ru': 'Укажите причину (до 250 символов).',
+    'ur': 'وجہ درج کریں (250 حروف تک)۔',
+  },
+  'worker.rezka.print.peremotka_empty': {
+    'uz': 'Peremotkaga qoldirilgan rulonlar yo‘q.',
+    'en': 'No rolls are held for rewinding.',
+    'ru': 'Нет рулонов, отложенных на перемотку.',
+    'ur': 'دوبارہ لپیٹنے کے لیے کوئی رول موجود نہیں۔',
+  },
+  'worker.rezka.print.peremotka_roll': {
+    'uz': '{index}-rulon',
+    'en': 'Roll {index}',
+    'ru': 'Рулон {index}',
+    'ur': 'رول {index}',
+  },
+  'worker.rezka.print.peremotka_pending': {
+    'uz': 'Peremotka hali saqlanmadi. Shu rulonni chop etishni qayta urinib ko‘ring.',
+    'en': 'Rewinding has not been saved yet. Retry printing this roll.',
+    'ru': 'Перемотка ещё не сохранена. Повторите печать этого рулона.',
+    'ur': 'دوبارہ لپیٹنے کا کام محفوظ نہیں ہوا۔ اس رول کی پرنٹنگ دوبارہ آزمائیں۔',
+  },
+  'worker.rezka.print.peremotka_save_print': {
+    'uz': 'Saqlash va chop etish',
+    'en': 'Save and print',
+    'ru': 'Сохранить и напечатать',
+    'ur': 'محفوظ کریں اور پرنٹ کریں',
+  },
   'worker.rezka.print.issue': {
     'uz': 'Muammo',
     'en': 'Issue',

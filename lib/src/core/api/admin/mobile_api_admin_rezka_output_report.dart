@@ -23,6 +23,7 @@ class AdminRezkaOutputSnapshot {
     final epoch = json['epoch'];
     final report = AdminRezkaOutputReport.tryFromJson(
       json['rezka_output_report'],
+      peremotkaSupported: json['peremotka_supported'] == true,
       atomicSaveEpoch:
           json['atomic_frame_save'] == true && epoch is String ? epoch : '',
     );

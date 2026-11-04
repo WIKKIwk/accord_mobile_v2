@@ -7,12 +7,14 @@ class _RezkaFrameInput {
     this.bobinaKg,
     this.diameter,
     this.issueNote = '',
+    this.peremotkaReason = '',
   });
   final double? meterQty;
   final double? kgQty;
   final double? bobinaKg;
   final double? diameter;
   final String issueNote;
+  final String peremotkaReason;
   bool get isIssue => issueNote.trim().isNotEmpty;
   Map<String, dynamic> toJson() => {
         if (meterQty != null) 'produced_qty': meterQty,
@@ -22,6 +24,7 @@ class _RezkaFrameInput {
         if (bobinaKg != null) 'bobina_kg': bobinaKg,
         if (diameter != null) 'diameter': diameter,
         if (issueNote.trim().isNotEmpty) 'issue_note': issueNote.trim(),
+        if (peremotkaReason.isNotEmpty) 'peremotka_reason': peremotkaReason,
       };
 }
 
@@ -319,6 +322,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   AdminRezkaOutputReport? _rezkaReport;
   bool? _rezkaBobinaMode;
   String _rezkaAtomicSaveEpoch = '';
+  bool _rezkaPeremotkaSupported = false;
   _RezkaFrameInput? _rezkaAutofillReference;
   int? _rezkaReferenceFrameIndex;
   String? _rezkaReferenceCycle;
@@ -705,6 +709,16 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         _updateRezkaPrint(() {
           _restoreRezkaOutputReport(latest);
           _rezkaSyncRequired = false;
+        });
+        if (_rezkaPrintQueue.any((request) {
+          final reason = request.input?.peremotkaReason ?? '';
+          return reason.isNotEmpty &&
+              latest.frameAt(request.index)?.peremotkaReason != reason;
+        })) {
+          _setCompletionError(_rezkaText('peremotka_pending'));
+          return;
+        }
+        _updateRezkaPrint(() {
           // Transfer paused print drafts to the validated production action.
           // Saved slots retain their QR; unsaved controller values stay intact.
           for (final request in _rezkaPrintQueue) {
@@ -1208,6 +1222,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final record = _rezkaReport?.frameAt(index);
     final saved = record != null;
     final savedIssue = record?.isIssue == true;
+    final savedPeremotka = record?.isPeremotka == true;
     final fieldsEnabled = !saved &&
         !_rezkaQueuedFrameIndexes.contains(index) &&
         !_rezkaSyncRequired &&
@@ -1264,7 +1279,7 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                 key: ValueKey<String>('rezka-frame-$index-issue'),
                 tooltip: _rezkaText('issue'),
                 onPressed: fieldsEnabled && !_rezkaPrintBusy
-                    ? () => _reportRezkaFrameIssue(index)
+                    ? () => _showRezkaFrameIssueActions(index)
                     : null,
                 icon: Icon(Icons.report_problem_outlined,
                     color: fieldsEnabled && !_rezkaPrintBusy
@@ -1281,6 +1296,11 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
                 onPressed: savedIssue || (!canQueuePrint && !canRetryPrint)
                     ? null
                     : () => _printRezkaFrame(index),
+                onLongPress: _rezkaPeremotkaSupported &&
+                        fieldsEnabled &&
+                        canQueuePrint
+                    ? () => _confirmRezkaPeremotka(index)
+                    : null,
                 icon: const Icon(Icons.print_outlined),
               ),
             ],
@@ -1290,6 +1310,13 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             Text(
                 frameStatus ?? _rezkaText(savedIssue ? 'issue_saved' : 'saved'),
                 style: theme.textTheme.bodySmall),
+          ],
+          if (savedPeremotka) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${_rezkaText('peremotka')} · ${record!.peremotkaReason}',
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+            ),
           ],
           if (savedIssue) ...[
             const SizedBox(height: 6),

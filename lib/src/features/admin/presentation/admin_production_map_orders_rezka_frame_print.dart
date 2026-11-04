@@ -21,6 +21,9 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
     if (report.atomicSaveEpoch.isNotEmpty) {
       _rezkaAtomicSaveEpoch = report.atomicSaveEpoch;
     }
+    if (report.peremotkaSupported || report.atomicSaveEpoch.isNotEmpty) {
+      _rezkaPeremotkaSupported = report.peremotkaSupported;
+    }
     _rezkaBobinaMode = report.includeBobinaInNet ?? _rezkaBobinaMode;
     _rezkaReport = report;
     _refreshRezkaReference(report);
@@ -47,7 +50,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       final saved = _rezkaReferenceFrameIndex == null
           ? null
           : report.frameAt(_rezkaReferenceFrameIndex!);
-      if (saved != null && !saved.isIssue) {
+      if (saved != null && !saved.isIssue && !saved.isPeremotka) {
         _rezkaAutofillReference = _rezkaInputFromSaved(saved);
       }
       return;
@@ -59,7 +62,10 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       }
       final saved = report.frameAt(index);
       final source = _rezkaFrameControllers[index];
-      if (saved == null || saved.isIssue || !_rezkaFrameMetricsComplete(source)) {
+      if (saved == null ||
+          saved.isIssue ||
+          saved.isPeremotka ||
+          !_rezkaFrameMetricsComplete(source)) {
         continue;
       }
       // Keep this saved roll as the reference for the whole output cycle.
@@ -101,6 +107,91 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         meter != null && meter.isFinite && meter > 0
             ? formatRawQuantity(meter)
             : '';
+  }
+
+  Future<void> _showRezkaFrameIssueActions(int index) async {
+    if (!_rezkaPeremotkaSupported) {
+      await _reportRezkaFrameIssue(index);
+      return;
+    }
+    final peremotka = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(_rezkaText('issue')),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(_rezkaText('issue_note')),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(_rezkaText('peremotka')),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || peremotka == null) return;
+    if (peremotka) {
+      await _confirmRezkaPeremotka(index);
+    } else {
+      await _reportRezkaFrameIssue(index);
+    }
+  }
+
+  Future<void> _confirmRezkaPeremotka(int index) async {
+    if (!_rezkaPeremotkaSupported ||
+        _rezkaReport?.frameAt(index) != null ||
+        _rezkaQueuedFrameIndexes.contains(index) ||
+        _rezkaSyncRequired) {
+      return;
+    }
+    final frame = _rezkaFrameControllers[index];
+    if (!_rezkaFrameMetricsComplete(frame)) {
+      _updateRezkaPrint(() => _rezkaPrintStatus[index] =
+          _rezkaText(_rezkaNetIncludesBobina ? 'fill_roll_with_bobina' : 'fill_roll'));
+      return;
+    }
+    final formKey = GlobalKey<FormState>();
+    var draft = '';
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_rezkaText('peremotka_confirm', values: {'index': index + 1})),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            key: const ValueKey('rezka-peremotka-reason'),
+            autofocus: true,
+            maxLength: 250,
+            maxLines: 3,
+            decoration: InputDecoration(labelText: _rezkaText('issue_note')),
+            onChanged: (value) => draft = value,
+            validator: (value) => value?.trim().isNotEmpty == true &&
+                    value!.trim().runes.length <= 250
+                ? null
+                : _rezkaText('peremotka_reason_required'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(context.l10n.productionText('worker.action.cancel')),
+          ),
+          FilledButton(
+            key: const ValueKey('rezka-peremotka-confirm'),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(dialogContext).pop(draft.trim());
+              }
+            },
+            child: Text(_rezkaText('peremotka_save_print')),
+          ),
+        ],
+      ),
+    );
+    if (mounted && reason != null) {
+      _printRezkaFrame(index, peremotkaReason: reason);
+    }
   }
 
   Future<void> _reportRezkaFrameIssue(int index) async {
@@ -257,10 +348,17 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
     return savedValue('produced_qty') == requested.meterQty &&
         savedValue('gross_qty') == requested.kgQty &&
         savedValue('bobina_kg') == requested.bobinaKg &&
-        savedValue('diameter') == requested.diameter;
+        savedValue('diameter') == requested.diameter &&
+        saved.peremotkaReason == requested.peremotkaReason;
   }
 
-  void _printRezkaFrame(int index) {
+  void _printRezkaFrame(int index, {String peremotkaReason = ''}) {
+    if (peremotkaReason.isNotEmpty &&
+        (!_rezkaPeremotkaSupported ||
+            _rezkaPrintQueuePaused ||
+            _rezkaReport?.frameAt(index) != null)) {
+      return;
+    }
     if (!_canPrintRezkaFrames ||
         _rezkaSyncRequired ||
         _rezkaIssueBusy ||
@@ -301,6 +399,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         kgQty: _parseQty(frame.kg.text),
         bobinaKg: _rezkaNetIncludesBobina ? null : _parseQty(frame.bobina.text),
         diameter: _parseQty(frame.diameter.text),
+        peremotkaReason: peremotkaReason,
       );
     }
     _updateRezkaPrint(() {
@@ -408,19 +507,26 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         throw const MobileApiException(
             code: 'rezka_output_cycle_conflict', message: '');
       }
+      final holdForPeremotka = request.input?.peremotkaReason.isNotEmpty == true;
+      if (holdForPeremotka && !_rezkaPeremotkaSupported) {
+        throw const _RezkaFrameInputConflict();
+      }
       if (_rezkaReport?.frameAt(index) == null &&
           request.input != null &&
+          !holdForPeremotka &&
           !await _confirmFreshRezkaFrame(request)) {
         _updateRezkaPrint(() => _rezkaPrintStatus.remove(index));
         return;
       }
       if (!mounted) return;
-      _rezkaPrinter ??=
-          await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
-      if (!mounted) return;
-      if (_rezkaPrinter == null) throw const _RezkaPrinterNotSelected();
+      if (!holdForPeremotka) {
+        _rezkaPrinter ??=
+            await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
+        if (!mounted) return;
+        if (_rezkaPrinter == null) throw const _RezkaPrinterNotSelected();
+      }
       if (_progressReadScope != currentSessionReadScope()) return;
-      final printer = _rezkaPrinter!;
+      final savePrinter = _rezkaPrinter;
       final printCount = _duplicateRezkaLabelsForStage ? 2 : 1;
       UsbRpsPrintRequest? committedPrintJob;
       var saved = _rezkaReport!.frameAt(index);
@@ -447,10 +553,10 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
               : widget.rezkaOutputKadrCounts,
           rezkaFrames: [input.toJson()],
           uom: 'm',
-          driverUrl: printer.driverUrl,
-          printer: printer.printer,
-          printMode: printer.printMode,
-          printTransport: printer.transport,
+          driverUrl: savePrinter?.driverUrl ?? '',
+          printer: savePrinter?.printer ?? '',
+          printMode: savePrinter?.printMode ?? '',
+          printTransport: savePrinter?.transport ?? PrintTransport.wifi,
         );
         if (!mounted || _progressReadScope != currentSessionReadScope()) return;
         final report = result.rezkaOutputReport;
@@ -482,7 +588,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         // The save response is authoritative for this cycle and slot. Local
         // labels can be prepared by that request without another API roundtrip.
         final prepared = result.printJob;
-        if (printer.transport.isLocal &&
+        if (savePrinter?.transport.isLocal == true &&
             prepared != null &&
             prepared.epc == saved.qrPayload &&
             prepared.isProgressLabel &&
@@ -490,8 +596,14 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           committedPrintJob = prepared;
         }
       }
+      // A held roll is recorded even when a printer still needs to be selected.
+      _rezkaPrinter ??=
+          await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
+      if (!mounted || _progressReadScope != currentSessionReadScope()) return;
+      final printer = _rezkaPrinter;
+      if (printer == null) throw const _RezkaPrinterNotSelected();
       if (committedPrintJob == null) {
-        // Reprints and older servers still prepare the already committed QR.
+        // Reprints prepare the already committed QR.
         final result = await MobileApi.instance.adminProgressQrReprint(
           qrPayload: saved.qrPayload,
           progressBatchId: saved.batchId,

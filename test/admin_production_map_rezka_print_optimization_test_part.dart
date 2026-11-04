@@ -4,6 +4,7 @@ void _registerRezkaPrintOptimizationTests() {
   for (final scenario in [
     'local prepared label',
     'local duplicate label',
+    'atomic duplicate peremotka label',
     'intermediate duplicate label',
     'intermediate duplicate older backend',
     'intermediate duplicate stale stage',
@@ -34,6 +35,7 @@ void _registerRezkaPrintOptimizationTests() {
     testWidgets('Rezka optimized print: $scenario', (tester) async {
       final confirmRecovery = scenario.startsWith('confirmation ');
       final duplicateLabels = scenario.contains('duplicate');
+      final isPeremotka = scenario.contains('peremotka');
       final intermediate = scenario.startsWith('intermediate');
       final repeated = intermediate || scenario.startsWith('final repeated');
       final unknownStage = scenario.contains('unknown stage');
@@ -119,7 +121,10 @@ void _registerRezkaPrintOptimizationTests() {
               ? (intermediate && !staleStage ? 'apparatus' : 'final-rezka')
               : modeConflict ? 'apparatus' : '',
           rezkaOutputKadrCounts: [1, 1, 1, 1],
-          rezkaOutputReport: const AdminRezkaOutputReport(cycleId: cycle),
+          rezkaOutputReport: AdminRezkaOutputReport(
+            cycleId: cycle,
+            peremotkaSupported: isPeremotka,
+          ),
         ),
       );
       await _usePhoneViewport(tester);
@@ -148,15 +153,19 @@ void _registerRezkaPrintOptimizationTests() {
           ];
         }
         expect(call.method, 'printLabel');
-        final qr = atomicSave && nativeAttempts > 0
+        final qr = atomicSave && !isPeremotka && nativeAttempts > 0
             ? '40011890022F235A0000A1B3'
             : '40011890022F235A0000A1B2';
         expect(call.arguments, containsPair('epc', qr));
         expect(call.arguments, containsPair('print_count', expectedCount));
+        if (isPeremotka) {
+          final lines = (call.arguments as Map)['progress_lines'] as List;
+          expect(lines, contains(containsPair('text', 'HOLAT: PEREMOTKA')));
+        }
         events.add('native');
         final retry = nativeAttempts++ > 0;
         return {
-          'ok': (!isPrinterFailure && !confirmRecovery) || retry,
+          'ok': (!isPeremotka && !isPrinterFailure && !confirmRecovery) || retry,
         };
       });
       addTearDown(() {
@@ -169,6 +178,7 @@ void _registerRezkaPrintOptimizationTests() {
             'ok': true,
             'epc': qr,
             'label_kind': 'progress',
+            if (isPeremotka) 'item_name': 'PEREMOTKA - Optimized Rezka rolls',
             'printer': 'xp-p323b',
             'print_mode': 'label',
             'print_count': count ?? (isOlderBackend ? 1 : expectedCount),
@@ -204,6 +214,7 @@ void _registerRezkaPrintOptimizationTests() {
               jsonEncode({
                 'ok': true,
                 if (atomicSave) 'atomic_frame_save': true,
+                if (isPeremotka) 'peremotka_supported': true,
                 'apparatus': _rezkaId,
                 'order_id': order,
                 'rezka_output_report': {
@@ -224,7 +235,8 @@ void _registerRezkaPrintOptimizationTests() {
                 'epoch': 'print-test-server',
                 'rev': 1,
               }),
-              200);
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'});
         }
         if (request.url.path.endsWith('/order-scan-bootstrap')) {
           events.add('read');
@@ -277,7 +289,9 @@ void _registerRezkaPrintOptimizationTests() {
             expect(body['rezka_expected_epoch'], 'print-test-server');
             expect(body['rezka_expected_kadr_counts'], [1, 1, 1, 1]);
           }
-          if (!isWifi) {
+          if (isPeremotka) {
+            expect(body['printer'], anyOf(isNull, isEmpty));
+          } else if (!isWifi) {
             expect(body['print_transport'], 'offline');
             expect(body['driver_url'], 'usb://local');
             expect(body['printer'], 'xp-p323b');
@@ -286,6 +300,9 @@ void _registerRezkaPrintOptimizationTests() {
           final input = Map<String, dynamic>.from(
             (body['rezka_frames'] as List).single as Map,
           );
+          if (isPeremotka) {
+            expect(input, containsPair('peremotka_reason', 'Notekis o‘ralgan'));
+          }
           if (modeConflict && index == 2 && !modeConflictSent) {
             expect(input['bobina_kg'], isNull);
             modeConflictSent = true;
@@ -338,6 +355,7 @@ void _registerRezkaPrintOptimizationTests() {
                       : qr),
             }),
             200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
           );
         }
         expect(request.url.path, endsWith('/progress-qr/reprint'));
@@ -415,6 +433,27 @@ void _registerRezkaPrintOptimizationTests() {
         events.clear();
         final printButton = find.byKey(const ValueKey('rezka-frame-0-print'));
         await tester.ensureVisible(printButton);
+        if (isPeremotka) {
+          await tester.longPress(printButton);
+          await tester.pumpAndSettle();
+          expect(find.text('1-rulonni peremotkaga qoldiraymi?'), findsOneWidget);
+          await tester.enterText(
+            find.byKey(const ValueKey('rezka-peremotka-reason')),
+            'Notekis o‘ralgan',
+          );
+          await tester.tap(find.byKey(const ValueKey('rezka-peremotka-confirm')));
+          await tester.pumpAndSettle();
+          expect(events, ['read', 'save', 'reprint', 'native', 'read']);
+          expect(find.text('Peremotka · Notekis o‘ralgan'), findsOneWidget);
+          expect(frames, hasLength(1));
+          events.clear();
+          await tester.tap(printButton);
+          await tester.pumpAndSettle();
+          expect(events, ['read', 'reprint', 'native']);
+          expect(frames, hasLength(1));
+          await tester.pumpWidget(const SizedBox.shrink());
+          return;
+        }
         await tester.tap(printButton);
         await tester.pumpAndSettle();
 

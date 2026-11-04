@@ -15,6 +15,8 @@ class AdminRecordedRezkaFrame {
 
   String get issueNote => (input['issue_note'] as String? ?? '').trim();
   bool get isIssue => issueNote.isNotEmpty;
+  String get peremotkaReason => (input['peremotka_reason'] as String? ?? '').trim();
+  bool get isPeremotka => peremotkaReason.isNotEmpty;
 }
 
 class AdminRezkaOutputReport {
@@ -25,6 +27,7 @@ class AdminRezkaOutputReport {
     this.referenceFrameIndex,
     this.includeBobinaInNet,
     this.atomicSaveEpoch = '',
+    this.peremotkaSupported = false,
   });
 
   final String cycleId;
@@ -32,6 +35,7 @@ class AdminRezkaOutputReport {
   final List<Map<String, dynamic>> layoutOutputs;
   final bool? includeBobinaInNet;
   final String atomicSaveEpoch;
+  final bool peremotkaSupported;
 
   /// One-based first saved healthy output, stable across reopening the dialog.
   final int? referenceFrameIndex;
@@ -57,6 +61,7 @@ class AdminRezkaOutputReport {
   static AdminRezkaOutputReport? tryFromJson(
     dynamic raw, {
     String atomicSaveEpoch = '',
+    bool peremotkaSupported = false,
   }) {
     if (raw is! Map || raw['cycle_id'] is! String || raw['frames'] is! List) {
       return null;
@@ -77,9 +82,14 @@ class AdminRezkaOutputReport {
       final qr = slot['qr_payload']?.toString() ?? '';
       final input = slot['input'] as Map;
       final note = input['issue_note'];
-      if (note != null && note is! String) return null;
+      final peremotka = input['peremotka_reason'];
+      if ((note != null && note is! String) ||
+          (peremotka != null && peremotka is! String)) {
+        return null;
+      }
       final isIssue = note is String && note.trim().isNotEmpty;
-      if (index <= 0 ||
+      if ((isIssue && peremotka is String && peremotka.trim().isNotEmpty) ||
+          index <= 0 ||
           !indices.add(index) ||
           (isIssue
               ? batchId.isNotEmpty || qr.isNotEmpty
@@ -97,7 +107,8 @@ class AdminRezkaOutputReport {
     final reference = raw['reference_frame_index'];
     if (reference != null &&
         (reference is! int ||
-            !frames.any((frame) => frame.index == reference && !frame.isIssue))) {
+            !frames.any((frame) =>
+                frame.index == reference && !frame.isIssue && !frame.isPeremotka))) {
       return null;
     }
     return AdminRezkaOutputReport(
@@ -106,6 +117,7 @@ class AdminRezkaOutputReport {
             ? raw['include_bobina_in_net'] as bool
             : null,
         atomicSaveEpoch: atomicSaveEpoch,
+        peremotkaSupported: peremotkaSupported || raw['peremotka_supported'] == true,
         cycleId: cycle, frames: List.unmodifiable(frames),
         layoutOutputs: (raw['layout_outputs'] is List ? raw['layout_outputs'] as List : const [])
             .whereType<Map>().map((item) => Map<String, dynamic>.unmodifiable(item.cast<String, dynamic>())).toList(growable: false));

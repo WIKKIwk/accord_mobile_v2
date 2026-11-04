@@ -491,11 +491,17 @@ class _AdminProductionMapOrdersScreenState
       subtitle: '',
       nativeTopBar: true,
       actions: [
-        if (paddonApparatus != null)
+        if (paddonApparatus != null) ...[
+          IconButton(
+            tooltip: context.l10n.productionText('worker.rezka.print.peremotka'),
+            icon: const Icon(Icons.replay_outlined),
+            onPressed: () => _showRezkaPeremotkaQueue(paddonApparatus.id),
+          ),
           ActiveRezkaPaddonAction(
             key: ValueKey(ActiveRezkaPaddonStore.scopeKey(paddonApparatus.id)),
             apparatusId: paddonApparatus.id,
           ),
+        ],
       ],
       automaticallyImplyNativeLeading: false,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
@@ -939,6 +945,80 @@ class _AdminProductionMapOrdersScreenState
   AdminApparatus? get _workerPaddonApparatus {
     final apparatus = _workerSelectedApparatus;
     return apparatus?.operation.trim() == 'cut' ? apparatus : null;
+  }
+
+  Future<void> _showRezkaPeremotkaQueue(String apparatus) async {
+    final readScope = currentSessionReadScope();
+    final batches = MobileApi.instance.adminWipBatches(
+      apparatus: apparatus,
+      status: 'peremotka',
+      limit: 500,
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          children: [
+            Text(
+              sheetContext.l10n.productionText('worker.rezka.print.peremotka'),
+              style: Theme.of(sheetContext).textTheme.titleLarge,
+            ),
+            Expanded(
+              child: FutureBuilder<List<AdminProgressBatch>>(
+                future: batches,
+                builder: (context, snapshot) {
+                  final l10n = context.l10n;
+                  if (readScope != currentSessionReadScope() ||
+                      snapshot.hasError) {
+                    return Center(
+                      child: Text(l10n.productionText('worker.error.sync')),
+                    );
+                  }
+                  final rolls = snapshot.data;
+                  if (rolls == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (rolls.isEmpty) {
+                    return Center(
+                      child: Text(l10n.productionText(
+                        'worker.rezka.print.peremotka_empty',
+                      )),
+                    );
+                  }
+                  return ListView.builder(
+                    itemCount: rolls.length,
+                    itemBuilder: (context, index) {
+                      final roll = rolls[index];
+                      final number = roll.payloadJson['order_number'];
+                      return ListTile(
+                        title: Text(roll.labelItemName),
+                        subtitle: Text([
+                          if (number is String && number.isNotEmpty)
+                            '#$number'
+                          else
+                            roll.orderId,
+                          if (roll.payloadJson['rezka_frame_index']
+                              case final int frame)
+                            l10n.productionText(
+                              'worker.rezka.print.peremotka_roll',
+                              values: {'index': frame},
+                            ),
+                          '${formatRawQuantity(roll.producedQty)} ${roll.uom}',
+                          if (roll.payloadJson['peremotka_reason']
+                              case final String reason)
+                            reason,
+                        ].join(' · ')),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   bool _beginQueueAction(String actionKey) {

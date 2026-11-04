@@ -90,6 +90,7 @@ extension _RezkaDeviationWarning on _ProgressQtyDialogState {
       bobinaKg: value('bobina_kg'),
       diameter: value('diameter'),
       issueNote: saved.issueNote,
+      peremotkaReason: saved.peremotkaReason,
     );
   }
 
@@ -106,10 +107,10 @@ extension _RezkaDeviationWarning on _ProgressQtyDialogState {
       return;
     }
     final saved = current == null ? null : report.frameAt(current);
-    if (saved != null && !saved.isIssue) return;
+    if (saved != null && !saved.isIssue && !saved.isPeremotka) return;
     _rezkaReferenceFrameIndex = null;
     for (final slot in report.frames) {
-      if (!slot.isIssue) {
+      if (!slot.isIssue && !slot.isPeremotka) {
         _rezkaReferenceFrameIndex = slot.index - 1;
         break;
       }
