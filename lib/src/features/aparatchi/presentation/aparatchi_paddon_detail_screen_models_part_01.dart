@@ -122,6 +122,13 @@ class _PaddonDetailHeader extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                      if (paddon.containsPeremotka) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          context.l10n.productionText('worker.rezka.print.peremotka'),
+                          style: theme.textTheme.labelLarge?.copyWith(color: scheme.error),
+                        ),
+                      ],
                       if (paddon.location.trim().isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Row(
@@ -327,6 +334,13 @@ class _PaddonWipCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (batch.wipStatus == 'peremotka') ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        context.l10n.productionText('worker.rezka.print.peremotka'),
+                        style: theme.textTheme.labelLarge?.copyWith(color: scheme.error),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     IgnorePointer(
                       child: WorkerWipDetails(

@@ -145,7 +145,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart02
                       items[index].batchId.trim(),
                     ),
                     onSelect: showingAvailableItems && data.canManageItems && !_busy
-                        ? () => _toggleAvailableWip(items[index])
+                        ? () => _toggleAvailableWip(items[index], allItems)
                         : !showingAvailableItems && data.canManageItems && _selectionMode && !_busy
                             ? () => _toggleAssignedWip(items[index])
                             : null,

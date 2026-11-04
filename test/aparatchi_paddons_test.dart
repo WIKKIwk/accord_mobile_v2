@@ -1483,6 +1483,72 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+  testWidgets('manually adds a Peremotka WIP to an empty paddon',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _setSession(canManage: true);
+    var writes = 0;
+    final held = {
+      'batch_id': 'held-roll',
+      'apparatus': 'apparatus:default:asset-010',
+      'order_id': 'zakaz-0024',
+      'wip_status': 'peremotka',
+      'qr_payload': 'HELD-QR',
+      'produced_qty': 10,
+      'uom': 'm',
+    };
+    final healthy = {
+      'batch_id': 'healthy-roll',
+      'apparatus': 'apparatus:default:asset-010',
+      'order_id': 'zakaz-0025',
+      'wip_status': 'waiting',
+    };
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_app(AparatchiPaddonDetailScreen(
+        code: '00001',
+        apparatus: const [],
+        snapshot: AdminPaddonSnapshot.fromJson({
+          'paddon': {'code': '00001'},
+          'available_items': [held, healthy],
+        }),
+      )));
+      await tester.pumpAndSettle();
+      await _tapPaddonFabEditAction(tester);
+      final heldCard = find.byKey(const ValueKey('paddon-available-wip-card-held-roll'));
+      expect(find.descendant(of: heldCard, matching: find.text('Peremotka')),
+          findsOneWidget);
+      await tester.ensureVisible(heldCard);
+      await tester.tap(heldCard);
+      await tester.pumpAndSettle();
+      final healthyCard = find.byKey(
+          const ValueKey('paddon-available-wip-card-healthy-roll'));
+      await tester.ensureVisible(healthyCard);
+      await tester.tap(healthyCard);
+      await tester.pumpAndSettle();
+      expect(find.text('Peremotka rulonlari uchun alohida paddon tanlang.'),
+          findsOneWidget);
+      await _tapPaddonFabEditAction(tester);
+      await tester.tap(find.byKey(const ValueKey('paddon-add-confirm')));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(find.byKey(const ValueKey('paddon-wip-card-held-roll')),
+          findsOneWidget);
+      expect(find.text('Peremotka'), findsNWidgets(2));
+    }, () => MockClient((request) async {
+      expect(request.url.path, endsWith('/paddons/items/add-batch'));
+      expect(jsonDecode(request.body), {
+        'code': '00001',
+        'progress_batch_ids': ['held-roll'],
+      });
+      writes++;
+      return http.Response(jsonEncode({
+        'ok': true,
+        'paddon': {'code': '00001', 'item_count': 1, 'contains_peremotka': true},
+        'items': [held],
+      }), 200);
+    }));
+  });
+
   testWidgets('cutting cards preserve unknown weights', (tester) async {
     SharedPreferences.setMockInitialValues({}); _setSession();
     await tester.pumpWidget(_app(AparatchiPaddonsScreen( loader: () async =>

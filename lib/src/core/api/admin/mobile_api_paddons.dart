@@ -15,6 +15,7 @@ class AdminPaddon {
     this.totalGrossKg,
     this.totalNetKg,
     this.lockedAtUnix,
+    this.containsPeremotka = false,
   });
 
   final String id;
@@ -30,6 +31,7 @@ class AdminPaddon {
   final double? totalGrossKg;
   final double? totalNetKg;
   final int? lockedAtUnix;
+  final bool containsPeremotka;
   bool get isLocked => lockedAtUnix != null;
 
   factory AdminPaddon.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class AdminPaddon {
       totalGrossKg: _paddonWeight(json['total_gross_kg']),
       totalNetKg: _paddonWeight(json['total_net_kg']),
       lockedAtUnix: (json['locked_at_unix'] as num?)?.toInt(),
+      containsPeremotka: json['contains_peremotka'] == true,
     );
   }
 }

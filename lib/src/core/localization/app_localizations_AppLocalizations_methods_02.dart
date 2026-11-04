@@ -133,6 +133,7 @@ extension AppLocalizationsAstPart02 on AppLocalizations {
       'paddon_items_remove' => 'worker.paddon.remove_failed',
       'paddon_qr_print' => 'worker.paddon.print_failed',
       'paddon_locked' => 'worker.paddon.locked_error',
+      'paddon_roll_kind_conflict' => 'worker.paddon.peremotka_separate',
       'active_paddon_required' => 'worker.paddon.active.required',
       'paddon_print_confirm' => 'worker.paddon.print_confirm_failed',
       'paddon_unlock' => 'worker.paddon.unlock.failed',

@@ -25,12 +25,22 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     }
   }
 
-  void _toggleAvailableWip(AdminProgressBatch batch) {
+  void _toggleAvailableWip(
+    AdminProgressBatch batch,
+    List<AdminProgressBatch> availableItems,
+  ) {
     if (_busy) {
       return;
     }
     final batchId = batch.batchId.trim();
     if (batchId.isEmpty) {
+      return;
+    }
+    if (!_selectedAvailableBatchIds.contains(batchId) &&
+        availableItems.any((item) =>
+            _selectedAvailableBatchIds.contains(item.batchId.trim()) &&
+            (item.wipStatus == 'peremotka') != (batch.wipStatus == 'peremotka'))) {
+      _showMessage(context.l10n.productionErrorMessage('paddon_roll_kind_conflict'));
       return;
     }
     setState(() {
@@ -215,6 +225,9 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
         return false;
       }
       _clearMessages();
+      if (snapshot.paddon.containsPeremotka) {
+        ActiveRezkaPaddonStore.notifyChanged();
+      }
       setState(() {
         _future = Future<AdminPaddonSnapshot>.value(snapshot);
         _bobinaFilterUnits = null;

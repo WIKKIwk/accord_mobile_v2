@@ -37,6 +37,12 @@ const _paddonPrintTranslations = {
     'ru': 'Заблокирован',
     'ur': 'مقفل'
   },
+  'worker.paddon.peremotka_separate': {
+    'uz': 'Peremotka rulonlari uchun alohida paddon tanlang.',
+    'en': 'Use a separate pallet for rolls held for rewinding.',
+    'ru': 'Выберите отдельный поддон для рулонов на перемотку.',
+    'ur': 'دوبارہ لپیٹنے والے رولز کے لیے الگ پیلیٹ منتخب کریں۔',
+  },
   'worker.paddon.locked_error': {
     'uz': 'QR chop etilgan paddon qulflangan. Boshqa paddon tanlang.',
     'en': 'This paddon is locked after QR printing. Select another paddon.',

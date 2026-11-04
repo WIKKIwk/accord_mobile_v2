@@ -210,7 +210,8 @@ class _ActiveRezkaPaddonActionState extends State<ActiveRezkaPaddonAction>
                 future: _pickerPaddons,
                 builder: (context, list) {
                   final available = (list.data ?? const <AdminPaddon>[])
-                      .where((paddon) => !paddon.isLocked)
+                      .where((paddon) =>
+                          !paddon.isLocked && !paddon.containsPeremotka)
                       .toList();
                   return Column(children: [
                     Padding(

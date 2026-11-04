@@ -389,6 +389,9 @@ class _AparatchiPaddonsScreenState extends State<AparatchiPaddonsScreen> {
                           paddons.length,
                         ),
                         code: paddons[index].code,
+                        subtitle: paddons[index].containsPeremotka
+                            ? context.l10n.productionText('worker.rezka.print.peremotka')
+                            : '',
                         countLabel: context.l10n.productionText(
                           'worker.paddon.wip_count',
                           values: {'count': paddons[index].itemCount},
