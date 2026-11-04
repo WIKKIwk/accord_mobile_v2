@@ -11,6 +11,7 @@ class AppInfoRow extends StatelessWidget {
     this.onTap,
     this.labelWidth = 104,
     this.alignValueToTrailing = false,
+    this.valueFontWeight = FontWeight.w700,
   });
 
   final String label;
@@ -21,6 +22,7 @@ class AppInfoRow extends StatelessWidget {
   final VoidCallback? onTap;
   final double labelWidth;
   final bool alignValueToTrailing;
+  final FontWeight valueFontWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +30,7 @@ class AppInfoRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     final displayValue = value.trim().isEmpty ? '—' : value.trim();
     final valueStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontWeight: FontWeight.w700,
+      fontWeight: valueFontWeight,
     );
     final valueTextAlign = alignValueToTrailing && trailing != null
         ? TextAlign.end

@@ -1232,6 +1232,19 @@ class _OrderSummaryCard extends StatelessWidget {
         ),
       );
     }
+    if (workerMode && !detailPending) {
+      final standard = map.standardPrintSide != false;
+      rows.add(
+        AppInfoRow(
+          label: context.l10n.productionText('order.print_side'),
+          value: context.l10n.productionText(standard
+              ? 'order.print_side.standard'
+              : 'order.print_side.nonstandard'),
+          icon: Icons.explore_outlined,
+          valueFontWeight: standard ? FontWeight.w500 : FontWeight.w700,
+        ),
+      );
+    }
     if (!detailPending && rows.isEmpty && !showCalculationDetails) {
       return const SizedBox.shrink();
     }

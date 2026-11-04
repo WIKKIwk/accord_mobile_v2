@@ -253,6 +253,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
             'order_kg': null,
             'base_length': null,
             'include_bobina_in_net': null,
+            'standard_print_side': null,
             'nodes': [
               for (final node in map.withoutAlternativeAssignments().nodes)
                 {
@@ -412,6 +413,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
     required CalculateOrderTemplate template,
     bool duplicateRezkaLabels = false,
     bool includeBobinaInNet = false,
+    bool standardPrintSide = true,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final map = ProductionMapDefinition(
@@ -430,6 +432,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
         orderKg: template.kg,
         duplicateRezkaLabels: duplicateRezkaLabels,
         includeBobinaInNet: includeBobinaInNet,
+        standardPrintSide: standardPrintSide,
         nodes: const [
           ProductionMapNode(
             id: 'start',
@@ -472,6 +475,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
           'template': template.toJson(),
           'duplicate_rezka_labels': duplicateRezkaLabels,
           'include_bobina_in_net': includeBobinaInNet,
+          'standard_print_side': standardPrintSide,
         }),
       ),
     );

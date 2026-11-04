@@ -2,6 +2,24 @@
 part of 'app_localizations.dart';
 
 const _app_localizations_declarations__productionTranslations_resplitPart09 = {
+  'order.print_side': {
+    'uz': 'Taraf',
+    'en': 'Print side',
+    'ru': 'Сторона печати',
+    'ur': 'پرنٹ کی سمت',
+  },
+  'order.print_side.standard': {
+    'uz': 'Standart',
+    'en': 'Standard',
+    'ru': 'Стандартная',
+    'ur': 'معیاری',
+  },
+  'order.print_side.nonstandard': {
+    'uz': 'Nostandart',
+    'en': 'Nonstandard',
+    'ru': 'Нестандартная',
+    'ur': 'غیر معیاری',
+  },
   'worker.order.info': {
     'uz': 'Buyurtma ma’lumotlari',
     'en': 'Order details',

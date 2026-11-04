@@ -7,6 +7,21 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
     return [
       const SizedBox(height: 22),
       if (widget.openedOrder == null && !widget.trainingMode) ...[
+        Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile.adaptive(
+            key: const ValueKey('calculate-standard-print-side'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.productionText('order.print_side')),
+            subtitle: Text(l10n.productionText(_standardPrintSide
+                ? 'order.print_side.standard'
+                : 'order.print_side.nonstandard')),
+            value: _standardPrintSide,
+            onChanged: _openingSavedOrder || _openingAutomaticOrder
+                ? null
+                : (value) => setState(() => _standardPrintSide = value),
+          ),
+        ),
         RezkaOrderOptionSwitches(
           duplicateLabels: _duplicateRezkaLabels,
           includeBobina: _includeBobinaInNet,

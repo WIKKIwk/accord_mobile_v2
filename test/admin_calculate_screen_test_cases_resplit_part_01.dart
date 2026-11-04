@@ -37,12 +37,14 @@ void _registeradmin_calculate_screen_testCases01() {
       template: template,
       duplicateRezkaLabels: true,
       includeBobinaInNet: true,
+      standardPrintSide: false,
     );
 
     expect(result.saved.map.id, 'zakaz-0001');
     expect(result.saved.map.orderNumber, '0001');
     expect(result.saved.map.duplicateRezkaLabels, isTrue);
     expect(result.saved.map.includeBobinaInNet, isTrue);
+    expect(result.saved.map.standardPrintSide, isFalse);
     expect(result.template?.sourceMapId, 'template-zakaz-0001');
     expect(result.saved.map.nodes.map((node) => node.id), [
       'start',
@@ -51,9 +53,11 @@ void _registeradmin_calculate_screen_testCases01() {
     ]);
     final source = await MobileApi.instance.adminProductionMap('template-zakaz-0001');
     expect(source.map.duplicateRezkaLabels, isNull);
+    expect(source.map.standardPrintSide, isNull);
     final next = await MobileApi.instance.adminAutoOpenProductionMap(template: template);
     expect(next.saved.map.id, 'zakaz-0002');
     expect(next.saved.map.duplicateRezkaLabels, isFalse);
+    expect(next.saved.map.standardPrintSide, isTrue);
     expect((await MobileApi.instance.adminProductionMap('zakaz-0001'))
         .map.duplicateRezkaLabels, isTrue);
   });

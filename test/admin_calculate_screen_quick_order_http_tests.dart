@@ -132,6 +132,19 @@ void _registerQuickOrderHttpTest(UserRole role) {
         );
         await tester.enterText(find.widgetWithText(TextFormField, 'KG'), kg);
         await tester.pumpAndSettle();
+        final printSideSwitch =
+            find.byKey(const ValueKey('calculate-standard-print-side'));
+        await tester.scrollUntilVisible(printSideSwitch, 240,
+            scrollable: find.byType(Scrollable).first);
+        expect(tester.widget<SwitchListTile>(printSideSwitch).value, isTrue);
+        expect(find.widgetWithText(SwitchListTile, 'Standart'), findsOneWidget);
+        if (kg == '100') {
+          await tester.tap(printSideSwitch);
+          await tester.pumpAndSettle();
+          expect(tester.widget<SwitchListTile>(printSideSwitch).value, isFalse);
+          expect(
+              find.widgetWithText(SwitchListTile, 'Nostandart'), findsOneWidget);
+        }
         final duplicateToggle = find.byKey(
           const ValueKey('calculate-duplicate-rezka-labels'),
         );
@@ -176,6 +189,7 @@ void _registerQuickOrderHttpTest(UserRole role) {
         expect(opened.last['map']['order_kg'], double.parse(kg));
         expect(opened.last['map']['duplicate_rezka_labels'], kg == '100');
         expect(opened.last['map']['include_bobina_in_net'], kg == '100');
+        expect(opened.last['map']['standard_print_side'], kg != '100');
         expect(opened.last['template']['source_map_id'], sourceMapId);
         expect(opened.last['template']['frame_product_size_mm'], 410);
         expect(opened.last['template']['roll_count'], 6);

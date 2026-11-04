@@ -76,6 +76,89 @@ Future<void> _openExpectedOrderSummary(WidgetTester tester) async {
 }
 
 void _registerOrderSummaryTests() {
+  for (final standard in [true, false, null]) {
+    testWidgets('worker expected summary shows print side $standard',
+        (tester) async {
+      const orderId = 'zakaz-summary-print-side';
+      await TestModeController.instance.setEnabled(true);
+      AppSession.instance.profile = const SessionProfile(
+        role: UserRole.aparatchi,
+        displayName: 'Bosmachi',
+        legalName: '',
+        ref: 'worker-summary-print-side',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
+        assignedApparatus: [_print7Id],
+      );
+      final saved = await MobileApi.instance.adminSaveProductionMap(
+        _productionOrderMap(
+          id: orderId,
+          title: 'Print side order',
+          productCode: 'SIDE',
+          apparatusId: _print7Id,
+          product: 'Print side product',
+          baseLength: 1000,
+          rollCount: 2,
+          widthMm: 515,
+        ).copyWith(standardPrintSide: standard),
+      );
+      final apparatus = await MobileApi.instance.adminApparatus(limit: 200);
+      final snapshot = AdminApparatusQueueSnapshot(
+        maps: [saved],
+        sequences: const {_print7Id: [orderId]},
+        visibleOrderIds: const {_print7Id: [orderId]},
+        queueStates: const {
+          _print7Id: {orderId: 'pending'},
+        },
+        queuePolicies: const {},
+        queueActionControls: {
+          _print7Id: {orderId: _freshStartQueueControl()},
+        },
+        orderControls: const {},
+        revision: 1,
+        epoch: 'summary-print-side',
+      );
+      await _usePhoneViewport(tester);
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdminProductionMapOrdersScreen(
+          readOnly: true,
+          workerMode: true,
+          queueSnapshotLoader: () async => snapshot,
+          apparatusLoader: () async => apparatus,
+          liveEventsLoader: () => const Stream.empty(),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final summary = find.text('Kutilayotgan natija');
+      expect(summary, findsOneWidget);
+      expect(find.text('Taraf'), findsNothing);
+      await tester.ensureVisible(summary);
+      await tester.tap(summary);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.text('Taraf'), findsOneWidget);
+      final value = find.text(standard == false ? 'Nostandart' : 'Standart');
+      expect(value, findsOneWidget);
+      expect(tester.widget<Text>(value).style?.fontWeight,
+          standard == false ? FontWeight.w700 : FontWeight.w500);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
   testWidgets(
       'admin expected summary shows materials and width before estimated metrics',
       (tester) async {

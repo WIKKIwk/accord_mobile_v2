@@ -70,6 +70,7 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
   bool _calculateByVal = false;
   bool _duplicateRezkaLabels = false;
   bool _includeBobinaInNet = false;
+  bool _standardPrintSide = true;
   final _printValSizeMm = TextEditingController();
   final _wastePercent = TextEditingController(text: '5');
   final _rollCount = TextEditingController();

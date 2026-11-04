@@ -19,6 +19,7 @@ class ProductionMapDefinition {
     this.baseLength,
     this.duplicateRezkaLabels,
     this.includeBobinaInNet,
+    this.standardPrintSide,
     required this.nodes,
     required this.edges,
   });
@@ -42,6 +43,7 @@ class ProductionMapDefinition {
   final double? baseLength;
   final bool? duplicateRezkaLabels;
   final bool? includeBobinaInNet;
+  final bool? standardPrintSide;
   final List<ProductionMapNode> nodes;
   final List<ProductionMapEdge> edges;
 
@@ -63,6 +65,7 @@ class ProductionMapDefinition {
       baseLength: (json['base_length'] as num?)?.toDouble(),
       duplicateRezkaLabels: json['duplicate_rezka_labels'] as bool?,
       includeBobinaInNet: json['include_bobina_in_net'] as bool?,
+      standardPrintSide: json['standard_print_side'] as bool?,
       nodes: (json['nodes'] as List<dynamic>? ?? const [])
           .map(
             (item) => ProductionMapNode.fromJson(item as Map<String, dynamic>),
@@ -96,6 +99,7 @@ class ProductionMapDefinition {
         'duplicate_rezka_labels': duplicateRezkaLabels,
       if (includeBobinaInNet != null)
         'include_bobina_in_net': includeBobinaInNet,
+      if (standardPrintSide != null) 'standard_print_side': standardPrintSide,
       'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
       'edges': edges.map((edge) => edge.toJson()).toList(growable: false),
     };
@@ -120,6 +124,7 @@ class ProductionMapDefinition {
     double? baseLength,
     bool? duplicateRezkaLabels,
     bool? includeBobinaInNet,
+    bool? standardPrintSide,
     List<ProductionMapNode>? nodes,
     List<ProductionMapEdge>? edges,
   }) {
@@ -141,6 +146,7 @@ class ProductionMapDefinition {
       baseLength: baseLength ?? this.baseLength,
       duplicateRezkaLabels: duplicateRezkaLabels ?? this.duplicateRezkaLabels,
       includeBobinaInNet: includeBobinaInNet ?? this.includeBobinaInNet,
+      standardPrintSide: standardPrintSide ?? this.standardPrintSide,
       nodes: nodes ?? this.nodes,
       edges: edges ?? this.edges,
     );

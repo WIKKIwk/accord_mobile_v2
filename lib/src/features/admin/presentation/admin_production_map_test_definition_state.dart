@@ -333,6 +333,9 @@ extension _AdminProductionMapTestDefinitionState
       includeBobinaInNet: widget.templateOnly
           ? savedMap?.includeBobinaInNet
           : context?.includeBobinaInNet ?? savedMap?.includeBobinaInNet,
+      standardPrintSide: widget.templateOnly
+          ? savedMap?.standardPrintSide
+          : context?.standardPrintSide ?? savedMap?.standardPrintSide,
       nodes: List<ProductionMapNode>.unmodifiable(nodes),
       edges: List<ProductionMapEdge>.unmodifiable(edges),
     );
