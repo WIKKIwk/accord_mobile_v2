@@ -23,11 +23,15 @@ class AdminRezkaOutputReport {
     this.frames = const [],
     this.layoutOutputs = const [],
     this.referenceFrameIndex,
+    this.includeBobinaInNet,
+    this.atomicSaveEpoch = '',
   });
 
   final String cycleId;
   final List<AdminRecordedRezkaFrame> frames;
   final List<Map<String, dynamic>> layoutOutputs;
+  final bool? includeBobinaInNet;
+  final String atomicSaveEpoch;
 
   /// One-based first saved healthy output, stable across reopening the dialog.
   final int? referenceFrameIndex;
@@ -50,7 +54,10 @@ class AdminRezkaOutputReport {
     });
   }
 
-  static AdminRezkaOutputReport? tryFromJson(dynamic raw) {
+  static AdminRezkaOutputReport? tryFromJson(
+    dynamic raw, {
+    String atomicSaveEpoch = '',
+  }) {
     if (raw is! Map || raw['cycle_id'] is! String || raw['frames'] is! List) {
       return null;
     }
@@ -95,6 +102,10 @@ class AdminRezkaOutputReport {
     }
     return AdminRezkaOutputReport(
         referenceFrameIndex: reference as int?,
+        includeBobinaInNet: raw['include_bobina_in_net'] is bool
+            ? raw['include_bobina_in_net'] as bool
+            : null,
+        atomicSaveEpoch: atomicSaveEpoch,
         cycleId: cycle, frames: List.unmodifiable(frames),
         layoutOutputs: (raw['layout_outputs'] is List ? raw['layout_outputs'] as List : const [])
             .whereType<Map>().map((item) => Map<String, dynamic>.unmodifiable(item.cast<String, dynamic>())).toList(growable: false));

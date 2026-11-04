@@ -1762,6 +1762,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     String issueNote = '',
     String freezeRequestId = '',
     String preflightHoldId = '',
+    bool surfaceRezkaBobinaConflict = false,
   }) async {
     final l10n = context.l10n;
     if (freezeWithIssue && !_stageFreezeSupported) {
@@ -1952,6 +1953,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     } catch (error) {
       if (!_materialContextIsCurrent(actionOrderId, actionApparatus) ||
           _detailReadScope != currentSessionReadScope()) return false;
+      if (surfaceRezkaBobinaConflict &&
+          error is MobileApiException &&
+          error.code == 'rezka_bobina_mode_changed') {
+        rethrow;
+      }
       if (error is TimeoutException && action == 'merge') {
         AdminApparatusQueueOrderActionControl? reconciledControl;
         try {
@@ -3275,6 +3281,133 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _showSheetNotice(context.l10n.productionText('worker.error.sync'));
       return _ProgressActionOutcome.failed;
     }
+    Future<_ProgressActionOutcome> submit(_ProgressQtyInput input) async {
+      if (input.closingOutputBatchId.isNotEmpty) {
+        final completed = await _runQueueAction('complete', progressInput: input);
+        if (completed) {
+          await ReturnedPaintDraftStore.instance.clear(scope);
+          _returnedPaintDraft = null;
+          _returnedPaintDraftScope = '';
+        }
+        return completed
+            ? _ProgressActionOutcome.completed
+            : _ProgressActionOutcome.failed;
+      }
+      final isTrainingOrder = widget.order.map.id.trim().startsWith('training-');
+      if (input.isIssue && freezeRequestSafeStop && !isTrainingOrder) {
+        final completed = await _runQueueAction(
+          action,
+          progressInput: input,
+          freezeRequestId: freezeRequest!.requestId,
+        );
+        if (completed && mounted) {
+          _showSheetNotice(
+            context.l10n.productionText(
+              'worker.freeze.safe_stop.issue_success',
+            ),
+            tone: AdminTopNoticeTone.success,
+          );
+        }
+        return completed
+            ? _ProgressActionOutcome.completed
+            : _ProgressActionOutcome.failed;
+      }
+      if (input.isIssue && !isTrainingOrder) {
+        final completed = await _runQueueAction(
+          'freeze',
+          freezeWithIssue: true,
+          issueNote: input.description,
+        );
+        return completed
+            ? _ProgressActionOutcome.completed
+            : _ProgressActionOutcome.failed;
+      }
+      if ((workerHandoff || removeRollFromApparatus) && !isTrainingOrder) {
+        final completed = await _runQueueAction(
+          action,
+          progressInput: input,
+          uom: 'm',
+          workerHandoff: workerHandoff,
+          removeRollFromApparatus: removeRollFromApparatus,
+          freezeRequestId: freezeRequest?.requestId ?? '',
+        );
+        return completed
+            ? _ProgressActionOutcome.completed
+            : _ProgressActionOutcome.failed;
+      }
+      final hasHealthyRezkaFrame = input.rezkaFrames.isEmpty ||
+          input.rezkaFrames.any((frame) => !frame.isIssue);
+      final allHealthyRollsRecorded = input.rezkaRecordedFrameCount > 0 &&
+          input.rezkaRecordedFrameCount ==
+              input.rezkaFrames.where((frame) => !frame.isIssue).length;
+      if (allHealthyRollsRecorded && !isTrainingOrder) {
+        final completed = await _runQueueAction(action,
+            progressInput: input,
+            uom: 'm',
+            freezeRequestId: freezeRequest?.requestId ?? '');
+        return completed
+            ? _ProgressActionOutcome.completed
+            : _ProgressActionOutcome.failed;
+      }
+      if ((action == 'roll_complete' ||
+              action == 'complete' ||
+              action == 'pause' ||
+              action == 'detach_roll') &&
+          !hasHealthyRezkaFrame &&
+          !isTrainingOrder) {
+        final completed = await _runQueueAction(
+          action,
+          progressInput: input,
+          uom: 'm',
+        );
+        return completed
+            ? _ProgressActionOutcome.completed
+            : _ProgressActionOutcome.failed;
+      }
+      final printerOption = await _pickProgressPrinter(
+        context,
+        widget.progressDriverUrlPicker,
+      );
+      if (!mounted || printerOption == null) {
+        return _ProgressActionOutcome.cancelled;
+      }
+      final completed = await _runQueueAction(
+        action,
+        progressInput: input,
+        uom: 'm',
+        driverUrl: printerOption.driverUrl,
+        printTransport: printerOption.transport,
+        printer: printerOption.printer,
+        printMode: printerOption.printMode,
+        surfaceRezkaBobinaConflict: requiresRezkaOutputs,
+        offlinePrinter: printerOption.offlinePrinter,
+        bluetoothPrinter: printerOption.bluetoothPrinter,
+        workerHandoff: workerHandoff,
+        removeRollFromApparatus: removeRollFromApparatus,
+        freezeRequestId: freezeRequest?.requestId ?? '',
+      );
+      if (mounted &&
+          completed &&
+          freezeRequestSafeStop &&
+          !_lastQueueActionPrintFailed) {
+        _showSheetNotice(
+          context.l10n.productionText(
+            'worker.freeze.safe_stop.healthy_success',
+          ),
+          tone: AdminTopNoticeTone.success,
+        );
+      }
+      if (completed && action == 'complete') {
+        await ReturnedPaintDraftStore.instance.clear(scope);
+        _returnedPaintDraft = null;
+        _returnedPaintDraftScope = '';
+      }
+      return completed
+          ? _ProgressActionOutcome.completed
+          : _ProgressActionOutcome.failed;
+    }
+
+    _ProgressActionOutcome? rezkaOutcome;
     final input = await _showProgressQtyDialogForApparatus(
       context,
       action: action,
@@ -3305,6 +3438,11 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           : currentRezkaOutputReport,
       onRezkaOutputReportChanged: (report) => _lastRezkaOutputReport = report,
       progressDriverUrlPicker: widget.progressDriverUrlPicker,
+      submitRezkaProgress: requiresRezkaOutputs && !_isTrainingOrder
+          ? (input) async {
+              rezkaOutcome = await submit(input);
+            }
+          : null,
       reloadRezkaOutputReport: () async {
         if (!_rezkaOutputReportUnsupported &&
             !_isTrainingOrder &&
@@ -3343,131 +3481,8 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         return latest?.rezkaOutputReport;
       },
     );
-    if (!mounted || input == null) {
-      return _ProgressActionOutcome.cancelled;
-    }
-    if (input.closingOutputBatchId.isNotEmpty) {
-      final completed = await _runQueueAction('complete', progressInput: input);
-      if (completed) {
-        await ReturnedPaintDraftStore.instance.clear(scope);
-        _returnedPaintDraft = null;
-        _returnedPaintDraftScope = '';
-      }
-      return completed
-          ? _ProgressActionOutcome.completed
-          : _ProgressActionOutcome.failed;
-    }
-    final isTrainingOrder = widget.order.map.id.trim().startsWith('training-');
-    if (input.isIssue && freezeRequestSafeStop && !isTrainingOrder) {
-      final completed = await _runQueueAction(
-        action,
-        progressInput: input,
-        freezeRequestId: freezeRequest!.requestId,
-      );
-      if (completed && mounted) {
-        _showSheetNotice(
-          context.l10n.productionText(
-            'worker.freeze.safe_stop.issue_success',
-          ),
-          tone: AdminTopNoticeTone.success,
-        );
-      }
-      return completed
-          ? _ProgressActionOutcome.completed
-          : _ProgressActionOutcome.failed;
-    }
-    if (input.isIssue && !isTrainingOrder) {
-      final completed = await _runQueueAction(
-        'freeze',
-        freezeWithIssue: true,
-        issueNote: input.description,
-      );
-      return completed
-          ? _ProgressActionOutcome.completed
-          : _ProgressActionOutcome.failed;
-    }
-    if ((workerHandoff || removeRollFromApparatus) && !isTrainingOrder) {
-      final completed = await _runQueueAction(
-        action,
-        progressInput: input,
-        uom: 'm',
-        workerHandoff: workerHandoff,
-        removeRollFromApparatus: removeRollFromApparatus,
-        freezeRequestId: freezeRequest?.requestId ?? '',
-      );
-      return completed
-          ? _ProgressActionOutcome.completed
-          : _ProgressActionOutcome.failed;
-    }
-    final hasHealthyRezkaFrame = input.rezkaFrames.isEmpty ||
-        input.rezkaFrames.any((frame) => !frame.isIssue);
-    final allHealthyRollsRecorded = input.rezkaRecordedFrameCount > 0 &&
-        input.rezkaRecordedFrameCount ==
-            input.rezkaFrames.where((frame) => !frame.isIssue).length;
-    if (allHealthyRollsRecorded && !isTrainingOrder) {
-      final completed = await _runQueueAction(action,
-          progressInput: input,
-          uom: 'm',
-          freezeRequestId: freezeRequest?.requestId ?? '');
-      return completed
-          ? _ProgressActionOutcome.completed
-          : _ProgressActionOutcome.failed;
-    }
-    if ((action == 'roll_complete' ||
-            action == 'complete' ||
-            action == 'pause' ||
-            action == 'detach_roll') &&
-        !hasHealthyRezkaFrame &&
-        !isTrainingOrder) {
-      final completed = await _runQueueAction(
-        action,
-        progressInput: input,
-        uom: 'm',
-      );
-      return completed
-          ? _ProgressActionOutcome.completed
-          : _ProgressActionOutcome.failed;
-    }
-    final printerOption = await _pickProgressPrinter(
-      context,
-      widget.progressDriverUrlPicker,
-    );
-    if (!mounted || printerOption == null) {
-      return _ProgressActionOutcome.cancelled;
-    }
-    final completed = await _runQueueAction(
-      action,
-      progressInput: input,
-      uom: 'm',
-      driverUrl: printerOption.driverUrl,
-      printTransport: printerOption.transport,
-      printer: printerOption.printer,
-      printMode: printerOption.printMode,
-      offlinePrinter: printerOption.offlinePrinter,
-      bluetoothPrinter: printerOption.bluetoothPrinter,
-      workerHandoff: workerHandoff,
-      removeRollFromApparatus: removeRollFromApparatus,
-      freezeRequestId: freezeRequest?.requestId ?? '',
-    );
-    if (mounted &&
-        completed &&
-        freezeRequestSafeStop &&
-        !_lastQueueActionPrintFailed) {
-      _showSheetNotice(
-        context.l10n.productionText(
-          'worker.freeze.safe_stop.healthy_success',
-        ),
-        tone: AdminTopNoticeTone.success,
-      );
-    }
-    if (completed && action == 'complete') {
-      await ReturnedPaintDraftStore.instance.clear(scope);
-      _returnedPaintDraft = null;
-      _returnedPaintDraftScope = '';
-    }
-    return completed
-        ? _ProgressActionOutcome.completed
-        : _ProgressActionOutcome.failed;
+    if (!mounted || input == null) return _ProgressActionOutcome.cancelled;
+    return rezkaOutcome ?? await submit(input);
   }
 
   Future<void> _toggleMaterialIntakeMode() async {

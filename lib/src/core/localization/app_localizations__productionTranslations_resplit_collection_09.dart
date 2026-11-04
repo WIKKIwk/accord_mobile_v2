@@ -350,6 +350,18 @@ const _app_localizations_declarations__productionTranslations_resplitPart09 = {
     "en": "Not saved. Press Print again.",
     "ru": "Не сохранено. Нажмите Печать ещё раз.",
   },
+  'worker.rezka.bobina_mode.tare_required': {
+    'uz': 'Vazn rejimi o‘zgardi. Babina og‘irligini kiriting va qayta tasdiqlang.',
+    'en': 'The weight mode changed. Enter the bobbin weight and confirm again.',
+    'ru': 'Режим взвешивания изменился. Введите вес втулки и подтвердите снова.',
+    'ur': 'وزن کا طریقہ بدل گیا ہے۔ بوبن کا وزن درج کریں اور دوبارہ تصدیق کریں۔',
+  },
+  'worker.rezka.bobina_mode.total_weight': {
+    'uz': 'Vazn rejimi o‘zgardi. Umumiy og‘irlikni tekshirib, qayta tasdiqlang.',
+    'en': 'The weight mode changed. Check the total weight and confirm again.',
+    'ru': 'Режим взвешивания изменился. Проверьте общий вес и подтвердите снова.',
+    'ur': 'وزن کا طریقہ بدل گیا ہے۔ کل وزن دیکھ کر دوبارہ تصدیق کریں۔',
+  },
   'worker.rezka.print.sync_failed': {
     "uz":
         "Holatni tekshirib bo‘lmadi yoki rulonlar o‘zgargan. Oynani qayta oching.",

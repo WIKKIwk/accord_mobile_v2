@@ -18,6 +18,10 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
 
   void _restoreRezkaOutputReport(AdminRezkaOutputReport? report) {
     if (report == null) return;
+    if (report.atomicSaveEpoch.isNotEmpty) {
+      _rezkaAtomicSaveEpoch = report.atomicSaveEpoch;
+    }
+    _rezkaBobinaMode = report.includeBobinaInNet ?? _rezkaBobinaMode;
     _rezkaReport = report;
     _refreshRezkaReference(report);
     widget.onRezkaOutputReportChanged?.call(report);
@@ -328,7 +332,9 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           await _performRezkaFramePrint(request);
         } catch (_) {
           if (!mounted) return;
-          _updateRezkaPrint(() => _rezkaPrintQueuePaused = true);
+          _updateRezkaPrint(
+            () => _rezkaPrintQueuePaused = _rezkaPrintQueue.isNotEmpty,
+          );
           break;
         }
         if (!mounted) return;
@@ -368,8 +374,22 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
 
   Future<void> _performRezkaFramePrint(_RezkaPrintRequest request) async {
     final index = request.index;
+    if (_progressReadScope != currentSessionReadScope()) {
+      throw const MobileApiException(
+        code: 'rezka_output_cycle_conflict',
+        message: '',
+      );
+    }
     try {
-      final latest = await widget.reloadRezkaOutputReport?.call();
+      // Previously saved cards still need a fresh read before a reprint.
+      // New cards can use the write as their freshness check once the
+      // scoped report has confirmed the server supports it.
+      final canSaveDirectly = _rezkaAtomicSaveEpoch.isNotEmpty &&
+          request.input != null &&
+          _rezkaReport?.frameAt(index) == null;
+      final latest = canSaveDirectly
+          ? _rezkaReport
+          : await widget.reloadRezkaOutputReport?.call();
       if (latest == null ||
           latest.cycleId != _rezkaReport!.cycleId ||
           latest.frames.any((slot) => slot.index > _rezkaFrameCount)) {
@@ -379,6 +399,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       }
       if (!mounted) return;
       _updateRezkaPrint(() {
+        if (!canSaveDirectly) _rezkaAtomicSaveEpoch = latest.atomicSaveEpoch;
         _restoreRezkaOutputReport(latest);
         _rezkaSyncRequired = false;
       });
@@ -398,6 +419,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           await _pickProgressPrinter(context, widget.progressDriverUrlPicker);
       if (!mounted) return;
       if (_rezkaPrinter == null) throw const _RezkaPrinterNotSelected();
+      if (_progressReadScope != currentSessionReadScope()) return;
       final printer = _rezkaPrinter!;
       final printCount = _duplicateRezkaLabelsForStage ? 2 : 1;
       UsbRpsPrintRequest? committedPrintJob;
@@ -419,6 +441,10 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           action: 'roll_complete',
           rezkaRecordFrameIndex: index + 1,
           rezkaOutputCycle: _rezkaReport!.cycleId,
+          rezkaExpectedEpoch: _rezkaAtomicSaveEpoch,
+          rezkaExpectedKadrCounts: _rezkaAtomicSaveEpoch.isEmpty
+              ? const []
+              : widget.rezkaOutputKadrCounts,
           rezkaFrames: [input.toJson()],
           uom: 'm',
           driverUrl: printer.driverUrl,
@@ -426,7 +452,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
           printMode: printer.printMode,
           printTransport: printer.transport,
         );
-        if (!mounted) return;
+        if (!mounted || _progressReadScope != currentSessionReadScope()) return;
         final report = result.rezkaOutputReport;
         if (report == null ||
             report.cycleId != _rezkaReport!.cycleId ||
@@ -442,8 +468,17 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         }
         _updateRezkaPrint(() {
           _restoreRezkaOutputReport(report);
+          final payload = result.progressBatch?.payloadJson;
+          if (payload?['rezka_output_kind'] == 'frame') {
+            _rezkaBobinaMode = payload?['include_bobina_in_net'] == true;
+          }
           _rezkaPrintStatus[index] = _rezkaText('saved');
         });
+        if (_rezkaAtomicSaveEpoch.isNotEmpty && result.progressBatch == null) {
+          // Another writer already saved this card. A deliberate reprint
+          // can use its QR after the operator sees the recovered state.
+          throw StateError('rezka_card_already_saved');
+        }
         // The save response is authoritative for this cycle and slot. Local
         // labels can be prepared by that request without another API roundtrip.
         final prepared = result.printJob;
@@ -474,6 +509,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         committedPrintJob = result.printJob;
       }
       if (printer.transport.isLocal) {
+        if (!mounted || _progressReadScope != currentSessionReadScope()) return;
         final printed = await PrintService.printRps(
           committedPrintJob!,
           printerProfile: printer.offlinePrinter,
@@ -487,6 +523,7 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
         _rezkaPrintedFrameIndexes.add(index);
       });
     } catch (error) {
+      if (_applyRezkaBobinaModeError(error)) rethrow;
       // A timed-out save may have committed. Reconcile before pausing the
       // queue so retry always uses the saved QR rather than creating a new one.
       AdminRezkaOutputReport? latest;
@@ -528,6 +565,33 @@ extension _RezkaFramePrint on _ProgressQtyDialogState {
       });
       rethrow;
     }
+  }
+
+  bool _applyRezkaBobinaModeError(Object error) {
+    if (!mounted ||
+        error is! MobileApiException ||
+        error.code != 'rezka_bobina_mode_changed') {
+      return false;
+    }
+    final mode = error.diagnostics['include_bobina_in_net'];
+    if (mode is! bool) return false;
+    _updateRezkaPrint(() {
+      _rezkaBobinaMode = mode;
+      // Queued cards captured their input before the change. Keep the
+      // controller values and let the operator confirm them again.
+      for (final request in _rezkaPrintQueue) {
+        _rezkaPrintStatus.remove(request.index);
+      }
+      _rezkaPrintQueue.clear();
+      _rezkaQueuedFrameIndexes.clear();
+      _rezkaPrintQueuePaused = false;
+    });
+    _setCompletionError(
+      context.l10n.productionText(mode
+          ? 'worker.rezka.bobina_mode.total_weight'
+          : 'worker.rezka.bobina_mode.tare_required'),
+    );
+    return true;
   }
 }
 

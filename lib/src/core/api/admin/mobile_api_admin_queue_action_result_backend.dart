@@ -28,6 +28,8 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
     List<Map<String, dynamic>> rezkaFrames = const [],
     int? rezkaRecordFrameIndex,
     String rezkaOutputCycle = '',
+    String rezkaExpectedEpoch = '',
+    List<int> rezkaExpectedKadrCounts = const [],
     String outputPaddonCode = '',
     String printPreflightHoldId = '',
     String uom = '',
@@ -119,6 +121,10 @@ extension MobileApiAdminQueueActionResultBackend on MobileApi {
             'rezka_record_frame_index': rezkaRecordFrameIndex,
           if (rezkaOutputCycle.isNotEmpty)
             'rezka_output_cycle': rezkaOutputCycle,
+          if (rezkaExpectedEpoch.isNotEmpty)
+            'rezka_expected_epoch': rezkaExpectedEpoch,
+          if (rezkaExpectedKadrCounts.isNotEmpty)
+            'rezka_expected_kadr_counts': rezkaExpectedKadrCounts,
           if (uom.trim().isNotEmpty) 'uom': uom.trim(),
           if (qrPayload.trim().isNotEmpty) 'qr_payload': qrPayload.trim(),
           if (progressBatchId.trim().isNotEmpty)

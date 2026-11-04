@@ -18,6 +18,7 @@ void _registerRezkaPrintOptimizationTests() {
     'confirmation after printer failure',
     'confirmation retries temporary sync failure',
     'confirmation rejects changed cycle',
+    'confirmation keeps drafts on babina mode conflict',
     'save response lost',
     'wifi',
     'wifi duplicate label',
@@ -27,6 +28,8 @@ void _registerRezkaPrintOptimizationTests() {
     'legacy report endpoint',
     'changed frame layout',
     'report domain conflict',
+    'atomic cards skip repeated report reads',
+    'atomic babina conflict preserves draft',
   ]) {
     testWidgets('Rezka optimized print: $scenario', (tester) async {
       final confirmRecovery = scenario.startsWith('confirmation ');
@@ -38,6 +41,11 @@ void _registerRezkaPrintOptimizationTests() {
       final isWifi = scenario.startsWith('wifi');
       final isOlderBackend = scenario.contains('older backend');
       final isPrinterFailure = scenario.contains('printer failure');
+      final atomicSave = scenario.startsWith('atomic ');
+      final bulkModeConflict =
+          scenario == 'confirmation keeps drafts on babina mode conflict';
+      final modeConflict = bulkModeConflict ||
+          scenario == 'atomic babina conflict preserves draft';
       final expectedCount = duplicateLabels && !intermediate ? 2 : 1;
       final requestedCount = staleStage ? 2 : (unknownStage ? 1 : expectedCount);
       await TestModeController.instance.setEnabled(true);
@@ -60,7 +68,10 @@ void _registerRezkaPrintOptimizationTests() {
         orderNumber: '0024',
         apparatusId: _rezkaId,
         product: 'Optimized Rezka rolls',
-      ).copyWith(duplicateRezkaLabels: duplicateLabels);
+      ).copyWith(
+        duplicateRezkaLabels: duplicateLabels,
+        includeBobinaInNet: modeConflict,
+      );
       await MobileApi.instance.adminSaveProductionMap(orderMap);
       await MobileApi.instance.adminSaveProductionMapSequence(
         apparatus: _rezkaId,
@@ -106,7 +117,7 @@ void _registerRezkaPrintOptimizationTests() {
           allowRollComplete: true,
           stageNodeId: repeated && !unknownStage
               ? (intermediate && !staleStage ? 'apparatus' : 'final-rezka')
-              : '',
+              : modeConflict ? 'apparatus' : '',
           rezkaOutputKadrCounts: [1, 1, 1, 1],
           rezkaOutputReport: const AdminRezkaOutputReport(cycleId: cycle),
         ),
@@ -123,6 +134,7 @@ void _registerRezkaPrintOptimizationTests() {
       final events = <String>[];
       final frames = <Map<String, dynamic>>[];
       var nativeAttempts = 0;
+      var modeConflictSent = false;
       var confirming = false;
       var rejectConfirmationRead = false;
       Map<String, dynamic>? submittedFrames;
@@ -136,12 +148,15 @@ void _registerRezkaPrintOptimizationTests() {
           ];
         }
         expect(call.method, 'printLabel');
-        expect(call.arguments, containsPair('epc', '40011890022F235A0000A1B2'));
+        final qr = atomicSave && nativeAttempts > 0
+            ? '40011890022F235A0000A1B3'
+            : '40011890022F235A0000A1B2';
+        expect(call.arguments, containsPair('epc', qr));
         expect(call.arguments, containsPair('print_count', expectedCount));
         events.add('native');
+        final retry = nativeAttempts++ > 0;
         return {
-          'ok': (!isPrinterFailure && !confirmRecovery) ||
-              nativeAttempts++ > 0,
+          'ok': (!isPrinterFailure && !confirmRecovery) || retry,
         };
       });
       addTearDown(() {
@@ -188,6 +203,7 @@ void _registerRezkaPrintOptimizationTests() {
           return http.Response(
               jsonEncode({
                 'ok': true,
+                if (atomicSave) 'atomic_frame_save': true,
                 'apparatus': _rezkaId,
                 'order_id': order,
                 'rezka_output_report': {
@@ -197,6 +213,8 @@ void _registerRezkaPrintOptimizationTests() {
                       ? 'another-cycle'
                       : cycle,
                   'frames': frames,
+                  if (atomicSave || bulkModeConflict)
+                    'include_bobina_in_net': modeConflict && !modeConflictSent,
                 },
                 'kadr_counts': scenario == 'changed frame layout'
                     ? [1, 2, 1, 1]
@@ -243,11 +261,22 @@ void _registerRezkaPrintOptimizationTests() {
         if (request.url.path.endsWith('/queue-action')) {
           if (confirmRecovery && body['rezka_record_frame_index'] == null) {
             submittedFrames = body;
+            if (bulkModeConflict) {
+              return http.Response(
+                '{"error":"rezka_bobina_mode_changed","include_bobina_in_net":false}',
+                409,
+              );
+            }
             return http.Response('{"error":"store_failed"}', 500);
           }
           events.add('save');
           expect(body['rezka_output_cycle'], cycle);
-          expect(body['rezka_record_frame_index'], 1);
+          final index = atomicSave ? frames.length + 1 : 1;
+          expect(body['rezka_record_frame_index'], index);
+          if (atomicSave) {
+            expect(body['rezka_expected_epoch'], 'print-test-server');
+            expect(body['rezka_expected_kadr_counts'], [1, 1, 1, 1]);
+          }
           if (!isWifi) {
             expect(body['print_transport'], 'offline');
             expect(body['driver_url'], 'usb://local');
@@ -257,13 +286,24 @@ void _registerRezkaPrintOptimizationTests() {
           final input = Map<String, dynamic>.from(
             (body['rezka_frames'] as List).single as Map,
           );
+          if (modeConflict && index == 2 && !modeConflictSent) {
+            expect(input['bobina_kg'], isNull);
+            modeConflictSent = true;
+            return http.Response(
+              '{"error":"rezka_bobina_mode_changed","include_bobina_in_net":false}',
+              409,
+            );
+          }
           if (scenario == 'committed input conflict') {
             input['gross_qty'] = 99;
           }
+          final qr = index == 1
+              ? '40011890022F235A0000A1B2'
+              : '40011890022F235A0000A1B3';
           frames.add({
-            'frame_index': 1,
-            'batch_id': 'optimized-roll-1',
-            'qr_payload': '40011890022F235A0000A1B2',
+            'frame_index': index,
+            'batch_id': 'optimized-roll-$index',
+            'qr_payload': qr,
             'input': input,
           });
           if (scenario == 'save response lost') {
@@ -272,6 +312,18 @@ void _registerRezkaPrintOptimizationTests() {
           return http.Response(
             jsonEncode({
               'states': {order: 'in_progress'},
+              if (atomicSave)
+                'progress_batch': {
+                  'batch_id': 'optimized-roll-$index',
+                  'apparatus': _rezkaId,
+                  'order_id': order,
+                  'qr_payload': qr,
+                  'payload_json': {
+                    'rezka_output_kind': 'frame',
+                    if (modeConflict && !modeConflictSent)
+                      'include_bobina_in_net': true,
+                  },
+                },
               'session': {
                 'session_id': cycle,
                 'payload_json': {
@@ -283,7 +335,7 @@ void _registerRezkaPrintOptimizationTests() {
                   ? null
                   : label(scenario == 'local mismatched label'
                       ? '40011890022F235A0000FFFF'
-                      : '40011890022F235A0000A1B2'),
+                      : qr),
             }),
             200,
           );
@@ -343,7 +395,7 @@ void _registerRezkaPrintOptimizationTests() {
         for (final field in {
           'meter': '1000',
           'kg': '20',
-          'bobina': '0.5',
+          if (!modeConflict) 'bobina': '0.5',
           'diameter': '45',
         }.entries) {
           final target = find.byKey(ValueKey('rezka-frame-0-${field.key}'));
@@ -366,11 +418,49 @@ void _registerRezkaPrintOptimizationTests() {
         await tester.tap(printButton);
         await tester.pumpAndSettle();
 
+        if (atomicSave) {
+          expect(events, ['read', 'save', 'native']);
+          events.clear();
+          final secondPrint = find.byKey(const ValueKey('rezka-frame-1-print'));
+          await tester.ensureVisible(secondPrint);
+          await tester.tap(secondPrint);
+          await tester.pumpAndSettle();
+          if (modeConflict) {
+            expect(events, ['save']);
+            expect(frames, hasLength(1));
+            expect(find.byKey(const ValueKey('rezka-frame-0-bobina')), findsNothing);
+            for (final field in {'meter': 1000, 'kg': 20, 'diameter': 45}.entries) {
+              final input = tester.widget<TextFormField>(
+                find.byKey(ValueKey('rezka-frame-1-${field.key}')),
+              );
+              expect(double.parse(input.controller!.text), field.value);
+            }
+            final tare = find.byKey(const ValueKey('rezka-frame-1-bobina'));
+            await tester.ensureVisible(tare);
+            await tester.enterText(tare, '0.5');
+            await tester.ensureVisible(secondPrint);
+            await tester.tap(secondPrint);
+            await tester.pumpAndSettle();
+            expect(frames.last['input'], containsPair('bobina_kg', 0.5));
+          }
+          expect(events, modeConflict ? ['save', 'save', 'native'] : ['save', 'native']);
+          expect(frames, hasLength(2));
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          return;
+        }
+
         if (confirmRecovery) {
           final confirm = find.widgetWithText(FilledButton, 'Tasdiqlash');
           void expectFilledRolls() {
             for (var index = 0; index < 4; index++) {
-              for (final field in ['meter', 'kg', 'bobina', 'diameter']) {
+              for (final field in [
+                'meter',
+                'kg',
+                if (!modeConflict) 'bobina',
+                'diameter',
+              ]) {
                 expect(
                   tester
                       .widget<TextFormField>(find.byKey(
@@ -424,6 +514,15 @@ void _registerRezkaPrintOptimizationTests() {
             expect(submittedFrames, isNull);
             expectFilledRolls();
             expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+          } else if (bulkModeConflict) {
+            expect(submittedFrames, isNotNull);
+            expectFilledRolls();
+            expect(find.byKey(const ValueKey('rezka-frame-0-bobina')), findsNothing);
+            final tare = tester.widget<TextFormField>(
+              find.byKey(const ValueKey('rezka-frame-1-bobina')),
+            );
+            expect(tare.enabled, isTrue);
+            expect(tare.controller!.text, isEmpty);
           } else {
             expect(submittedFrames, isNotNull);
             expect(submittedFrames!['rezka_output_cycle'], cycle);

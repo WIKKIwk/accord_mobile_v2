@@ -18,11 +18,14 @@ class AdminRezkaOutputSnapshot {
     required String apparatus,
     required String orderId,
   }) {
-    final report =
-        AdminRezkaOutputReport.tryFromJson(json['rezka_output_report']);
     final counts = json['kadr_counts'];
     final revision = json['rev'];
     final epoch = json['epoch'];
+    final report = AdminRezkaOutputReport.tryFromJson(
+      json['rezka_output_report'],
+      atomicSaveEpoch:
+          json['atomic_frame_save'] == true && epoch is String ? epoch : '',
+    );
     if (json['ok'] != true ||
         json['apparatus'] != apparatus ||
         json['order_id'] != orderId ||

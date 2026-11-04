@@ -128,6 +128,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
   AdminRezkaOutputReport? rezkaOutputReport,
   ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged,
   Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport,
+  Future<void> Function(_ProgressQtyInput)? submitRezkaProgress,
   Future<String?> Function(BuildContext)? progressDriverUrlPicker,
 }) async {
   final draft = returnedPaintDraft ??
@@ -165,6 +166,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialog(
       rezkaOutputReport: rezkaOutputReport,
       onRezkaOutputReportChanged: onRezkaOutputReportChanged,
       reloadRezkaOutputReport: reloadRezkaOutputReport,
+      submitRezkaProgress: submitRezkaProgress,
       progressDriverUrlPicker: progressDriverUrlPicker,
     ),
   );
@@ -190,6 +192,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
   AdminRezkaOutputReport? rezkaOutputReport,
   ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged,
   Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport,
+  Future<void> Function(_ProgressQtyInput)? submitRezkaProgress,
   Future<String?> Function(BuildContext)? progressDriverUrlPicker,
 }) {
   final apparatusId = apparatus?.id ?? '';
@@ -217,6 +220,7 @@ Future<_ProgressQtyInput?> _showProgressQtyDialogForApparatus(
     rezkaOutputReport: rezkaOutputReport,
     onRezkaOutputReportChanged: onRezkaOutputReportChanged,
     reloadRezkaOutputReport: reloadRezkaOutputReport,
+    submitRezkaProgress: submitRezkaProgress,
     progressDriverUrlPicker: progressDriverUrlPicker,
   );
 }
@@ -260,6 +264,7 @@ class _ProgressQtyDialog extends StatefulWidget {
     this.rezkaOutputReport,
     this.onRezkaOutputReportChanged,
     this.reloadRezkaOutputReport,
+    this.submitRezkaProgress,
     this.progressDriverUrlPicker,
   });
   final String action;
@@ -283,6 +288,7 @@ class _ProgressQtyDialog extends StatefulWidget {
   final AdminRezkaOutputReport? rezkaOutputReport;
   final ValueChanged<AdminRezkaOutputReport>? onRezkaOutputReportChanged;
   final Future<AdminRezkaOutputReport?> Function()? reloadRezkaOutputReport;
+  final Future<void> Function(_ProgressQtyInput)? submitRezkaProgress;
   final Future<String?> Function(BuildContext)? progressDriverUrlPicker;
 
   @override
@@ -290,6 +296,7 @@ class _ProgressQtyDialog extends StatefulWidget {
 }
 
 class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
+  final _progressReadScope = currentSessionReadScope();
   final _meterController = TextEditingController();
   final _kgController = TextEditingController();
   final _bobinaController = TextEditingController();
@@ -310,6 +317,8 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
   final Set<int> _rezkaFrameIssuePrompted = <int>{};
 
   AdminRezkaOutputReport? _rezkaReport;
+  bool? _rezkaBobinaMode;
+  String _rezkaAtomicSaveEpoch = '';
   _RezkaFrameInput? _rezkaAutofillReference;
   int? _rezkaReferenceFrameIndex;
   String? _rezkaReferenceCycle;
@@ -639,14 +648,14 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
     final frames = <_RezkaFrameInput>[];
     for (var index = 0; index < _rezkaFrameControllers.length; index += 1) {
       final saved = _rezkaReport?.frameAt(index);
-      if (saved?.isIssue == true) {
-        frames.add(_RezkaFrameInput(issueNote: saved!.issueNote));
+      if (saved != null) {
+        frames.add(_rezkaInputFromSaved(saved));
         continue;
       }
       final frame = _rezkaFrameControllers[index];
       final meter = _parseQty(frame.meter.text);
       final kg = _parseQty(frame.kg.text);
-      final bobina = _rezkaNetIncludesBobina && saved == null
+      final bobina = _rezkaNetIncludesBobina
           ? null
           : _parseQty(frame.bobina.text);
       final diameter = _parseQty(frame.diameter.text);
@@ -1104,26 +1113,41 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       if (!mounted || !confirmed) {
         return;
       }
-      Navigator.of(context).pop(
-        _ProgressQtyInput(
-          meterQty: effectiveMeterQty,
-          kgQty: effectiveKgQty,
-          bobinaKg: effectiveBobinaKg,
-          diameter: effectiveDiameter,
-          totalWaste: totalWaste,
-          rezkaBosmaWaste: rezkaBosmaWaste,
-          rezkaLaminationWaste: rezkaLaminationWaste,
-          rezkaEdgeWaste: rezkaEdgeWaste,
-          returnedPaintItems: returnedPaintItems,
-          returnedPaintImageId: returnedPaintImageId,
-          fullCompletionReportRequired: _requiresFullCompletionReport,
-          rezkaFrames: rezkaFrameInputs ?? const [],
-          rezkaOutputCycle: _rezkaReport?.cycleId ?? '',
-          rezkaRecordedFrameCount:
-              _rezkaReport?.frames.where((frame) => !frame.isIssue).length ?? 0,
-          description: description,
-        ),
+      final input = _ProgressQtyInput(
+        meterQty: effectiveMeterQty,
+        kgQty: effectiveKgQty,
+        bobinaKg: effectiveBobinaKg,
+        diameter: effectiveDiameter,
+        totalWaste: totalWaste,
+        rezkaBosmaWaste: rezkaBosmaWaste,
+        rezkaLaminationWaste: rezkaLaminationWaste,
+        rezkaEdgeWaste: rezkaEdgeWaste,
+        returnedPaintItems: returnedPaintItems,
+        returnedPaintImageId: returnedPaintImageId,
+        fullCompletionReportRequired: _requiresFullCompletionReport,
+        rezkaFrames: rezkaFrameInputs ?? const [],
+        rezkaOutputCycle: _rezkaReport?.cycleId ?? '',
+        rezkaRecordedFrameCount:
+            _rezkaReport?.frames.where((frame) => !frame.isIssue).length ?? 0,
+        description: description,
       );
+      final submit = widget.submitRezkaProgress;
+      if (submit != null && _showRezkaFrameInputs) {
+        _updateRezkaPrint(() => _rezkaConfirmationBusy = true);
+        try {
+          await submit(input);
+        } catch (error) {
+          if (!_applyRezkaBobinaModeError(error) && mounted) {
+            _setCompletionError(
+              context.l10n.productionText('worker.error.sync'),
+            );
+          }
+          return;
+        } finally {
+          _updateRezkaPrint(() => _rezkaConfirmationBusy = false);
+        }
+      }
+      if (mounted) Navigator.of(context).pop(input);
       return;
     }
     if (widget.isLaminatsiya && laminatsiyaMetricsReady) {
@@ -1310,7 +1334,9 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
             requiredField: !issueAllowed && !savedIssue,
             positive: true,
           ),
-          if (!_rezkaNetIncludesBobina) ...[
+          if (record == null
+              ? !_rezkaNetIncludesBobina
+              : record.input['bobina_kg'] != null) ...[
             const SizedBox(height: 10),
             _qtyField(
               key: ValueKey<String>('rezka-frame-$index-bobina'),
@@ -1425,11 +1451,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
       _rezkaFrameCount > 0;
   bool get _rezkaNetIncludesBobina =>
       _showRezkaFrameInputs &&
-      productionMapIncludesBobinaInOutputNet(
-        map: widget.order.map,
-        isRezka: widget.isRezka,
-        stageNodeId: widget.stageNodeId,
-      );
+      (_rezkaBobinaMode ??
+          productionMapIncludesBobinaInOutputNet(
+            map: widget.order.map,
+            isRezka: widget.isRezka,
+            stageNodeId: widget.stageNodeId,
+          ));
 
   Widget _buildContent(BuildContext context) {
     final theme = Theme.of(context);
