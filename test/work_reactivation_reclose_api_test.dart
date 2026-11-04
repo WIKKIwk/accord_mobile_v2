@@ -60,6 +60,25 @@ void main() {
       'token': token
     });
   });
+  test('reclose accepts the Rezka master who owns the continuation', () async {
+    final worker = AppSession.instance.profile!;
+    final master = worker.copyWith(role: UserRole.rezkaMaster);
+    AppSession.instance.profile = master;
+    final control = AdminReactivationRecloseControl.tryFromJson(
+        {...payload(), 'worker_role': 'rezka_master'})!;
+    expect(control.belongsTo(master), isTrue);
+    expect(control.belongsTo(worker), isFalse);
+    expect(control.belongsTo(master.copyWith(ref: 'other')), isFalse);
+    final requests = <http.Request>[];
+    await http.runWithClient(
+        () => MobileApi.instance.adminRecloseReactivatedWork(
+            apparatus: scanApparatus, orderId: scanOrder, control: control),
+        () => MockClient((request) async {
+              requests.add(request);
+              return http.Response('{"ok":true}', 200);
+            }));
+    expect(requests.single.url.path, endsWith('/reactivation/reclose'));
+  });
   for (final raw in [
     null,
     {},

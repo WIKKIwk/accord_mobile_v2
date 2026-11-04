@@ -1,7 +1,9 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 class _RePauseFixture extends _InlineWipFixture {
-  _RePauseFixture({super.station}) : super('active');
+  _RePauseFixture({super.station, this.role = UserRole.aparatchi})
+      : super('active');
+  final UserRole role;
   String? owner = 'inline-new-shift';
   bool astatka = false;
   bool reject = false;
@@ -31,7 +33,7 @@ class _RePauseFixture extends _InlineWipFixture {
         if (!other && owner != null)
           're_pause': {
             'resume_id': resumeId,
-            'worker_role': 'aparatchi',
+            'worker_role': userRoleToJson(role),
             'worker_ref': owner,
           },
         if (!other && astatka)
@@ -65,7 +67,7 @@ class _RePauseFixture extends _InlineWipFixture {
       expect(payload['action'], 'resume');
       owner = 'inline-new-shift';
       resumeId = 'resume-${++resumeCount}';
-      changePhase('active');
+      changePhase('active', publish: true);
       return http.Response(
           jsonEncode({
             'ok': true,
@@ -94,7 +96,7 @@ class _RePauseFixture extends _InlineWipFixture {
   Future<void> open(WidgetTester tester) async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = SessionProfile(
-        role: UserRole.aparatchi,
+        role: role,
         displayName: 'Worker',
         legalName: '',
         ref: 'inline-new-shift',
@@ -138,7 +140,10 @@ class _RePauseFixture extends _InlineWipFixture {
             workerMode: true,
             queueSnapshotLoader: () async => snapshot(),
             apparatusLoader: () async => apparatus,
-            liveEventsLoader: () => events.stream)));
+            liveEventsLoader: () async* {
+              yield snapshot();
+              yield* events.stream;
+            })));
     await tester.pumpAndSettle();
     await tester.tap(find.text(_fixtureApparatusName(station)));
     await tester.pumpAndSettle();
@@ -150,6 +155,18 @@ class _RePauseFixture extends _InlineWipFixture {
 }
 
 void _registerRePauseTests() {
+  testWidgets('Rezka master can re-pause from the order menu', (tester) async {
+    final fixture =
+        _RePauseFixture(station: _rezkaId, role: UserRole.rezkaMaster);
+    await http.runWithClient(() async {
+      await fixture.open(tester);
+      await tester.tap(find.byKey(const ValueKey('worker-re-pause')));
+      await tester.pumpAndSettle();
+      expect(fixture.phase, 'paused');
+      expect(fixture.mutations.single.url.path, endsWith('/re-pause'));
+    }, () => MockClient(fixture.respond));
+  });
+
   for (final station in [_print8Id, _lamination1Id, _rezkaId]) {
     for (final loseResponse in [false, true]) {
       testWidgets(

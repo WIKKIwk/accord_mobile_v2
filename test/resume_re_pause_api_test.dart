@@ -54,6 +54,15 @@ void main() {
     expect(decoded.rePause!.resumeId, 'resume-1');
     expect(decoded.rePause!.belongsTo(worker), isTrue);
   });
+  test('re-pause decodes the Rezka master and matches both role and ref', () {
+    final master = worker.copyWith(role: UserRole.rezkaMaster);
+    final decoded = AdminApparatusQueueOrderActionControl.fromJson(
+        control({...checkpoint, 'worker_role': 'rezka_master'}));
+    expect(decoded.contractValid, isTrue);
+    expect(decoded.rePause!.belongsTo(master), isTrue);
+    expect(decoded.rePause!.belongsTo(worker), isFalse);
+    expect(decoded.rePause!.belongsTo(master.copyWith(ref: 'other')), isFalse);
+  });
   for (final invalid in [
     null,
     {},

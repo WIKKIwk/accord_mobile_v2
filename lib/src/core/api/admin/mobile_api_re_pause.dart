@@ -13,21 +13,25 @@ class AdminResumePauseControl {
   static AdminResumePauseControl? tryFromJson(Object? raw) {
     if (raw is! Map ||
         raw['resume_id'] is! String ||
-        raw['worker_role'] != 'aparatchi' ||
         raw['worker_ref'] is! String) {
+      return null;
+    }
+    final role = raw['worker_role'];
+    if (role is! String || !const {'aparatchi', 'rezka_master'}.contains(role)) {
       return null;
     }
     final id = (raw['resume_id'] as String).trim();
     final ref = (raw['worker_ref'] as String).trim();
     if (id.isEmpty || id.length > 512 || ref.isEmpty) return null;
     return AdminResumePauseControl(
-        resumeId: id, workerRole: 'aparatchi', workerRef: ref);
+        resumeId: id, workerRole: role, workerRef: ref);
   }
 
   bool belongsTo(SessionProfile? profile) =>
-      profile?.role.isApparatusOperator == true &&
-      profile?.ref == workerRef &&
-      workerRole == 'aparatchi';
+      profile != null &&
+      profile.role.isApparatusOperator &&
+      profile.ref == workerRef &&
+      userRoleToJson(profile.role) == workerRole;
 }
 
 extension MobileApiResumePause on MobileApi {
