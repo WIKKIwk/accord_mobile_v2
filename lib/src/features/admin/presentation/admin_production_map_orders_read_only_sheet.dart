@@ -644,78 +644,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     }
   }
 
-  bool _savingRezkaOptions = false;
-
-  bool get _canSetRezkaOptions {
-    if (widget.detailPending ||
-        widget.detailError != null ||
-        _queueActionBusy ||
-        _savingRezkaOptions) {
-      return false;
-    }
-    final map = widget.order.map;
-    final status =
-        widget.currentQueueSnapshot?.call()?.orderStatuses[map.id.trim()] ??
-            widget.initialOrderStatus;
-    return _canEditRezkaOrderOptions(map, status);
-  }
-
-  Future<void> _editRezkaOptions() async {
-    if (!_canSetRezkaOptions) return;
-    final scope = currentSessionReadScope();
-    final map = widget.order.map;
-    var duplicateLabels = map.duplicateRezkaLabels == true;
-    var includeBobina = map.includeBobinaInNet == true;
-    final selected = await showDialog<({bool duplicateLabels, bool includeBobina})>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setLocalState) => AlertDialog(
-          title: Text(context.l10n.adminText('rezka_master.order_settings')),
-          content: SingleChildScrollView(
-            child: RezkaOrderOptionSwitches(
-              duplicateLabels: duplicateLabels,
-              includeBobina: includeBobina,
-              onDuplicateLabelsChanged: (value) =>
-                  setLocalState(() => duplicateLabels = value),
-              onIncludeBobinaChanged: (value) =>
-                  setLocalState(() => includeBobina = value),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop((
-                duplicateLabels: duplicateLabels,
-                includeBobina: includeBobina,
-              )),
-              child: Text(context.l10n.adminText('scope.save_action')),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (!mounted || selected == null || scope != currentSessionReadScope()) return;
-    setState(() => _savingRezkaOptions = true);
-    try {
-      await _saveRezkaOrderOptions(
-        map,
-        duplicateLabels: selected.duplicateLabels,
-        includeBobina: selected.includeBobina,
-      );
-      if (!mounted || scope != currentSessionReadScope()) return;
-      Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted || scope != currentSessionReadScope()) return;
-      showAdminTopNotice(context, _rezkaOrderSettingsError(context, error),
-          tone: AdminTopNoticeTone.error);
-    } finally {
-      if (mounted) setState(() => _savingRezkaOptions = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final map = widget.order.map;
@@ -778,7 +706,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
           dismissAdminTopNotice();
           Navigator.of(context).pop();
         },
-        onRezkaSettings: _canSetRezkaOptions ? _editRezkaOptions : null,
         onScannedWips: _canReadScannedWips && !_queueActionBusy
             ? () => unawaited(_showScannedWips()) : null,
         map: map,
@@ -3985,7 +3912,6 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
   const _ReadOnlyOrderDetailSheet({
     this.scopedWorkerDetail = false,
     required this.order,
-    this.initialOrderStatus,
     this.detailPending = false,
     this.detailError,
     this.onRetryDetail,
@@ -4033,7 +3959,6 @@ class _ReadOnlyOrderDetailSheet extends StatefulWidget {
     this.busyOrderTitleLookup,
   });
   final ProductionMapSaved order;
-  final AdminProductionOrderStatusDetail? initialOrderStatus;
 
   /// A list summary may render the real UI but cannot start detail effects or
   /// authorize any action until its scoped full map has been validated.

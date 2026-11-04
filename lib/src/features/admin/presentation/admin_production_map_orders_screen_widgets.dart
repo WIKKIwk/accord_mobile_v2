@@ -110,7 +110,6 @@ Future<void> showAdminProductionMapOrderReadOnlyDetail(
     clipBehavior: Clip.antiAlias,
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
-      initialOrderStatus: snapshot.orderStatuses[mapId],
       apparatus: apparatus,
       apparatusCatalog: apparatusCatalog,
       baseMetraj: order.map.baseLength,
@@ -194,7 +193,6 @@ Future<bool> showProductionMapFreezePauseFlow(
     clipBehavior: Clip.antiAlias,
     builder: (context) => _ReadOnlyOrderDetailSheet(
       order: order,
-      initialOrderStatus: snapshot.orderStatuses[normalizedOrderId],
       apparatus: target,
       apparatusCatalog: apparatusCatalog,
       workerMode: true,

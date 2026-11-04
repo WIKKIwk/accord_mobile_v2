@@ -153,10 +153,15 @@ void _registerOrderSummaryTests() {
         await tester.longPress(row);
         await _pumpCompletedWorkFrames(tester);
         expect(tester.widget<SwitchListTile>(side).value, isTrue);
-        expect(
-          find.byKey(const ValueKey('calculate-duplicate-rezka-labels')),
-          closed ? findsNothing : findsOneWidget,
-        );
+        for (final key in [
+          'calculate-duplicate-rezka-labels',
+          'calculate-include-bobina-in-net',
+        ]) {
+          expect(
+            find.byKey(ValueKey(key)),
+            closed ? findsNothing : findsOneWidget,
+          );
+        }
         await tester.ensureVisible(side);
         await tester.tap(side);
         await _pumpCompletedWorkFrames(tester);

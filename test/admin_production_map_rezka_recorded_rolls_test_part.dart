@@ -1,7 +1,7 @@
 part of 'admin_production_map_test_screen_test.dart';
 
 void _registerRezkaRecordedRollTests() {
-  testWidgets('Rezka master order settings stay open until production ends',
+  testWidgets('Rezka master order details omit the settings shortcut',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = const SessionProfile(
@@ -71,12 +71,9 @@ void _registerRezkaRecordedRollTests() {
     ));
     await tester.pumpAndSettle();
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
-    final settings = find.byKey(const ValueKey('rezka-master-order-settings'));
-    for (final (lifecycle, editable) in [
-      ('released', true),
-      ('in_progress', true),
-      ('production_completed', false),
-    ]) {
+    final settings = find.text('Rezka sozlamalari');
+    final close = find.byKey(const ValueKey('production-order-detail-close'));
+    for (final lifecycle in ['released', 'in_progress', 'production_completed']) {
       status = lifecycle;
       control = switch (status) {
         'released' => _freshStartQueueControl(),
@@ -90,15 +87,8 @@ void _registerRezkaRecordedRollTests() {
       );
       await tester.tap(find.text('Open order'));
       await tester.pumpAndSettle();
-      expect(settings, editable ? findsOneWidget : findsNothing,
-          reason: lifecycle);
-      if (editable) {
-        await tester.tap(settings);
-        await tester.pumpAndSettle();
-        expect(find.byType(Switch), findsNWidgets(2));
-        navigator.pop();
-        await tester.pumpAndSettle();
-      }
+      expect(close, findsOneWidget, reason: lifecycle);
+      expect(settings, findsNothing, reason: lifecycle);
       navigator.pop();
       await tester.pumpAndSettle();
     }

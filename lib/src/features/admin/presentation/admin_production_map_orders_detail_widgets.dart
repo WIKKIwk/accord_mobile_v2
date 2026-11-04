@@ -10,7 +10,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.noticeAnchorKey,
     required this.onClose,
     this.onScannedWips,
-    this.onRezkaSettings,
     required this.map,
     required this.orderImageBytes,
     required this.orderImageLoading,
@@ -103,7 +102,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final VoidCallback? onRetryDetail;
   final VoidCallback onClose;
   final VoidCallback? onScannedWips;
-  final VoidCallback? onRezkaSettings;
   final ProductionMapDefinition map;
   final Uint8List? orderImageBytes;
   final bool orderImageLoading;
@@ -267,16 +265,6 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                   24,
                 ),
                 children: [
-                  if (onRezkaSettings != null)
-                    Material(
-                      type: MaterialType.transparency,
-                      child: ListTile(
-                        key: const ValueKey('rezka-master-order-settings'),
-                        leading: const Icon(Icons.tune),
-                        title: Text(context.l10n.adminText('rezka_master.order_settings')),
-                        onTap: onRezkaSettings,
-                      ),
-                    ),
                   if (detailError != null)
                     Padding(
                       padding: const EdgeInsets.all(12),
