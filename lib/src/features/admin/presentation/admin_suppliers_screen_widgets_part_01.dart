@@ -98,6 +98,7 @@ class _AdminUserRolePicker extends StatelessWidget {
 
 class _AdminSuppliersCache {
   const _AdminSuppliersCache({
+    required this.readScope,
     required this.sessionRevision,
     required this.items,
     required this.workers,
@@ -108,6 +109,7 @@ class _AdminSuppliersCache {
     required this.selectedKind,
   });
 
+  final String readScope;
   final int sessionRevision;
   final List<AdminUserListEntry> items;
   final List<AdminWorker> workers;

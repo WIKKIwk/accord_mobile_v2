@@ -171,4 +171,146 @@ void _registerOrderSummaryTests() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final (description, group, status, count) in [
+    ('adds a single Rezka with 1+2 frames', false, 200, 3),
+    ('adds a Rezka group with 1+2 frames per machine', true, 200, 3),
+    ('blocks a missing calculation', false, 404, null),
+    ('blocks an unrecoverable legacy calculation', false, 409, null),
+    ('blocks a missing frame count despite a saved width', false, 200, null),
+    ('blocks a fractional frame count', false, 200, 2.5),
+  ]) {
+    testWidgets('Rezka order summary $description', (tester) async {
+      const map = ProductionMapDefinition(
+        id: 'zakaz-rezka-fixture',
+        productCode: 'REZKA-FIXTURE',
+        title: 'Test product',
+        orderNumber: '9001',
+        nodes: [
+          ProductionMapNode(
+            id: 'start',
+            kind: 'start',
+            title: 'Start',
+            x: 420,
+            y: 32,
+          ),
+          ProductionMapNode(
+            id: 'end',
+            kind: 'end',
+            title: 'End',
+            x: 420,
+            y: 164,
+          ),
+        ],
+        edges: [ProductionMapEdge(from: 'start', to: 'end')],
+      );
+      var summaryReads = 0;
+      ProductionMapDefinition? saved;
+      await _usePhoneViewport(tester);
+      await http.runWithClient(() async {
+        await tester.pumpWidget(const MaterialApp(
+          locale: Locale('uz'),
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AdminProductionMapTestScreen(savedMap: map),
+        ));
+        await tester.pumpAndSettle();
+        await _tapMapTool(tester, 'Rezka');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(group ? 'Skip' : 'Rezka A'));
+        await tester.pumpAndSettle();
+
+        expect(summaryReads, 1);
+        final save = find.text('Saqlash');
+        expect(find.text('Rezka sozlash'), findsOneWidget);
+        if (count != 3) {
+          expect(find.textContaining('Buyurtmada kadr soni topilmadi'),
+              findsOneWidget);
+          await tester.tap(save);
+          await tester.pumpAndSettle();
+          expect(find.text('Rezka sozlash'), findsOneWidget);
+          expect(saved, isNull);
+        } else {
+          expect(find.text('Kadr 3'), findsOneWidget);
+          expect(find.text('Kadr 4'), findsNothing);
+          await tester.tap(find.byKey(const ValueKey('rezka-frame-join-1')));
+          await tester.pumpAndSettle();
+          expect(find.text('Kadr 1'), findsOneWidget);
+          expect(find.text('Kadr 2-3'), findsOneWidget);
+          await tester.tap(save);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('production-map-save')));
+          await tester.pumpAndSettle();
+          final nodes = saved!.nodes.where((node) => node.kind == 'apparatus');
+          expect(nodes, hasLength(group ? 2 : 1));
+          for (final node in nodes) {
+            expect(node.rezkaKadrCount, 3);
+            expect(node.rezkaFrameGroups, [1, 2]);
+          }
+          expect(find.text('Map saqlandi. №9001 buyurtmasi yangilandi.'),
+              findsOneWidget);
+          await tester.pump(const Duration(seconds: 5));
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+          () => MockClient((request) async {
+                final path = request.url.path;
+                if (path == '/v1/mobile/admin/apparatus') {
+                  return http.Response(
+                      jsonEncode([
+                        for (final (id, name) in [
+                          (_rezkaId, 'Rezka A'),
+                          ('apparatus:test:rezka-extra', 'Rezka B'),
+                        ])
+                          {
+                            'apparatus_id': id,
+                            'display': {'display_name': name},
+                            'source_revision': 1,
+                            'source_aasx_sha256': 'a' * 64,
+                            'execution_profile': {
+                              'operation': 'cut',
+                              'technology': 'slitting',
+                            },
+                          },
+                      ]),
+                      200);
+                }
+                if (path == '/v1/mobile/admin/production-maps/order-summary') {
+                  summaryReads++;
+                  expect(request.url.queryParameters, {'id': map.id});
+                  return http.Response(
+                    status == 200
+                        ? jsonEncode({
+                            'template': {
+                              'source_map_id': map.id,
+                              'width_mm': 1095,
+                              if (count != null) 'frame_count': count,
+                            },
+                          })
+                        : '{}',
+                    status,
+                  );
+                }
+                if (path == '/v1/mobile/admin/production-maps' &&
+                    request.method == 'PUT') {
+                  saved = ProductionMapDefinition.fromJson(
+                    jsonDecode(request.body) as Map<String, dynamic>,
+                  );
+                  return http.Response(
+                    jsonEncode({'map': saved!.toJson(), 'program': {}}),
+                    200,
+                    headers: {
+                      'content-type': 'application/json; charset=utf-8'
+                    },
+                  );
+                }
+                fail('Unexpected request: ${request.method} ${request.url}');
+              }));
+    });
+  }
 }

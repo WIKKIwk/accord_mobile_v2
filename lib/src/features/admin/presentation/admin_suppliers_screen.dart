@@ -6,6 +6,7 @@ import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
+import '../../../core/session/session_read_scope.dart';
 import '../../../core/widgets/lists/m3_animated_list_entry.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';

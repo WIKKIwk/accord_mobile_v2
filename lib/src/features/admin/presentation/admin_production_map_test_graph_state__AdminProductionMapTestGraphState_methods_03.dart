@@ -7,28 +7,26 @@ extension __AdminProductionMapTestGraphStateAstPart03
     final savedFrameCount = _productionMapRezkaFrameCount(node);
     var frameCount = savedFrameCount > 0
         ? savedFrameCount
-        : _productionMapOrderFrameCount(widget.orderContext);
-    if (frameCount <= 0 && (widget.savedMap?.id.trim().isNotEmpty ?? false)) {
-      // Existing-order editors do not carry a template draft (passing one
-      // would change their save flow). Resolve only this order's exact link.
+        : _productionMapOrderFrameCount(widget.orderContext?.templateDraft);
+    if (frameCount == 0 && _orderMode && _savedOrderMapId.isNotEmpty) {
+      final scope = currentSessionReadScope();
       try {
-        final templates = await MobileApi.instance.calculateOrderTemplates();
-        final mapId = widget.savedMap!.id.trim();
-        final linked = templates.where((item) =>
-            item.sourceMapId.trim() == mapId ||
-            item.sourceMapId.trim() == 'template-$mapId');
-        if (linked.length == 1) {
-          final count = linked.single.frameCount;
-          if (count.isFinite && count > 0 && count == count.roundToDouble()) {
-            frameCount = count.toInt();
-          }
+        final calculation = await MobileApi.instance
+            .adminProductionMapOrderSummary(_savedOrderMapId);
+        frameCount = _productionMapOrderFrameCount(calculation);
+      } catch (error) {
+        if (!mounted || scope != currentSessionReadScope()) return null;
+        if (error is! MobileApiException ||
+            (error.statusCode != 404 && error.statusCode != 409)) {
+          showAdminTopNotice(
+            context,
+            'Buyurtma kadrlarini yuklab bo‘lmadi. Qayta urinib ko‘ring.',
+            tone: AdminTopNoticeTone.error,
+          );
+          return null;
         }
-      } catch (_) {
-        if (mounted) {
-          showAdminTopNotice(context, 'Buyurtma kadrlarini yuklab bo‘lmadi. Qayta urinib ko‘ring.', tone: AdminTopNoticeTone.error);
-        }
-        return null;
       }
+      if (scope != currentSessionReadScope()) return null;
     }
     if (!mounted) return null;
     return showModalBottomSheet<ProductionMapNode>(
@@ -41,7 +39,9 @@ extension __AdminProductionMapTestGraphStateAstPart03
       builder: (context) => _RezkaNodeEditSheet(
         node: node,
         frameCount: frameCount,
-        products: widget.orderContext?.templateDraft?.products ?? widget.savedMap?.products ?? const [],
+        products: widget.orderContext?.templateDraft?.products ??
+            widget.savedMap?.products ??
+            const [],
       ),
     );
   }

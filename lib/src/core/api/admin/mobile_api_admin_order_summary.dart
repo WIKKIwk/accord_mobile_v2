@@ -29,9 +29,14 @@ extension MobileApiAdminOrderSummary on MobileApi {
     if (payload is! Map || payload['template'] is! Map) {
       throw const FormatException('Invalid order summary');
     }
-    final template = CalculateOrderTemplate.fromJson(
-      (payload['template'] as Map).cast<String, dynamic>(),
-    );
+    final templateJson = (payload['template'] as Map).cast<String, dynamic>();
+    final frameCount = templateJson['frame_count'];
+    final template = CalculateOrderTemplate.fromJson({
+      ...templateJson,
+      // Saved calculations must have an explicit count. The template parser
+      // otherwise infers one frame from a positive width for legacy drafts.
+      'frame_count': frameCount is num ? frameCount : 0,
+    });
     if (template.sourceMapId.trim() != id) {
       throw const FormatException('Order summary identity mismatch');
     }

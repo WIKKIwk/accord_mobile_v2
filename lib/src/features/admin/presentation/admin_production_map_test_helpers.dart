@@ -321,9 +321,11 @@ int _productionMapRezkaFrameCount(ProductionMapNode node) {
   return frameCount > 0 ? frameCount : 0;
 }
 
-int _productionMapOrderFrameCount(ProductionMapOrderContext? orderContext) {
-  final frameCount = orderContext?.templateDraft?.frameCount ?? 0;
-  if (!frameCount.isFinite || frameCount <= 0 || frameCount != frameCount.roundToDouble()) {
+int _productionMapOrderFrameCount(CalculateOrderTemplate? calculation) {
+  final frameCount = calculation?.frameCount ?? 0;
+  if (!frameCount.isFinite ||
+      frameCount <= 0 ||
+      frameCount != frameCount.roundToDouble()) {
     return 0;
   }
   return frameCount.toInt();

@@ -29,8 +29,8 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     bool showLoading = true,
   }) async {
     final generation = ++_requestGeneration;
-    final sessionRevision = AppSession.instance.revision.value;
-    if (!forceRefresh && _restoreCache(sessionRevision)) {
+    final readScope = currentSessionReadScope();
+    if (!forceRefresh && _restoreCache(readScope)) {
       return;
     }
 
@@ -56,13 +56,13 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
           offset: 0,
         ),
         _loadWorkers(query: query, selectedKind: selectedKind),
-        _loadRoleAssignments(),
+        _loadRoleAssignments(selectedKind),
       ]);
       if (!_isCurrentRequest(
         generation,
         query,
         selectedKind,
-        sessionRevision,
+        readScope,
       )) {
         return;
       }
@@ -75,14 +75,14 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
         workers: workers,
         assignments: assignments,
       );
-      _saveCache(sessionRevision);
+      _saveCache(readScope);
     } catch (error) {
       debugPrint('admin users bootstrap failed: $error');
       if (!_isCurrentRequest(
         generation,
         query,
         selectedKind,
-        sessionRevision,
+        readScope,
       )) {
         return;
       }
@@ -181,7 +181,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     final query = _searchQuery;
     final selectedKind = _selectedKind;
     final offset = _offset;
-    final sessionRevision = AppSession.instance.revision.value;
+    final readScope = currentSessionReadScope();
     setState(() => _loadingMore = true);
 
     try {
@@ -195,7 +195,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
             generation,
             query,
             selectedKind,
-            sessionRevision,
+            readScope,
           ) ||
           _offset != offset) {
         return;
@@ -206,7 +206,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
         _offset += page.items.length;
         _hasMore = page.hasMore;
       });
-      _saveCache(sessionRevision);
+      _saveCache(readScope);
     } catch (error) {
       debugPrint('admin user list next page failed: $error');
       if (!mounted ||
@@ -214,7 +214,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
             generation,
             query,
             selectedKind,
-            sessionRevision,
+            readScope,
           )) {
         return;
       }
@@ -230,7 +230,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
         generation,
         query,
         selectedKind,
-        sessionRevision,
+        readScope,
       )) {
         setState(() => _loadingMore = false);
       }
@@ -267,8 +267,12 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     );
   }
 
-  Future<List<AdminRoleAssignment>> _loadRoleAssignments() {
-    if (_salesManager) return Future.value(const []);
+  Future<List<AdminRoleAssignment>> _loadRoleAssignments(
+    AdminUserKind? selectedKind,
+  ) async {
+    if (_salesManager || selectedKind == AdminUserKind.worker) {
+      return const [];
+    }
     return MobileApi.instance.adminRoleAssignments();
   }
 
@@ -276,13 +280,13 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     int generation,
     String query,
     AdminUserKind? selectedKind,
-    int sessionRevision,
+    String readScope,
   ) {
     return mounted &&
         generation == _requestGeneration &&
         query == _searchQuery &&
         selectedKind == _selectedKind &&
-        sessionRevision == AppSession.instance.revision.value;
+        readScope == currentSessionReadScope();
   }
 
   Future<void> _openUser(AdminUserListEntry item) async {
@@ -316,12 +320,13 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     }
   }
 
-  bool _restoreCache(int sessionRevision) {
+  bool _restoreCache(String readScope) {
     final cache = _AdminSuppliersScreenState._cache;
     if (cache == null) {
       return false;
     }
-    if (cache.sessionRevision != sessionRevision) {
+    if (cache.readScope != readScope ||
+        cache.sessionRevision != AppSession.instance.revision.value) {
       _AdminSuppliersScreenState._cache = null;
       return false;
     }
@@ -354,9 +359,10 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     return true;
   }
 
-  void _saveCache(int sessionRevision) {
+  void _saveCache(String readScope) {
     _AdminSuppliersScreenState._cache = _AdminSuppliersCache(
-      sessionRevision: sessionRevision,
+      readScope: readScope,
+      sessionRevision: AppSession.instance.revision.value,
       items: List<AdminUserListEntry>.unmodifiable(_items),
       workers: List<AdminWorker>.unmodifiable(_workers),
       assignments: List<AdminRoleAssignment>.unmodifiable(_assignments),
