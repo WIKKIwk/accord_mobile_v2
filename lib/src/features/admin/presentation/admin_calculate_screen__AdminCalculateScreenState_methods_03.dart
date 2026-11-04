@@ -112,13 +112,9 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         setState(() {
           _editingAllFields = true;
           _applyTemplate(existingTemplate);
-          if (_itemCode.trim().isEmpty) {
-            _itemCode = picked.code;
-          }
-          if (_product.text.trim().isEmpty) {
-            _product.text =
-                picked.name.trim().isEmpty ? picked.code : picked.name.trim();
-          }
+          _itemCode = picked.code;
+          _product.text =
+              picked.name.trim().isEmpty ? picked.code : picked.name.trim();
         });
         if (_customerRef.trim().isEmpty && _customer.text.trim().isEmpty) {
           unawaited(_autoSelectCustomerForProduct(picked, generation));

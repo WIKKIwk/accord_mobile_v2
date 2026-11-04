@@ -7,6 +7,34 @@ void _registerLinkedTemplateRegressionTests() {
     expect(a.copyWith(id: '', code: '').variantId, isEmpty);
     expect(a.copyWith(id: 'B', variantId: 'B').variantId, 'B');
   });
+  testWidgets('reusing a template keeps the selected catalog name',
+      (tester) async {
+    await TestModeController.instance.setEnabled(true);
+    resetMobileApiTestModeData();
+    final original = _template(itemCode: 'SKU-A', product: 'Product A');
+    await MobileApi.instance.upsertCalculateOrderTemplate(
+      _template(
+        itemCode: 'DEMO-HOTLUNCH',
+        product: 'Old Hotlunch name',
+        customer: 'Template customer',
+      ).copyWith(id: 'renamed-product-template', code: 'Q-RENAMED'),
+    );
+    await CalculateOrderTemplateStore.instance.load(force: true);
+    await _pumpCalculateScreen(tester, template: original);
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Product A').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hotlunch').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ishlatish'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hotlunch'), findsWidgets);
+    expect(find.text('Old Hotlunch name'), findsNothing);
+    expect(find.text('Template customer'), findsOneWidget);
+  });
+
   for (final choice in ['no', 'yes', 'use_template']) {
     testWidgets(
         'linked template: existing SKU choice $choice preserves original identities',
