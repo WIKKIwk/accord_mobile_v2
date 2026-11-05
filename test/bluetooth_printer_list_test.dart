@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/localized_test_app.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -33,7 +35,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        const MaterialApp(
+        const LocalizedTestApp(
           home: Scaffold(
             body: BluetoothPrinterList(onSelected: _ignoreSelection),
           ),
@@ -79,7 +81,7 @@ void main() {
 
       Future<void> openPicker() async {
         await tester.pumpWidget(
-          MaterialApp(
+          LocalizedTestApp(
             home: Scaffold(
               body: BluetoothPrinterList(
                 key: UniqueKey(),

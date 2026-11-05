@@ -6,7 +6,7 @@ extension __LoginScreenStateAstPart01 on _LoginScreenState {
     if (!mounted) {
       return;
     }
-    setState(() {});
+    _applyStateChange(() {});
   }
 
   void _handleBackSwipePointerDown(PointerDownEvent event) {
@@ -40,7 +40,7 @@ extension __LoginScreenStateAstPart01 on _LoginScreenState {
 
     final double nextOffset = delta.dx.clamp(0.0, 220.0);
     if (nextOffset != _backSwipeOffset) {
-      setState(() {
+      _applyStateChange(() {
         _backSwipeOffset = nextOffset;
       });
     }
@@ -61,7 +61,7 @@ extension __LoginScreenStateAstPart01 on _LoginScreenState {
     _trackingBackSwipe = false;
     _backSwipeTriggered = false;
     if (shouldResetOffset) {
-      setState(() {
+      _applyStateChange(() {
         _backSwipeOffset = 0;
       });
     }
@@ -76,10 +76,10 @@ extension __LoginScreenStateAstPart01 on _LoginScreenState {
     final String code = codeController.text.trim();
 
     if (phone.isEmpty || code.isEmpty) {
-      setState(() => errorText = l10n.loginRequiredFields);
+      _applyStateChange(() => errorText = l10n.loginRequiredFields);
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       errorText = null;
       loading = true;
     });
@@ -130,7 +130,7 @@ extension __LoginScreenStateAstPart01 on _LoginScreenState {
       if (!context.mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         errorText = loginFailureMessage(error, l10n);
         loading = false;
       });

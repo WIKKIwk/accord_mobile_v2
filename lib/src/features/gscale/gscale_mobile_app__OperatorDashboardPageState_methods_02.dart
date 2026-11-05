@@ -11,12 +11,12 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
         batch == null ||
         !batch.active ||
         !hasExactRpsBatchContext(batch)) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = 'Faol batch holati tasdiqlanmagan. Qayta yuklang.';
       });
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _batchActionLoading = true;
       _errorText = '';
     });
@@ -29,7 +29,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _applyRsBatchSession(response.batch);
         _batchActionLoading = false;
         _lastAutoBatchPrintKey = '';
@@ -39,7 +39,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _batchActionLoading = false;
         _errorText = rpsBatchActionErrorMessage(error);
       });
@@ -52,7 +52,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       return;
     }
     if (batch != null && batch.active) {
-      setState(() {
+      _applyStateChange(() {
         _errorText =
             'Avval To‘xtatish tugmasini bosing, keyin homashyoni o‘zgartiring.';
       });
@@ -62,7 +62,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!_draftContextSaved) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _draftContextSaved = false;
         _batchContextEditing = true;
         _errorText = '';
@@ -91,7 +91,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     // etishning oldini olish uchun avval To'xtatish, keyin edit, keyin
     // Boshlash talab qilinadi.
     if (!savingDraft) {
-      setState(() {
+      _applyStateChange(() {
         _errorText =
             'Avval To‘xtatish tugmasini bosing, keyin homashyoni o‘zgartiring.';
       });
@@ -99,7 +99,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     }
     final item = _selectedItem;
     if (item == null) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = 'Mahsulot tanlang';
       });
       return;
@@ -108,26 +108,26 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
     final micron = parsePositiveKg(_micronController.text);
     final lengthM = parsePositiveKg(_lengthController.text);
     if (item.requiresDimensions && widthMm == null) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = "Material enini mm da to'g'ri kiriting";
       });
       return;
     }
     if (item.requiresDimensions && micron == null) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = "Material mikronini to'g'ri kiriting";
       });
       return;
     }
     if (lengthM == null) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = "Material metrajini metrda to'g'ri kiriting";
       });
       return;
     }
     final warehouse = _selectedPrintWarehouse();
     if (warehouse == null || warehouse.trim().isEmpty) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = 'Ombor tanlang';
       });
       return;
@@ -136,7 +136,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _errorText = 'Bu ombor sizga biriktirilmagan';
       });
       return;
@@ -150,7 +150,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       return;
     }
     if (savingDraft) {
-      setState(() {
+      _applyStateChange(() {
         _draftContextSaved = true;
         _batchContextEditing = false;
         _errorText = '';
@@ -162,7 +162,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
+    _applyStateChange(() {
       _batchActionLoading = true;
       _errorText = '';
     });
@@ -190,7 +190,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _batchContextEditing = false;
         _applyRsBatchSession(response.batch);
         _batchActionLoading = false;
@@ -203,7 +203,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _batchActionLoading = false;
         _errorText = rpsBatchActionErrorMessage(error);
       });
@@ -218,7 +218,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
         !hasExactRpsBatchContext(batch)) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _batchActionLoading = true;
       _errorText = message;
     });
@@ -231,7 +231,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _applyRsBatchSession(response.batch);
         _batchActionLoading = false;
         _lastAutoBatchPrintKey = '';
@@ -241,7 +241,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _batchActionLoading = false;
         _errorText = message;
       });
@@ -272,7 +272,7 @@ extension __OperatorDashboardPageStateAstPart02 on _OperatorDashboardPageState {
         if (!mounted) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _printerStatusOverride = '';
         });
       });

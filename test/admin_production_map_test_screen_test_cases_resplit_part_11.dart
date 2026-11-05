@@ -43,7 +43,7 @@ void _registeradmin_production_map_test_screen_testCases11() {
         orderId: orderId,
         control: _freshStartQueueControl(materialScanRequired: true),
       );
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
         token: 'worker-required-material-token',
         profile: const SessionProfile(
           role: UserRole.aparatchi,

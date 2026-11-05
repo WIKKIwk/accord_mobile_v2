@@ -34,7 +34,7 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
       _requestQuietRefresh(force: true);
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       for (final key in _locationGenerations.keys.toList(growable: false)) {
         _locationGenerations[key] = _locationGenerations[key]! + 1;
       }
@@ -73,7 +73,7 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     _quietRefreshQueued = false;
     _searchGeneration++;
     _searchDebounce?.cancel();
-    setState(() {
+    _applyStateChange(() {
       for (final key in _locationGenerations.keys.toList(growable: false)) {
         _locationGenerations[key] = _locationGenerations[key]! + 1;
       }
@@ -141,7 +141,7 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
     final reordered = [..._orderedBlocks];
     final block = reordered.removeAt(oldIndex);
     reordered.insert(insertionIndex, block);
-    setState(() {
+    _applyStateChange(() {
       _orderedBlocks = reordered;
       final snapshot = _homeBlocksSnapshot;
       if (snapshot != null) {
@@ -196,7 +196,7 @@ extension __QolipHomeScreenStateAstPart01 on _QolipHomeScreenState {
   Future<List<QolipLocationEntry>> _refreshBlockAndWait(String block) {
     final key = block.trim().toLowerCase();
     final next = _startLocationLoad(block, key);
-    setState(() {
+    _applyStateChange(() {
       _locations[key] = next;
     });
     unawaited(_refreshSearchAfter(next));

@@ -103,7 +103,7 @@ void _registerRezkaAstatkaSafetyTests() {
       await fixture.reportForm(tester);
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Chiqindi'), '7');
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
           token: 'other-account',
           profile: const SessionProfile(
               role: UserRole.aparatchi,

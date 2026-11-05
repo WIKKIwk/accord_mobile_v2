@@ -49,6 +49,8 @@ part 'admin_calculate_screen_declarations_part_05.dart';
 const _calculateOrderTypeOptions = <String>['Rulon', 'Paket'];
 
 class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final _formKey = GlobalKey<FormState>();
   final _imagePicker = ImagePicker();
   final _customer = TextEditingController();

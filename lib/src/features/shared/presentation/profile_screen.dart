@@ -58,6 +58,8 @@ const String _profileDefaultCoverAsset =
 
 class _ProfileScreenState extends State<ProfileScreen>
     with WidgetsBindingObserver {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController nicknameController = TextEditingController();
   bool savingNickname = false;
   bool savingAvatar = false;

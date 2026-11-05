@@ -8,7 +8,7 @@ void _registeradmin_production_map_test_screen_testCases17() {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
     const orderId = 'zakaz-worker-freeze-safe-stop';
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-freeze-safe-stop-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -171,7 +171,7 @@ void _registeradmin_production_map_test_screen_testCases17() {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
     const orderId = 'zakaz-common-frozen-worker-row';
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'common-frozen-worker-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -244,7 +244,7 @@ void _registeradmin_production_map_test_screen_testCases17() {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
     const orderId = 'zakaz-0047';
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'common-frozen-admin-token',
       profile: const SessionProfile(
         role: UserRole.admin,

@@ -49,7 +49,7 @@ void _registeradmin_production_map_test_screen_testCases23() {
         const apparatusName = 'Godex aparat - CONTRACT';
         const requeuedOrderId = 'zakaz-contract-requeued';
         const nextOrderId = 'zakaz-contract-next';
-        await AppSession.instance.setSession(
+        await _setTestSession(tester,
           token: 'worker-contract-token',
           profile: const SessionProfile(
             role: UserRole.aparatchi,

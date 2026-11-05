@@ -119,7 +119,7 @@ void _registerMaterialDeliveryTests() {
               : _freshStartQueueControl(
                   materialScanRequired: true,
                   qolipMode: AdminQueueQolipMode.scanRequired));
-      await AppSession.instance.setSession(
+      await tester.runAsync(() => AppSession.instance.setSession(
           token: 'delivery-worker',
           profile: const SessionProfile(
               role: UserRole.aparatchi,
@@ -129,7 +129,7 @@ void _registerMaterialDeliveryTests() {
               phone: '',
               avatarUrl: '',
               capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-              assignedApparatus: [_godexId]));
+              assignedApparatus: [_godexId])));
       await _usePhoneViewport(tester);
       await tester.pumpWidget(MaterialApp(
           theme: ThemeData(useMaterial3: true),
@@ -213,17 +213,23 @@ void _registerMaterialDeliveryTests() {
         await tester.tap(find.text('Olib kelgan Ali'));
         await tester.pump();
         if (scenario.switchAccount) {
-          await AppSession.instance.setSession(token: 'other-delivery-worker',
+          await tester.runAsync(() => AppSession.instance.setSession(
+              token: 'other-delivery-worker',
               profile: const SessionProfile(role: UserRole.aparatchi,
                   displayName: 'Other worker', legalName: '', ref: 'other-worker',
                   phone: '', avatarUrl: '',
                   capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
-                  assignedApparatus: [_godexId]));
+                  assignedApparatus: [_godexId])));
           await tester.pumpAndSettle();
         }
         await tester
             .tap(find.byKey(const ValueKey('material-delivery-confirm')));
-        await tester.pumpAndSettle();
+        if (scenario.switchAccount) {
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+        } else {
+          await tester.pumpAndSettle();
+        }
         expect(find.byKey(const ValueKey('material-delivery-dialog')),
             findsNothing);
         final assets = await MobileApi.instance
@@ -295,7 +301,7 @@ void _registerMaterialDeliveryTests() {
   testWidgets('material delivery: no pending material hides intake button',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await tester.runAsync(() => AppSession.instance.setSession(
       token: 'worker-no-pending-material',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -307,7 +313,7 @@ void _registerMaterialDeliveryTests() {
         capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
         assignedApparatus: [_lamination1Id],
       ),
-    );
+    ));
     const orderId = 'zakaz-no-pending-material';
     await MobileApi.instance.adminSaveProductionMap(_productionOrderMap(
       id: orderId,

@@ -19,6 +19,8 @@ part 'notification_detail_screen__NotificationDetailScreenState_methods_01.dart'
 part 'notification_detail_screen_widgets_part_01.dart';
 
 class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late Future<NotificationDetail> _future;
   final TextEditingController _commentController = TextEditingController();
   bool _sending = false;

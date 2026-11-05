@@ -32,7 +32,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     if (!mounted || !confirmed) {
       return;
     }
-    setState(() => _openingSavedOrder = true);
+    _applyStateChange(() => _openingSavedOrder = true);
     final templateStore = CalculateOrderTemplateStore.instance;
     final templateScope = templateStore.captureScope();
     try {
@@ -132,7 +132,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       );
     } finally {
       if (mounted) {
-        setState(() => _openingSavedOrder = false);
+        _applyStateChange(() => _openingSavedOrder = false);
       }
     }
   }
@@ -161,7 +161,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     if (!mounted) {
       return;
     }
-    setState(() => _openingAutomaticOrder = true);
+    _applyStateChange(() => _openingAutomaticOrder = true);
     final templateStore = CalculateOrderTemplateStore.instance;
     final templateScope = templateStore.captureScope();
     try {
@@ -200,7 +200,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       }
     } finally {
       if (mounted) {
-        setState(() => _openingAutomaticOrder = false);
+        _applyStateChange(() => _openingAutomaticOrder = false);
       }
     }
   }
@@ -234,7 +234,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     if (!mounted || !confirmed) {
       return;
     }
-    setState(() => _openingTrainingOrder = true);
+    _applyStateChange(() => _openingTrainingOrder = true);
     final templateStore = CalculateOrderTemplateStore.instance;
     final templateScope = templateStore.captureScope();
     try {
@@ -294,7 +294,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       }
     } finally {
       if (mounted) {
-        setState(() => _openingTrainingOrder = false);
+        _applyStateChange(() => _openingTrainingOrder = false);
       }
     }
   }
@@ -309,7 +309,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _sourceMapId = '';
       _editingAllFields = true;
     });
@@ -438,7 +438,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     if (picked == null || !mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _productCustomerGeneration++;
       if (_customerRef != picked.ref) {
         _combo = null;
@@ -464,7 +464,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       options: _calculateOrderTypeOptions,
     );
     if (picked == null || !mounted) return;
-    setState(() => _orderType = picked);
+    _applyStateChange(() => _orderType = picked);
   }
 
   Future<void> _openPrintMethodPicker() async {
@@ -474,7 +474,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
       options: const ['Flexo', 'Temir'],
     );
     if (picked == null || !mounted) return;
-    setState(() {
+    _applyStateChange(() {
       _productionOptions = CalculateOrderProductionOptions(
         printMethod: picked == 'Flexo' ? 'flexo' : 'metal',
         coldGlue: _productionOptions?.coldGlue ?? false,

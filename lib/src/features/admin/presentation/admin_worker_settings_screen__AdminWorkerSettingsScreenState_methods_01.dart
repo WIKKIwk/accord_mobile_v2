@@ -71,7 +71,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
   }
 
   void _reload() {
-    setState(() {
+    _applyStateChange(() {
       _future = _load();
     });
   }
@@ -119,7 +119,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       }
       return true;
     }
-    setState(() => _savingApparatusWorkerIds.add(workerId));
+    _applyStateChange(() => _savingApparatusWorkerIds.add(workerId));
     try {
       if (_rezkaMaster) {
         await MobileApi.instance.rezkaMasterAssignWorker(
@@ -143,7 +143,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       }
       if (mounted) {
         showAdminTopNotice(context, context.l10n.adminText('scope.saved'), tone: AdminTopNoticeTone.success);
-        setState(() {
+        _applyStateChange(() {
           _future = _load();
         });
       }
@@ -188,7 +188,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       return false;
     } finally {
       if (mounted) {
-        setState(() => _savingApparatusWorkerIds.remove(workerId));
+        _applyStateChange(() => _savingApparatusWorkerIds.remove(workerId));
       }
     }
   }
@@ -200,7 +200,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
         level: level,
       );
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _future = _load();
           _workersVersion++;
         });
@@ -236,7 +236,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
               if (!mounted) {
                 return;
               }
-              setState(() {
+              _applyStateChange(() {
                 _future = _load();
                 _workersVersion++;
               });
@@ -307,7 +307,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
               if (!mounted) {
                 return;
               }
-              setState(() {
+              _applyStateChange(() {
                 _future = _load();
                 _workersVersion++;
               });
@@ -349,7 +349,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
               if (!mounted) {
                 return;
               }
-              setState(() => _groupsVersion++);
+              _applyStateChange(() => _groupsVersion++);
               showAdminTopNotice(
                 context,
                 context.l10n.adminText('worker.group_created'),
@@ -370,7 +370,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
     if (_deactivatingWorkerId != null) {
       return;
     }
-    setState(() => _deactivatingWorkerId = worker.id);
+    _applyStateChange(() => _deactivatingWorkerId = worker.id);
     try {
       final check =
           await MobileApi.instance.adminWorkerDeletionCheck(worker.id);
@@ -392,7 +392,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _selectedWorkerId = null;
         _future = _load();
         _workersVersion++;
@@ -436,7 +436,7 @@ extension __AdminWorkerSettingsScreenStateAstPart01
       }
     } finally {
       if (mounted && _deactivatingWorkerId == worker.id) {
-        setState(() => _deactivatingWorkerId = null);
+        _applyStateChange(() => _deactivatingWorkerId = null);
       }
     }
   }

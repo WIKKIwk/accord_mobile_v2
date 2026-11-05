@@ -9,7 +9,7 @@ void _registerRezkaWipCompletionWasteTests() {
     testWidgets('Rezka WIP completion waste: ${scenario.name}', (tester) async {
       const orderId = 'zakaz-rezka-wip-waste-dialog';
       await TestModeController.instance.setEnabled(true);
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
         token: 'worker-rezka-wip-waste-token',
         profile: const SessionProfile(
           role: UserRole.aparatchi,

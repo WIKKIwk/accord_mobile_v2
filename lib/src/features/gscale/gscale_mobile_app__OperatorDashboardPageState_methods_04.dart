@@ -106,7 +106,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     }
     final orderId = widget.linkedOrderId.trim();
     // Lock the order before draft validation, which can await warehouse scope.
-    setState(() {
+    _applyStateChange(() {
       _batchActionLoading = true;
       _errorText = '';
       _batchStartConflict = false;
@@ -126,13 +126,13 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       _scheduleSaveControlPrefs();
     } catch (error) {
       if (isRpsBatchAlreadyActiveError(error) && mounted) {
-        setState(() => _rpsBatchStateResolved = false);
+        _applyStateChange(() => _rpsBatchStateResolved = false);
         await _refreshRsBatchState();
       }
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         final activeOrder = _authoritativeRsBatch?.orderId ?? '';
         _batchStartConflict = isRpsBatchAlreadyActiveError(error);
         _errorText = isRpsBatchAlreadyActiveError(error)
@@ -143,7 +143,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       });
     } finally {
       if (mounted) {
-        setState(() => _batchActionLoading = false);
+        _applyStateChange(() => _batchActionLoading = false);
       }
     }
     if (mounted && autoPrintStable && _errorText.isEmpty) {
@@ -197,7 +197,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     if (!mounted || _batchStartConflict) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _batchActionLoading = true;
       _errorText = '';
       _warehousesError = '';
@@ -207,7 +207,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _batchActionLoading = false;
       });
       _showPrintSuccess(response);
@@ -217,7 +217,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _batchActionLoading = false;
         _errorText = rpsBatchActionErrorMessage(error);
       });
@@ -314,7 +314,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       return;
     }
     if (_batchContextEditing) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = 'Avval Saqlash tugmasini bosing.';
       });
       return;
@@ -329,7 +329,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
     }
     if (!_snapshot.batchActive ||
         normalizeQuantitySource(_snapshot.batchQuantitySource) != 'manual') {
-      setState(() {
+      _applyStateChange(() {
         _errorText = "Avval qo‘lda print uchun Boshlash ni bosing";
       });
       return;
@@ -344,7 +344,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
           babinaText: _babinaWeightController.text,
         ) ||
         duplicateCount == null) {
-      setState(() {
+      _applyStateChange(() {
         _errorText = duplicateCount == null
             ? "Duplicate sonini to'g'ri kiriting"
             : "Manual kg ni to'g'ri kiriting";
@@ -352,7 +352,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       return;
     }
 
-    setState(() {
+    _applyStateChange(() {
       _manualPrintLoading = true;
       _errorText = '';
     });
@@ -372,12 +372,12 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _errorText = rpsBatchActionErrorMessage(error);
       });
     } finally {
       if (mounted && _manualPrintLoading) {
-        setState(() {
+        _applyStateChange(() {
           _manualPrintLoading = false;
         });
       }
@@ -389,7 +389,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       return;
     }
 
-    setState(() {
+    _applyStateChange(() {
       _archiveLoading = true;
       _archiveError = '';
     });
@@ -405,7 +405,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
         if (!mounted) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _archiveSessions = sessions;
           _archiveLoading = false;
         });
@@ -427,7 +427,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _archiveSessions = sessions;
         _archiveLoading = false;
       });
@@ -435,7 +435,7 @@ extension __OperatorDashboardPageStateAstPart04 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _archiveLoading = false;
         _archiveError = error.toString();
       });

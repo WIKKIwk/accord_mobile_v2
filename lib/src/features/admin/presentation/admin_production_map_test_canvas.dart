@@ -1,6 +1,8 @@
 part of 'admin_production_map_test_screen.dart';
 
 class _ProductionMapCanvasState extends State<_ProductionMapCanvas> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final _canvasKey = GlobalKey();
   late final TransformationController _transformController;
   bool _didSetInitialTransform = false;

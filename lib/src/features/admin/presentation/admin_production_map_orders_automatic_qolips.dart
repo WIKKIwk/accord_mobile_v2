@@ -127,7 +127,7 @@ extension _AutomaticOrderQolips on _ReadOnlyOrderDetailSheetState {
         loading: _qolipRequirementsLoading,
         expanded: _qolipsExpanded,
         onToggleExpanded: () =>
-            setState(() => _qolipsExpanded = !_qolipsExpanded),
+            _applyStateChange(() => _qolipsExpanded = !_qolipsExpanded),
         blockingText: _automaticQolipsReady ? '' : _automaticQolipBlockingText,
         enabled: _queueActionContractSynchronized &&
             !_queueActionBusy &&
@@ -137,7 +137,7 @@ extension _AutomaticOrderQolips on _ReadOnlyOrderDetailSheetState {
               !_queueActionContractSynchronized ||
               _queueActionBusy ||
               _qolipRequirementsLoading) return;
-          setState(() => _automaticQolipSetId = setId);
+          _applyStateChange(() => _automaticQolipSetId = setId);
         },
       );
 }

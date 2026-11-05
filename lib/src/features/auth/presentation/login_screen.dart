@@ -23,6 +23,8 @@ part 'login_screen__LoginScreenState_methods_01.dart';
 part 'login_screen_helpers_part_01.dart';
 
 class _LoginScreenState extends State<LoginScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController codeController = TextEditingController();
   final FocusNode phoneFocusNode = FocusNode();

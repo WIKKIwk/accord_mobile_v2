@@ -60,7 +60,7 @@ void _registerWorkerMaterialPresentationTests() {
       home: AdminProductionMapOrdersScreen(
         readOnly: true,
         workerMode: true,
-        liveEventsLoader: () => const Stream.empty(),
+        liveEventsLoader: _idleProductionLiveLoader(),
       ),
     ));
     await tester.pumpAndSettle();
@@ -195,7 +195,8 @@ void _registerWorkerMaterialPresentationTests() {
                         'error': 'raw_material_rule_load_failed',
                         'message': 'Homashyo ma’lumotini o‘qib bo‘lmadi',
                       }),
-                      503);
+                      503,
+                      headers: {'content-type': 'application/json; charset=utf-8'});
                 }
                 return loading?.future ?? requirementsResponse;
               }
@@ -421,17 +422,18 @@ void _registerWorkerMaterialPresentationTests() {
             find.text(
                 'Apparat oldidagi 1 ta mos rulondan keraklisini tanlab so‘rov yuboring'),
             scenario.needsLink ? findsOneWidget : findsNothing);
-        // Approval polling stays mounted even when no new request is needed.
-        final polls = requests
+        // Live updates still refresh approvals when no new request is needed.
+        final reads = requests
             .where((r) => r.url.path.endsWith('/material-link-requests'))
             .length;
-        await tester.pump(const Duration(seconds: 5));
+        ProductionDataRevision.notify(
+            epoch: 'worker-material-${scenario.name}', revision: 1);
         await tester.pump();
         expect(
             requests
                 .where((r) => r.url.path.endsWith('/material-link-requests'))
                 .length,
-            greaterThan(polls));
+            reads + 1);
       });
     });
   }

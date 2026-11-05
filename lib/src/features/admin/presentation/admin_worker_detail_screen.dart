@@ -33,6 +33,8 @@ const double _workerDetailPanelGap = 4;
 const double _workerDetailFieldRadius = 14;
 
 class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   AdminWorkerDetail? _detail;
   AdminWorkerProfileDetail? _profileDetail;
   List<AdminApparatus> _apparatus = const <AdminApparatus>[];

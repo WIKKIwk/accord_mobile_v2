@@ -14,6 +14,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/localized_test_app.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() async {
@@ -140,7 +142,7 @@ void main() {
       lengthText: '125',
     ));
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(LocalizedTestApp(
           home: Scaffold(
               body: OperatorDashboardPage(
         server: null,

@@ -134,7 +134,6 @@ class _SelectionOption extends StatelessWidget {
     required this.title,
     required this.active,
     required this.onTap,
-    this.subtitle,
     this.trailing,
     required this.slot,
     required this.activeLabel,
@@ -143,7 +142,6 @@ class _SelectionOption extends StatelessWidget {
   final String title;
   final bool active;
   final VoidCallback onTap;
-  final String? subtitle;
   final Widget? trailing;
   final M3SegmentVerticalSlot slot;
   final String activeLabel;
@@ -209,18 +207,6 @@ class _SelectionOption extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

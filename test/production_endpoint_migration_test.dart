@@ -7,6 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const oldOrigin = 'https://mini-rs-erp-dev.wspace.sbs';
 const newOrigin = 'https://accord.confi.uz';
+const _productionBuildRequired = ServerEndpointStore.compiledBaseUrl != newOrigin
+    ? 'Run make test-production-endpoint with the release endpoint define.'
+    : false;
 const profile = SessionProfile(
   role: UserRole.aparatchi,
   displayName: 'Worker',
@@ -53,7 +56,7 @@ void main() {
     );
     await AppSession.instance.load();
     expect(AppSession.instance.token, 'session-token');
-  });
+  }, skip: _productionBuildRequired);
 
   test('keeps an unrelated custom endpoint and its account unchanged', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -104,7 +107,7 @@ void main() {
     await AppSession.instance.load();
     expect(AppSession.instance.token, 'default-token');
     expect(SavedAccountRuntime.instance.store.activeAccount?.baseUrl, newOrigin);
-  });
+  }, skip: _productionBuildRequired);
 }
 
 class _MemorySecrets implements AccountSecretStore {

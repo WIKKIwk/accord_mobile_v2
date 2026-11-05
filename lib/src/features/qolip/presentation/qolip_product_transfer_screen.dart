@@ -39,6 +39,8 @@ class _QolipTransferDrag
 
 class _QolipProductTransferScreenState
     extends State<QolipProductTransferScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   List<QolipProduct> _molds = const [];
   QolipProduct? _source;
   QolipProduct? _target;

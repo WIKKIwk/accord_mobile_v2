@@ -29,6 +29,8 @@ part 'rezka_split_screen_declarations_part_01.dart';
 const _rezkaScrapWarehouse = 'brak - ombori - A';
 
 class _RezkaSplitScreenState extends State<RezkaSplitScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final _barcodeController = TextEditingController();
   final _reasonController = TextEditingController();
   final _driverUrlController = TextEditingController(

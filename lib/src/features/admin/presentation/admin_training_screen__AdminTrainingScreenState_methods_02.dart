@@ -10,7 +10,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
       return null;
     }
     final l10n = context.l10n;
-    setState(() => _generatingInputBatchOrderId = orderId);
+    _applyStateChange(() => _generatingInputBatchOrderId = orderId);
     try {
       final batch = await MobileApi.instance.adminGenerateTrainingInputBatch(
         orderId: orderId,
@@ -18,7 +18,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
       if (!mounted) {
         return batch;
       }
-      setState(() {
+      _applyStateChange(() {
         _inputBatches = [
           for (final item in _inputBatches)
             if (item.batchId.trim() != batch.batchId.trim()) item,
@@ -46,7 +46,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
       return null;
     } finally {
       if (mounted) {
-        setState(() => _generatingInputBatchOrderId = null);
+        _applyStateChange(() => _generatingInputBatchOrderId = null);
       }
     }
   }
@@ -115,7 +115,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _inputBatches = [
         for (final item in _inputBatches)
           if (item.batchId.trim() != batch.batchId.trim()) item,
@@ -187,7 +187,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
     if (!mounted || confirmed != true) {
       return false;
     }
-    setState(() => _deletingMaterialKey = materialKey);
+    _applyStateChange(() => _deletingMaterialKey = materialKey);
     try {
       await MobileApi.instance.adminDeleteTrainingRawMaterial(
         orderId: assignment.orderId,
@@ -197,7 +197,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
       if (!mounted) {
         return true;
       }
-      setState(() {
+      _applyStateChange(() {
         _assignments = [
           for (final item in _assignments)
             if (_trainingMaterialKey(item) != materialKey) item,
@@ -224,7 +224,7 @@ extension __AdminTrainingScreenStateAstPart02 on _AdminTrainingScreenState {
       return false;
     } finally {
       if (mounted) {
-        setState(() => _deletingMaterialKey = null);
+        _applyStateChange(() => _deletingMaterialKey = null);
       }
     }
   }

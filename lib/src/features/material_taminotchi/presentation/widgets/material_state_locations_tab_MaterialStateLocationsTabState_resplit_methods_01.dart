@@ -27,7 +27,7 @@ extension MaterialStateLocationsTabStateAstPart01
             .where((location) => location.active)
             .toList(growable: false);
     final previousSelection = _selectedAssetKeys.length;
-    setState(() {
+    _applyStateChange(() {
       _data = _MaterialStateLocationsData(assets: assets, locations: locations);
       final keys = assets.map(_inventoryStateAssetKey).toSet();
       _selectedAssetKeys.removeWhere((key) => !keys.contains(key));
@@ -74,7 +74,7 @@ extension MaterialStateLocationsTabStateAstPart01
   Future<void> reload() async {
     clearSelection();
     final future = _load(force: true);
-    if (mounted) setState(() => _future = future);
+    if (mounted) _applyStateChange(() => _future = future);
     await future;
   }
 
@@ -116,7 +116,7 @@ extension MaterialStateLocationsTabStateAstPart01
         .map((entry) => entry.key)
         .toSet();
     if (exitingKeys.isNotEmpty) {
-      setState(() => _exitingAssetKeys.addAll(exitingKeys));
+      _applyStateChange(() => _exitingAssetKeys.addAll(exitingKeys));
       await Future<void>.delayed(m3ListMutationAnimationDuration);
       if (!mounted ||
           _inventoryReadScope != currentSessionReadScope() ||
@@ -125,7 +125,7 @@ extension MaterialStateLocationsTabStateAstPart01
       }
     }
     final enteringKeys = <String>{};
-    setState(() {
+    _applyStateChange(() {
       final next = List<InventoryAsset>.of(current.assets);
       for (final entry in unique.entries) {
         final index = next.indexWhere(
@@ -171,7 +171,7 @@ extension MaterialStateLocationsTabStateAstPart01
     if (_selectedAssetKeys.isEmpty) {
       return;
     }
-    setState(_selectedAssetKeys.clear);
+    _applyStateChange(_selectedAssetKeys.clear);
     widget.onSelectionChanged?.call(0);
   }
 
@@ -200,7 +200,7 @@ extension MaterialStateLocationsTabStateAstPart01
       return;
     }
     final key = _inventoryStateAssetKey(asset);
-    setState(() {
+    _applyStateChange(() {
       if (!_selectedAssetKeys.add(key)) {
         _selectedAssetKeys.remove(key);
       }
@@ -253,7 +253,7 @@ extension MaterialStateLocationsTabStateAstPart01
     if (!confirmed || !mounted) {
       return;
     }
-    setState(() => _busyAssetKey = 'return-batch');
+    _applyStateChange(() => _busyAssetKey = 'return-batch');
     try {
       final updatedAssets =
           await MobileApi.instance.inventoryReturnToWarehousesBatch(
@@ -284,7 +284,7 @@ extension MaterialStateLocationsTabStateAstPart01
       }
     } finally {
       if (mounted) {
-        setState(() => _busyAssetKey = '');
+        _applyStateChange(() => _busyAssetKey = '');
       }
     }
   }
@@ -295,7 +295,7 @@ extension MaterialStateLocationsTabStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() => _query = value.trim().toLowerCase());
+      _applyStateChange(() => _query = value.trim().toLowerCase());
     });
   }
 
@@ -352,7 +352,7 @@ extension MaterialStateLocationsTabStateAstPart01
       return;
     }
     final assetKey = _inventoryStateAssetKey(asset);
-    setState(() => _busyAssetKey = assetKey);
+    _applyStateChange(() => _busyAssetKey = assetKey);
     try {
       final updated = await MobileApi.instance.inventoryRelocate(
         assetKind: asset.kind,
@@ -379,7 +379,7 @@ extension MaterialStateLocationsTabStateAstPart01
       }
     } finally {
       if (mounted) {
-        setState(() => _busyAssetKey = '');
+        _applyStateChange(() => _busyAssetKey = '');
       }
     }
   }

@@ -104,6 +104,8 @@ const _returnedPaintFieldLabels = <String>[
 
 class _ReturnedPaintSheetState extends State<ReturnedPaintSheet>
     with TickerProviderStateMixin {
+  void _applyStateChange(void Function() update) => setState(update);
+
   static const double _fieldHeight = 56;
 
   final ImagePicker _imagePicker = ImagePicker();

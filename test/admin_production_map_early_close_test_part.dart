@@ -58,7 +58,7 @@ void _registerEarlyCloseMenuTests() {
             if (closed && archiveReadFails) throw TimeoutException('offline');
             return [if (closed) archived];
           },
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();
@@ -135,7 +135,7 @@ void _registerEarlyCloseMenuTests() {
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => catalog.where((item) => item.id == _print8Id).toList(),
           queueSnapshotLoader: () async => snapshot,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();

@@ -9,7 +9,7 @@ void _registerRezkaIntermediateAstatkaTests() {
         (tester) async {
           await TestModeController.instance.setEnabled(true);
           const orderId = 'zakaz-rezka-astatka-widget';
-          await AppSession.instance.setSession(
+          await _setTestSession(tester,
             token: 'worker-token',
             profile: const SessionProfile(
               role: UserRole.aparatchi,

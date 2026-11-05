@@ -28,7 +28,7 @@ extension __ProductionMapCanvasStateAstPart01 on _ProductionMapCanvasState {
   void _handleCanvasPointerDown(PointerDownEvent event) {
     _canvasPointers.add(event.pointer);
     if (_canvasPointers.length > 1 && _nodeDragActive) {
-      setState(() => _nodeDragActive = false);
+      _applyStateChange(() => _nodeDragActive = false);
     }
   }
 

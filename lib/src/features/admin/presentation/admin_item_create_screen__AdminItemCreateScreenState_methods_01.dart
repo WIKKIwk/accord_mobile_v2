@@ -4,7 +4,7 @@ part of 'admin_item_create_screen.dart';
 extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
   void _handleItemsSearchFocus() {
     if (mounted) {
-      setState(() {});
+      _applyStateChange(() {});
     }
   }
 
@@ -128,7 +128,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       );
       return null;
     }
-    setState(() => saving = true);
+    _applyStateChange(() => saving = true);
     try {
       if (!isFinishedGoods && await _itemCodeAlreadyExists()) {
         if (mounted) {
@@ -185,7 +185,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
       return null;
     } finally {
       if (mounted) {
-        setState(() => saving = false);
+        _applyStateChange(() => saving = false);
       }
     }
   }
@@ -239,7 +239,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     if (picked == null || !mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       itemGroup.text = picked;
       if (!_requiresCustomer(picked)) {
         selectedCustomer = null;
@@ -281,7 +281,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     if (picked == null || !mounted) {
       return;
     }
-    setState(() => uom.text = picked);
+    _applyStateChange(() => uom.text = picked);
   }
 
   Future<void> _openCustomerPicker() async {
@@ -327,7 +327,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
     if (picked == null || !mounted) {
       return;
     }
-    setState(() => selectedCustomer = picked);
+    _applyStateChange(() => selectedCustomer = picked);
   }
 
   Future<CustomerDirectoryEntry?> _createCustomerFromPicker(
@@ -388,7 +388,7 @@ extension __AdminItemCreateScreenStateAstPart01 on _AdminItemCreateScreenState {
                   }
                 },
                 onClearCustomer: () {
-                  setState(() => selectedCustomer = null);
+                  _applyStateChange(() => selectedCustomer = null);
                   setDialogState(() {});
                 },
                 onSave: saving

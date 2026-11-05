@@ -1,9 +1,11 @@
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
+import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
 import 'package:accord_mobile_v2/src/core/security/state/security_controller.dart';
 import 'package:accord_mobile_v2/src/core/session/accounts/account_switch_controller.dart';
 import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_runtime.dart';
-import 'package:accord_mobile_v2/src/core/session/accounts/saved_account_store.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/features/auth/presentation/app_entry_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -12,8 +14,22 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'production_snapshot_test_backend.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    ProductionSnapshotStore.debugOverride =
+        ProductionSnapshotStore(backend: MemoryProductionSnapshotBackend());
+    OrderImageCache.debugOverride =
+        OrderImageCache(disk: createOrderImageDiskStore());
+  });
+
+  tearDown(() {
+    ProductionSnapshotStore.debugOverride = null;
+    OrderImageCache.debugOverride = null;
+  });
 
   testWidgets('logged-out app offers remaining saved profiles', (tester) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -39,7 +55,7 @@ void main() {
       code: '402222',
       makeActive: false,
     );
-    await AppSession.instance.clear();
+    await tester.runAsync(AppSession.instance.clear);
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -73,11 +89,13 @@ void main() {
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
     );
-    await _prepareSavedAccount(profile);
-    await SecurityController.instance.load();
-    await AppSession.instance.setSession(token: 'token', profile: profile);
-    await SecurityController.instance.savePinForCurrentUser('1111');
-    await AppSession.instance.clear();
+    await tester.runAsync(() async {
+      await _prepareSavedAccount(profile);
+      await SecurityController.instance.load();
+      await AppSession.instance.setSession(token: 'token', profile: profile);
+      await SecurityController.instance.savePinForCurrentUser('1111');
+      await AppSession.instance.clear();
+    });
 
     await _pumpEntry(tester);
     await tester.tap(find.text('App lock only'));
@@ -96,11 +114,13 @@ void main() {
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
     );
-    await _prepareSavedAccount(profile);
-    await SecurityController.instance.load();
-    await AppSession.instance.setSession(token: 'token', profile: profile);
-    await SecurityController.instance.saveSwitchPinForCurrentUser('2222');
-    await AppSession.instance.clear();
+    await tester.runAsync(() async {
+      await _prepareSavedAccount(profile);
+      await SecurityController.instance.load();
+      await AppSession.instance.setSession(token: 'token', profile: profile);
+      await SecurityController.instance.saveSwitchPinForCurrentUser('2222');
+      await AppSession.instance.clear();
+    });
 
     await _pumpEntry(tester);
     await tester.tap(find.text('Switch protected'));
@@ -150,6 +170,12 @@ Future<void> _pumpEntry(WidgetTester tester) async {
       home: AppEntryScreen(
         accountSwitchControllerFactory: () => AccountSwitchController(
           store: SavedAccountRuntime.instance.store,
+          activateSavedSession: (session, bootstrap) =>
+              AppSession.instance.setSession(
+            token: session.token,
+            profile: session.account.profile,
+            werkaHomeBootstrap: bootstrap,
+          ),
         ),
       ),
     ),

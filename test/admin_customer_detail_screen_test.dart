@@ -5,6 +5,8 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/localized_test_app.dart';
+
 part 'admin_customer_detail_screen_test_cases_resplit_part_01.dart';
 part 'admin_customer_detail_screen_test_cases_resplit_part_02.dart';
 

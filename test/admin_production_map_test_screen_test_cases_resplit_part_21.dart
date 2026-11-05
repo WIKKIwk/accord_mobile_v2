@@ -6,7 +6,7 @@ void _registeradmin_production_map_test_screen_testCases21() {
     'only current waiting previous-stage WIP can arm Start',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
         token: 'worker-lamin-processed-wip-token',
         profile: const SessionProfile(
           role: UserRole.aparatchi,
@@ -216,7 +216,7 @@ void _registeradmin_production_map_test_screen_testCases21() {
     'only the source output QR can arm the next-stage Start',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
         token: 'worker-lamin-opening-wip-token',
         profile: const SessionProfile(
           role: UserRole.aparatchi,

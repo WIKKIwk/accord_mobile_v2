@@ -7,7 +7,7 @@ void _registeradmin_production_map_test_screen_testCases20() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-completed-context-token',
       profile: const SessionProfile(
         role: UserRole.werka,
@@ -88,7 +88,7 @@ void _registeradmin_production_map_test_screen_testCases20() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-completed-history-failure-token',
       profile: const SessionProfile(
         role: UserRole.werka,
@@ -177,7 +177,7 @@ void _registeradmin_production_map_test_screen_testCases20() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-lamin-previous-qr-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,

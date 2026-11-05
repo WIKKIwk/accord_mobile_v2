@@ -2,6 +2,8 @@
 part of 'qolip_home_screen.dart';
 
 class _QolipAttachSheetState extends State<_QolipAttachSheet> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final _qolipCode = TextEditingController();
   final _size = TextEditingController();
   final _setLookup = QolipSetLookup();

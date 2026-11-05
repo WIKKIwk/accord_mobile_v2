@@ -13,7 +13,7 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
     _animateNextListUpdate = true;
     _listAnimationGeneration++;
     _resetUsersScroll();
-    setState(() {
+    _applyStateChange(() {
       _searchQuery = query;
       _initialLoading = !filterLocally;
       _loadingMore = false;
@@ -48,14 +48,14 @@ extension __AdminSuppliersScreenStateAstPart02 on _AdminSuppliersScreenState {
     _userManuallySelectedRole = true;
     unawaited(AdminUsersRoleStore.instance.saveRole(kind));
     if (_selectedKind == kind) {
-      setState(() => _roleMenuOpen = false);
+      _applyStateChange(() => _roleMenuOpen = false);
       return;
     }
     _requestGeneration++;
     _animateNextListUpdate = false;
     _listAnimationGeneration++;
     _resetUsersScroll();
-    setState(() {
+    _applyStateChange(() {
       _selectedKind = kind;
       _authoritativeItems.clear();
       _authoritativeQuery = '';

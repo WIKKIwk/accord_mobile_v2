@@ -70,7 +70,7 @@ extension _AdminProductionMapOrdersTemporaryPause
     } finally {
       try {
         if (mounted && scope == currentSessionReadScope()) {
-          setState(() {
+          _applyStateChange(() {
             if (success && snapshotGeneration == _queueSnapshotGeneration) {
               // The committed pause is already acknowledged. Paint it without
               // waiting for the canonical background read; permissions still

@@ -6,6 +6,8 @@ const _queueActionControlRefreshTimeout = Duration(seconds: 5);
 
 class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     with WidgetsBindingObserver {
+  void _applyStateChange(void Function() update) => setState(update);
+
   bool _detailRecoveryNeeded = false;
   bool _scannedWipSheetOpen = false;
   // Button controls can recover before their independently loaded materials.
@@ -531,9 +533,6 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         requiredQolipSets: _requiredQolipSets,
         scannedQolipCodes: _scannedQolipCodes.values,
       );
-  bool get _bypassStartMaterialScan =>
-      _queueActionControl?.interaction?.startMaterialsMode !=
-      AdminQueueStartMaterialsMode.scanRequired;
   String get _qolipRequirementsStatusText {
     if (_qolipRequirementsLoading) {
       return context.l10n.productionText('worker.mold.requirements.loading');

@@ -4,7 +4,7 @@ part of 'werka_archive_sent_hub_screen.dart';
 extension __WerkaArchiveSentHubScreenStateAstPart01
     on _WerkaArchiveSentHubScreenState {
   void _toggleSection(WerkaArchivePeriod period) {
-    setState(() {
+    _applyStateChange(() {
       final currentlyOpen = switch (period) {
         WerkaArchivePeriod.daily => _dailyOpen,
         WerkaArchivePeriod.monthly => _monthlyOpen,
@@ -56,7 +56,7 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
   }
 
   Future<void> _loadDaily() async {
-    setState(() {
+    _applyStateChange(() {
       _loading = true;
       _error = null;
     });
@@ -78,23 +78,23 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
           days.add(created.day);
         }
       }
-      setState(() {
+      _applyStateChange(() {
         _activeDays = days;
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() => _error = error);
+      _applyStateChange(() => _error = error);
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        _applyStateChange(() => _loading = false);
       }
     }
   }
 
   Future<void> _loadMonthly() async {
-    setState(() {
+    _applyStateChange(() {
       _loading = true;
       _error = null;
     });
@@ -114,23 +114,23 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
           months.add(created.month);
         }
       }
-      setState(() {
+      _applyStateChange(() {
         _activeMonths = months;
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() => _error = error);
+      _applyStateChange(() => _error = error);
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        _applyStateChange(() => _loading = false);
       }
     }
   }
 
   Future<void> _loadYearly() async {
-    setState(() {
+    _applyStateChange(() {
       _loading = true;
       _error = null;
     });
@@ -152,17 +152,17 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
           years.add(created.year);
         }
       }
-      setState(() {
+      _applyStateChange(() {
         _activeYears = years;
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() => _error = error);
+      _applyStateChange(() => _error = error);
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        _applyStateChange(() => _loading = false);
       }
     }
   }
@@ -279,7 +279,7 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
           children: [
             IconButton(
               onPressed: () async {
-                setState(() => _displayYear--);
+                _applyStateChange(() => _displayYear--);
                 await _loadMonthly();
               },
               icon: Icon(
@@ -296,7 +296,7 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
             ),
             IconButton(
               onPressed: () async {
-                setState(() => _displayYear++);
+                _applyStateChange(() => _displayYear++);
                 await _loadMonthly();
               },
               icon: Icon(
@@ -346,7 +346,7 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
           children: [
             IconButton(
               onPressed: () async {
-                setState(() => _startYear -= 12);
+                _applyStateChange(() => _startYear -= 12);
                 await _loadYearly();
               },
               icon: Icon(
@@ -363,7 +363,7 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
             ),
             IconButton(
               onPressed: () async {
-                setState(() => _startYear += 12);
+                _applyStateChange(() => _startYear += 12);
                 await _loadYearly();
               },
               icon: Icon(
@@ -416,12 +416,12 @@ extension __WerkaArchiveSentHubScreenStateAstPart01
           onDisplayedMonthChanged: (value) async {
             final nextMonth = DateTime(value.year, value.month, 1);
             if (nextMonth == _displayMonth) return;
-            setState(() => _displayMonth = nextMonth);
+            _applyStateChange(() => _displayMonth = nextMonth);
             await _loadDaily();
           },
           onDateChanged: (value) {
             final date = DateUtils.dateOnly(value);
-            setState(() => _selectedDate = date);
+            _applyStateChange(() => _selectedDate = date);
             _openList(period: WerkaArchivePeriod.daily, from: date, to: date);
           },
         ),

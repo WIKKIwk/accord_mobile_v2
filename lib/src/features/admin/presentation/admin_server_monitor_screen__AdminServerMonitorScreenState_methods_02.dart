@@ -9,7 +9,7 @@ extension __AdminServerMonitorScreenStateAstPart02
     if (_downloadingBackupId != null) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _downloadingBackupId = snapshot.id;
       _downloadProgress = 0;
     });
@@ -26,7 +26,7 @@ extension __AdminServerMonitorScreenStateAstPart02
           if (!mounted || total <= 0) {
             return;
           }
-          setState(() {
+          _applyStateChange(() {
             _downloadProgress = (received / total).clamp(0, 1);
           });
         },
@@ -45,7 +45,7 @@ extension __AdminServerMonitorScreenStateAstPart02
       }
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _downloadingBackupId = null;
           _downloadProgress = 0;
         });
@@ -135,7 +135,7 @@ extension __AdminServerMonitorScreenStateAstPart02
     if (confirmed != true || !mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _importingBackup = true;
       _importProgress = 0;
     });
@@ -149,7 +149,7 @@ extension __AdminServerMonitorScreenStateAstPart02
           if (!mounted || total <= 0) {
             return;
           }
-          setState(() {
+          _applyStateChange(() {
             _importProgress = (received / total).clamp(0, 1);
           });
         },
@@ -161,7 +161,7 @@ extension __AdminServerMonitorScreenStateAstPart02
       // The API returns after the upload is durably staged and the restore job
       // is queued. Do not keep the import button blocked while a monitor
       // refresh waits on a slow network or database response.
-      setState(() {
+      _applyStateChange(() {
         _importingBackup = false;
         _importProgress = 0;
       });
@@ -176,7 +176,7 @@ extension __AdminServerMonitorScreenStateAstPart02
       }
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _importingBackup = false;
           _importProgress = 0;
         });
@@ -248,7 +248,7 @@ extension __AdminServerMonitorScreenStateAstPart02
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _applyReport(report);
         _loading = false;
         _error = null;
@@ -257,7 +257,7 @@ extension __AdminServerMonitorScreenStateAstPart02
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _loading = false;
         _error = error;
       });
@@ -277,7 +277,7 @@ extension __AdminServerMonitorScreenStateAstPart02
         if (!mounted || generation != _liveGeneration) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _liveConnected = false;
           _error = _report == null ? error : null;
         });
@@ -299,7 +299,7 @@ extension __AdminServerMonitorScreenStateAstPart02
         if (!mounted || generation != _liveGeneration) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           final snapshot = report.report;
           if (snapshot != null) {
             _applyReport(snapshot);
@@ -387,7 +387,7 @@ extension __AdminServerMonitorScreenStateAstPart02
         if (!mounted || _pendingImportJobId != jobId) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _applyReport(report);
           _loading = false;
           _error = null;

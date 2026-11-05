@@ -109,7 +109,7 @@ Future<bool?> showM3ConfirmDialog({
             minWidth: verticalActions ? 320 : 0,
             maxWidth: m3DialogMaxWidth,
           ),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,

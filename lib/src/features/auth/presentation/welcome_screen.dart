@@ -30,6 +30,8 @@ final _ShapeProfile _ambientCookieProfile = _ShapeProfile.fromPath(
 
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
+  void _applyStateChange(void Function() update) => setState(update);
+
   static const List<Locale> _headlineLocales = <Locale>[
     Locale('uz'),
     Locale('en'),

@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/production/production_data_revision.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/chat/models/chat_models.dart';
@@ -74,6 +75,12 @@ Widget _localizedApp({required Widget home}) => MaterialApp(
     );
 
 void main() {
+  var serverRevision = 0;
+  void publishProductionChange() => ProductionDataRevision.notify(
+        epoch: 'material-link-test',
+        revision: ++serverRevision,
+      );
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(false);
@@ -85,7 +92,7 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('satisfied assignments hide new linking while polling continues',
+  testWidgets('satisfied assignments hide new linking and refresh on live revisions',
       (tester) async {
     final allowed = ValueNotifier(false);
     addTearDown(allowed.dispose);
@@ -109,6 +116,8 @@ void main() {
       expect(find.textContaining('ta mos rulondan'), findsNothing);
       expect(reads, 1);
       await tester.pump(const Duration(seconds: 5));
+      expect(reads, 1);
+      publishProductionChange();
       await tester.pumpAndSettle();
       expect(reads, 2);
       allowed.value = true;
@@ -151,14 +160,14 @@ void main() {
               .onPressed,
           isNotNull);
       status = 'approved';
-      await tester.pump(const Duration(seconds: 5));
+      publishProductionChange();
       await tester.pumpAndSettle();
       expect(linked, 1);
       expect(find.textContaining('Tasdiqlangan'), findsOneWidget);
       expect(find.text('Ulash uchun so‘rov'), findsNothing);
       expect(find.text('Tasdiq kutilmoqda'), findsNothing);
       expect(find.textContaining('bo‘sh rulon yo‘q'), findsNothing);
-      await tester.pump(const Duration(seconds: 5));
+      publishProductionChange();
       await tester.pumpAndSettle();
       expect(linked, 1);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -232,7 +241,7 @@ void main() {
   }
 
   testWidgets(
-    'worker panel pauses hidden/background polling and refreshes on return',
+    'worker panel defers hidden and background live updates until return',
     (tester) async {
       var reads = 0;
       var linked = 0;
@@ -264,7 +273,8 @@ void main() {
           );
           await tester.pumpAndSettle();
           status = 'approved';
-          await tester.pump(const Duration(seconds: 15));
+          publishProductionChange();
+          await tester.pump();
           expect(reads, 1);
           expect(linked, 0);
           tester.binding.handleAppLifecycleStateChanged(
@@ -283,7 +293,8 @@ void main() {
           tester.binding.handleAppLifecycleStateChanged(
             AppLifecycleState.paused,
           );
-          await tester.pump(const Duration(seconds: 10));
+          publishProductionChange();
+          await tester.pump();
           expect(reads, 2);
           tester.binding.handleAppLifecycleStateChanged(
             AppLifecycleState.resumed,
@@ -364,7 +375,7 @@ void main() {
     },
   );
 
-  testWidgets('late poll cannot overwrite post-mutation verification', (
+  testWidgets('late live refresh cannot overwrite post-mutation verification', (
     tester,
   ) async {
     final delayed = Completer<http.Response>();
@@ -385,7 +396,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.pump(const Duration(seconds: 5));
+        publishProductionChange();
         await tester.pump();
         expect(reads, 2);
         await tester.tap(find.text('Ulash uchun so‘rov'));
@@ -916,7 +927,7 @@ void main() {
                 .onPressed,
             isNull);
         status = terminal;
-        await tester.pump(const Duration(seconds: 5));
+        publishProductionChange();
         await tester.pumpAndSettle();
         expect(find.text('Tasdiq kutilmoqda'), findsNothing);
         expect(find.text('Ulash uchun so‘rov'), findsOneWidget);
@@ -926,7 +937,7 @@ void main() {
                 .onPressed,
             isNotNull);
         expect(linked, ['approved', 'stale'].contains(terminal) ? 1 : 0);
-        await tester.pump(const Duration(seconds: 5));
+        publishProductionChange();
         await tester.pumpAndSettle();
         expect(linked, ['approved', 'stale'].contains(terminal) ? 1 : 0);
         await tester.pumpWidget(const SizedBox.shrink());

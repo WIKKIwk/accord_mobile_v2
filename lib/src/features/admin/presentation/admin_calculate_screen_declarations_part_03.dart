@@ -8,7 +8,6 @@ class _PickerInput extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
-    this.subtitle = '',
     this.required = false,
     this.dense = false,
     this.height = _calculateFieldHeight,
@@ -17,7 +16,6 @@ class _PickerInput extends StatelessWidget {
 
   final String label;
   final String value;
-  final String subtitle;
   final bool required;
   final bool dense;
   final double height;
@@ -29,7 +27,6 @@ class _PickerInput extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final displayValue = value.trim();
-    final displaySubtitle = subtitle.trim();
     final empty = displayValue.isEmpty;
     final labelColor =
         required && empty ? scheme.error : scheme.onSurfaceVariant;
@@ -69,41 +66,22 @@ class _PickerInput extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: enabled ? onTap : null,
-        child: SizedBox(
-          height: height,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: height),
           child: InputDecorator(
             decoration: decoration,
             isEmpty: false,
             child: Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        empty ? label : displayValue,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: empty
-                              ? scheme.onSurfaceVariant
-                              : scheme.onSurface,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (displaySubtitle.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          displaySubtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    empty ? label : displayValue,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: empty ? scheme.onSurfaceVariant : scheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

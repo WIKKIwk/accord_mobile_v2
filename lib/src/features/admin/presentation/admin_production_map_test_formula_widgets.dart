@@ -124,18 +124,15 @@ class _SheetField extends StatelessWidget {
   const _SheetField({
     required this.label,
     required this.controller,
-    this.keyboardType,
   });
 
   final String label;
   final TextEditingController controller;
-  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),

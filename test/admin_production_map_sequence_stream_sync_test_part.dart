@@ -466,8 +466,7 @@ void _registerSequenceStreamSyncTests() {
       await _flushSequenceStreamSync(tester);
       final token = AppSession.instance.token!;
       final profile = AppSession.instance.profile!;
-      await AppSession.instance
-          .setSession(token: 'replacement-admin-token', profile: profile);
+      await _setTestSession(tester, token: 'replacement-admin-token', profile: profile);
       harness.acknowledge(0, moved,
           sequenceRevision: 6, sequenceVersion: '1' * 64);
       await _flushSequenceStreamSync(tester);
@@ -477,7 +476,7 @@ void _registerSequenceStreamSyncTests() {
       harness.expectRows(tester, const []);
       harness.expectQuiet(tester, initialReads);
       await harness.dispose(tester);
-      await AppSession.instance.setSession(token: token, profile: profile);
+      await _setTestSession(tester, token: token, profile: profile);
     }, () => MockClient(harness.respond));
   });
 

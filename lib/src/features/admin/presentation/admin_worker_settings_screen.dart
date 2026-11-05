@@ -56,6 +56,8 @@ const double _workerSettingsPanelGap = 4;
 
 class _AdminWorkerSettingsScreenState extends State<AdminWorkerSettingsScreen>
     with SingleTickerProviderStateMixin {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late Future<_WorkerSettingsData> _future;
   late TabController _tabController;
   bool get _rezkaMaster => AppSession.instance.profile?.role == UserRole.rezkaMaster;

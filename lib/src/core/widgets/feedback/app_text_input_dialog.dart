@@ -15,10 +15,12 @@ Future<String?> showAppTextInputDialog({
   String saveLabel = 'Saqlash',
 }) async {
   final controller = TextEditingController(text: initialText);
+  Future<Object?>? routeCompletion;
   try {
-    return showDialog<String>(
+    return await showDialog<String>(
       context: context,
       builder: (context) {
+        routeCompletion = ModalRoute.of(context)?.completed;
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(cardRadius),
@@ -70,6 +72,8 @@ Future<String?> showAppTextInputDialog({
       },
     );
   } finally {
+    // The text field is still mounted during the dialog's exit animation.
+    await routeCompletion;
     controller.dispose();
   }
 }

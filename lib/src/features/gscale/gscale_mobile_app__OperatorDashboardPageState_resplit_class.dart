@@ -3,6 +3,8 @@ part of 'gscale_mobile_app.dart';
 
 class _OperatorDashboardPageState extends State<OperatorDashboardPage>
     with SingleTickerProviderStateMixin {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final http.Client _client = http.Client();
   final ValueNotifier<int> _latencyListenable = ValueNotifier<int>(0);
   final TextEditingController _defaultWarehouseController =

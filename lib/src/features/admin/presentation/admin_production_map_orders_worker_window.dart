@@ -17,7 +17,7 @@ extension _WorkerQueueWindowState on _AdminProductionMapOrdersScreenState {
   }
 
   void _onOrdersSearchChanged(String value) {
-    setState(() => _searchQuery = value);
+    _applyStateChange(() => _searchQuery = value);
     if (_adminPaging) {
       _adminSearchChanged(value);
       return;

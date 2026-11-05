@@ -30,6 +30,8 @@ const double _itemCreateCardRadius = 18;
 const double _itemCreateFieldRadius = 18;
 
 class _AdminItemCreateScreenState extends State<AdminItemCreateScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController code = TextEditingController();
   final TextEditingController name = TextEditingController();
   final TextEditingController itemGroup = TextEditingController();

@@ -30,7 +30,7 @@ void _registeradmin_customer_detail_screen_testCases02() {
     var serverDetail = detail();
 
     Widget subject() {
-      return MaterialApp(
+      return LocalizedTestApp(
         home: AdminCustomerDetailScreen(
           key: UniqueKey(),
           customerRef: 'MAT-EDIT',
@@ -187,7 +187,7 @@ void _registeradmin_customer_detail_screen_testCases02() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: AdminCustomerDetailScreen(
           customerRef: 'MAT-READ',
           isMaterialTaminotchi: true,

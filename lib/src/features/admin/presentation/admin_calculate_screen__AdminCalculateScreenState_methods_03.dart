@@ -87,7 +87,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     }
     if (target != null) {
       if (!_products.contains(target) || pickerCustomerRef != _customerRef) return;
-      setState(() {
+      _applyStateChange(() {
         _forkLayoutTemplate();
         target.itemCode = picked.code;
         target.product.text = picked.name.trim().isEmpty ? picked.code : picked.name.trim();
@@ -109,7 +109,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       if (action == QuickOrderRecreateAction.useTemplate) {
         final generation = _productCustomerGeneration + 1;
         _productCustomerGeneration = generation;
-        setState(() {
+        _applyStateChange(() {
           _editingAllFields = true;
           _applyTemplate(existingTemplate);
           _itemCode = picked.code;
@@ -129,7 +129,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     final shouldAutoSelectCustomer =
         _customerRef.trim().isEmpty && _customer.text.trim().isEmpty;
     final generation = _productCustomerGeneration + 1;
-    setState(() {
+    _applyStateChange(() {
       if (widget.openedOrder == null &&
           (recreate || (_templateId.isNotEmpty && picked.code.trim() != _itemCode.trim()))) {
         _templateId = 'quick-${DateTime.now().microsecondsSinceEpoch}';
@@ -167,7 +167,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           _customer.text.trim().isNotEmpty) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _customerRef = customer.ref;
         _customer.text =
             customer.name.trim().isEmpty ? customer.ref : customer.name.trim();
@@ -252,7 +252,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             title: Text(l10n.adminText('calculate.by_val')),
             value: _calculateByVal,
-            onChanged: (value) => setState(() => _calculateByVal = value),
+            onChanged: (value) => _applyStateChange(() => _calculateByVal = value),
           ),
         ),
         if (_calculateByVal)
@@ -316,7 +316,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     final signature = _calculationSignature();
     final scope = currentSessionReadScope();
     final draft = _buildTemplateDraft();
-    setState(() {
+    _applyStateChange(() {
       _calculating = true;
       _error = '';
     });
@@ -344,13 +344,13 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       final comboReady = await _persistCalculatedCombo(
         draft: draft, calculationSignature: signature, scope: scope);
       if (!comboReady || !mounted || scope != currentSessionReadScope()) return;
-      setState(() {
+      _applyStateChange(() {
         _result = result;
         _lastCalculatedSignature = signature;
       });
     } catch (error) {
       if (!mounted || scope != currentSessionReadScope()) return;
-      setState(() {
+      _applyStateChange(() {
         _error = error is MobileApiException ? error.message : error.toString();
         _result = null;
         _lastCalculatedSignature = '';
@@ -362,7 +362,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       );
     } finally {
       if (mounted) {
-        setState(() => _calculating = false);
+        _applyStateChange(() => _calculating = false);
       }
     }
   }
@@ -377,7 +377,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
     if (picked == null) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _uploadingImage = true;
       _imageLocalPath = picked.path;
       _error = '';
@@ -395,7 +395,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _imageId = image.imageId;
         _imageName = image.imageName;
         _imageMime = image.imageMime;
@@ -407,7 +407,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _imageLocalPath = '';
         _error = error is MobileApiException ? error.message : error.toString();
       });
@@ -418,13 +418,13 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       );
     } finally {
       if (mounted) {
-        setState(() => _uploadingImage = false);
+        _applyStateChange(() => _uploadingImage = false);
       }
     }
   }
 
   void _clearImage() {
-    setState(() {
+    _applyStateChange(() {
       _imageId = '';
       _imageName = '';
       _imageMime = '';
@@ -435,7 +435,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
   }
 
   void _enableFullEdit() {
-    setState(() {
+    _applyStateChange(() {
       _editingAllFields = true;
     });
   }

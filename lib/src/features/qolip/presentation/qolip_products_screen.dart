@@ -43,6 +43,8 @@ String _productMoldKey(QolipProduct product) =>
     '${product.code.trim().toLowerCase()}\u0000${product.qolipCode.trim().toLowerCase()}';
 
 class _QolipProductsScreenState extends State<QolipProductsScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   late Future<void> _future;

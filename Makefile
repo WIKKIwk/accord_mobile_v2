@@ -366,3 +366,8 @@ analyze:
 
 test:
 	@$(FLUTTER_BIN) test
+	@$(MAKE) test-production-endpoint
+
+.PHONY: test-production-endpoint
+test-production-endpoint:
+	@$(FLUTTER_BIN) test --dart-define=MOBILE_API_BASE_URL=https://accord.confi.uz test/production_endpoint_migration_test.dart

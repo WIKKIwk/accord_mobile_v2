@@ -297,7 +297,7 @@ void _registerWorkerCompletedWipTests() {
       home: AdminProductionMapOrdersScreen(
         readOnly: true,
         workerMode: true,
-        liveEventsLoader: () => const Stream.empty(),
+        liveEventsLoader: _idleProductionLiveLoader(),
       ),
     ));
     await _pumpCompletedWorkFrames(tester);

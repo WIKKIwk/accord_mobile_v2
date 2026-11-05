@@ -131,8 +131,9 @@ Future<void> _pumpSupplySequence(WidgetTester tester) async {
 }
 
 Future<void> _openOrderSheet(WidgetTester tester) async {
-  expect(find.textContaining('Tayyorlov summary order'), findsOneWidget);
-  await tester.tap(find.byTooltip('Buyurtma ma’lumotlari'));
+  final row = find.textContaining('Tayyorlov summary order');
+  expect(row, findsOneWidget);
+  await tester.tap(row);
   await tester.pumpAndSettle();
 }
 
@@ -142,7 +143,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     resetMobileApiTestModeData();
-    AppSession.instance.token = 'token';
+    AppSession.instance.token = 'test-mode-token';
   });
 
   tearDown(() {

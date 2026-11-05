@@ -566,7 +566,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 errorBorder: bubbleErrorInputBorder,
                 focusedErrorBorder: bubbleFocusedErrorInputBorder,
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => _applyStateChange(() {}),
             ),
             const SizedBox(height: 8),
           ],
@@ -580,7 +580,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               onChanged: contextFieldsLocked
                   ? null
                   : (manual) {
-                      setState(() {
+                      _applyStateChange(() {
                         _quantitySource = manual ? 'manual' : 'scale';
                       });
                       _scheduleSaveControlPrefs();
@@ -594,7 +594,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
               onChanged: contextFieldsLocked
                   ? null
                   : (enabled) {
-                      setState(() {
+                      _applyStateChange(() {
                         _babinaEnabled = enabled;
                         if (!enabled) {
                           _babinaWeightController.clear();
@@ -652,7 +652,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                 errorBorder: controlErrorInputBorder,
                 focusedErrorBorder: controlFocusedErrorInputBorder,
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => _applyStateChange(() {}),
             ),
           ),
         ],
@@ -707,10 +707,10 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                       }
                       _restoreManualQtyTapIfEmpty();
                       if (mounted) {
-                        setState(() {});
+                        _applyStateChange(() {});
                       }
                     },
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => _applyStateChange(() {}),
                   ),
                 ),
               ),
@@ -749,7 +749,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                           errorBorder: bubbleErrorInputBorder,
                           focusedErrorBorder: bubbleFocusedErrorInputBorder,
                         ),
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (_) => _applyStateChange(() {}),
                       ),
                     ),
                   ),
@@ -783,7 +783,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
             onChanged: _batchActionLoading || _manualPrintLoading
                 ? null
                 : (value) {
-                    setState(() => _materialSupplier = value ?? '');
+                    _applyStateChange(() => _materialSupplier = value ?? '');
                     _scheduleSaveControlPrefs();
                   },
           ),
@@ -1002,7 +1002,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                       if (nextPrinter == selectedPrinter) {
                         return;
                       }
-                      setState(() {
+                      _applyStateChange(() {
                         _batchPrinter = nextPrinter;
                         if (nextPrinter == 'godex') {
                           _batchPrintMode = 'label';
@@ -1049,7 +1049,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_02
                       if (nextMode == _batchPrintMode) {
                         return;
                       }
-                      setState(() {
+                      _applyStateChange(() {
                         _batchPrintMode = nextMode;
                       });
                       _scheduleSaveControlPrefs();

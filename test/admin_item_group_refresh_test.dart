@@ -7,13 +7,15 @@ import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/localized_test_app.dart';
+
 void main() {
   testWidgets('item group tree reuses the admin home pull refresh', (
     tester,
   ) async {
     var refreshCalls = 0;
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: Scaffold(
           body: AdminItemGroupTreeTab(
             itemGroupTreeFuture: Future.value(const [
@@ -49,7 +51,7 @@ void main() {
   ) async {
     var loadCalls = 0;
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: Scaffold(
           body: AdminItemGroupItemsTab(
             itemGroupsFuture: Future.value(const ['Group A']),

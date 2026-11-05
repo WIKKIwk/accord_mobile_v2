@@ -484,14 +484,14 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
     if (_recordingVoice || _voiceBusy || store.sending || !_isCurrentAccount) {
       return;
     }
-    setState(() => _voiceBusy = true);
+    _applyStateChange(() => _voiceBusy = true);
     try {
       await voiceRecorder.start();
       if (!mounted || !_isCurrentAccount) {
         await voiceRecorder.cancel();
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _recordingVoice = true;
         _voiceDuration = Duration.zero;
       });
@@ -503,7 +503,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
           unawaited(_finishVoiceRecording());
           return;
         }
-        setState(() => _voiceDuration = elapsed);
+        _applyStateChange(() => _voiceDuration = elapsed);
       });
     } on ChatVoiceRecorderException catch (error) {
       _showMediaError(
@@ -514,13 +514,13 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
     } catch (_) {
       _showMediaError('Ovoz yozishni boshlab bo‘lmadi.');
     } finally {
-      if (mounted) setState(() => _voiceBusy = false);
+      if (mounted) _applyStateChange(() => _voiceBusy = false);
     }
   }
 
   Future<void> _finishVoiceRecording() async {
     if (!_recordingVoice || _voiceBusy) return;
-    setState(() => _voiceBusy = true);
+    _applyStateChange(() => _voiceBusy = true);
     _voiceTimer?.cancel();
     ChatVoiceRecording? recording;
     var queued = false;
@@ -532,7 +532,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
         }
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _recordingVoice = false;
         _voiceDuration = Duration.zero;
       });
@@ -561,7 +561,7 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
       _showMediaError(chatMediaFailureMessage(error));
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _recordingVoice = false;
           _voiceBusy = false;
           _voiceDuration = Duration.zero;
@@ -572,14 +572,14 @@ extension __ChatDetailScreenStateAstPart01 on _ChatDetailScreenState {
 
   Future<void> _cancelVoiceRecording({bool showMessage = true}) async {
     if (!_recordingVoice || _voiceBusy) return;
-    setState(() => _voiceBusy = true);
+    _applyStateChange(() => _voiceBusy = true);
     _voiceTimer?.cancel();
     try {
       await voiceRecorder.cancel();
       if (showMessage) _showMediaError('Ovoz yozish bekor qilindi.');
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _recordingVoice = false;
           _voiceBusy = false;
           _voiceDuration = Duration.zero;

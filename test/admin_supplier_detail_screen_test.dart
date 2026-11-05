@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/localized_test_app.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -32,7 +34,7 @@ void main() {
 
   testWidgets('admin supplier detail uses profile standard', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      const LocalizedTestApp(
         home: AdminSupplierDetailScreen(
           supplierRef: 'demo-supplier',
           chatTarget: ChatDirectoryEntry(

@@ -37,6 +37,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
+    resetMobileApiTestModeData();
     await CalculateOrderTemplateStore.instance.debugReset();
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(

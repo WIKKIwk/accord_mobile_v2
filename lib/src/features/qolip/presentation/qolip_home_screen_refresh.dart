@@ -23,7 +23,7 @@ extension _QolipHomeRefresh on _QolipHomeScreenState {
     _searchGeneration++;
     _searchDebounce?.cancel();
     _searchFocusNode.unfocus();
-    setState(() {
+    _applyStateChange(() {
       _homeScope = scope;
       _homeSessionInvalid = !valid;
       _homeDataReady = false;
@@ -121,7 +121,7 @@ extension _QolipHomeRefresh on _QolipHomeScreenState {
           ? 0
           : ordered.indexWhere((block) => _blockKey(block) == selectedKey);
       final nextIndex = selectedIndex < 0 ? 0 : selectedIndex;
-      setState(() {
+      _applyStateChange(() {
         if (changedBlocks) {
           _orderedBlocks = ordered;
           _homeBlocksSnapshot = snapshot;

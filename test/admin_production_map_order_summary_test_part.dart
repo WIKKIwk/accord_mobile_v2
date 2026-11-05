@@ -143,7 +143,7 @@ void _registerOrderSummaryTests() {
             apparatusLoader: () async => const [
               AdminApparatus(id: _rezkaId, name: 'Rezka', operation: 'cut'),
             ],
-            liveEventsLoader: () => const Stream.empty(),
+            liveEventsLoader: _idleProductionLiveLoader(),
           ),
         ));
         await _pumpCompletedWorkFrames(tester);
@@ -268,7 +268,7 @@ void _registerOrderSummaryTests() {
           workerMode: true,
           queueSnapshotLoader: () async => snapshot,
           apparatusLoader: () async => apparatus,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();

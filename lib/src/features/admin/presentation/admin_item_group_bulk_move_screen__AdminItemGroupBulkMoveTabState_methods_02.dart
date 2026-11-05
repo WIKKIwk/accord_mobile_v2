@@ -9,7 +9,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart02
       return false;
     }
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _groups
           ..clear()
           ..addAll(cache.groups);

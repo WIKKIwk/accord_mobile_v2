@@ -3,7 +3,7 @@ part of 'qolip_product_transfer_screen.dart';
 extension _QolipProductTransferActions on _QolipProductTransferScreenState {
   Future<void> _reload() async {
     final generation = ++_loadGeneration;
-    setState(() {
+    _applyStateChange(() {
       _loading = true;
       _loadError = null;
     });
@@ -11,7 +11,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       final molds = await MobileApi.instance
           .qolipProducts(limit: 20000, withQolipOnly: true);
       if (!mounted || generation != _loadGeneration) return;
-      setState(() {
+      _applyStateChange(() {
         _molds = molds;
         final available = _forProduct(_selectedProduct)
             .where((m) => !m.isInUse)
@@ -21,10 +21,10 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       });
     } catch (error) {
       if (mounted && generation == _loadGeneration)
-        setState(() => _loadError = error);
+        _applyStateChange(() => _loadError = error);
     } finally {
       if (mounted && generation == _loadGeneration)
-        setState(() => _loading = false);
+        _applyStateChange(() => _loading = false);
     }
   }
 
@@ -73,7 +73,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       ),
     );
     if (picked == null || !mounted) return;
-    setState(() {
+    _applyStateChange(() {
       if (_selectedProduct?.code == (source ? _source?.code : _target?.code)) {
         _selected.clear();
         _selectedProduct = null;
@@ -94,14 +94,14 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       _message(_text('limit'));
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedProduct = product;
       if (!_selected.add(code)) _selected.remove(code);
     });
   }
 
   Future<void> _scanSource() async {
-    setState(() => _scanning = true);
+    _applyStateChange(() => _scanning = true);
     try {
       final code = await Navigator.of(context).push<String>(MaterialPageRoute(
         builder: (_) => const QolipRawQrScanScreen(),
@@ -148,7 +148,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
                   ),
                 ));
       if (mold == null || !mounted) return;
-      setState(() {
+      _applyStateChange(() {
         _source = mold;
         _selectedProduct = mold;
         if (_target?.code == mold.code) _target = null;
@@ -159,7 +159,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
     } catch (error) {
       if (mounted) _showError(error, _text('scan_failed'));
     } finally {
-      if (mounted) setState(() => _scanning = false);
+      if (mounted) _applyStateChange(() => _scanning = false);
     }
   }
 
@@ -188,7 +188,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       _message(context.l10n.qolipErrorText('qolip_in_use'));
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _saving = true;
       _dragging = null;
     });
@@ -228,7 +228,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       );
       if (!mounted) return;
       final movedCodes = sorted.toSet();
-      setState(() {
+      _applyStateChange(() {
         // Publish only the validated server result, in both panes at once.
         // Keep moved molds first so they are visible without another gesture.
         ++_loadGeneration;
@@ -257,7 +257,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
     } catch (error) {
       if (mounted) _showError(error, _text('failed'));
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _applyStateChange(() => _saving = false);
     }
   }
 

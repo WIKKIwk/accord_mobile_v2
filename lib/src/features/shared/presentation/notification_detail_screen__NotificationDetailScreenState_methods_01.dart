@@ -8,7 +8,7 @@ extension __NotificationDetailScreenStateAstPart01
     if (hasText == _hasCommentText || !mounted) {
       return;
     }
-    setState(() => _hasCommentText = hasText);
+    _applyStateChange(() => _hasCommentText = hasText);
   }
 
   Future<void> _markSeen() {
@@ -123,7 +123,7 @@ extension __NotificationDetailScreenStateAstPart01
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _future = future;
       _hasCommentText = false;
       _commentController.clear();
@@ -133,7 +133,7 @@ extension __NotificationDetailScreenStateAstPart01
 
   Future<void> _reload() async {
     final future = _loadAfterMarkSeen();
-    setState(() => _future = future);
+    _applyStateChange(() => _future = future);
     await future;
   }
 
@@ -142,14 +142,14 @@ extension __NotificationDetailScreenStateAstPart01
     if (message.isEmpty) {
       return;
     }
-    setState(() => _sending = true);
+    _applyStateChange(() => _sending = true);
     try {
       final updated = await MobileApi.instance.addNotificationComment(
         receiptID: widget.receiptID,
         message: message,
       );
       _commentController.clear();
-      setState(() {
+      _applyStateChange(() {
         _hasCommentText = false;
         _future = Future<NotificationDetail>.value(updated);
       });
@@ -169,7 +169,7 @@ extension __NotificationDetailScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _sending = false);
+        _applyStateChange(() => _sending = false);
       }
     }
   }
@@ -220,7 +220,7 @@ extension __NotificationDetailScreenStateAstPart01
       }
     }
 
-    setState(() => _sending = true);
+    _applyStateChange(() => _sending = true);
     try {
       final current = await _future;
       final updated = await MobileApi.instance.supplierRespondUnannounced(
@@ -233,7 +233,7 @@ extension __NotificationDetailScreenStateAstPart01
         toStatus: updated.record.status,
       );
       if (!mounted) return;
-      setState(() {
+      _applyStateChange(() {
         _future = Future<NotificationDetail>.value(updated);
       });
     } catch (error) {
@@ -243,7 +243,7 @@ extension __NotificationDetailScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _sending = false);
+        _applyStateChange(() => _sending = false);
       }
     }
   }

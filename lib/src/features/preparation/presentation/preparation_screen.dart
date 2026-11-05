@@ -63,10 +63,8 @@ class PreparationScreen extends StatefulWidget {
 class _PreparationScreenState extends State<PreparationScreen> {
   PreparationSnapshot? _snapshot;
   PreparationPendingCommand? _pending;
-  PreparationOrder? _order;
   String? _warehouse, _error;
   bool _loading = true, _saving = false;
-  final Map<String, TextEditingController> _percent = {};
   bool get _locked => _loading || _saving || _pending != null;
   void _update(VoidCallback action) => setState(action);
 
@@ -74,14 +72,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
   void initState() {
     super.initState();
     _reload();
-  }
-
-  @override
-  void dispose() {
-    for (final c in _percent.values) {
-      c.dispose();
-    }
-    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -103,29 +93,12 @@ class _PreparationScreenState extends State<PreparationScreen> {
               ? snapshot.assignedWarehouses.first
               : null;
         }
-        if (_order != null) {
-          final fresh =
-              snapshot.orders.where((o) => o.id == _order!.id).firstOrNull;
-          if (fresh == null || fresh.saved) {
-            _clearRecipe();
-          } else {
-            _order = fresh;
-          }
-        }
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _clearRecipe() {
-    _order = null;
-    for (final c in _percent.values) {
-      c.dispose();
-    }
-    _percent.clear();
   }
 
   /// Parent snapshot'dagi eng so'nggi material ro'yxati.
@@ -148,7 +121,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
     try {
       await MobileApi.instance.preparationSubmit(kind, payload);
       if (!mounted) return;
-      if (kind == 'consumptions') setState(_clearRecipe);
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: UrduAwareText('Saqlandi')));
     } catch (e) {

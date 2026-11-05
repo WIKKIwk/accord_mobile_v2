@@ -52,14 +52,14 @@ extension __WerkaBatchDispatchScreenStateAstPart01
   }
 
   void _clearSelectedItem() {
-    setState(() {
+    _applyStateChange(() {
       _selectedItem = null;
       _qtyController.clear();
     });
   }
 
   void _clearSelectedCustomer() {
-    setState(() {
+    _applyStateChange(() {
       _selectedCustomer = null;
     });
   }
@@ -108,7 +108,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
       if (picked == null || !mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _selectedCustomer = picked;
         if (_selectedItem == null) {
           _qtyController.clear();
@@ -151,7 +151,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
     if (picked == null || !mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedCustomer = picked;
       if (_selectedItem == null) {
         _qtyController.clear();
@@ -201,7 +201,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
         if (picked == null || !mounted) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _selectedItem = picked;
           _qtyController.clear();
         });
@@ -248,7 +248,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _selectedCustomer = preferredCustomer;
         _selectedItem = _itemFromOption(picked);
         _qtyController.clear();
@@ -289,7 +289,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
       if (picked == null || !mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _selectedItem = picked;
         _qtyController.clear();
       });
@@ -330,7 +330,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedCustomer = preferredCustomer;
       _selectedItem = _itemFromOption(picked);
       _qtyController.clear();
@@ -356,7 +356,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
       return;
     }
     final line = _buildCurrentLine();
-    setState(() {
+    _applyStateChange(() {
       _drafts.add(line);
       _prepareNextLine();
     });
@@ -379,7 +379,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
     }
 
     if (saveCurrentLine) {
-      setState(() {
+      _applyStateChange(() {
         _drafts
           ..clear()
           ..addAll(lines);
@@ -412,7 +412,7 @@ extension __WerkaBatchDispatchScreenStateAstPart01
     if (updated == null || !mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _drafts
         ..clear()
         ..addAll(updated);

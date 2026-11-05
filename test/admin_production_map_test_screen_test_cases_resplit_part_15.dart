@@ -4,7 +4,7 @@ part of 'admin_production_map_test_screen_test.dart';
 void _registeradmin_production_map_test_screen_testCases15() {
   testWidgets('apparatus queue worker view is read only', (tester) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-token',
       profile: const SessionProfile(
         role: UserRole.werka,

@@ -16,6 +16,8 @@ part 'werka_archive_sent_hub_screen__WerkaArchiveSentHubScreenState_methods_01.d
 part 'werka_archive_sent_hub_screen_widgets_part_01.dart';
 
 class _WerkaArchiveSentHubScreenState extends State<WerkaArchiveSentHubScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late DateTime _displayMonth;
   late DateTime _selectedDate;
   late int _displayYear;

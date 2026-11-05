@@ -7,7 +7,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
     MobileArchivePrintEntry entry,
   ) async {
     if (entry.epc.trim().isEmpty || !mounted) {
-      setState(() {
+      _applyStateChange(() {
         _archiveError = 'Receipt EPC kodi topilmadi';
       });
       return;
@@ -169,13 +169,13 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
     }
     final printer = _currentArchivePrinterChoice();
     if (printer.isEmpty) {
-      setState(() {
+      _applyStateChange(() {
         _archiveError = 'Printer ulanmagan';
       });
       return;
     }
 
-    setState(() {
+    _applyStateChange(() {
       _archivePrintLoadingSessionId = session.sessionId;
       _archiveError = '';
     });
@@ -200,7 +200,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
         final displayName = session.displayItemName.isEmpty
             ? 'Partiya'
             : session.displayItemName;
-        setState(() {
+        _applyStateChange(() {
           _archivePrintLoadingSessionId = '';
         });
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -240,7 +240,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
       }
       final displayName =
           session.displayItemName.isEmpty ? 'Partiya' : session.displayItemName;
-      setState(() {
+      _applyStateChange(() {
         _archivePrintLoadingSessionId = '';
       });
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -252,7 +252,7 @@ extension __OperatorDashboardPageStateAstPart05 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _archivePrintLoadingSessionId = '';
         _archiveError = error.toString();
       });

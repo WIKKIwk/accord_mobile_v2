@@ -145,7 +145,7 @@ void _registeradmin_production_map_test_screen_testCases18() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-completed-token',
       profile: const SessionProfile(
         role: UserRole.werka,
@@ -296,7 +296,7 @@ void _registeradmin_production_map_test_screen_testCases18() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-bosma-dialog-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,

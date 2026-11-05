@@ -29,6 +29,8 @@ part 'admin_server_monitor_screen_declarations_part_03.dart';
 part 'admin_server_monitor_screen_widgets_part_04.dart';
 
 class _AdminServerMonitorScreenState extends State<AdminServerMonitorScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   AdminServerMonitorReport? _report;
   Object? _error;
   bool _loading = true;

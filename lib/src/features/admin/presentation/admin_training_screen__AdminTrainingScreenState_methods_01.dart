@@ -5,7 +5,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
   Future<void> _load() async {
     final hadExistingData = _hasTrainingData;
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _loading = !hadExistingData;
         _error = null;
       });
@@ -49,7 +49,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
     final allDataRequestsFailed = results.every(
       (result) => result.error != null,
     );
-    setState(() {
+    _applyStateChange(() {
       if (apparatusResult is List<AdminApparatus>) {
         _apparatus = [...apparatusResult]..sort(
             (left, right) =>
@@ -124,7 +124,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
         final nextStatuses = statuses;
         if (nextStatuses != null &&
             !_trainingStatusesEqual(_statuses, nextStatuses)) {
-          setState(() => _statuses = nextStatuses);
+          _applyStateChange(() => _statuses = nextStatuses);
         }
       }
     } finally {
@@ -139,7 +139,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
     if (_savingId != null) {
       return;
     }
-    setState(() => _savingId = apparatus.id);
+    _applyStateChange(() => _savingId = apparatus.id);
     try {
       await MobileApi.instance.adminSetTrainingApparatusMode(
         apparatus: apparatus,
@@ -148,7 +148,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _apparatus = [
           for (final item in _apparatus)
             if (item.id == apparatus.id)
@@ -174,7 +174,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
       }
     } finally {
       if (mounted) {
-        setState(() => _savingId = null);
+        _applyStateChange(() => _savingId = null);
       }
     }
   }
@@ -196,7 +196,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
     if (!mounted || confirmed != true) {
       return;
     }
-    setState(() => _restartingId = apparatus.id);
+    _applyStateChange(() => _restartingId = apparatus.id);
     try {
       await MobileApi.instance.adminRestartTraining(apparatus: apparatus.id);
       if (!mounted) {
@@ -228,7 +228,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
       }
     } finally {
       if (mounted) {
-        setState(() => _restartingId = null);
+        _applyStateChange(() => _restartingId = null);
       }
     }
   }
@@ -245,7 +245,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
       );
       return;
     }
-    setState(() => _linkingOrderId = apparatus.id);
+    _applyStateChange(() => _linkingOrderId = apparatus.id);
     try {
       final result = await Navigator.of(context).pushNamed(
         AppRoutes.adminCalculate,
@@ -272,7 +272,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
       }
     } finally {
       if (mounted) {
-        setState(() => _linkingOrderId = null);
+        _applyStateChange(() => _linkingOrderId = null);
       }
     }
   }
@@ -362,13 +362,13 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
     if (!mounted || confirmed != true) {
       return;
     }
-    setState(() => _deletingOrderId = orderId);
+    _applyStateChange(() => _deletingOrderId = orderId);
     try {
       await MobileApi.instance.adminDeleteTrainingProductionMap(orderId);
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _orders = [
           for (final item in _orders)
             if (item.map.id.trim() != orderId) item,
@@ -401,7 +401,7 @@ extension __AdminTrainingScreenStateAstPart01 on _AdminTrainingScreenState {
       }
     } finally {
       if (mounted) {
-        setState(() => _deletingOrderId = null);
+        _applyStateChange(() => _deletingOrderId = null);
       }
     }
   }

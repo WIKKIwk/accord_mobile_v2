@@ -21,6 +21,8 @@ part 'werka_archive_list_screen__WerkaArchiveListScreenState_methods_02.dart';
 part 'werka_archive_list_screen_models_part_01.dart';
 
 class _WerkaArchiveListScreenState extends State<WerkaArchiveListScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   bool _loading = true;
   bool _downloading = false;
   Object? _error;

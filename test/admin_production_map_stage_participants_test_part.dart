@@ -36,7 +36,7 @@ void _registerStageParticipantsTests() {
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => catalog,
           queueSnapshotLoader: () async => snapshot,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();

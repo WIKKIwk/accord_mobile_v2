@@ -66,7 +66,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
           _selectedItem?.code != item.code) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _selectedCustomer = preferred;
         _prefillCustomerLoading = false;
       });
@@ -74,12 +74,12 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
       if (!mounted || generation != _prefillCustomerGeneration) {
         return;
       }
-      setState(() => _prefillCustomerLoading = false);
+      _applyStateChange(() => _prefillCustomerLoading = false);
     }
   }
 
   void _clearSelectedItem() {
-    setState(() {
+    _applyStateChange(() {
       _selectedItem = null;
       _qrPrefillActive = false;
       _prefillCustomerLoading = false;
@@ -89,7 +89,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
   }
 
   void _clearSelectedCustomer() {
-    setState(() {
+    _applyStateChange(() {
       _selectedCustomer = null;
       _prefillCustomerLoading = false;
       _prefillCustomerGeneration++;
@@ -135,7 +135,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
     if (picked == null || !mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedCustomer = picked;
       _prefillCustomerLoading = false;
       _prefillCustomerGeneration++;
@@ -181,7 +181,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
       if (!mounted || picked == null) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _selectedItem = picked;
         _qrPrefillActive = false;
         _prefillCustomerLoading = false;
@@ -225,7 +225,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedCustomer = preferredCustomer;
       _selectedItem = _itemFromOption(picked);
       _qrPrefillActive = false;
@@ -340,7 +340,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
       return;
     }
 
-    setState(() => _submitting = true);
+    _applyStateChange(() => _submitting = true);
     try {
       final created = await MobileApi.instance.createWerkaCustomerIssue(
         customerRef: _selectedCustomer!.ref,
@@ -392,7 +392,7 @@ extension __WerkaCustomerIssueCustomerScreenStateAstPart01
       ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
-        setState(() => _submitting = false);
+        _applyStateChange(() => _submitting = false);
       }
     }
   }

@@ -4,7 +4,7 @@ part of 'rezka_split_screen.dart';
 extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
   Future<UsbPrinterProfile?> _detectOfflinePrinter() async {
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _detectingOfflinePrinter = true;
         _offlinePrinterError = null;
       });
@@ -12,7 +12,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     try {
       final profile = await PrintService.detectOfflinePrinter();
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _offlinePrinter = profile;
           _detectingOfflinePrinter = false;
         });
@@ -20,7 +20,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       return profile;
     } catch (error) {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _offlinePrinter = null;
           _detectingOfflinePrinter = false;
           _offlinePrinterError = error.toString();
@@ -38,7 +38,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     if (!mounted || cached == null) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _bluetoothPrinter = cached;
       _printTransport = PrintTransport.bluetooth;
     });
@@ -53,7 +53,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     if (selection.transport.isBluetooth && bluetoothPrinter != null) {
       SessionBluetoothPrinter.remember(bluetoothPrinter);
     }
-    setState(() {
+    _applyStateChange(() {
       _printTransport = selection.transport;
       _offlinePrinter = selection.offlinePrinter;
       _bluetoothPrinter = selection.bluetoothPrinter;
@@ -83,13 +83,13 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       return;
     }
     _barcodeController.text = barcode;
-    setState(() => _loadingSource = true);
+    _applyStateChange(() => _loadingSource = true);
     try {
       final response = await MobileApi.instance.rezkaSource(barcode: barcode);
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _source = response.source;
         for (final output in _outputs) {
           output.dispose();
@@ -106,7 +106,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       _showError(error);
     } finally {
       if (mounted) {
-        setState(() => _loadingSource = false);
+        _applyStateChange(() => _loadingSource = false);
       }
     }
   }
@@ -116,14 +116,14 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     if (source == null) {
       return;
     }
-    setState(() => _outputs.add(_RezkaOutputDraft.fromSource(source)));
+    _applyStateChange(() => _outputs.add(_RezkaOutputDraft.fromSource(source)));
   }
 
   void _removeOutput(int index) {
     if (_outputs.length <= 2) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       final removed = _outputs.removeAt(index);
       removed.dispose();
     });
@@ -143,7 +143,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       output.warehouseController.text = _rezkaScrapWarehouse;
       output.reasonController.text = 'Atxot / brak mahsulot';
     }
-    setState(() => _outputs.add(output));
+    _applyStateChange(() => _outputs.add(output));
   }
 
   Future<bool> _validateOutputTotal(
@@ -250,7 +250,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     if (!mounted || item == null) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       output.itemCode = item.code;
       output.itemName = item.name;
       output.uomController.text = item.uom.trim().isEmpty ? 'kg' : item.uom;
@@ -349,7 +349,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
     final printMode = offline
         ? offlinePrinter!.printMode
         : bluetoothPrinter?.printMode ?? wifiPrintMode;
-    setState(() => _submitting = true);
+    _applyStateChange(() => _submitting = true);
     try {
       final request = RezkaSplitRequest(
         sourceBarcode: source.barcode,
@@ -407,7 +407,7 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
       }
     } finally {
       if (mounted) {
-        setState(() => _submitting = false);
+        _applyStateChange(() => _submitting = false);
       }
     }
   }

@@ -108,7 +108,7 @@ void _registerAdminStatusScopeTests() {
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => apparatus,
           queueSnapshotLoader: () async => current,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();
@@ -223,7 +223,7 @@ void _registerAdminStatusScopeTests() {
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => apparatus,
           queueSnapshotLoader: () async => current,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();

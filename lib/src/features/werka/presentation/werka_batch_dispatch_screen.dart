@@ -26,6 +26,8 @@ part 'werka_batch_dispatch_screen_helpers_part_01.dart';
 part 'werka_batch_dispatch_screen_widgets_part_02.dart';
 
 class _WerkaBatchDispatchScreenState extends State<WerkaBatchDispatchScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController _qtyController = TextEditingController();
   final List<_WerkaBatchDraftLine> _drafts = <_WerkaBatchDraftLine>[];
   final bool _previewMode = AppPreview.batchDispatchDemo;

@@ -118,7 +118,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
     if (shouldAssign != true || !mounted) {
       return;
     }
-    setState(() => _manualAssigningBarcode = candidate.barcode.trim());
+    _applyStateChange(() => _manualAssigningBarcode = candidate.barcode.trim());
     try {
       final apparatusOptions = candidate.apparatusOptions;
       String apparatus;
@@ -139,7 +139,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _manualCandidates = [
           for (final item in _manualCandidates)
             if (item.barcode.trim().toUpperCase() !=
@@ -171,7 +171,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
       await _loadManualCandidates(force: true);
     } finally {
       if (mounted) {
-        setState(() => _manualAssigningBarcode = '');
+        _applyStateChange(() => _manualAssigningBarcode = '');
       }
     }
   }
@@ -225,7 +225,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
     if (confirmed != true || !mounted) {
       return;
     }
-    setState(() => _unlinkingAssignmentKey = key);
+    _applyStateChange(() => _unlinkingAssignmentKey = key);
     try {
       await MobileApi.instance.adminUnlinkRawMaterialAssignment(
         orderId: assignment.orderId,
@@ -234,7 +234,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _assignments = [
           for (final item in _assignments)
             if (_assignmentKey(item) != key) item,
@@ -270,7 +270,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
       );
     } finally {
       if (mounted) {
-        setState(() => _unlinkingAssignmentKey = '');
+        _applyStateChange(() => _unlinkingAssignmentKey = '');
       }
     }
   }
@@ -331,7 +331,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart02
                   unlinking: _unlinkingAssignmentKey ==
                       _assignmentKey(_assignments[index]),
                   onExpandedChanged: (expanded) {
-                    setState(() {
+                    _applyStateChange(() {
                       _expandedAssignmentKey =
                           expanded ? _assignmentKey(_assignments[index]) : null;
                     });

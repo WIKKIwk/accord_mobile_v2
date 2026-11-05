@@ -113,7 +113,7 @@ class _ReactivationFixture {
             readOnly: true,
             workerMode: true,
             progressDriverUrlPicker: progressDriverUrlPicker,
-            liveEventsLoader: () => const Stream.empty())));
+            liveEventsLoader: _idleProductionLiveLoader())));
     await _pumpCompletedWorkFrames(tester);
     await tester.ensureVisible(find.text('Tugallangan'));
     await tester.tap(find.text('Tugallangan'));

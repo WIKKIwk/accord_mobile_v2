@@ -20,10 +20,17 @@ class _AdminTopNoticeHandle {
     if (_closed) {
       return;
     }
+    abandon();
+    _close();
+  }
+
+  void abandon() {
     _closed = true;
     _timer?.cancel();
     _timer = null;
-    _close();
+    if (identical(_currentAdminTopNotice, this)) {
+      _currentAdminTopNotice = null;
+    }
   }
 
   void autoCloseAfter(Duration duration) {
@@ -40,6 +47,27 @@ class _AdminTopNoticeHandle {
       }
     });
   }
+}
+
+class _AdminNoticeText extends StatefulWidget {
+  _AdminNoticeText(this.message, this.handle) : super(key: ObjectKey(handle));
+
+  final String message;
+  final _AdminTopNoticeHandle handle;
+
+  @override
+  State<_AdminNoticeText> createState() => _AdminNoticeTextState();
+}
+
+class _AdminNoticeTextState extends State<_AdminNoticeText> {
+  @override
+  void dispose() {
+    widget.handle.abandon();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Text(widget.message);
 }
 
 /// Anchored sheet notices slide from the bottom; other notices use a top banner.
@@ -68,11 +96,16 @@ void showAdminTopNotice(
   }
   messenger.hideCurrentMaterialBanner();
 
+  final handle = _AdminTopNoticeHandle(() {
+    if (messenger.mounted) messenger.hideCurrentMaterialBanner();
+  });
   messenger.showMaterialBanner(
-    _adminNoticeBanner(context, message, icon: icon, tone: tone),
-  );
-  final handle = _AdminTopNoticeHandle(
-    messenger.hideCurrentMaterialBanner,
+    _adminNoticeBanner(
+      context,
+      _AdminNoticeText(message, handle),
+      icon: icon,
+      tone: tone,
+    ),
   );
   _currentAdminTopNotice = handle;
   handle.autoCloseAfter(const Duration(seconds: 5));
@@ -166,7 +199,7 @@ bool _showAnchoredAdminBottomNotice(
                           },
                           child: _adminNoticeBanner(
                             context,
-                            message,
+                            Text(message),
                             icon: icon,
                             tone: tone,
                             bottomInset: bottomInset,
@@ -203,7 +236,7 @@ bool _showAnchoredAdminBottomNotice(
 
 MaterialBanner _adminNoticeBanner(
   BuildContext context,
-  String message, {
+  Widget content, {
   IconData? icon,
   required AdminTopNoticeTone tone,
   double bottomInset = 0,
@@ -223,7 +256,7 @@ MaterialBanner _adminNoticeBanner(
     dividerColor: Colors.transparent,
     padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
     leading: icon == null ? null : Icon(icon),
-    content: Text(message),
+    content: content,
     contentTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: switch (tone) {
             AdminTopNoticeTone.success => successForeground,

@@ -65,7 +65,7 @@ void _registerWorkerOutputProgressTests() {
         home: AdminProductionMapOrdersScreen(
           readOnly: true,
           workerMode: true,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();

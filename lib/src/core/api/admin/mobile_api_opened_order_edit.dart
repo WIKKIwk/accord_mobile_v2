@@ -138,21 +138,34 @@ MobileApiException _openedOrderEditException(http.Response response) {
     // Older servers and gateways need the existing fallback below.
   }
   final error = _adminProductionMapException(response, 'order_edit');
+  final unknownMessage = _adminProductionMapUnknownErrorMessage(
+    code: error.code,
+    fallbackCode: 'order_edit',
+    statusCode: response.statusCode,
+  );
   // This endpoint returns user-facing business reasons in `error`, not just
   // machine codes. Preserve them without exposing auth or server failures.
   final reason = error.code.trim();
   if (const {400, 404, 409, 422}.contains(response.statusCode) &&
-      error.message ==
-          _adminProductionMapUnknownErrorMessage(
-            code: error.code,
-            fallbackCode: 'order_edit',
-            statusCode: response.statusCode,
-          ) &&
+      error.message == unknownMessage &&
       reason.contains(RegExp(r'\s')) &&
       !reason.contains(RegExp(r'[<>]'))) {
     return MobileApiException(
       code: error.code,
       message: reason,
+      statusCode: response.statusCode,
+    );
+  }
+  if (error.message == unknownMessage ||
+      const {401, 403}.contains(response.statusCode) ||
+      response.statusCode >= 500) {
+    return MobileApiException(
+      code: 'order_edit',
+      message: _adminProductionMapUnknownErrorMessage(
+        code: 'order_edit',
+        fallbackCode: 'order_edit',
+        statusCode: response.statusCode,
+      ),
       statusCode: response.statusCode,
     );
   }

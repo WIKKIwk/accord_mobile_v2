@@ -2,6 +2,8 @@
 part of 'admin_warehouses_screen.dart';
 
 class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   Future<List<AdminWarehouseAssignment>>? _assignmentsFuture;
   bool _assigning = false;
   String? _removingAssignmentKey;

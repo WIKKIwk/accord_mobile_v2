@@ -42,6 +42,8 @@ const List<AdminUserKind> _adminUserTabKinds = [
 ];
 
 class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   static const int _pageSize = 50;
   static const double _prefetchExtentAfterFactor = 2.5;
   static _AdminSuppliersCache? _cache;

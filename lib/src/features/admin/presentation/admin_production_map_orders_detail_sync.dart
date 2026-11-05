@@ -146,7 +146,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
   bool _installDetailControl(AdminPrintPreflightControlState? control) {
     if (!mounted || _detailReadScope != currentSessionReadScope()) return false;
     if (control == null || !_liveAllowsDetailControl(control)) return false;
-    setState(() => _applyDetailControl(control));
+    _applyStateChange(() => _applyDetailControl(control));
     _pendingDetailRevision = null;
     if (!_detailSectionsNeedReload) _detailRecoveryNeeded = false;
     // A current button contract does not acknowledge a failed material read.
@@ -187,7 +187,7 @@ extension _OrderDetailSync on _ReadOnlyOrderDetailSheetState {
         // It cannot invalidate that contract without a newer revision.
         return;
       }
-      setState(() => _queueActionControl = null);
+      _applyStateChange(() => _queueActionControl = null);
       if (hydratedAdmin) return;
       // A newer bounded projection can omit this order without removing it.
       // Disable actions, then re-read its scoped contract immediately.

@@ -192,7 +192,7 @@ extension __AdminWorkerSettingsScreenStateAstPart02
                             .contains(workers[index].id.trim()),
                         expanded: _selectedWorkerId == workers[index].id,
                         onExpandedChanged: (expanded) {
-                          setState(() {
+                          _applyStateChange(() {
                             _selectedWorkerId =
                                 expanded ? workers[index].id : null;
                           });

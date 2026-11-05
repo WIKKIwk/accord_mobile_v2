@@ -10,6 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/localized_test_app.dart';
+
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -20,7 +22,7 @@ void main() {
 
   testWidgets('early close card requires comment and returns trimmed reason', (tester) async {
     String? result;
-    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => Scaffold(
+    await tester.pumpWidget(LocalizedTestApp(home: Builder(builder: (context) => Scaffold(
       body: TextButton(onPressed: () async {
         result = await showProductionMapEarlyCloseDialog(context);
       }, child: const Text('Open')),
@@ -44,7 +46,7 @@ void main() {
 
   testWidgets('early close cancel returns no reason', (tester) async {
     String? result = 'not cancelled';
-    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => Scaffold(
+    await tester.pumpWidget(LocalizedTestApp(home: Builder(builder: (context) => Scaffold(
       body: TextButton(onPressed: () async {
         result = await showProductionMapEarlyCloseDialog(context);
       }, child: const Text('Open')),

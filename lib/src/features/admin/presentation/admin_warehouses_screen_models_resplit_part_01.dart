@@ -3,6 +3,8 @@ part of 'admin_warehouses_screen.dart';
 
 class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
     with SingleTickerProviderStateMixin {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late Future<_WarehouseSummaryData> _future;
   late final TabController _pageTabController;
   StreamSubscription<Map<String, dynamic>>? _warehouseLiveSub;

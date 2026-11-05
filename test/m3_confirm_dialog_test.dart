@@ -3,6 +3,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('long confirmation message fits a short viewport', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 480);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    bool? confirmed;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              confirmed = await showM3ConfirmDialog(
+                context: context,
+                title: 'Confirm',
+                message: List.filled(100, 'Confirmation details.').join(' '),
+                cancelLabel: 'Cancel',
+                confirmLabel: 'Continue',
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final confirm = find.widgetWithText(FilledButton, 'Continue');
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(confirmed, isTrue);
+  });
+
   testWidgets('confirm dialog can blur background when requested', (
     tester,
   ) async {

@@ -6,7 +6,7 @@ void _registeradmin_production_map_test_screen_testCases22() {
     'later stage waits for previous apparatus before showing progress QR scan',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
         token: 'worker-lamin-wait-token',
         profile: const SessionProfile(
           role: UserRole.aparatchi,

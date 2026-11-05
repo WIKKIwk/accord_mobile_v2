@@ -60,7 +60,7 @@ void _registerQolipAlternativeSetTests() {
             apparatus: _godexId, orderId: orderId);
     expect(requirements.requiredQolips.map((mold) => mold.setId).toSet().length,
         2);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
         token: 'alternative-worker',
         profile: const SessionProfile(
           role: UserRole.aparatchi,

@@ -24,6 +24,8 @@ part 'werka_customer_issue_customer_screen_widgets_part_01.dart';
 
 class _WerkaCustomerIssueCustomerScreenState
     extends State<WerkaCustomerIssueCustomerScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController _qtyController = TextEditingController(text: '1');
 
   CustomerDirectoryEntry? _selectedCustomer;

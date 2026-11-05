@@ -21,7 +21,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       cachedAvatarBytes = bytes;
     });
   }
@@ -33,7 +33,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       nicknameController.text = _normalizedDisplayName(updated);
       cachedAvatarBytes = bytes;
       errorMessage = null;
@@ -42,7 +42,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
 
   Future<void> _saveNickname() async {
     final nickname = nicknameController.text.trim();
-    setState(() {
+    _applyStateChange(() {
       savingNickname = true;
       errorMessage = null;
     });
@@ -52,17 +52,17 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {});
+      _applyStateChange(() {});
     } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         errorMessage = context.l10n.nicknameSaveFailed;
       });
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           savingNickname = false;
         });
       }
@@ -87,7 +87,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         errorMessage = null;
         pendingAvatarBytes = bytes;
         pendingAvatarName = picked.name;
@@ -96,7 +96,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         errorMessage = context.l10n.imagePickFailed;
       });
     }
@@ -112,7 +112,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       return;
     }
 
-    setState(() {
+    _applyStateChange(() {
       savingAvatar = true;
       errorMessage = null;
     });
@@ -130,7 +130,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         cachedAvatarBytes = cachedBytes ?? Uint8List.fromList(bytes);
         pendingAvatarBytes = null;
         pendingAvatarName = null;
@@ -139,12 +139,12 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         errorMessage = context.l10n.imageSaveFailed;
       });
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           savingAvatar = false;
         });
       }
@@ -231,7 +231,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         pendingAvatarBytes = previousPendingAvatarBytes;
         pendingAvatarName = previousPendingAvatarName;
       });
@@ -251,7 +251,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       return;
     }
 
-    setState(() {
+    _applyStateChange(() {
       savingPin = true;
       errorMessage = null;
     });
@@ -273,18 +273,18 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (enable == true) {
         await _toggleBiometric(true);
       } else {
-        setState(() {});
+        _applyStateChange(() {});
       }
     } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         errorMessage = context.l10n.pinSaveFailed;
       });
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           savingPin = false;
         });
       }
@@ -292,7 +292,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
   }
 
   Future<void> _removePin() async {
-    setState(() {
+    _applyStateChange(() {
       savingPin = true;
       errorMessage = null;
     });
@@ -301,17 +301,17 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       if (!mounted) {
         return;
       }
-      setState(() {});
+      _applyStateChange(() {});
     } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         errorMessage = context.l10n.pinRemoveFailed;
       });
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           savingPin = false;
         });
       }
@@ -324,29 +324,29 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       arguments: PinSetupPurpose.profileSwitch,
     );
     if (result == true && mounted) {
-      setState(() {});
+      _applyStateChange(() {});
     }
   }
 
   Future<void> _removeSwitchPin() async {
-    setState(() {
+    _applyStateChange(() {
       savingSwitchPin = true;
       errorMessage = null;
     });
     try {
       await SecurityController.instance.clearSwitchPinForCurrentUser();
       if (mounted) {
-        setState(() {});
+        _applyStateChange(() {});
       }
     } catch (_) {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           errorMessage = context.l10n.pinRemoveFailed;
         });
       }
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           savingSwitchPin = false;
         });
       }
@@ -354,7 +354,7 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
   }
 
   Future<void> _toggleBiometric(bool enabled) async {
-    setState(() {
+    _applyStateChange(() {
       savingBiometric = true;
       errorMessage = null;
     });
@@ -362,17 +362,17 @@ extension __ProfileScreenStateAstPart01 on _ProfileScreenState {
       final ok = await SecurityController.instance
           .setBiometricEnabledForCurrentUser(enabled);
       if (!ok && mounted) {
-        setState(() {
+        _applyStateChange(() {
           errorMessage = enabled
               ? context.l10n.biometricEnableFailed
               : context.l10n.biometricDisableFailed;
         });
       } else if (mounted) {
-        setState(() {});
+        _applyStateChange(() {});
       }
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           savingBiometric = false;
         });
       }

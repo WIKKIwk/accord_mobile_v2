@@ -570,7 +570,7 @@ void _registerWorkerQueueOrderingTests() {
               apparatusLoader: () async =>
                   catalog.where((item) => item.id == _lamination1Id).toList(),
               queueSnapshotLoader: () async => snapshot,
-              liveEventsLoader: () => const Stream.empty(),
+              liveEventsLoader: _idleProductionLiveLoader(),
             ),
           ),
         );

@@ -18,14 +18,14 @@ extension __AdminCustomerDetailScreenStateAstPart01
 
   void _refreshRetryAfter() {
     if (mounted) {
-      setState(() {});
+      _applyStateChange(() {});
     }
   }
 
   void _setRetryAfter(int seconds) => _retryAfter.set(seconds);
 
   Future<void> _reload() async {
-    setState(() {
+    _applyStateChange(() {
       _loading = true;
       _loadError = null;
     });
@@ -34,7 +34,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _detail = detail;
         _loadError = null;
         _loading = false;
@@ -43,7 +43,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _detail = null;
         _loadError = error;
         _loading = false;
@@ -57,7 +57,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       return;
     }
 
-    setState(() => _savingPhone = true);
+    _applyStateChange(() => _savingPhone = true);
     try {
       final updatePhone =
           widget.phoneUpdater ?? MobileApi.instance.adminUpdateCustomerPhone;
@@ -70,7 +70,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
         return;
       }
       _setRetryAfter(updated.codeRetryAfterSec);
-      setState(() => _detail = updated);
+      _applyStateChange(() => _detail = updated);
     } catch (error) {
       if (!mounted) {
         return;
@@ -87,13 +87,13 @@ extension __AdminCustomerDetailScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _savingPhone = false);
+        _applyStateChange(() => _savingPhone = false);
       }
     }
   }
 
   Future<void> _regenerateCode() async {
-    setState(() => _regeneratingCode = true);
+    _applyStateChange(() => _regeneratingCode = true);
     try {
       final regenerateCode = widget.codeRegenerator ??
           MobileApi.instance.adminRegenerateCustomerCode;
@@ -105,7 +105,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
         return;
       }
       _setRetryAfter(updated.codeRetryAfterSec);
-      setState(() => _detail = updated);
+      _applyStateChange(() => _detail = updated);
     } catch (error) {
       if (!mounted) {
         return;
@@ -122,7 +122,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _regeneratingCode = false);
+        _applyStateChange(() => _regeneratingCode = false);
       }
     }
   }
@@ -150,7 +150,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       return;
     }
 
-    setState(() => _removing = true);
+    _applyStateChange(() => _removing = true);
     try {
       await MobileApi.instance.adminRemoveCustomer(widget.customerRef);
       _changed = true;
@@ -174,13 +174,13 @@ extension __AdminCustomerDetailScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _removing = false);
+        _applyStateChange(() => _removing = false);
       }
     }
   }
 
   Future<bool> _assignItem(SupplierItem item) async {
-    setState(() => _addingItem = true);
+    _applyStateChange(() => _addingItem = true);
     try {
       final updated = await MobileApi.instance.adminAssignCustomerItem(
         ref: widget.customerRef,
@@ -190,7 +190,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       if (!mounted) {
         return false;
       }
-      setState(() => _detail = updated);
+      _applyStateChange(() => _detail = updated);
       return true;
     } catch (error) {
       if (!mounted) {
@@ -209,7 +209,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       return false;
     } finally {
       if (mounted) {
-        setState(() => _addingItem = false);
+        _applyStateChange(() => _addingItem = false);
       }
     }
   }
@@ -256,7 +256,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       return false;
     }
 
-    setState(() => _removingItemCode = item.code);
+    _applyStateChange(() => _removingItemCode = item.code);
     try {
       final updated = await MobileApi.instance.adminRemoveCustomerItem(
         ref: widget.customerRef,
@@ -266,7 +266,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       if (!mounted) {
         return false;
       }
-      setState(() => _detail = updated);
+      _applyStateChange(() => _detail = updated);
       return true;
     } catch (error) {
       if (!mounted) {
@@ -285,7 +285,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       return false;
     } finally {
       if (mounted) {
-        setState(() => _removingItemCode = null);
+        _applyStateChange(() => _removingItemCode = null);
       }
     }
   }
@@ -295,7 +295,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
     if (detail == null || _editingMaterialItemGroups) {
       return;
     }
-    setState(() => _editingMaterialItemGroups = true);
+    _applyStateChange(() => _editingMaterialItemGroups = true);
     try {
       final loadGroups =
           widget.materialItemGroupsLoader ?? MobileApi.instance.adminItemGroups;
@@ -339,7 +339,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       }
       _changed = true;
       if (mounted) {
-        setState(() => _detail = updated);
+        _applyStateChange(() => _detail = updated);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.adminText('detail.groups_saved')),
@@ -361,7 +361,7 @@ extension __AdminCustomerDetailScreenStateAstPart01
       }
     } finally {
       if (mounted) {
-        setState(() => _editingMaterialItemGroups = false);
+        _applyStateChange(() => _editingMaterialItemGroups = false);
       }
     }
   }

@@ -8,7 +8,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
       (tester) async {
         await TestModeController.instance.setEnabled(true);
         const orderId = 'zakaz-rezka-astatka-widget';
-        await AppSession.instance.setSession(
+        await _setTestSession(tester,
           token: 'worker-token',
           profile: const SessionProfile(
             role: UserRole.aparatchi,
@@ -159,7 +159,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
     testWidgets('bosma astatka ${scenario.switchAccount ? 'account switch ' : ''}report keeps ${paused ? "paused" : "running"} work unchanged', (tester) async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-bosma-astatka-widget';
-      await AppSession.instance.setSession(token: 'worker-token', profile: const SessionProfile(
+      await _setTestSession(tester, token: 'worker-token', profile: const SessionProfile(
         role: UserRole.aparatchi, displayName: 'Bosmachi', legalName: '', ref: 'bosma-astatka-worker',
         phone: '', avatarUrl: '', capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
         assignedApparatus: [_print8Id],
@@ -216,7 +216,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
         await tester.enterText(field, entry.value);
       }
       if (scenario.switchAccount) {
-        await AppSession.instance.setSession(token: 'other-worker-token',
+        await _setTestSession(tester, token: 'other-worker-token',
             profile: const SessionProfile(role: UserRole.aparatchi,
                 displayName: 'Other worker', legalName: '', ref: 'other-worker',
                 phone: '', avatarUrl: '',
@@ -292,7 +292,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
             previousWipMode: AdminQueuePreviousWipMode.notRequired, qolipMode: AdminQueueQolipMode.notRequired,
             blockingReasonCode: 'waiting_sequence'),
         ));
-      await AppSession.instance.setSession(token: 'worker-token', profile: const SessionProfile(
+      await _setTestSession(tester, token: 'worker-token', profile: const SessionProfile(
         role: UserRole.aparatchi, displayName: 'Bosmachi', legalName: '', ref: 'bosma-adjacent',
         phone: '', avatarUrl: '', capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
         assignedApparatus: [_print8Id],
@@ -318,7 +318,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
     testWidgets('bosma long press finish uses ${closingOnly ? "closing-only" : "full resumed"} form', (tester) async {
       await TestModeController.instance.setEnabled(true);
       const orderId = 'zakaz-bosma-long-press-close';
-      await AppSession.instance.setSession(token: 'worker-token', profile: const SessionProfile(
+      await _setTestSession(tester, token: 'worker-token', profile: const SessionProfile(
         role: UserRole.aparatchi, displayName: 'Bosmachi', legalName: '', ref: 'bosma-closer',
         phone: '', avatarUrl: '', capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
         assignedApparatus: [_print8Id],
@@ -387,7 +387,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
           );
         }
         const orderId = 'zakaz-worker-laminatsiya-handoff-card';
-        await AppSession.instance.setSession(
+        await _setTestSession(tester,
           token: 'worker-laminatsiya-handoff-card-token',
           profile: SessionProfile(
             role: UserRole.aparatchi,
@@ -553,7 +553,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
             ),
           ],
         );
-        await AppSession.instance.setSession(
+        await _setTestSession(tester,
           token: 'worker-material-intake-token',
           profile: const SessionProfile(
             role: UserRole.aparatchi,
@@ -820,7 +820,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
     await TestModeController.instance.setEnabled(true);
     const apparatus = _godexId;
     const orderId = 'zakaz-worker-status-colors';
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-status-colors-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,

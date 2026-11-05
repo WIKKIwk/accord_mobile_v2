@@ -14,7 +14,7 @@ extension __AdminServerMonitorScreenStateAstPart01
     _liveSubscription = null;
     await subscription?.cancel();
     if (mounted) {
-      setState(() => _liveConnected = false);
+      _applyStateChange(() => _liveConnected = false);
     }
   }
 
@@ -55,7 +55,7 @@ extension __AdminServerMonitorScreenStateAstPart01
       return false;
     }
 
-    setState(() => _switchingServer = true);
+    _applyStateChange(() => _switchingServer = true);
     await _stopLiveStream();
     try {
       final result = await MobileApi.instance.switchServerEndpoint(raw);
@@ -64,7 +64,7 @@ extension __AdminServerMonitorScreenStateAstPart01
       }
       switch (result.status) {
         case MobileServerSwitchStatus.switched:
-          setState(() {
+          _applyStateChange(() {
             _report = null;
             _loading = true;
             _error = null;
@@ -126,7 +126,7 @@ extension __AdminServerMonitorScreenStateAstPart01
       return false;
     } finally {
       if (mounted) {
-        setState(() => _switchingServer = false);
+        _applyStateChange(() => _switchingServer = false);
       }
     }
   }
@@ -421,7 +421,7 @@ extension __AdminServerMonitorScreenStateAstPart01
     if (confirmed != true || !mounted || _startingBackup) {
       return;
     }
-    setState(() => _startingBackup = true);
+    _applyStateChange(() => _startingBackup = true);
     try {
       await MobileApi.instance.adminStartBackup();
       await _loadSnapshot();
@@ -434,7 +434,7 @@ extension __AdminServerMonitorScreenStateAstPart01
       }
     } finally {
       if (mounted) {
-        setState(() => _startingBackup = false);
+        _applyStateChange(() => _startingBackup = false);
       }
     }
   }

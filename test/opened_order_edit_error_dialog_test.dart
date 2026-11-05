@@ -6,6 +6,8 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/opened_
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/localized_test_app.dart';
+
 void main() {
   test('network failures explain uncertainty without claiming the save failed',
       () {
@@ -81,7 +83,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(LocalizedTestApp(
         home: Scaffold(
             body: Builder(
                 builder: (context) => TextButton(

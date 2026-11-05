@@ -41,6 +41,8 @@ part 'aparatchi_paddon_qr_addition.dart';
 
 class _AparatchiPaddonDetailScreenState
     extends State<AparatchiPaddonDetailScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late Future<AdminPaddonSnapshot> _future;
   List<AdminApparatus> _apparatus = const [];
   final _selectionListKey = GlobalKey();

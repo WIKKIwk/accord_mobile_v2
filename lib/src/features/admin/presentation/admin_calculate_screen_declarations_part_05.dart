@@ -5,14 +5,12 @@ class _TextInput extends StatelessWidget {
   const _TextInput({
     required this.controller,
     required this.label,
-    this.validator,
     this.minLines,
     this.maxLines = 1,
   });
 
   final TextEditingController controller;
   final String label;
-  final FormFieldValidator<String>? validator;
   final int? minLines;
   final int maxLines;
 
@@ -31,7 +29,6 @@ class _TextInput extends StatelessWidget {
           labelText: label,
           borderRadius: 30,
         ),
-        validator: validator,
       ),
     );
   }
@@ -210,10 +207,6 @@ String _formatBytes(int value) {
 String _fmt(double value) => formatQuantity(value);
 
 String _fmtInput(double value) => formatRawQuantity(value);
-
-String _normalizeProductMapKey(String value) {
-  return value.trim().toLowerCase();
-}
 
 String _normalizeMaterialKey(String value) {
   return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');

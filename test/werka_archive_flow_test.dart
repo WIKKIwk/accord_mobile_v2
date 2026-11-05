@@ -1,5 +1,6 @@
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
+import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_daily_calendar_screen.dart';
 import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_monthly_calendar_screen.dart';
@@ -11,6 +12,8 @@ import 'package:accord_mobile_v2/src/features/werka/presentation/werka_archive_p
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(
@@ -30,7 +33,26 @@ Widget _wrap(Widget child) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('monthly archive list screen builds without exception', (
+  setUp(() {
+    AppSession.instance
+      ..token = 'token'
+      ..profile = const SessionProfile(
+        role: UserRole.werka,
+        displayName: 'Werka',
+        legalName: '',
+        ref: 'werka-archive-test',
+        phone: '',
+        avatarUrl: '',
+        capabilities: ['werka.access'],
+      );
+  });
+  tearDown(() {
+    AppSession.instance
+      ..token = null
+      ..profile = null;
+  });
+
+  _archiveTest('monthly archive list screen builds without exception', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -50,7 +72,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('period screen opens monthly calendar without exception', (
+  _archiveTest('period screen opens monthly calendar without exception', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -66,7 +88,7 @@ void main() {
     expect(find.byType(WerkaArchiveMonthlyCalendarScreen), findsOneWidget);
   });
 
-  testWidgets('archive screen opens sent archive hub without exception', (
+  _archiveTest('archive screen opens sent archive hub without exception', (
     tester,
   ) async {
     await tester.pumpWidget(_wrap(const WerkaArchiveScreen()));
@@ -80,7 +102,7 @@ void main() {
     expect(find.byType(WerkaArchiveSentHubScreen), findsOneWidget);
   });
 
-  testWidgets('period screen opens daily calendar without exception', (
+  _archiveTest('period screen opens daily calendar without exception', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -96,7 +118,7 @@ void main() {
     expect(find.byType(WerkaArchiveDailyCalendarScreen), findsOneWidget);
   });
 
-  testWidgets('period screen opens yearly calendar without exception', (
+  _archiveTest('period screen opens yearly calendar without exception', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -112,9 +134,11 @@ void main() {
     expect(find.byType(WerkaArchiveYearlyCalendarScreen), findsOneWidget);
   });
 
-  testWidgets('daily calendar opens list when active day is tapped', (
+  _archiveTest('daily calendar opens list when active day is tapped', (
     tester,
   ) async {
+    final today = DateTime.now();
+    final activeDay = today.day == 3 ? 4 : 3;
     Future<WerkaArchiveResponse> archiveLoader({
       required WerkaArchiveKind kind,
       required WerkaArchivePeriod period,
@@ -130,7 +154,7 @@ void main() {
           recordCount: 1,
           totalsByUOM: [ArchiveTotalByUOM(uom: 'Kg', qty: 3)],
         ),
-        items: const [
+        items: [
           DispatchRecord(
             id: 'MAT-DN-TEST',
             supplierRef: 'CUS-001',
@@ -146,7 +170,8 @@ void main() {
             eventType: '',
             highlight: '',
             status: DispatchStatus.pending,
-            createdLabel: '2026-04-03 10:00:00',
+            createdLabel: DateTime(today.year, today.month, activeDay, 10)
+                .toIso8601String(),
           ),
         ],
       );
@@ -162,7 +187,12 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('3').last, warnIfMissed: false);
+    final day = find.descendant(
+      of: find.byType(CalendarDatePicker),
+      matching: find.text('$activeDay'),
+    );
+    await tester.ensureVisible(day);
+    await tester.tap(day);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -170,7 +200,7 @@ void main() {
     expect(find.byType(WerkaArchiveListScreen), findsOneWidget);
   });
 
-  testWidgets('monthly calendar opens list when month is tapped', (
+  _archiveTest('monthly calendar opens list when month is tapped', (
     tester,
   ) async {
     Future<WerkaArchiveResponse> archiveLoader({
@@ -188,7 +218,7 @@ void main() {
           recordCount: 1,
           totalsByUOM: [ArchiveTotalByUOM(uom: 'Kg', qty: 3)],
         ),
-        items: const [
+        items: [
           DispatchRecord(
             id: 'MAT-DN-TEST',
             supplierRef: 'CUS-001',
@@ -204,7 +234,8 @@ void main() {
             eventType: '',
             highlight: '',
             status: DispatchStatus.pending,
-            createdLabel: '2026-04-03 10:00:00',
+            createdLabel:
+                DateTime(DateTime.now().year, 4, 3, 10).toIso8601String(),
           ),
         ],
       );
@@ -228,7 +259,9 @@ void main() {
     expect(find.byType(WerkaArchiveListScreen), findsOneWidget);
   });
 
-  testWidgets('yearly calendar opens list when year is tapped', (tester) async {
+  _archiveTest('yearly calendar opens list when year is tapped',
+      (tester) async {
+    final year = DateTime.now().year;
     Future<WerkaArchiveResponse> archiveLoader({
       required WerkaArchiveKind kind,
       required WerkaArchivePeriod period,
@@ -244,7 +277,7 @@ void main() {
           recordCount: 1,
           totalsByUOM: [ArchiveTotalByUOM(uom: 'Kg', qty: 3)],
         ),
-        items: const [
+        items: [
           DispatchRecord(
             id: 'MAT-DN-TEST',
             supplierRef: 'CUS-001',
@@ -260,7 +293,7 @@ void main() {
             eventType: '',
             highlight: '',
             status: DispatchStatus.pending,
-            createdLabel: '2026-04-03 10:00:00',
+            createdLabel: DateTime(year, 4, 3, 10).toIso8601String(),
           ),
         ],
       );
@@ -276,11 +309,25 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('archive_year_2026')));
+    final yearTile = find.byKey(ValueKey('archive_year_$year'));
+    await tester.ensureVisible(yearTile);
+    await tester.tap(yearTile);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(tester.takeException(), isNull);
     expect(find.byType(WerkaArchiveListScreen), findsOneWidget);
+  });
+}
+
+void _archiveTest(String description, WidgetTesterCallback callback) {
+  testWidgets(description, (tester) {
+    return http.runWithClient(
+      () => callback(tester),
+      () => MockClient((request) async {
+        expect(request.url.path, '/v1/mobile/werka/archive');
+        return http.Response('{"items":[]}', 200);
+      }),
+    );
   });
 }

@@ -47,7 +47,7 @@ void _registergscale_material_receipt_print_testCases03() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        LocalizedTestApp(
           home: Scaffold(
             body: OperatorDashboardPage(
               server: null,
@@ -177,7 +177,7 @@ void _registergscale_material_receipt_print_testCases03() {
         required PrintTransport transport,
         BluetoothPrinterProfile? printer,
       }) {
-        return MaterialApp(
+        return LocalizedTestApp(
           theme: AppTheme.dark(),
           home: Scaffold(
             body: OperatorDashboardPage(
@@ -271,7 +271,7 @@ void _registergscale_material_receipt_print_testCases03() {
     final theme = AppTheme.dark();
 
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         theme: theme,
         home: Scaffold(
           body: OperatorDashboardPage(

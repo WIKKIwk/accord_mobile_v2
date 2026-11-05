@@ -82,7 +82,7 @@ void _registerLaminationAstatkaScopeTests() {
               workerMode: true,
               queueSnapshotLoader: () async => queueSnapshot,
               progressDriverUrlPicker: (_) async => 'http://printer.test',
-              liveEventsLoader: () => const Stream.empty()),
+              liveEventsLoader: _idleProductionLiveLoader()),
         ));
         await pumpUi(tester);
         if (find.text('Laminatsiya 1').evaluate().isNotEmpty) {
@@ -342,7 +342,7 @@ void _registerLaminationAstatkaScopeTests() {
               workerMode: true,
               queueSnapshotLoader: () async =>
                   scenario.paused ? pausedSnapshot : snapshot,
-              liveEventsLoader: () => const Stream.empty()),
+              liveEventsLoader: _idleProductionLiveLoader()),
         ));
         await pumpUi(tester);
         if (find.text('Laminatsiya 1').evaluate().isNotEmpty) {
@@ -611,7 +611,7 @@ void _registerLaminationLabelPolicyTests() {
             readOnly: true,
             workerMode: true,
             queueSnapshotLoader: () async => queue,
-            liveEventsLoader: () => const Stream.empty(),
+            liveEventsLoader: _idleProductionLiveLoader(),
             progressDriverUrlPicker: (_) async {
               expect(submissions, hasLength(1));
               printerPicks++;

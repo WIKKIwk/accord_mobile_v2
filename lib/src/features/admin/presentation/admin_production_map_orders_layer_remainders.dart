@@ -24,7 +24,7 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
     _ProgressPrinterOption? printer;
     var committed = false;
     var atomicPostSubmitted = false;
-    setState(() => _actionInFlight = true);
+    _applyStateChange(() => _actionInFlight = true);
     try {
       final preferences = await SharedPreferences.getInstance();
       final savedJson = preferences.getString(pendingKey);
@@ -107,7 +107,7 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
           // output or layer return when the worker reports a problem.
           widget.endPrintPreflight?.call();
           _ownsPrintPreflight = false;
-          setState(() => _actionInFlight = false);
+          _applyStateChange(() => _actionInFlight = false);
           final frozen = await _runQueueAction(
             'freeze',
             freezeWithIssue: true,
@@ -184,7 +184,7 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
       }
       if (!contextCurrent()) return _ProgressActionOutcome.completed;
       final hasOutput = result.progressBatches.isNotEmpty;
-      setState(() {
+      _applyStateChange(() {
         _actionInFlight = false;
         if (hasOutput) _workerOutputRevision++;
         _queueActionControl = null;
@@ -287,7 +287,7 @@ extension _IntegratedLaminationAstatka on _ReadOnlyOrderDetailSheetState {
     } finally {
       if (_ownsPrintPreflight) widget.endPrintPreflight?.call();
       _ownsPrintPreflight = false;
-      if (mounted) setState(() => _actionInFlight = false);
+      if (mounted) _applyStateChange(() => _actionInFlight = false);
     }
   }
 

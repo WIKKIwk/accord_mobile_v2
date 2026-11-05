@@ -16,6 +16,8 @@ part 'qolip_location_transfer_screen_widgets_part_01.dart';
 
 class _QolipLocationTransferScreenState
     extends State<QolipLocationTransferScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late Future<QolipBlocksResult> _blocksFuture;
   Future<List<QolipLocationEntry>>? _locationsFuture;
   final TextEditingController _quantityController = TextEditingController();

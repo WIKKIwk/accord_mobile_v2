@@ -35,6 +35,8 @@ const double _adminApparatusPanelGap = 4;
 
 class _AdminApparatusSettingsScreenState
     extends State<AdminApparatusSettingsScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   static _AdminApparatusSettingsCache? _cache;
 
   late AdminApparatusModule _selectedModule;

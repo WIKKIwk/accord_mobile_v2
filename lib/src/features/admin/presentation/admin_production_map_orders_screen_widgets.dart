@@ -55,6 +55,7 @@ class _EarlyCloseOrderDialogState extends State<_EarlyCloseOrderDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+        scrollable: true,
         title: const UrduAwareText('Qanday sabab bilan yopyapsiz?'),
         content: TextField(
           key: const ValueKey('early-close-comment'),

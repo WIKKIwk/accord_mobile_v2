@@ -42,6 +42,8 @@ const double _rawMaterialAssignmentPanelGap = 4;
 class _AdminRawMaterialAssignmentPanelState
     extends State<AdminRawMaterialAssignmentPanel>
     with SingleTickerProviderStateMixin {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late final TabController _tabController;
   late Future<_RawMaterialAssignmentData> _future;
   List<AdminRawMaterialAssignment> _assignments = const [];

@@ -7,7 +7,6 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
     this.initialAssignments = const [],
     this.orderNodes = const [],
     this.lookupAssignmentStatus = '',
-    this.lookupConsumedQty = 0,
     this.diagnosticCompatible = true,
     this.diagnosticReason = 'compatible',
   });
@@ -16,7 +15,6 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
   final List<Map<String, Object?>> initialAssignments;
   final List<Map<String, Object?>> orderNodes;
   final String lookupAssignmentStatus;
-  final double lookupConsumedQty;
   final bool diagnosticCompatible;
   final String diagnosticReason;
   bool _deleted = false;
@@ -188,7 +186,7 @@ class _RawMaterialAssignmentHttpClient implements HttpClient {
               'stock_warehouse': 'Kalidor',
               'stock_qty': 12,
               'stock_uom': 'Kg',
-              'consumed_qty': lookupConsumedQty,
+              'consumed_qty': 0.0,
             },
             'order': {
               'id': 'zakaz-1',

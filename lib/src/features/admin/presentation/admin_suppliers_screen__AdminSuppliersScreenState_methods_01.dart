@@ -38,7 +38,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     final selectedKind = _selectedKind;
 
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         if (showLoading) {
           _initialLoading = true;
         }
@@ -87,7 +87,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
         return;
       }
       _animateNextListUpdate = false;
-      setState(() {
+      _applyStateChange(() {
         _initialLoading = false;
         _loadingMore = false;
         if (showLoading) {
@@ -120,7 +120,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     _animateNextListUpdate = false;
     _authoritativeQuery = _searchQuery;
 
-    setState(() {
+    _applyStateChange(() {
       _items
         ..clear()
         ..addAll(page.items);
@@ -157,7 +157,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
           if (!mounted || animationGeneration != _listAnimationGeneration) {
             return;
           }
-          setState(() {
+          _applyStateChange(() {
             _exitingItems.clear();
             _enteringItemKeys.removeAll(enteringKeys);
           });
@@ -182,7 +182,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
     final selectedKind = _selectedKind;
     final offset = _offset;
     final readScope = currentSessionReadScope();
-    setState(() => _loadingMore = true);
+    _applyStateChange(() => _loadingMore = true);
 
     try {
       final page = await _loadAdminUserList(
@@ -200,7 +200,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
           _offset != offset) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _items.addAll(page.items);
         _authoritativeItems.addAll(page.items);
         _offset += page.items.length;
@@ -232,7 +232,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
         selectedKind,
         readScope,
       )) {
-        setState(() => _loadingMore = false);
+        _applyStateChange(() => _loadingMore = false);
       }
     }
   }
@@ -331,7 +331,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
       return false;
     }
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _items
           ..clear()
           ..addAll(cache.items);
@@ -405,7 +405,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
         .where((item) => !nextIds.contains(item.id))
         .toList(growable: false);
     final animationGeneration = ++_listAnimationGeneration;
-    setState(() {
+    _applyStateChange(() {
       _items
         ..clear()
         ..addAll(nextItems);
@@ -423,7 +423,7 @@ extension __AdminSuppliersScreenStateAstPart01 on _AdminSuppliersScreenState {
           if (!mounted || animationGeneration != _listAnimationGeneration) {
             return;
           }
-          setState(() => _exitingItems.clear());
+          _applyStateChange(() => _exitingItems.clear());
         }),
       );
     }

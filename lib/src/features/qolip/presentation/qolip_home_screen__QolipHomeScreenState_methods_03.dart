@@ -309,7 +309,7 @@ extension __QolipHomeScreenStateAstPart03 on _QolipHomeScreenState {
       return;
     }
     final blockKey = block.name.trim().toLowerCase();
-    setState(() {
+    _applyStateChange(() {
       _locationGenerations[blockKey] =
           (_locationGenerations[blockKey] ?? 0) + 1;
       _resolvedLocations[blockKey] = List<QolipLocationEntry>.unmodifiable(

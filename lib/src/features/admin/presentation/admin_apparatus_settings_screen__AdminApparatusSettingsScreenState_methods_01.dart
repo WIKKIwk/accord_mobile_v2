@@ -7,7 +7,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
     if (_bindings.saving) return;
     final generation = ++_loadGeneration;
     if (showLoading && mounted) {
-      setState(() {
+      _applyStateChange(() {
         _loading = true;
         _loadError = null;
       });
@@ -41,7 +41,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
       ]..sort(_compareApparatus);
       final options = results[1] as AdminApparatusMasterOptions;
       final collections = results[2] as List<AdminApparatusCollection>;
-      setState(() {
+      _applyStateChange(() {
         _apparatus = apparatus;
         _collections = collections;
         _options = options;
@@ -61,10 +61,10 @@ extension __AdminApparatusSettingsScreenStateAstPart01
       debugPrintStack(stackTrace: stackTrace);
       if (!mounted || generation != _loadGeneration) return;
       if (_AdminApparatusSettingsScreenState._cache != null) {
-        setState(() => _loading = false);
+        _applyStateChange(() => _loading = false);
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _loading = false;
         _loadError = error;
       });
@@ -97,7 +97,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
         if (item.id != saved.id) item,
       saved,
     ]..sort(_compareApparatus);
-    setState(() => _apparatus = next);
+    _applyStateChange(() => _apparatus = next);
     _AdminApparatusSettingsScreenState._cache = _AdminApparatusSettingsCache(
       apparatus: next,
       collections: _collections,
@@ -161,7 +161,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
                 );
                 return;
               }
-              setState(() => _saving = true);
+              _applyStateChange(() => _saving = true);
               setDialogState(() {});
               try {
                 final previousLevels = {
@@ -213,7 +213,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
                   );
                 }
               } finally {
-                if (mounted) setState(() => _saving = false);
+                if (mounted) _applyStateChange(() => _saving = false);
                 if (dialogContext.mounted) setDialogState(() {});
               }
             }
@@ -403,7 +403,7 @@ extension __AdminApparatusSettingsScreenStateAstPart01
     } finally {
       if (mounted) {
         if (_bindings.ready) {
-          setState(() => _apparatus = _bindings.apparatus
+          _applyStateChange(() => _apparatus = _bindings.apparatus
               .where((item) => item.isActive)
               .toList()
             ..sort(_compareApparatus));

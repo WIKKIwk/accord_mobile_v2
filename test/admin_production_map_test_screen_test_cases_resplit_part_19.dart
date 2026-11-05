@@ -6,7 +6,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
       'laminatsiya worker progress dialogs use laminatsiya metric fields',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-laminatsiya-dialog-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -106,7 +106,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-rezka-intermediate-dialog-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -209,7 +209,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-rezka-dialog-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -370,7 +370,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-rezka-split-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -458,7 +458,7 @@ void _registeradmin_production_map_test_screen_testCases19() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-rezka-production-merge-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,

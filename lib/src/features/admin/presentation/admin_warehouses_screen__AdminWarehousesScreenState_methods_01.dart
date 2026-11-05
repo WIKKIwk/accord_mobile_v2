@@ -150,7 +150,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
 
   Future<void> _reload() async {
     final stateReload = _materialStateLocationsKey.currentState?.reload();
-    setState(() {
+    _applyStateChange(() {
       _future = _load();
       final selected = _selectedWarehouse?.trim() ?? '';
       if (selected.isNotEmpty) {
@@ -164,7 +164,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
   Future<void> _handleWarehouseDeleted() async {
     AdminWarehouseFilterStore.instance.clearCache();
     unawaited(AdminWarehouseFilterStore.instance.saveWarehouse(''));
-    setState(() {
+    _applyStateChange(() {
       _selectedWarehouse = null;
       _detailFuture = null;
       _warehouseFilterExpanded = false;
@@ -184,7 +184,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
         _warehouseLiveRefreshTimer?.cancel();
         _warehouseLiveRefreshTimer = null;
         final nextFuture = _load();
-        setState(() {
+        _applyStateChange(() {
           _future = nextFuture;
         });
         try {
@@ -255,7 +255,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
     final normalized = warehouse.trim();
     _userManuallySelectedWarehouse = true;
     unawaited(AdminWarehouseFilterStore.instance.saveWarehouse(normalized));
-    setState(() {
+    _applyStateChange(() {
       _selectedWarehouse = normalized;
       _warehouseFilterExpanded = false;
       _detailFuture = _loadDetail(normalized);
@@ -301,7 +301,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
       preferred: saved,
     );
     if (target != null && target != _selectedWarehouse) {
-      setState(() {
+      _applyStateChange(() {
         _selectedWarehouse = target;
         _detailFuture = _loadDetail(target);
       });

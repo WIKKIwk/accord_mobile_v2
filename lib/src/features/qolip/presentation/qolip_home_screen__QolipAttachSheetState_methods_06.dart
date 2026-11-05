@@ -3,7 +3,7 @@ part of 'qolip_home_screen.dart';
 
 extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
   Future<void> _loadSpecWarehouses() async {
-    setState(() {
+    _applyStateChange(() {
       _warehousesLoading = true;
       _warehousesFailed = false;
       _specWarehouse = null;
@@ -16,14 +16,14 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
           .toSet()
           .toList(growable: false);
       if (!mounted) return;
-      setState(() {
+      _applyStateChange(() {
         _specWarehouses = warehouses;
         _specWarehouse = warehouses.length == 1 ? warehouses.single : null;
       });
     } catch (_) {
-      if (mounted) setState(() => _warehousesFailed = true);
+      if (mounted) _applyStateChange(() => _warehousesFailed = true);
     } finally {
-      if (mounted) setState(() => _warehousesLoading = false);
+      if (mounted) _applyStateChange(() => _warehousesLoading = false);
     }
   }
 
@@ -184,7 +184,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
         await _confirmAndSaveSelectedProducts(picked.products);
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _product = picked.products.isEmpty ? null : picked.products.first;
         _selectedProducts = picked.products;
         if (widget.mode == _QolipAttachMode.productSpec && _product != null) {
@@ -215,7 +215,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _product = product;
         _selectedProducts = <QolipProduct>[product];
         _selectedColors
@@ -244,7 +244,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
     if (nextNumber > qolipPantonMaxNumber) {
       return;
     }
-    setState(() => _pantonNumbers.add(nextNumber));
+    _applyStateChange(() => _pantonNumbers.add(nextNumber));
   }
 
   Future<void> _save() async {
@@ -257,7 +257,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
     }
     final identifier = _qolipCode.text.trim();
     FocusScope.of(context).unfocus();
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       // Resolve before validating new colors/size: reuse always takes the existing complete set.
       if (!_createsStandaloneSet &&
@@ -333,7 +333,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
             fallback: l10n.qolipText('home.save_failed'), l10n: l10n));
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _applyStateChange(() => _saving = false);
     }
   }
 

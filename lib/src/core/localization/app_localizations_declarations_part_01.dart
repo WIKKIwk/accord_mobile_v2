@@ -11,9 +11,8 @@ class _AppLocalizationsDelegate
       );
 
   @override
-  Future<AppLocalizations> load(Locale locale) async {
-    return AppLocalizations(locale);
-  }
+  Future<AppLocalizations> load(Locale locale) =>
+      SynchronousFuture(AppLocalizations(locale));
 
   @override
   bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) =>

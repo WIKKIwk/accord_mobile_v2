@@ -5,7 +5,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
     on _AdminApparatusCapacityPanelState {
   Future<void> _load({bool showLoading = true}) async {
     if (showLoading && mounted) {
-      setState(() {
+      _applyStateChange(() {
         _loading = true;
         _error = null;
       });
@@ -16,7 +16,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
         MobileApi.instance.adminProductionMaps(),
       ]);
       if (!mounted) return;
-      setState(() {
+      _applyStateChange(() {
         _snapshot = results[0] as AdminApparatusCapacitySnapshot;
         _orders = results[1] as List<ProductionMapSaved>;
         _loading = false;
@@ -25,7 +25,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       _applySelectedProfile();
     } catch (_) {
       if (!mounted) return;
-      setState(() {
+      _applyStateChange(() {
         _loading = false;
         _error = context.l10n.adminText('capacity.load_failed');
       });
@@ -183,7 +183,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       );
       return;
     }
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       await MobileApi.instance.adminSaveApparatusCapacityProfile(
         AdminApparatusCapacityProfile(
@@ -217,7 +217,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
     } catch (error) {
       if (mounted) showAdminTopNotice(context, _errorMessage(error), tone: AdminTopNoticeTone.error);
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _applyStateChange(() => _saving = false);
     }
   }
 
@@ -242,7 +242,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
     final candidateKey = candidateApparatuses
         .map((candidate) => candidate.apparatusId)
         .join(',');
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       await MobileApi.instance.adminScheduleApparatusOrder(
         orderId: orderId,
@@ -268,7 +268,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
     } catch (error) {
       if (mounted) showAdminTopNotice(context, _errorMessage(error), tone: AdminTopNoticeTone.error);
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _applyStateChange(() => _saving = false);
     }
   }
 
@@ -299,7 +299,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       initialTime: TimeOfDay.fromDateTime(_scheduleStart),
     );
     if (time == null) return;
-    setState(() {
+    _applyStateChange(() {
       _scheduleStart = DateTime(
         date.year,
         date.month,
@@ -363,7 +363,7 @@ extension __AdminApparatusCapacityPanelStateAstPart01
       initialTime: TimeOfDay.fromDateTime(_downtimeStart),
     );
     if (time == null) return;
-    setState(() {
+    _applyStateChange(() {
       _downtimeStart = DateTime(
         date.year,
         date.month,

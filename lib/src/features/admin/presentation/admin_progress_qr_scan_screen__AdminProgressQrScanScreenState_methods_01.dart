@@ -9,7 +9,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() => _apparatusCatalog = apparatus);
+      _applyStateChange(() => _apparatusCatalog = apparatus);
     } catch (_) {
       // QR identity remains the exact ApparatusId when display projection fails.
     }
@@ -98,7 +98,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
     if (!mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _processing = false;
       if (!started && session.phase == ReliableScannerPhase.error) {
         _scanStatus = _QrScanStatus.cameraFailed;
@@ -127,7 +127,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
     }
     final qrPayload = _extractQrPayload(_firstBarcodeValue(capture));
     if (qrPayload.isEmpty) {
-      setState(() => _scanStatus = _QrScanStatus.invalidQr);
+      _applyStateChange(() => _scanStatus = _QrScanStatus.invalidQr);
       return;
     }
     await _handleQrPayload(qrPayload);
@@ -137,13 +137,13 @@ extension __AdminProgressQrScanScreenStateAstPart01
     final normalized = qrPayload.trim();
     if (normalized.isEmpty) {
       if (mounted) {
-        setState(() => _scanStatus = _QrScanStatus.invalidQr);
+        _applyStateChange(() => _scanStatus = _QrScanStatus.invalidQr);
       }
       return;
     }
     if (widget.scanOnly) {
       if (mounted) {
-        setState(() => _processing = true);
+        _applyStateChange(() => _processing = true);
       }
       await _stopScanner();
       if (mounted) {
@@ -160,10 +160,10 @@ extension __AdminProgressQrScanScreenStateAstPart01
     }
     final normalized = qrPayload.trim();
     if (normalized.isEmpty) {
-      setState(() => _scanStatus = _QrScanStatus.invalidQr);
+      _applyStateChange(() => _scanStatus = _QrScanStatus.invalidQr);
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _processing = true;
       _scanStatus = _QrScanStatus.loading;
       _scanError = null;
@@ -177,7 +177,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
       if (_openWorkerWipQueue(normalized)) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _report = report;
         _processing = false;
         _scanStatus = _QrScanStatus.reportReady;
@@ -192,7 +192,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
           if (!mounted) {
             return;
           }
-          setState(() {
+          _applyStateChange(() {
             _paddonReport = paddonReport;
             _processing = false;
             _scanStatus = _QrScanStatus.paddonReady;
@@ -212,7 +212,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
           if (_openWorkerWipQueue(normalized)) {
             return;
           }
-          setState(() {
+          _applyStateChange(() {
             _openingWipReport = openingWipReport;
             _processing = false;
             _scanStatus = _QrScanStatus.openingWipReady;
@@ -230,7 +230,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
           if (!mounted) {
             return;
           }
-          setState(() {
+          _applyStateChange(() {
             _rawMaterialReport = rawReport;
             _processing = false;
             _scanStatus = _QrScanStatus.materialReady;
@@ -243,7 +243,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _processing = false;
         _scanStatus = _QrScanStatus.error;
         _scanError = lookupError;
@@ -306,7 +306,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
   }
 
   void _scanAgain() {
-    setState(() {
+    _applyStateChange(() {
       _report = null;
       _paddonReport = null;
       _rawMaterialReport = null;
@@ -326,7 +326,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
     if (report == null && rawMaterialReport == null) {
       return;
     }
-    setState(() => _sharing = true);
+    _applyStateChange(() => _sharing = true);
     try {
       final bytes = report != null
           ? AdminProgressQrScanPdf.buildProgress(
@@ -378,7 +378,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
       }
     } finally {
       if (mounted) {
-        setState(() => _sharing = false);
+        _applyStateChange(() => _sharing = false);
       }
     }
   }

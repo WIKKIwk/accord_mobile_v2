@@ -17,7 +17,7 @@ extension __QolipAttachSheetStateAstPart07 on _QolipAttachSheetState {
         validProducts.isEmpty) {
       return;
     }
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     var savedCount = 0;
     Object? firstError;
     try {
@@ -86,7 +86,7 @@ extension __QolipAttachSheetStateAstPart07 on _QolipAttachSheetState {
       );
     } finally {
       if (mounted) {
-        setState(() => _saving = false);
+        _applyStateChange(() => _saving = false);
       }
     }
   }
@@ -100,7 +100,7 @@ extension __QolipAttachSheetStateAstPart07 on _QolipAttachSheetState {
     if (!mounted || option == null) {
       return;
     }
-    setState(() => _printingQr = true);
+    _applyStateChange(() => _printingQr = true);
     try {
       final printer = option.transport.isLocal
           ? option.transport.isBluetooth
@@ -167,7 +167,7 @@ extension __QolipAttachSheetStateAstPart07 on _QolipAttachSheetState {
       );
     } finally {
       if (mounted) {
-        setState(() => _printingQr = false);
+        _applyStateChange(() => _printingQr = false);
       }
     }
   }

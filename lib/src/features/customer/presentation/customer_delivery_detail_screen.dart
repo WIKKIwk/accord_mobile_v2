@@ -17,6 +17,8 @@ part 'customer_delivery_detail_screen_widgets_part_01.dart';
 
 class _CustomerDeliveryDetailScreenState
     extends State<CustomerDeliveryDetailScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late Future<CustomerDeliveryDetail> _future;
   bool _submitting = false;
   static const int _minRejectCommentLength = 3;

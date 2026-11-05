@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/localized_test_app.dart';
+
 part 'gscale_material_receipt_print_test_cases_resplit_part_01.dart';
 part 'gscale_material_receipt_print_test_cases_resplit_part_02.dart';
 part 'gscale_material_receipt_print_test_cases_resplit_part_03.dart';

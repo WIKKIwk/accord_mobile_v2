@@ -148,7 +148,7 @@ void _registeradmin_production_map_test_screen_testCases10() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'worker-state-policy-token',
       profile: const SessionProfile(
         role: UserRole.aparatchi,
@@ -316,7 +316,7 @@ void _registeradmin_production_map_test_screen_testCases10() {
           qolipMode: AdminQueueQolipMode.scanRequired,
         ),
       );
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
         token: 'worker-universal-scanner-token',
         profile: const SessionProfile(
           role: UserRole.aparatchi,

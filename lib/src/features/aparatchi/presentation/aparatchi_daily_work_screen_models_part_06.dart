@@ -238,11 +238,6 @@ String _dailyWorkApparatusLabel(
   return l10n.productionText('worker.daily.apparatus.worker');
 }
 
-String _dailyWorkValue(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? '—' : trimmed;
-}
-
 String _dailyWorkDateLabel(DateTime value) {
   return '${value.day.toString().padLeft(2, '0')}. '
       '${value.month.toString().padLeft(2, '0')}. ${value.year}';

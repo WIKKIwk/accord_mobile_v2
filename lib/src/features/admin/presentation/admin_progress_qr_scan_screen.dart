@@ -18,7 +18,6 @@ import '../../shared/models/app_models.dart';
 import '../../aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import '../logic/canonical_apparatus_display.dart';
 import '../models/production_map_models.dart';
-import 'admin_progress_qr_passport.dart';
 import 'admin_progress_qr_history_view.dart';
 import 'admin_progress_qr_scan_pdf.dart';
 import 'admin_production_map_orders_screen.dart' show AdminWorkerWipQrScanArgs;
@@ -34,6 +33,8 @@ part 'admin_progress_qr_scan_screen_declarations_part_05.dart';
 part 'admin_progress_qr_scan_screen_helpers_part_06.dart';
 
 class _AdminProgressQrScanScreenState extends State<AdminProgressQrScanScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final bool _scannerSupported = _supportsLiveScanner;
   final _manualQrController = TextEditingController();
   ReliableScannerSession? _scannerSession;

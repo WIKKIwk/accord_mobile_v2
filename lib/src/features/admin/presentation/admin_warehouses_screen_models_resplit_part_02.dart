@@ -2,6 +2,8 @@
 part of 'admin_warehouses_screen.dart';
 
 class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   static const int _pageSize = 80;
   static const double _loadMoreExtent = 420;
 

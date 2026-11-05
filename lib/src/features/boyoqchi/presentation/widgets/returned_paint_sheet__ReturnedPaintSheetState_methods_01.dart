@@ -139,7 +139,7 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
   }) {
     final fields = widget.draft.fieldLabelsFor(stateKey, baseFields);
     widget.draft.setValue(stateKey, index, value, fields.length);
-    setState(() => _error = '');
+    _applyStateChange(() => _error = '');
   }
 
   Future<void> _addNamedField(
@@ -226,14 +226,14 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
     final label = field[0].trim();
     final value = field[1].trim();
     if (existing.any((value) => value.toLowerCase() == label.toLowerCase())) {
-      setState(() => _error = 'Bu nom allaqachon qo‘shilgan.');
+      _applyStateChange(() => _error = 'Bu nom allaqachon qo‘shilgan.');
       return;
     }
     widget.draft.addNamedField(stateKey, label);
     final baseFields = _selectedFieldLabels ?? _returnedPaintFieldLabels;
     final fields = widget.draft.fieldLabelsFor(stateKey, baseFields);
     widget.draft.setValue(stateKey, fields.length - 1, value, fields.length);
-    setState(() => _error = '');
+    _applyStateChange(() => _error = '');
   }
 
   Future<ImageSource?> _chooseImageSource() {
@@ -282,7 +282,7 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
       imageQuality: 84,
     );
     if (picked == null) return;
-    setState(() {
+    _applyStateChange(() {
       _uploadingImage = true;
       _error = '';
     });
@@ -323,14 +323,14 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
     } catch (error) {
       if (mounted) _error = _errorText(error, 'Rasm yuklanmadi');
     } finally {
-      if (mounted) setState(() => _uploadingImage = false);
+      if (mounted) _applyStateChange(() => _uploadingImage = false);
     }
   }
 
   Future<void> _removeImage() async {
     final image = widget.draft.image;
     if (image == null || _uploadingImage || _removingImage) return;
-    setState(() {
+    _applyStateChange(() {
       _removingImage = true;
       _error = '';
     });
@@ -343,7 +343,7 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
     } catch (error) {
       if (mounted) _error = _errorText(error, 'Rasm olib tashlanmadi');
     } finally {
-      if (mounted) setState(() => _removingImage = false);
+      if (mounted) _applyStateChange(() => _removingImage = false);
     }
   }
 
@@ -351,7 +351,7 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
     final callback = widget.onSave;
     if (callback == null || _saving) return;
     if (returnedPaintDraftHasInvalidValues(widget.draft)) {
-      setState(() {
+      _applyStateChange(() {
         _error = 'Qaytarilgan bo‘yoq qiymatlarini to‘g‘ri raqamda kiriting.';
       });
       return;
@@ -366,13 +366,13 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
         items,
         'astatka',
       );
-      setState(() {
+      _applyStateChange(() {
         _error = 'Har bir tabda kamida 3 ta maydon to‘ldiring. '
             'Rasxot: $rasxotCount/3, Astatka: $astatkaCount/3.';
       });
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _saving = true;
       _error = '';
     });
@@ -381,12 +381,12 @@ extension __ReturnedPaintSheetStateAstPart01 on _ReturnedPaintSheetState {
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _error = _errorText(error, 'Qaytarilgan bo‘yoq saqlanmadi');
         });
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _applyStateChange(() => _saving = false);
     }
   }
 }

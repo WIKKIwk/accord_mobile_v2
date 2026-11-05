@@ -38,7 +38,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     if (_calculationListenersAttached) {
       layer.addListener(_handleCalculationInputChanged);
     }
-    setState(() => _layers.add(layer));
+    _applyStateChange(() => _layers.add(layer));
   }
 
   void _removeLayer(int index) {
@@ -46,7 +46,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     if (_layers.length == 1 || index < 0 || index >= _layers.length) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       final layer = _layers.removeAt(index);
       if (_calculationListenersAttached) {
         layer.removeListener(_handleCalculationInputChanged);
@@ -64,7 +64,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
         !(_isFlexo && !_editingAllFields)) {
       return;
     }
-    setState(() {});
+    _applyStateChange(() {});
   }
 
   void _applyTemplate(CalculateOrderTemplate? template) {
@@ -218,7 +218,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       return;
     }
     final layer = _layers[index];
-    setState(() {
+    _applyStateChange(() {
       layer.materialId = picked.id;
       layer.material.text = picked.name;
     });
@@ -314,7 +314,7 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
       Navigator.of(context).pop(true);
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       if (sourceMapId.isEmpty) _duplicateRezkaLabels = false;
       _applyTemplate(saved);
       if (sourceMapId.isEmpty) {

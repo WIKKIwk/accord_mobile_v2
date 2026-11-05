@@ -41,6 +41,8 @@ part 'admin_training_screen_models_part_05.dart';
 const double _adminTrainingPanelGap = 4;
 
 class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   List<AdminApparatus> _apparatus = const [];
   List<CalculateMaterial> _materials = const [];
   List<ProductionMapSaved> _orders = const [];

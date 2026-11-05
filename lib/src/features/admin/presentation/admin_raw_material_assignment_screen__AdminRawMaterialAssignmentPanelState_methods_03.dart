@@ -60,7 +60,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart03
                           _manualCandidatesLoading) {
                         return;
                       }
-                      setState(
+                      _applyStateChange(
                         () => _apparatusFilterExpanded =
                             !_apparatusFilterExpanded,
                       );

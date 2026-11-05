@@ -15,7 +15,7 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
     if (!mounted || _headlinePhase != 'idle' || _lockToSelectedLocale) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _headlinePhase = 'exiting';
     });
     _headlineController.duration = const Duration(milliseconds: 300);
@@ -30,7 +30,7 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
     if (_headlinePhase == 'exiting') {
       _headlineController.stop();
       _headlineController.value = 0;
-      setState(() {
+      _applyStateChange(() {
         _headlineIndex =
             (_headlineIndex + 1) % _WelcomeScreenState._headlineLocales.length;
         _headlinePhase = 'entering';
@@ -48,7 +48,7 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
     if (_headlinePhase == 'entering') {
       _headlineController.stop();
       _headlineController.value = 0;
-      setState(() {
+      _applyStateChange(() {
         _headlinePhase = 'idle';
       });
       if (!_lockToSelectedLocale) {
@@ -179,7 +179,7 @@ extension __WelcomeScreenStateAstPart01 on _WelcomeScreenState {
     _headlineTimer?.cancel();
     _headlineController.stop();
     _headlineController.value = 0;
-    setState(() {
+    _applyStateChange(() {
       _lockToSelectedLocale = true;
       _headlinePhase = 'idle';
       _headlineIndex = _WelcomeScreenState._headlineLocales.indexWhere(

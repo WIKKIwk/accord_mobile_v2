@@ -12,7 +12,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
 
   Future<void> _retry() async {
     final future = _load();
-    setState(() {
+    _applyStateChange(() {
       _future = future;
       _bobinaFilterUnits = null;
       _selectedAvailableBatchIds.clear();
@@ -43,7 +43,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       _showMessage(context.l10n.productionErrorMessage('paddon_roll_kind_conflict'));
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       if (_selectedAvailableBatchIds.contains(batchId)) {
         _selectedAvailableBatchIds.remove(batchId);
       } else {
@@ -61,7 +61,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     if (batchId.isEmpty) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       if (_selectedAssignedBatchIds.contains(batchId)) {
         _selectedAssignedBatchIds.remove(batchId);
       } else {
@@ -216,7 +216,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
     String? fallbackMessage,
     Object? expectedReadScope,
   }) async {
-    setState(() => _busy = true);
+    _applyStateChange(() => _busy = true);
     try {
       final snapshot = await mutation();
       if (!mounted ||
@@ -228,7 +228,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       if (snapshot.paddon.containsPeremotka) {
         ActiveRezkaPaddonStore.notifyChanged();
       }
-      setState(() {
+      _applyStateChange(() {
         _future = Future<AdminPaddonSnapshot>.value(snapshot);
         _bobinaFilterUnits = null;
       });
@@ -247,7 +247,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
             return false;
           }
           final applied = confirmsApplied(refreshed);
-          setState(() {
+          _applyStateChange(() {
             _future = Future<AdminPaddonSnapshot>.value(refreshed);
             _bobinaFilterUnits = null;
           });
@@ -275,7 +275,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       return false;
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        _applyStateChange(() => _busy = false);
       }
     }
   }
@@ -295,7 +295,7 @@ extension __AparatchiPaddonDetailScreenStateAstPart01
       return;
     }
     if (!_selectionMode || _editMode != mode) {
-      setState(() {
+      _applyStateChange(() {
         _selectionMode = true;
         _bobinaFilterUnits = null;
         _editMode = mode;

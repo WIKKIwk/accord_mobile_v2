@@ -185,7 +185,7 @@ void _registerRezkaRecordedRollTests() {
         'recorded Rezka roll ${savedIssue ? "issue" : "printed"} stays locked in pause and completion dialogs',
         (tester) async {
       await TestModeController.instance.setEnabled(true);
-      await AppSession.instance.setSession(
+      await _setTestSession(tester,
           token: 'recorded-rolls-worker',
           profile: const SessionProfile(
             role: UserRole.aparatchi,
@@ -364,7 +364,7 @@ void _registerRezkaRecordedRollTests() {
       'Rezka pause shows Bobina tare error inline and revalidates both weights',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
-    await AppSession.instance.setSession(
+    await _setTestSession(tester,
       token: 'rezka-bobina-validation-worker',
       profile: const SessionProfile(
         role: UserRole.aparatchi,

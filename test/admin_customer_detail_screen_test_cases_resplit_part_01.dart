@@ -4,7 +4,7 @@ part of 'admin_customer_detail_screen_test.dart';
 void _registeradmin_customer_detail_screen_testCases01() {
   testWidgets('customer detail shows direct chat action', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: AdminCustomerDetailScreen(
           customerRef: 'CUSTOMER-001',
           chatTarget: const ChatDirectoryEntry(
@@ -39,7 +39,7 @@ void _registeradmin_customer_detail_screen_testCases01() {
 
   testWidgets('material detail shows direct chat action', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: AdminCustomerDetailScreen(
           customerRef: 'MAT-001',
           isMaterialTaminotchi: true,
@@ -76,7 +76,7 @@ void _registeradmin_customer_detail_screen_testCases01() {
 
   testWidgets('admin customer detail renders loaded content', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: AdminCustomerDetailScreen(
           customerRef: 'comfi',
           customerManagementEnabled: true,
@@ -131,7 +131,7 @@ void _registeradmin_customer_detail_screen_testCases01() {
     final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: AdminCustomerDetailScreen(
           customerRef: 'comfi',
           detailLoader: (_) async => const AdminCustomerDetail(
@@ -165,7 +165,7 @@ void _registeradmin_customer_detail_screen_testCases01() {
     var codeRegenerated = false;
 
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: AdminCustomerDetailScreen(
           customerRef: 'MAT-001',
           title: 'Material taminotchisi',
@@ -228,7 +228,8 @@ void _registeradmin_customer_detail_screen_testCases01() {
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.text('Admin boshqaruv'), findsOneWidget);
     expect(find.text('70ABCDEF1234'), findsOneWidget);
-    expect(find.text('Mahsulot guruhlari'), findsOneWidget);
+    expect(find.byKey(const ValueKey('admin-material-detail-edit-item-groups')),
+        findsOneWidget);
     expect(find.text('Biriktirilgan omborlar'), findsOneWidget);
     expect(find.text('Rulon'), findsOneWidget);
     expect(find.text('Kalidor'), findsOneWidget);

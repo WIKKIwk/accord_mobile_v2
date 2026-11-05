@@ -16,6 +16,8 @@ part 'admin_apparatus_capacity_panel_widgets_part_01.dart';
 
 class _AdminApparatusCapacityPanelState
     extends State<AdminApparatusCapacityPanel> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController _capacitySlots = TextEditingController(text: '1');
   final TextEditingController _setupMinutes = TextEditingController(text: '0');
   final TextEditingController _cleanupMinutes = TextEditingController(

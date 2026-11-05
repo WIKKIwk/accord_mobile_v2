@@ -3,7 +3,6 @@ part of 'gscale_mobile_app.dart';
 
 extension __OperatorDashboardPageStateAstPartResplit2_03
     on _OperatorDashboardPageState {
-  @override
   Widget __OperatorDashboardPageState_resplit2BuildAstPart(
       BuildContext context) {
     final theme = Theme.of(context);
@@ -142,7 +141,7 @@ extension __OperatorDashboardPageStateAstPartResplit2_03
           height: 64,
           selectedIndex: _selectedSection,
           onDestinationSelected: (index) {
-            setState(() {
+            _applyStateChange(() {
               _selectedSection = index;
             });
             if (index == 1) {

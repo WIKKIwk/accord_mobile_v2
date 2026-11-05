@@ -83,7 +83,7 @@ void _registerOrderImageZoomTests() {
               workerMode: role != UserRole.admin,
               queueSnapshotLoader: () async => snapshot,
               apparatusLoader: () async => apparatus,
-              liveEventsLoader: () => const Stream.empty()),
+              liveEventsLoader: _idleProductionLiveLoader()),
         ));
         await tester.pump();
         await tester.runAsync(
@@ -245,7 +245,7 @@ void _registerOrderImageZoomTests() {
             workerMode: true,
             queueSnapshotLoader: () async => snapshot,
             apparatusLoader: () async => apparatus,
-            liveEventsLoader: () => const Stream.empty()),
+            liveEventsLoader: _idleProductionLiveLoader()),
       ));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));

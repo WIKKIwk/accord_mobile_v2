@@ -95,7 +95,7 @@ void _registerSequenceReorderTests() {
                   reconcile?.future ?? Future.value(snapshot()),
               apparatusLoader: () async =>
                   catalog.where((item) => item.id == _print8Id).toList(),
-              liveEventsLoader: () => const Stream.empty()),
+              liveEventsLoader: _idleProductionLiveLoader()),
         ));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Ketma-ketlik'));

@@ -10,7 +10,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
 
     final shouldShowScrollTopButton = _scrollController.offset > 140;
     if (shouldShowScrollTopButton != _showScrollTopButton && mounted) {
-      setState(() => _showScrollTopButton = shouldShowScrollTopButton);
+      _applyStateChange(() => _showScrollTopButton = shouldShowScrollTopButton);
     }
 
     if (_loadingMore || !_hasMore) {
@@ -42,7 +42,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
 
     _resetCacheState();
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _initialLoading = true;
         _loadingMore = false;
         _hasMore = true;
@@ -75,7 +75,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       }
       final hasMore =
           items.length == _AdminItemGroupBulkMoveTabState._initialPageSize;
-      setState(() {
+      _applyStateChange(() {
         _groups
           ..clear()
           ..addAll(groups);
@@ -100,10 +100,10 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() => _errorText = error.toString());
+      _applyStateChange(() => _errorText = error.toString());
     } finally {
       if (mounted) {
-        setState(() => _initialLoading = false);
+        _applyStateChange(() => _initialLoading = false);
       }
     }
   }
@@ -118,7 +118,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
     }
 
     if (showLoader && mounted) {
-      setState(() => _loadingMore = true);
+      _applyStateChange(() => _loadingMore = true);
     }
 
     try {
@@ -129,7 +129,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _items.addAll(page);
         _offset += page.length;
         _hasMore = page.length == limit;
@@ -158,7 +158,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       );
     } finally {
       if (mounted && showLoader) {
-        setState(() => _loadingMore = false);
+        _applyStateChange(() => _loadingMore = false);
       }
     }
   }
@@ -168,7 +168,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       return;
     }
 
-    setState(() {
+    _applyStateChange(() {
       if (_selectedCodes.contains(item.code)) {
         _selectedCodes.remove(item.code);
       } else {
@@ -194,7 +194,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       return;
     }
 
-    setState(() => _submitting = true);
+    _applyStateChange(() => _submitting = true);
 
     try {
       final result = await MobileApi.instance.adminMoveItemsToGroup(
@@ -206,7 +206,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       }
 
       final updatedCodes = result.updatedItemCodes.toSet();
-      setState(() {
+      _applyStateChange(() {
         if (result.failedCount == 0) {
           _selectedCodes.clear();
         } else {
@@ -247,7 +247,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _submitting = false);
+        _applyStateChange(() => _submitting = false);
       }
     }
   }
@@ -357,7 +357,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
     if (_submitting || _groups.isEmpty) {
       return;
     }
-    setState(() => _groupMenuOpen = !_groupMenuOpen);
+    _applyStateChange(() => _groupMenuOpen = !_groupMenuOpen);
   }
 
   void _handleSearchChanged(String value) {
@@ -366,7 +366,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
     }
     final query = value.trim();
     _searchDebounce?.cancel();
-    setState(() {
+    _applyStateChange(() {
       _groupMenuOpen = false;
       if (query.isEmpty) {
         _serverSearchItems = null;
@@ -390,7 +390,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
         if (!mounted || generation != _serverSearchGeneration) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _serverSearchQuery = query;
           _serverSearchItems = results;
         });
@@ -398,7 +398,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
         if (!mounted || generation != _serverSearchGeneration) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _serverSearchQuery = query;
           _serverSearchItems = _visibleItems(query);
         });
@@ -410,7 +410,7 @@ extension __AdminItemGroupBulkMoveTabStateAstPart01
     if (_submitting) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedGroup = group;
       _groupMenuOpen = false;
     });

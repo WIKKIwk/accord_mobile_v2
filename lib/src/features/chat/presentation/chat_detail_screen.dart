@@ -33,6 +33,8 @@ const Duration _voiceAutoStopMargin = Duration(seconds: 1);
 
 class _ChatDetailScreenState extends State<ChatDetailScreen>
     with WidgetsBindingObserver {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final store = ChatStore.instance;
   final controller = TextEditingController();
   final scrollController = ScrollController();

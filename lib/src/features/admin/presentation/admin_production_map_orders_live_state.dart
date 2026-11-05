@@ -145,7 +145,7 @@ extension _AdminProductionMapOrdersLiveState
       _recreateWorkerTabController(_apparatus);
       _queueSnapshotNeedsReconcile = true;
       _sheetQueueSnapshot.value = null;
-      setState(() {});
+      _applyStateChange(() {});
       return true;
     } catch (_) {
       return false;

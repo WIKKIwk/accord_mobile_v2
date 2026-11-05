@@ -24,6 +24,8 @@ const _pickerSheetBorderRadius = BorderRadius.vertical(
 );
 
 class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();

@@ -3,6 +3,8 @@ part of 'admin_production_map_orders_screen.dart';
 class _AdminProductionMapOrdersScreenState
     extends State<AdminProductionMapOrdersScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   late TabController _tabController;

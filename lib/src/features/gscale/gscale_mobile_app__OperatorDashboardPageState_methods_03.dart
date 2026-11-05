@@ -19,7 +19,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _tayyorlovMaterialWarehouses = snapshot.materialWarehouses
             .map((warehouse) => warehouse.trim().toLowerCase())
             .where((warehouse) => warehouse.isNotEmpty)
@@ -46,15 +46,15 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     final warehouse = _selectedPrintWarehouse()?.trim() ?? '';
     final kg = parsePositiveKg(_manualQtyController.text);
     if (item == null) {
-      setState(() => _errorText = 'Mahsulot tanlang');
+      _applyStateChange(() => _errorText = 'Mahsulot tanlang');
       return;
     }
     if (warehouse.isEmpty) {
-      setState(() => _errorText = 'Ombor tanlang');
+      _applyStateChange(() => _errorText = 'Ombor tanlang');
       return;
     }
     if (kg == null) {
-      setState(() => _errorText = 'Kirim kg miqdorini to‘g‘ri kiriting');
+      _applyStateChange(() => _errorText = 'Kirim kg miqdorini to‘g‘ri kiriting');
       return;
     }
     await _refreshTayyorlovMaterialWarehouses();
@@ -62,11 +62,11 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       return;
     }
     if (!_isTayyorlovSimpleWarehouse(warehouse)) {
-      setState(() => _errorText = 'Bu ombor uchun QR kirimi talab qilinadi');
+      _applyStateChange(() => _errorText = 'Bu ombor uchun QR kirimi talab qilinadi');
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
+    _applyStateChange(() {
       _simpleReceiptLoading = true;
       _errorText = '';
     });
@@ -79,7 +79,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _simpleReceiptLoading = false;
         _manualQtyController.clear();
         _manualQtyTapBackup = '';
@@ -93,7 +93,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _simpleReceiptLoading = false;
         _errorText =
             error is MobileApiException ? error.message : error.toString();
@@ -133,7 +133,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
     if (!mounted || selectedWarehouse == null || itemCode.trim().isEmpty) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _warehousesError = '';
     });
     try {
@@ -151,7 +151,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (warehouses.every(
         (warehouse) => warehouse.warehouse != selectedWarehouse.warehouse,
       )) {
-        setState(() {
+        _applyStateChange(() {
           _selectedWarehouse = null;
         });
       }
@@ -159,7 +159,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _warehousesError = error.toString();
       });
     }
@@ -209,13 +209,13 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       return;
     }
     if (mode == 'default' && defaultWarehouse.trim().isEmpty) {
-      setState(() {
+      _applyStateChange(() {
         _warehouseSetupError = 'Standart ombor tanlang';
       });
       return;
     }
 
-    setState(() {
+    _applyStateChange(() {
       _warehouseSetupLoading = true;
       _warehouseSetupError = '';
     });
@@ -224,7 +224,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _warehouseMode = mode == 'default' ? 'default' : 'manual';
         _defaultWarehouse = defaultWarehouse.trim();
         _defaultWarehouseController.text = _defaultWarehouse;
@@ -239,7 +239,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _warehouseSetupLoading = false;
         _warehouseSetupError = error.toString();
       });
@@ -247,7 +247,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
   }
 
   void _selectItem(MobileItem item) {
-    setState(() {
+    _applyStateChange(() {
       final changedItem = _selectedItem?.itemCode != item.itemCode;
       _selectedItem = item;
       if (_isPreparationFormulaReceipt) _preparationPresetApplied = true;
@@ -503,7 +503,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
         (_usesReceiptOrderContext && _orderSelectionLocked)) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedWarehouse = warehouse;
     });
     _scheduleSaveControlPrefs();
@@ -622,7 +622,7 @@ extension __OperatorDashboardPageStateAstPart03 on _OperatorDashboardPageState {
         )
         .timeout(const Duration(seconds: 15));
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _applyRsBatchSession(started.batch);
         _lastAutoBatchPrintKey = '';
       });

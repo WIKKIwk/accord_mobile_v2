@@ -101,7 +101,7 @@ void _registerAdminMapWipFactsTests() {
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => apparatus,
           queueSnapshotLoader: () async => initial,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
         ),
       ));
       await tester.pumpAndSettle();

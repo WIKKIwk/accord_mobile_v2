@@ -8,6 +8,7 @@ class _ClosedOrdersSyncHarness {
 
   final ProductionMapSaved saved;
   final List<AdminApparatus> apparatus;
+  final events = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
   String lifecycle = 'in_progress';
   int? revision = 1;
   int archiveReads = 0;
@@ -52,8 +53,7 @@ class _ClosedOrdersSyncHarness {
         epoch: revision == null ? '' : 'closed-sync-server',
       );
 
-  Future<void> mount(WidgetTester tester,
-      {Stream<AdminProductionMapLiveSnapshot>? events}) async {
+  Future<void> mount(WidgetTester tester) async {
     await _usePhoneViewport(tester);
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('uz'),
@@ -72,7 +72,7 @@ class _ClosedOrdersSyncHarness {
           return readArchive?.call() ?? Future.value([if (closed) archived]);
         },
         completionRequestsLoader: () async => [],
-        liveEventsLoader: () => events ?? const Stream.empty(),
+        liveEventsLoader: () => events.stream,
       ),
     ));
     await tester.pumpAndSettle();
@@ -93,8 +93,10 @@ void _registerClosedOrdersSyncTests() {
       ),
     );
     final catalog = await MobileApi.instance.adminApparatus(limit: 200);
-    return _ClosedOrdersSyncHarness(
+    final harness = _ClosedOrdersSyncHarness(
         saved, catalog.where((item) => item.id == _print8Id).toList());
+    addTearDown(harness.events.close);
+    return harness;
   }
 
   Future<void> showArchive(WidgetTester tester) async {
@@ -110,7 +112,7 @@ void _registerClosedOrdersSyncTests() {
 
   for (final terminal in ['cancelled', 'production_completed', 'closed']) {
     testWidgets(
-        'closed archive sync: polling shows $terminal without reopening',
+        'closed archive sync: live update shows $terminal without reopening',
         (tester) async {
       final h = await prepare();
       await h.mount(tester);
@@ -119,15 +121,13 @@ void _registerClosedOrdersSyncTests() {
       final reads = h.archiveReads;
       h.lifecycle = terminal;
       h.revision = 2;
-      await tester.pump(const Duration(seconds: 2));
+      h.events.add(h.snapshot());
       await tester.pumpAndSettle();
       expect(h.archiveReads, reads + 1);
       expect(find.textContaining(_closedSyncTitle), findsOneWidget);
       // New revisions for unrelated work must not reload the archive.
       h.revision = 3;
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 2));
+      h.events.add(h.snapshot());
       await tester.pumpAndSettle();
       expect(h.archiveReads, reads + 1);
       await dispose(tester);
@@ -144,7 +144,7 @@ void _registerClosedOrdersSyncTests() {
     await showArchive(tester);
     final reads = h.archiveReads;
     h.lifecycle = 'closed';
-    await tester.pump(const Duration(seconds: 2));
+    h.events.add(h.snapshot());
     await tester.pumpAndSettle();
     expect(h.archiveReads, reads + 1);
     expect(find.textContaining(_closedSyncTitle), findsOneWidget);
@@ -154,31 +154,25 @@ void _registerClosedOrdersSyncTests() {
   testWidgets('closed archive sync: live closure refreshes before opening tab',
       (tester) async {
     final h = await prepare();
-    final events = StreamController<AdminProductionMapLiveSnapshot>();
-    await TestModeController.instance.setEnabled(false);
-    await http.runWithClient(() async {
-      await h.mount(tester, events: events.stream);
-      final reads = h.archiveReads;
-      h.lifecycle = 'cancelled';
-      h.revision = 2;
-      events.add(h.snapshot());
-      await tester.pumpAndSettle();
-      expect(h.archiveReads, reads + 1);
-      expect(
-          find.byKey(const ValueKey('sequence-row-$_print8Id-$_closedSyncId')),
-          findsNothing);
-      // Duplicate/stale live events must not invalidate a fresh archive.
-      events.add(h.snapshot());
-      h.revision = 1;
-      events.add(h.snapshot());
-      await tester.pumpAndSettle();
-      expect(h.archiveReads, reads + 1);
-      await showArchive(tester);
-      expect(find.textContaining(_closedSyncTitle), findsOneWidget);
-      await dispose(tester);
-    }, () => MockClient((_) async => http.Response('{}', 200)));
-    unawaited(events.close());
-    await tester.pump();
+    await h.mount(tester);
+    final reads = h.archiveReads;
+    h.lifecycle = 'cancelled';
+    h.revision = 2;
+    h.events.add(h.snapshot());
+    await tester.pumpAndSettle();
+    expect(h.archiveReads, reads + 1);
+    expect(
+        find.byKey(const ValueKey('sequence-row-$_print8Id-$_closedSyncId')),
+        findsNothing);
+    // Duplicate/stale live events must not invalidate a fresh archive.
+    h.events.add(h.snapshot());
+    h.revision = 1;
+    h.events.add(h.snapshot());
+    await tester.pumpAndSettle();
+    expect(h.archiveReads, reads + 1);
+    await showArchive(tester);
+    expect(find.textContaining(_closedSyncTitle), findsOneWidget);
+    await dispose(tester);
   });
 
   testWidgets('closed archive sync: closure during slow read queues fresh read',
@@ -191,7 +185,7 @@ void _registerClosedOrdersSyncTests() {
     final reads = h.archiveReads;
     h.lifecycle = 'cancelled';
     h.revision = 2;
-    await tester.pump(const Duration(seconds: 2));
+    h.events.add(h.snapshot());
     await tester.pumpAndSettle();
     expect(h.archiveReads, reads); // No concurrent request.
     h.readArchive = () async => [h.archived];
@@ -206,7 +200,7 @@ void _registerClosedOrdersSyncTests() {
       (tester) async {
     final h = await prepare();
     h.lifecycle = 'cancelled';
-    h.readArchive = () async => throw TimeoutException('offline');
+    h.readArchive = () async => throw StateError('archive read failed');
     await h.mount(tester);
     expect(find.text('Yopilgan orderlar yuklanmadi'), findsOneWidget);
     h.readArchive = () async => [h.archived];

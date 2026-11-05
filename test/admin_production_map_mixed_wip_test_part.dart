@@ -99,7 +99,7 @@ void _registerMixedWipTests() {
         home: AdminProductionMapOrdersScreen(
             readOnly: true,
             workerMode: true,
-            liveEventsLoader: () => const Stream.empty()),
+            liveEventsLoader: _idleProductionLiveLoader()),
       ));
       await tester.pumpAndSettle();
       await tester.tap(find.text(_fixtureApparatusName(_rezkaId)));

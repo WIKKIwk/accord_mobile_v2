@@ -118,12 +118,22 @@ void main() {
     expect(scan, contains('_startAssignments'));
     expect(scan, contains('_requiredQolips'));
     expect(scan, contains('_availableInputProgressBatches'));
-    expect(scan, contains('adminProgressQrLookup('));
-    expect(scan, contains('apparatus: station'));
-    expect(scan, contains('orderId: orderId'));
+    expect(scan, contains('_checkWorkerWipScan('));
+    expect(scan, contains('_WorkerWipScanPurpose.start'));
     expect(scan, isNot(contains('adminValidateProductionMapQolipDetails(')));
     expect(scan, isNot(contains('adminLookupOpeningWip(')));
     expect(scan, isNot(contains('_fetchMaterialAssignments(')));
+
+    final validation = File(
+      'lib/src/features/admin/presentation/'
+      'admin_production_map_orders_wip_scan.dart',
+    ).readAsStringSync();
+    expect(validation, contains('adminProgressQrLookup(qr,'));
+    expect(validation, contains('apparatus: openedStation'));
+    expect(validation, contains('orderId: openedId'));
+    expect(validation, contains('requireActiveOrder: true'));
+    expect(validation, contains('validated.orderId != openedId'));
+    expect(validation, contains('validated.batchId != wip.batchId'));
   });
 
   test('worker QR switching uses backend controls instead of topology or WIP',
@@ -133,7 +143,7 @@ void main() {
       'admin_production_map_orders_screen_state.dart',
     ).readAsStringSync();
     final screenStart = screenSource.indexOf(
-      'Future<void> _handleWorkerFabQr(String qrPayload)',
+      'Future<void> _handleWorkerFabQr(',
     );
     final screenEnd = screenSource.indexOf(
       'Future<AdminProgressBatch?> _laminatsiyaWorkerHandoffBatch(',

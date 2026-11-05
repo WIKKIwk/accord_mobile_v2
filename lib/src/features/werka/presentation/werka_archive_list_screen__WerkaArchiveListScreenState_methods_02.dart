@@ -19,14 +19,14 @@ extension __WerkaArchiveListScreenStateAstPart02
   }
 
   void _toggleDailyCalendar() {
-    setState(() {
+    _applyStateChange(() {
       _showDateCalendar = !_showDateCalendar;
     });
   }
 
   Future<void> _setDailyDate(DateTime picked) async {
     final selected = DateUtils.dateOnly(picked);
-    setState(() {
+    _applyStateChange(() {
       _from = selected;
       _to = selected;
       _showDateCalendar = false;

@@ -11,7 +11,6 @@ class _ChecklistRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final value = data.formattedValue;
-    final subtitle = data.displaySubtitle;
     final hasLabel = data.label.trim().isNotEmpty;
 
     if (!hasLabel) {
@@ -41,31 +40,14 @@ class _ChecklistRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -78,37 +60,23 @@ class _ChecklistRowData {
   const _ChecklistRowData(
     this.label,
     this.value, {
-    this.subtitle = '',
     this.suffix = '',
   });
 
   final String label;
   final String value;
-  final String subtitle;
   final String suffix;
 
-  bool get hasValue => value.trim().isNotEmpty || subtitle.trim().isNotEmpty;
+  bool get hasValue => value.trim().isNotEmpty;
 
   String get formattedValue {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
-      return subtitle.trim();
+      return '';
     }
     final unit = suffix.trim();
     return unit.isEmpty ? trimmed : '$trimmed $unit';
   }
-
-  String get displaySubtitle {
-    final trimmed = subtitle.trim();
-    if (trimmed.isEmpty) {
-      return '';
-    }
-    return _sameChecklistText(trimmed, formattedValue) ? '' : trimmed;
-  }
-}
-
-bool _sameChecklistText(String left, String right) {
-  return left.trim().toLowerCase() == right.trim().toLowerCase();
 }
 
 String _layerValue(String material, String micron, String micronSuffix) {

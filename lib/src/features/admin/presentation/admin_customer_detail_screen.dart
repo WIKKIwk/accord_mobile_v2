@@ -33,6 +33,8 @@ const double _customerDetailPanelGap = 4;
 const double _customerDetailButtonRadius = 14;
 
 class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   AdminCustomerDetail? _detail;
   Object? _loadError;
   bool _loading = true;

@@ -19,6 +19,8 @@ part 'admin_item_group_bulk_move_screen_widgets_part_01.dart';
 part 'admin_item_group_bulk_move_screen_declarations_part_02.dart';
 
 class _AdminItemGroupBulkMoveTabState extends State<AdminItemGroupBulkMoveTab> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   static const int _initialPageSize = 30;
   static const int _scrollPageSize = 50;
   static const double _prefetchExtent = 2800;

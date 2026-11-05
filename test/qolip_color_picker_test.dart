@@ -2,6 +2,8 @@ import 'package:accord_mobile_v2/src/features/qolip/presentation/qolip_color_pic
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/localized_test_app.dart';
+
 void main() {
   test('qolip has fifteen default color options including new colors', () {
     expect(qolipDefaultColors, hasLength(16));
@@ -35,7 +37,7 @@ void main() {
 
   testWidgets('qolip color picker renders every default color', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: Scaffold(
           body: QolipColorPicker(
             selectedColor: null,
@@ -57,7 +59,7 @@ void main() {
       (tester) async {
     String? selected;
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: Scaffold(
           body: QolipColorPicker(
             selectedColor: selected,
@@ -75,7 +77,7 @@ void main() {
   testWidgets('qolip color picker returns the added colors', (tester) async {
     String? selected;
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: Scaffold(
           body: QolipColorPicker(
             selectedColor: selected,
@@ -97,7 +99,7 @@ void main() {
       (tester) async {
     var selected = <String>[];
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) => QolipColorPicker(
@@ -128,7 +130,7 @@ void main() {
     var selected = <String>[];
     var pantonNumbers = <int>[1];
     await tester.pumpWidget(
-      MaterialApp(
+      LocalizedTestApp(
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) => QolipColorPicker(

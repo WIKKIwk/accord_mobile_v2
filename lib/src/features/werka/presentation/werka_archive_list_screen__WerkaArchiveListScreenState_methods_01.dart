@@ -4,7 +4,7 @@ part of 'werka_archive_list_screen.dart';
 extension __WerkaArchiveListScreenStateAstPart01
     on _WerkaArchiveListScreenState {
   Future<void> _load() async {
-    setState(() {
+    _applyStateChange(() {
       _loading = true;
       _error = null;
     });
@@ -18,19 +18,19 @@ extension __WerkaArchiveListScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _data = data;
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _error = error;
       });
     } finally {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _loading = false;
         });
       }
@@ -141,7 +141,7 @@ extension __WerkaArchiveListScreenStateAstPart01
     if (_downloading) {
       return;
     }
-    setState(() => _downloading = true);
+    _applyStateChange(() => _downloading = true);
     try {
       final file = await MobileApi.instance.downloadWerkaArchivePdf(
         kind: widget.args.kind,
@@ -175,7 +175,7 @@ extension __WerkaArchiveListScreenStateAstPart01
       ).showSnackBar(SnackBar(content: Text(context.l10n.archivePdfFailed)));
     } finally {
       if (mounted) {
-        setState(() => _downloading = false);
+        _applyStateChange(() => _downloading = false);
       }
     }
   }

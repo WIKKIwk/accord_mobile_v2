@@ -34,7 +34,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
       );
       return null;
     }
-    setState(() => _linkingMaterialOrderId = orderId);
+    _applyStateChange(() => _linkingMaterialOrderId = orderId);
     try {
       final draft = await showModalBottomSheet<_TrainingMaterialLinkDraft>(
         context: context,
@@ -90,7 +90,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
       if (!mounted) {
         return assignment;
       }
-      setState(() {
+      _applyStateChange(() {
         _assignments = [
           assignment,
           for (final item in _assignments)
@@ -121,7 +121,7 @@ extension __AdminTrainingScreenStateAstPart03 on _AdminTrainingScreenState {
       return null;
     } finally {
       if (mounted) {
-        setState(() => _linkingMaterialOrderId = null);
+        _applyStateChange(() => _linkingMaterialOrderId = null);
       }
     }
   }

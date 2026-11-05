@@ -12,7 +12,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
   }
 
   Future<void> _refreshAssignments() async {
-    setState(_loadAssignments);
+    _applyStateChange(_loadAssignments);
     await _assignmentsFuture;
   }
 
@@ -20,7 +20,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
     if (_warehouse.isEmpty || _assigning) {
       return;
     }
-    setState(() => _assigning = true);
+    _applyStateChange(() => _assigning = true);
     late final List<AdminUserListEntry> users;
     try {
       final results = await Future.wait<Object>([
@@ -54,7 +54,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
       return;
     } finally {
       if (mounted) {
-        setState(() => _assigning = false);
+        _applyStateChange(() => _assigning = false);
       }
     }
     if (!mounted) {
@@ -97,7 +97,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
     if (picked == null || !mounted) {
       return;
     }
-    setState(() => _assigning = true);
+    _applyStateChange(() => _assigning = true);
     try {
       await MobileApi.instance.adminAssignWarehouse(
         warehouse: _warehouse,
@@ -125,7 +125,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
       }
     } finally {
       if (mounted) {
-        setState(() => _assigning = false);
+        _applyStateChange(() => _assigning = false);
       }
     }
   }
@@ -152,7 +152,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
       return;
     }
 
-    setState(() => _removingAssignmentKey = assignmentKey);
+    _applyStateChange(() => _removingAssignmentKey = assignmentKey);
     try {
       await MobileApi.instance.adminUnassignWarehouse(
         warehouse: assignment.warehouse,
@@ -179,7 +179,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
       }
     } finally {
       if (mounted) {
-        setState(() => _removingAssignmentKey = null);
+        _applyStateChange(() => _removingAssignmentKey = null);
       }
     }
   }
@@ -224,7 +224,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
     if (!confirmed || !mounted) {
       return;
     }
-    setState(() => _deleting = true);
+    _applyStateChange(() => _deleting = true);
     try {
       await MobileApi.instance.adminDeleteWarehouse(
         warehouse: summary.warehouse,
@@ -246,7 +246,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
       }
     } finally {
       if (mounted) {
-        setState(() => _deleting = false);
+        _applyStateChange(() => _deleting = false);
       }
     }
   }

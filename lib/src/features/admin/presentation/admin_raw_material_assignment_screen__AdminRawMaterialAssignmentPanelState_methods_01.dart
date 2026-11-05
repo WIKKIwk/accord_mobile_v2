@@ -63,7 +63,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
             _manualCandidatesError == null)) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _manualCandidatesOrderId = orderId;
       _manualCandidatesApparatus = apparatus;
       _manualCandidatesLoading = true;
@@ -81,7 +81,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
           !_sameApparatus(_selectedApparatus, apparatus)) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _manualCandidates = candidates;
         _manualCandidatesError = null;
       });
@@ -91,12 +91,12 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
           !_sameApparatus(_selectedApparatus, apparatus)) {
         return;
       }
-      setState(() => _manualCandidatesError = error);
+      _applyStateChange(() => _manualCandidatesError = error);
     } finally {
       if (mounted &&
           _selectedOrderId.trim() == orderId &&
           _sameApparatus(_selectedApparatus, apparatus)) {
-        setState(() => _manualCandidatesLoading = false);
+        _applyStateChange(() => _manualCandidatesLoading = false);
       }
     }
   }
@@ -142,10 +142,10 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       return;
     }
     if (_sameApparatus(_selectedApparatus, normalized)) {
-      setState(() => _apparatusFilterExpanded = false);
+      _applyStateChange(() => _apparatusFilterExpanded = false);
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedApparatus = normalized;
       _apparatusFilterExpanded = false;
       _scannedDiagnostic = null;
@@ -228,7 +228,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
     if (picked == null || !mounted) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedOrderId = picked.map.id.trim();
       _syncApparatusFilter(orders);
       _scannedDiagnostic = null;
@@ -258,7 +258,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
     }
     final requestId = ++_scanLookupRequestId;
     ++_scanDiagnosticRequestId;
-    setState(() {
+    _applyStateChange(() {
       _scannedBarcode = normalized;
       _scannedMaterial = null;
       _scannedDiagnostic = null;
@@ -304,7 +304,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
           diagnosticRequestId == _scanDiagnosticRequestId &&
               diagnosticOrderId == _selectedOrderId.trim() &&
               diagnosticApparatus == _selectedApparatus.trim();
-      setState(() {
+      _applyStateChange(() {
         _scannedMaterial = detail;
         if (diagnosticIsCurrent) {
           _scannedDiagnostic = diagnostic;
@@ -324,7 +324,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
           rawMaterialBarcodeFromQr(_scannedBarcode) != normalized) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _scanLookupError = error is MobileApiException
             ? error.message
             : context.l10n.adminText('raw_material.not_found');
@@ -332,7 +332,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       });
     } finally {
       if (mounted && requestId == _scanLookupRequestId) {
-        setState(() => _scanLookupLoading = false);
+        _applyStateChange(() => _scanLookupLoading = false);
       }
     }
   }
@@ -361,7 +361,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
           apparatus != _selectedApparatus.trim()) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _scannedDiagnostic = diagnostic;
         _scanLookupError = '';
       });
@@ -373,7 +373,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
           apparatus != _selectedApparatus.trim()) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _scannedDiagnostic = null;
         _scanLookupError = error.message;
       });
@@ -385,7 +385,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
           apparatus != _selectedApparatus.trim()) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _scannedDiagnostic = null;
         _scanLookupError = context.l10n.adminText(
           'production.assignment.diagnostic_failed',
@@ -405,7 +405,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       );
       return;
     }
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       final saved = await _assignMaterialWithApparatusSelection(
         orderId: orderId,
@@ -414,7 +414,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _scannedBarcode = '';
         _scannedMaterial = null;
         _scannedDiagnostic = null;
@@ -445,7 +445,7 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _saving = false);
+        _applyStateChange(() => _saving = false);
       }
     }
   }

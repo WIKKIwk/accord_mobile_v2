@@ -9,7 +9,7 @@ extension __QolipLocationTransferScreenStateAstPart01
       return data;
     }
     if (data.blocks.isEmpty) {
-      setState(() {
+      _applyStateChange(() {
         _sourceBlockName = null;
         _targetBlockName = null;
         _locationsFuture = null;
@@ -23,7 +23,7 @@ extension __QolipLocationTransferScreenStateAstPart01
         data.blocks.any((block) => _sameName(block.name, _sourceBlockName!));
     if (!sourceStillExists) {
       final first = data.blocks.first;
-      setState(() {
+      _applyStateChange(() {
         _sourceBlockName = first.name;
         _targetBlockName = first.name;
         _locationsFuture = _loadLocations(first.name);
@@ -72,7 +72,7 @@ extension __QolipLocationTransferScreenStateAstPart01
     if (name == null || name.trim().isEmpty) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _sourceBlockName = name;
       _targetBlockName = name;
       _locationsFuture = _loadLocations(name);
@@ -83,7 +83,7 @@ extension __QolipLocationTransferScreenStateAstPart01
   }
 
   void _selectSource(QolipLocationEntry? source) {
-    setState(() {
+    _applyStateChange(() {
       _selectedSource = source;
       _targetBlockName = source?.block ?? _targetBlockName;
       _targetCell = null;
@@ -92,14 +92,14 @@ extension __QolipLocationTransferScreenStateAstPart01
   }
 
   void _selectTargetBlock(String? name) {
-    setState(() {
+    _applyStateChange(() {
       _targetBlockName = name;
       _targetCell = null;
     });
   }
 
   Future<void> _reload() async {
-    setState(() {
+    _applyStateChange(() {
       _sourceBlockName = null;
       _targetBlockName = null;
       _locationsFuture = null;
@@ -116,7 +116,7 @@ extension __QolipLocationTransferScreenStateAstPart01
     if (block == null) {
       return;
     }
-    setState(() => _locationsFuture = _loadLocations(block));
+    _applyStateChange(() => _locationsFuture = _loadLocations(block));
     await _locationsFuture;
   }
 
@@ -143,7 +143,7 @@ extension __QolipLocationTransferScreenStateAstPart01
     if (normalized == null) {
       return;
     }
-    setState(() => _targetCell = normalized);
+    _applyStateChange(() => _targetCell = normalized);
   }
 
   Future<void> _transfer(QolipBlocksResult data) async {
@@ -177,7 +177,7 @@ extension __QolipLocationTransferScreenStateAstPart01
       return;
     }
 
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       final moved = await MobileApi.instance.qolipMoveLocation(
         locationId: source.id,
@@ -215,7 +215,7 @@ extension __QolipLocationTransferScreenStateAstPart01
           },
         ),
       );
-      setState(() {
+      _applyStateChange(() {
         _selectedSource = null;
         _targetCell = null;
         _quantityController.clear();
@@ -233,7 +233,7 @@ extension __QolipLocationTransferScreenStateAstPart01
       }
     } finally {
       if (mounted) {
-        setState(() => _saving = false);
+        _applyStateChange(() => _saving = false);
       }
     }
   }

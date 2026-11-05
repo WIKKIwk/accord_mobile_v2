@@ -25,6 +25,8 @@ part 'material_state_locations_tab_MaterialStateLocationsTabState_resplit_method
 part 'material_state_locations_tab_models_resplit_part_01.dart';
 
 class MaterialStateLocationsTabState extends State<MaterialStateLocationsTab> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   late Future<_MaterialStateLocationsData> _future;
   _MaterialStateLocationsData? _data;
   InventoryViewLease<InventoryAsset>? _assetView;

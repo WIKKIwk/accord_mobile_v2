@@ -76,7 +76,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
 
   void _cancelSelection() {
     _selectionGeneration++;
-    setState(() {
+    _applyStateChange(() {
       _selectionMode = null;
       _selectedContainerKeys.clear();
       _selectedQolipCodes.clear();
@@ -95,7 +95,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
         _selectionMode != _QolipSelectionMode.containers) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectionMode = _QolipSelectionMode.containers;
       if (_selectedContainerKeys.add(container.key)) {
         _selectedQolipCodes.addAll(
@@ -124,7 +124,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     if (product.qolipCode.trim().isEmpty) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectionMode = _QolipSelectionMode.qolips;
       if (!_selectedQolipCodes.add(code)) {
         _selectedQolipCodes.remove(code);
@@ -165,7 +165,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     if (confirmed != true || !mounted) {
       return;
     }
-    setState(() => _deleting = true);
+    _applyStateChange(() => _deleting = true);
     try {
       final deleted = await MobileApi.instance.qolipRemoveProductMolds(selectedProducts);
       if (!mounted) {
@@ -201,7 +201,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
       await _reload(force: false);
     } finally {
       if (mounted) {
-        setState(() => _deleting = false);
+        _applyStateChange(() => _deleting = false);
       }
     }
   }
@@ -226,7 +226,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     if (!mounted || option == null) {
       return;
     }
-    setState(() => _printing = true);
+    _applyStateChange(() => _printing = true);
     final failedCodes = <String>[];
     try {
       for (final product in products) {
@@ -257,7 +257,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
         ..showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
-        setState(() => _printing = false);
+        _applyStateChange(() => _printing = false);
       }
     }
   }

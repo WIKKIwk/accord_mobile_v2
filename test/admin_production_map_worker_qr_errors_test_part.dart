@@ -200,7 +200,7 @@ void _registerWorkerQrErrorTests() {
               if (foreignStage)
                 const AdminApparatus(id: _rezkaId, name: 'Rezka', operation: 'cut'),
             ],
-            liveEventsLoader: () => const Stream.empty(),
+            liveEventsLoader: _idleProductionLiveLoader(),
           ),
         ));
         await tester.pumpAndSettle();

@@ -258,6 +258,8 @@ class QolipStorageScreen extends StatefulWidget {
 
 class _QolipStorageScreenState extends State<QolipStorageScreen>
     with _StorageSessionState<QolipStorageScreen> {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final _search = TextEditingController();
   final _searchFieldKey = GlobalKey();
   FocusNode? _searchFocus;

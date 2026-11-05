@@ -66,7 +66,7 @@ extension _AdminProductionMapOrdersReactivation
 
   void _reconcileReactivatedWork() {
     if (!mounted) return;
-    setState(() {
+    _applyStateChange(() {
       _queueSnapshotNeedsReconcile = true;
       _queueSnapshotGeneration++;
     });

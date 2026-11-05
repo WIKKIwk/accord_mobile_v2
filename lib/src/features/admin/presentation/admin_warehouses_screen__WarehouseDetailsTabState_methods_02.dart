@@ -46,7 +46,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
         _editingStockBarcode != null) {
       return;
     }
-    setState(() => _editingStockBarcode = barcode);
+    _applyStateChange(() => _editingStockBarcode = barcode);
     try {
       final result = await showModalBottomSheet<_RawMaterialStockEditResult>(
         context: context,
@@ -88,7 +88,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
       }
     } finally {
       if (mounted) {
-        setState(() => _editingStockBarcode = null);
+        _applyStateChange(() => _editingStockBarcode = null);
       }
     }
   }
@@ -137,7 +137,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
       _itemsScrollController.jumpTo(0);
     }
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _items = const <AdminWarehouseStockItem>[];
         _qolipProducts = const <QolipProduct>[];
         _initialItemsLoading = warehouse.isNotEmpty;
@@ -170,7 +170,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
       return;
     }
     final generation = _itemsRequestGeneration;
-    setState(() {
+    _applyStateChange(() {
       _loadingMoreItems = true;
       _itemsError = null;
     });
@@ -202,7 +202,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
           warehouse != (widget.warehouse?.trim() ?? '')) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _items = replace ? page : <AdminWarehouseStockItem>[..._items, ...page];
         _initialItemsLoading = false;
         _loadingMoreItems = false;
@@ -213,7 +213,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
       if (!mounted || generation != _itemsRequestGeneration) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _initialItemsLoading = false;
         _loadingMoreItems = false;
         _itemsError = error;
@@ -235,7 +235,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
           !_isQolipWarehouse) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _qolipProducts = products;
         _initialItemsLoading = false;
         _loadingMoreItems = false;
@@ -246,7 +246,7 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
       if (!mounted || generation != _itemsRequestGeneration) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _qolipProducts = const <QolipProduct>[];
         _initialItemsLoading = false;
         _loadingMoreItems = false;

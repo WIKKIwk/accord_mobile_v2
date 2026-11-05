@@ -130,7 +130,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
         (left, right) =>
             left.name.toLowerCase().compareTo(right.name.toLowerCase()),
       );
-    setState(() => _collections = next);
+    _applyStateChange(() => _collections = next);
     _AdminApparatusSettingsScreenState._cache = _AdminApparatusSettingsCache(
       apparatus: _apparatus,
       collections: next,
@@ -150,7 +150,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           Future<void> save() async {
-            setState(() => _saving = true);
+            _applyStateChange(() => _saving = true);
             setDialogState(() {});
             try {
               final saved = current == null
@@ -190,7 +190,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
                 );
               }
             } finally {
-              if (mounted) setState(() => _saving = false);
+              if (mounted) _applyStateChange(() => _saving = false);
               if (dialogContext.mounted) setDialogState(() {});
             }
           }
@@ -316,7 +316,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       await MobileApi.instance.adminDeleteApparatusCollection(collection);
       if (!mounted) return;
@@ -324,7 +324,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
         for (final item in _collections)
           if (item.id != collection.id) item,
       ];
-      setState(() => _collections = next);
+      _applyStateChange(() => _collections = next);
       _AdminApparatusSettingsScreenState._cache = _AdminApparatusSettingsCache(
         apparatus: _apparatus,
         collections: next,
@@ -347,7 +347,7 @@ extension __AdminApparatusSettingsScreenStateAstPart02
         );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _applyStateChange(() => _saving = false);
     }
   }
 }

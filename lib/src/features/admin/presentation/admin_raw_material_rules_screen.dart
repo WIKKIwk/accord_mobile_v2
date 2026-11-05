@@ -31,6 +31,8 @@ const double _rawMaterialRulesPanelGap = 4;
 class _AdminRawMaterialSettingsScreenState
     extends State<AdminRawMaterialSettingsScreen>
     with SingleTickerProviderStateMixin {
+  void _applyStateChange(void Function() update) => setState(update);
+
   final _groupsController = TextEditingController();
   late Future<_RawMaterialRulesData> _future;
   late TabController _tabController;

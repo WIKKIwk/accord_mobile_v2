@@ -264,7 +264,7 @@ void _registerWorkerFabQrTests() {
         home: AdminProductionMapOrdersScreen(
             readOnly: true,
             workerMode: true,
-            liveEventsLoader: () => const Stream.empty()),
+            liveEventsLoader: _idleProductionLiveLoader()),
       ));
       await tester.pumpAndSettle();
       if (scenario == 'upstream-requeued') {
@@ -775,7 +775,7 @@ void _registerWorkerFabQrStateGuidanceTests() {
             readOnly: true,
             workerMode: true,
             queueSnapshotLoader: loadQueue,
-            liveEventsLoader: () => const Stream.empty()),
+            liveEventsLoader: _idleProductionLiveLoader()),
       ));
       await tester.pumpAndSettle();
       final scan = tester

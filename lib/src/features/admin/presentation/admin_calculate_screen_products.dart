@@ -69,7 +69,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
   }
 
   void _productInputChanged() {
-    if (!_applyingTemplate && mounted) setState(() {});
+    if (!_applyingTemplate && mounted) _applyStateChange(() {});
   }
 
   void _forkLayoutTemplate() {
@@ -84,7 +84,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
 
   void _setMultipleProducts(bool enabled) {
     if (_orderEditDimensionsLocked) return;
-    setState(() {
+    _applyStateChange(() {
       _forkLayoutTemplate();
       if (enabled && _products.isEmpty) {
         final row = _ProductControllers();
@@ -123,7 +123,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
     for (final controller in row.controllers) {
       controller.addListener(_productInputChanged);
     }
-    setState(() {
+    _applyStateChange(() {
       _forkLayoutTemplate();
       _products.add(row);
     });
@@ -132,7 +132,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
   void _removeProduct(_ProductControllers row) {
     if (_orderEditDimensionsLocked) return;
     if (_products.length <= 1) return;
-    setState(() {
+    _applyStateChange(() {
       _forkLayoutTemplate();
       _products.remove(row);
     });
@@ -143,7 +143,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
     if (_orderEditDimensionsLocked) return;
     final next = index + delta;
     if (next < 0 || next >= _products.length) return;
-    setState(() {
+    _applyStateChange(() {
       _forkLayoutTemplate();
       _products.insert(next, _products.removeAt(index));
     });

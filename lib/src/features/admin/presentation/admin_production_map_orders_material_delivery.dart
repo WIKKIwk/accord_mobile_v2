@@ -112,7 +112,7 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
             ) !=
             null) {
       if (mergeMode) {
-        setState(() {
+        _applyStateChange(() {
           _mergeScanMode = false;
           _materialIntakeMode = true;
           _intakeCandidatesExpanded = true;

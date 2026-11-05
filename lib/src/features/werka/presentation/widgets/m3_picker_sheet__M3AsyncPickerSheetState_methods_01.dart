@@ -18,7 +18,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
   Future<void> _reload({required bool reset}) async {
     final requestVersion = ++_requestVersion;
     if (reset) {
-      setState(() {
+      _applyStateChange(() {
         _loading = true;
         _loadingMore = false;
         _error = null;
@@ -28,7 +28,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
         _queryMatchCountByItem = <String, int>{};
       });
     } else {
-      setState(() {
+      _applyStateChange(() {
         _loadingMore = true;
       });
     }
@@ -52,7 +52,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
       if (!mounted || requestVersion != _requestVersion) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _items = reset ? result.items : [..._items, ...result.items];
         _hydrateInitialSelection(_items);
         _queryRankByItem = reset
@@ -69,12 +69,12 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
       if (!mounted || requestVersion != _requestVersion) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _error = error;
       });
     } finally {
       if (mounted && requestVersion == _requestVersion) {
-        setState(() {
+        _applyStateChange(() {
           _loading = false;
           _loadingMore = false;
         });
@@ -306,7 +306,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
       return;
     }
     final key = _selectionKey(item);
-    setState(() {
+    _applyStateChange(() {
       if (_selectedItems.containsKey(key)) {
         _selectedItems.remove(key);
       } else {
@@ -337,7 +337,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
     if (_scanning) {
       return;
     }
-    setState(() => _scanning = true);
+    _applyStateChange(() => _scanning = true);
     try {
       final suggestion =
           await WerkaAiSearchService.instance.pickAndInferSuggestion(context);
@@ -365,7 +365,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
       )?.showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
-        setState(() => _scanning = false);
+        _applyStateChange(() => _scanning = false);
       }
     }
   }
@@ -404,7 +404,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
         _runningEmptyAction) {
       return;
     }
-    setState(() => _runningEmptyAction = true);
+    _applyStateChange(() => _runningEmptyAction = true);
     try {
       final item = await action(query);
       if (!mounted) {
@@ -425,7 +425,7 @@ extension __M3AsyncPickerSheetStateAstPart01<T> on _M3AsyncPickerSheetState<T> {
         );
     } finally {
       if (mounted) {
-        setState(() => _runningEmptyAction = false);
+        _applyStateChange(() => _runningEmptyAction = false);
       }
     }
   }

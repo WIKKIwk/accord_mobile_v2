@@ -369,7 +369,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
               final itemId = item.map.id.trim();
               return itemId == map.id.trim() ||
                   (savedMapForRollback != null &&
-                      itemId == savedMapForRollback!.map.id.trim());
+                      itemId == savedMapForRollback.map.id.trim());
             });
           }
           rethrow;

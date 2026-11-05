@@ -47,7 +47,7 @@ extension _AdminProductionMapOrdersRePause
     } finally {
       try {
         if (mounted && scope == currentSessionReadScope()) {
-          setState(() {
+          _applyStateChange(() {
             _queueSnapshotNeedsReconcile = true;
             _queueSnapshotGeneration++;
             // Snapshot maps are immutable; invalidate only the local copy.

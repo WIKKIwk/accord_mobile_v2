@@ -108,7 +108,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
     if (!mounted || selected == null) {
       return;
     }
-    setState(() {
+    _applyStateChange(() {
       _selectedRequirementGroups = selected;
       _groupsController.text = _requirementGroupsSummary(selected);
     });
@@ -134,7 +134,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       );
       return;
     }
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       final saved = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: apparatus,
@@ -147,7 +147,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _replaceRule(saved);
         _selectedRequirementGroups = _effectiveRequirementGroupsFor(saved);
         _groupsController.text = _requirementGroupsSummary(
@@ -173,7 +173,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _saving = false);
+        _applyStateChange(() => _saving = false);
       }
     }
   }
@@ -191,7 +191,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       );
       return;
     }
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       final saved = await MobileApi.instance.adminSaveRawMaterialRule(
         apparatus: apparatus,
@@ -213,7 +213,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
         );
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _replaceRule(saved);
       });
       showAdminTopNotice(
@@ -236,7 +236,7 @@ extension __AdminRawMaterialSettingsScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _saving = false);
+        _applyStateChange(() => _saving = false);
       }
     }
   }

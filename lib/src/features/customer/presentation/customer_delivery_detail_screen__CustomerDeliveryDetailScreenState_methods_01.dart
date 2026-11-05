@@ -13,7 +13,7 @@ extension __CustomerDeliveryDetailScreenStateAstPart01
     final future = MobileApi.instance.customerDeliveryDetail(
       widget.deliveryNoteID,
     );
-    setState(() => _future = future);
+    _applyStateChange(() => _future = future);
     await future;
   }
 
@@ -35,7 +35,7 @@ extension __CustomerDeliveryDetailScreenStateAstPart01
     String comment = '',
   }) async {
     final current = await _future;
-    setState(() => _submitting = true);
+    _applyStateChange(() => _submitting = true);
     try {
       final updated = await MobileApi.instance.customerRespondDelivery(
         deliveryNoteID: widget.deliveryNoteID,
@@ -47,7 +47,7 @@ extension __CustomerDeliveryDetailScreenStateAstPart01
         comment: comment,
       );
       if (!mounted) return;
-      setState(() {
+      _applyStateChange(() {
         _future = Future<CustomerDeliveryDetail>.value(updated);
       });
       CustomerStore.instance.applyDetailTransition(
@@ -65,7 +65,7 @@ extension __CustomerDeliveryDetailScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _submitting = false);
+        _applyStateChange(() => _submitting = false);
       }
     }
   }

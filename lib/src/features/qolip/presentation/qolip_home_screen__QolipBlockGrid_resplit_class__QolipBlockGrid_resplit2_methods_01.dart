@@ -2,7 +2,6 @@
 part of 'qolip_home_screen.dart';
 
 extension __QolipBlockGridAstPart01 on _QolipBlockGrid {
-  @override
   Widget __QolipBlockGrid_resplit2BuildAstPart(BuildContext context) {
     final l10n = context.l10n;
     return FutureBuilder<List<QolipLocationEntry>>(

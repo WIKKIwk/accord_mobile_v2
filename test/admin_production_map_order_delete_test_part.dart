@@ -78,7 +78,7 @@ void _registerOrderDeleteTests() {
                       ? pendingRefresh.future
                       : snapshot(),
               closedOrdersLoader: () async => [],
-              liveEventsLoader: () => const Stream.empty(),
+              liveEventsLoader: _idleProductionLiveLoader(),
             ),
           ));
           await tester.pumpAndSettle();

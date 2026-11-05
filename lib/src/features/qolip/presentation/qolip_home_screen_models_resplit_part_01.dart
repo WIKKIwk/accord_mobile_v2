@@ -3,6 +3,8 @@ part of 'qolip_home_screen.dart';
 
 class _QolipHomeScreenState extends State<QolipHomeScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  void _applyStateChange(void Function() update) => setState(update);
+
   static const _blockOrderPreferenceKey = 'qolip.home.block_order';
   static const _quietRefreshInterval = Duration(seconds: 30);
 

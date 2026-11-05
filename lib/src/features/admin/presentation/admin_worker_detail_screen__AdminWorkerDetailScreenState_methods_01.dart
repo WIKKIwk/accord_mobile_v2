@@ -5,7 +5,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
     on _AdminWorkerDetailScreenState {
   void _refreshRetryAfter() {
     if (mounted) {
-      setState(() {});
+      _applyStateChange(() {});
     }
   }
 
@@ -53,7 +53,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       return;
     }
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _profileLoading = true;
         _profileDetailError = null;
       });
@@ -71,7 +71,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _profileDetail = profileDetail;
         _apparatus = apparatus;
         _profileDetailError = null;
@@ -81,7 +81,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _profileDetailError = error;
         _profileLoading = false;
       });
@@ -109,7 +109,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
   }
 
   Future<void> _reload() async {
-    setState(() {
+    _applyStateChange(() {
       _loading = true;
       _loadError = null;
       _profileDetail = null;
@@ -138,7 +138,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
         return;
       }
       _setRetryAfter(detail.codeRetryAfterSec);
-      setState(() {
+      _applyStateChange(() {
         _detail = detail;
         _assignedWarehouses = assignedWarehouses;
         _assignedResponsibilities = assignedResponsibilities;
@@ -152,7 +152,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       if (!mounted) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _loadError = error;
         _loading = false;
         _profileDetailError = _isSystemUser ? null : error;
@@ -167,7 +167,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       return false;
     }
 
-    setState(() => _savingPhone = true);
+    _applyStateChange(() => _savingPhone = true);
     try {
       final updatedPhone = _isSystemUser
           ? (await MobileApi.instance.adminUpdateSystemUserPhone(
@@ -186,7 +186,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
         return true;
       }
       _changed = true;
-      setState(() {
+      _applyStateChange(() {
         _detail = detail.copyWith(phone: updatedPhone);
       });
       return true;
@@ -209,13 +209,13 @@ extension __AdminWorkerDetailScreenStateAstPart01
       return false;
     } finally {
       if (mounted) {
-        setState(() => _savingPhone = false);
+        _applyStateChange(() => _savingPhone = false);
       }
     }
   }
 
   Future<void> _regenerateCode() async {
-    setState(() => _regeneratingCode = true);
+    _applyStateChange(() => _regeneratingCode = true);
     try {
       final updated = _isSystemUser
           ? await MobileApi.instance.adminRegenerateSystemUserCode(_workerId)
@@ -237,7 +237,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       }
       _changed = true;
       _setRetryAfter(detail.codeRetryAfterSec);
-      setState(() => _detail = detail);
+      _applyStateChange(() => _detail = detail);
     } catch (error) {
       if (!mounted) {
         return;
@@ -256,7 +256,7 @@ extension __AdminWorkerDetailScreenStateAstPart01
       );
     } finally {
       if (mounted) {
-        setState(() => _regeneratingCode = false);
+        _applyStateChange(() => _regeneratingCode = false);
       }
     }
   }

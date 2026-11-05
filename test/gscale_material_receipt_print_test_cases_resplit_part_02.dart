@@ -195,7 +195,7 @@ void _registergscale_material_receipt_print_testCases02() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        LocalizedTestApp(
           home: Scaffold(
             body: OperatorDashboardPage(
               server: null,

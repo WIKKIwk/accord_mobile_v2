@@ -4,7 +4,17 @@ part of 'admin_calculate_screen.dart';
 extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
   void _requestRememberedPrintSide() {
     if (widget.trainingMode || widget.openedOrder != null) return;
-    final template = _buildTemplateDraft();
+    final CalculateOrderTemplate template;
+    try {
+      template = _buildTemplateDraft();
+    } on FormatException {
+      // An unfinished number must not break the form or apply an old lookup.
+      _printSideTimer?.cancel();
+      _printSideRead++;
+      _printSideLayoutKey = null;
+      _rememberedPrintSide = null;
+      return;
+    }
     final scope = currentSessionReadScope();
     final productKey = jsonEncode([
       scope,
@@ -50,7 +60,7 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
       }
       if (mounted && read == _printSideRead &&
           scope == currentSessionReadScope() && side != _rememberedPrintSide) {
-        setState(() => _rememberedPrintSide = side);
+        _applyStateChange(() => _rememberedPrintSide = side);
       }
     });
   }
@@ -74,16 +84,16 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
             value: standard,
             onChanged: _openingSavedOrder || _openingAutomaticOrder
                 ? null
-                : (value) => setState(() => _standardPrintSide = value),
+                : (value) => _applyStateChange(() => _standardPrintSide = value),
           ),
         ),
         RezkaOrderOptionSwitches(
           duplicateLabels: _duplicateRezkaLabels,
           includeBobina: _includeBobinaInNet,
           onDuplicateLabelsChanged: _openingSavedOrder || _openingAutomaticOrder
-              ? null : (value) => setState(() => _duplicateRezkaLabels = value),
+              ? null : (value) => _applyStateChange(() => _duplicateRezkaLabels = value),
           onIncludeBobinaChanged: _openingSavedOrder || _openingAutomaticOrder
-              ? null : (value) => setState(() => _includeBobinaInNet = value),
+              ? null : (value) => _applyStateChange(() => _includeBobinaInNet = value),
         ),
         const SizedBox(height: 12),
       ],

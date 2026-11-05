@@ -58,7 +58,7 @@ extension _QolipStoragePaddonActions on _QolipStorageScreenState {
     Map<String, dynamic> body;
     if (pending == null) {
       QolipPaddonDetail current;
-      setState(() => _saving = true);
+      _applyStateChange(() => _saving = true);
       try {
         current = await MobileApi.instance.qolipPaddonDetail(paddon.code);
       } catch (error) {
@@ -70,7 +70,7 @@ extension _QolipStoragePaddonActions on _QolipStorageScreenState {
         }
         return;
       } finally {
-        if (mounted) setState(() => _saving = false);
+        if (mounted) _applyStateChange(() => _saving = false);
       }
       if (!_paddonPageIsCurrent) return;
       if (current.paddon.itemCount != 0 || current.items.isNotEmpty) {
@@ -110,12 +110,12 @@ extension _QolipStoragePaddonActions on _QolipStorageScreenState {
       body['request_id'] = QolipStorageIntent().keyFor(body);
       _pendingPaddonDeletes[paddon.code] = body;
     }
-    setState(() => _saving = true);
+    _applyStateChange(() => _saving = true);
     try {
       await MobileApi.instance.qolipDeletePaddon(body);
       _pendingPaddonDeletes.remove(paddon.code);
       if (!_paddonSessionIsCurrent) return;
-      setState(() => _paddons.removeWhere((item) => item.code == paddon.code));
+      _applyStateChange(() => _paddons.removeWhere((item) => item.code == paddon.code));
       if (_paddonPageIsCurrent) _message(context, _s(context, 'paddon_deleted'));
       await _load();
     } catch (error) {
@@ -132,14 +132,14 @@ extension _QolipStoragePaddonActions on _QolipStorageScreenState {
         await _load();
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _applyStateChange(() => _saving = false);
     }
   }
 
   Future<void> _removeMissingPaddon(String code) async {
     if (!_paddonSessionIsCurrent) return;
     _pendingPaddonDeletes.remove(code);
-    setState(() => _paddons.removeWhere((item) => item.code == code));
+    _applyStateChange(() => _paddons.removeWhere((item) => item.code == code));
     if (_paddonPageIsCurrent) {
       _message(context, context.l10n.productionText('worker.paddon.not_found'));
     }

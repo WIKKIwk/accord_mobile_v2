@@ -78,7 +78,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     _manualQtyTapCleared = true;
     _manualQtyController.clear();
     if (mounted) {
-      setState(() {});
+      _applyStateChange(() {});
     }
   }
 
@@ -136,7 +136,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     final restoreOrderDraft =
         !_isMaterialReceipt || draft.orderId == widget.linkedOrderId.trim();
     _runWithoutSavingControlPrefs(() {
-      setState(() {
+      _applyStateChange(() {
         if (restoreOrderDraft &&
             _authoritativeRsBatch?.active != true &&
             draft.itemCode.trim().isNotEmpty) {
@@ -257,7 +257,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
           _selectedWarehouse != null ||
           _authoritativeRsBatch?.active == true ||
           userKey != _materialWarehouseUserKey) return;
-      setState(() => _selectedWarehouse =
+      _applyStateChange(() => _selectedWarehouse =
           warehouses.firstWhere((item) => item.warehouse == preferred));
       _scheduleSaveControlPrefs();
     } catch (_) {
@@ -340,7 +340,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     _stopLiveStream();
     _latencyListenable.value = 0;
     if (mounted) {
-      setState(() {
+      _applyStateChange(() {
         _snapshot = MonitorSnapshot.empty();
         _errorText = error.toString();
         _latencyFailureCount = 0;
@@ -357,7 +357,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
         if (!mounted || generation != _streamGeneration) {
           return;
         }
-        setState(() {
+        _applyStateChange(() {
           _errorText = error.toString();
         });
       }
@@ -458,7 +458,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       if (!mounted || generation != _streamGeneration) {
         return;
       }
-      setState(() {});
+      _applyStateChange(() {});
     });
   }
 
@@ -470,12 +470,12 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     if (server == null) {
       if (widget.printTransport.isLocal) {
         if (mounted && _errorText.isNotEmpty && !_batchStartConflict) {
-          setState(() => _errorText = '');
+          _applyStateChange(() => _errorText = '');
         }
         return;
       }
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _errorText = 'Avval printer yoki tarozini tanlang';
         });
       }
@@ -484,7 +484,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
 
     _requestInFlight = true;
     if (manual && mounted) {
-      setState(() {
+      _applyStateChange(() {
         _manualLoading = true;
         if (!_batchStartConflict) {
           _errorText = '';
@@ -513,7 +513,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
 
       final payload = jsonDecode(monitor.body) as Map<String, dynamic>;
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _applySnapshot(MonitorSnapshot.fromJson(payload));
           if (!_batchStartConflict) {
             _errorText = '';
@@ -523,7 +523,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
       await _refreshRsBatchState();
     } catch (error) {
       if (mounted) {
-        setState(() {
+        _applyStateChange(() {
           _errorText = error.toString();
         });
       }
@@ -531,7 +531,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
     } finally {
       _requestInFlight = false;
       if (manual && mounted) {
-        setState(() {
+        _applyStateChange(() {
           _manualLoading = false;
         });
       }
@@ -556,7 +556,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
           generation != _rpsBatchGeneration) {
         return;
       }
-      setState(() {
+      _applyStateChange(() {
         _applyRsBatchSession(response.batch);
         if (reportError &&
             !_batchStartConflict &&
@@ -570,7 +570,7 @@ extension __OperatorDashboardPageStateAstPart01 on _OperatorDashboardPageState {
           mounted &&
           requestId == _rpsBatchStateRequestId &&
           generation == _rpsBatchGeneration) {
-        setState(() {
+        _applyStateChange(() {
           _errorText = rpsBatchActionErrorMessage(error);
         });
       }

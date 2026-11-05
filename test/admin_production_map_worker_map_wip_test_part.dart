@@ -68,7 +68,7 @@ void _registerWorkerMapWipTests() {
         home: AdminProductionMapOrdersScreen(
           readOnly: true,
           workerMode: true,
-          liveEventsLoader: () => const Stream.empty(),
+          liveEventsLoader: _idleProductionLiveLoader(),
           progressDriverUrlPicker: (_) async => 'http://printer.test',
         ),
       ));
