@@ -632,6 +632,7 @@ AdminRawMaterialLookup _rawMaterialLookupWithoutAssignment(
     status: 'available',
     reservedOrderId: '',
     sourceReceiptId: detail.sourceReceiptId,
+    isMetalayzer: detail.isMetalayzer,
   );
 }
 

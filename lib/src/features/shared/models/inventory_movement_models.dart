@@ -203,6 +203,7 @@ class InventoryAsset {
     this.placementVersion = 1,
     this.orderAssignment,
     this.orderAssignmentKnown = false,
+    this.isMetalayzer = false,
   });
 
   final InventoryAssetKind kind;
@@ -221,6 +222,7 @@ class InventoryAsset {
   final InventoryOrderAssignment? orderAssignment;
   // Omitted metadata (legacy/mutation response) must not mean "unassigned".
   final bool orderAssignmentKnown;
+  final bool isMetalayzer;
 
   bool get isAvailable =>
       status.trim().toLowerCase() == 'available' && transferId.trim().isEmpty;
@@ -242,6 +244,7 @@ class InventoryAsset {
       qty: (json['qty'] as num?)?.toDouble() ?? 0,
       uom: json['uom']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
+      isMetalayzer: json['is_metalayzer'] == true,
       physicalLocation: InventoryLocationReference.fromJson(
         location is Map ? location.cast<String, dynamic>() : const {},
       ),
@@ -283,6 +286,7 @@ class InventoryAsset {
           ? orderAssignment
           : orderAssignment ?? this.orderAssignment,
       orderAssignmentKnown: orderAssignmentKnown ?? this.orderAssignmentKnown,
+      isMetalayzer: isMetalayzer,
     );
   }
 }

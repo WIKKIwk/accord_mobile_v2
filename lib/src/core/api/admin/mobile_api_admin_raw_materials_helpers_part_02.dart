@@ -387,6 +387,7 @@ class AdminRawMaterialLookup {
     required this.qty,
     required this.uom,
     this.status = '',
+    this.isMetalayzer = false,
     this.reservedOrderId = '',
     this.sourceReceiptId = '',
     this.assignment,
@@ -403,6 +404,7 @@ class AdminRawMaterialLookup {
   final double qty;
   final String uom;
   final String status;
+  final bool isMetalayzer;
   final String reservedOrderId;
   final String sourceReceiptId;
   final AdminRawMaterialAssignment? assignment;
@@ -422,6 +424,7 @@ class AdminRawMaterialLookup {
       qty: (json['qty'] as num?)?.toDouble() ?? 0,
       uom: json['uom']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
+      isMetalayzer: json['is_metalayzer'] == true,
       reservedOrderId: json['reserved_order_id']?.toString() ?? '',
       sourceReceiptId: json['source_receipt_id']?.toString() ?? '',
       assignment: assignmentRaw is Map

@@ -158,6 +158,7 @@ enum AdminUserKind {
   salesManager,
   brigader,
   rezkaMaster,
+  metalayzer,
 }
 
 class AdminUserListEntry {
@@ -190,7 +191,9 @@ class AdminUserListEntry {
     final principalRole = userRoleFromJson(
       json['principal_role'] as String? ?? source,
     );
-    final kind = principalRole == UserRole.rezkaMaster
+    final kind = principalRole == UserRole.metalayzer
+        ? AdminUserKind.metalayzer
+        : principalRole == UserRole.rezkaMaster
         ? AdminUserKind.rezkaMaster
         : principalRole == UserRole.brigader ? AdminUserKind.brigader : principalRole == UserRole.salesManager ? AdminUserKind.salesManager : principalRole == UserRole.homashyoRezkachi ? AdminUserKind.homashyoRezkachi : principalRole == UserRole.tayyorlovMasteri ? AdminUserKind.tayyorlovMasteri : source == 'worker'
         ? AdminUserKind.worker
@@ -231,6 +234,7 @@ class AdminUserListEntry {
   }
 
   String get roleLabel {
+    if (kind == AdminUserKind.metalayzer) return 'Metalayzer';
     if (kind == AdminUserKind.rezkaMaster) return 'Rezka master';
     if (kind == AdminUserKind.brigader) return 'Brigader';
     if (kind == AdminUserKind.salesManager) return 'Sotuv manageri';

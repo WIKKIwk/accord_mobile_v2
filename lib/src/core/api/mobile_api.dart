@@ -132,6 +132,7 @@ part 'preparation/mobile_api_preparation_orders.dart';
 part 'preparation/mobile_api_preparation_warehouses.dart';
 part 'preparation/mobile_api_preparation_materials.dart';
 part 'raw_material_split/mobile_api_raw_material_split.dart';
+part 'metalayzer/mobile_api_metalayzer.dart';
 part 'customer/mobile_api_customer.dart';
 part 'gscale/mobile_api_gscale.dart';
 part 'qolip/mobile_api_qolip.dart';

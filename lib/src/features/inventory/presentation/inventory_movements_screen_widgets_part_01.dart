@@ -248,6 +248,12 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
               label: 'Fizik joy',
               value: asset.physicalLocation.name,
             ),
+            if (asset.kind == InventoryAssetKind.rawMaterial)
+              _AssetSheetDetail(
+                icon: Icons.check_circle_outline,
+                label: 'Metalayzer',
+                value: asset.isMetalayzer ? 'Metalayzer bo‘ldi' : 'Metalayzer bo‘lmagan',
+              ),
             if (orderLabel != null && orderLabel!.isNotEmpty)
               _AssetSheetDetail(
                 icon: Icons.receipt_long_outlined,

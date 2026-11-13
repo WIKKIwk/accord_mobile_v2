@@ -21,6 +21,11 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return false;
   }
   final profile = session.profile!;
+  if (profile.role == UserRole.metalayzer) {
+    return routeName == AppRoutes.metalayzer &&
+        profile.hasCapability('metalayzer.access');
+  }
+  if (routeName == AppRoutes.metalayzer) return false;
   if (routeName == AppRoutes.inventoryMovements &&
       profile.role == UserRole.tayyorlovMasteri) {
     return profile.hasCapability('preparation.access');

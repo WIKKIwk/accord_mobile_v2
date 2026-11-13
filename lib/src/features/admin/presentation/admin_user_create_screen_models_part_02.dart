@@ -207,6 +207,8 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
   bool get _isAparatchiRole => widget.assignedRole.id == 'aparatchi';
   bool get _isQolipchiRole => widget.assignedRole.id == 'qolipchi';
   bool get _isBoyoqchiRole => widget.assignedRole.id == 'boyoqchi';
+  bool get _isMetalayzerRole =>
+      widget.assignedRole.baseRole == UserRole.metalayzer;
   bool get _isRezkaMasterRole =>
       widget.assignedRole.baseRole == UserRole.rezkaMaster;
   bool get _isBrigaderRole => widget.assignedRole.baseRole == UserRole.brigader;
@@ -293,14 +295,17 @@ class _CustomRoleCreateTabState extends State<_CustomRoleCreateTab> {
     setState(() => saving = true);
     try {
       var issuedCode = '';
-      if (_isQolipchiRole ||
+      if (_isMetalayzerRole ||
+          _isQolipchiRole ||
           _isBoyoqchiRole ||
           _isPreparationRole ||
           _isRawMaterialSplitRole ||
           _isSalesManagerRole ||
           _isBrigaderRole ||
           _isRezkaMasterRole) {
-        final role = _isRezkaMasterRole
+        final role = _isMetalayzerRole
+            ? UserRole.metalayzer
+            : _isRezkaMasterRole
             ? UserRole.rezkaMaster
             : _isBrigaderRole
             ? UserRole.brigader

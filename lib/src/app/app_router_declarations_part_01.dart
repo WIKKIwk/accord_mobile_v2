@@ -133,6 +133,7 @@ class AppRoutes {
   static const String preparationFormulas = '/preparation-formulas';
   static const String preparationProduction = '/preparation-production';
   static const String rawMaterialSplit = '/raw-material-split';
+  static const String metalayzer = '/metalayzer';
   static const String rawMaterialSplitHistory = '/raw-material-split-history';
   static const String boyoqchiAstatka = '/boyoqchi-astatka';
   static const String rezkaSplit = '/rezka-split';

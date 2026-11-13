@@ -63,11 +63,13 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       widget.entry.kind == AdminUserKind.homashyoRezkachi ||
       widget.entry.kind == AdminUserKind.salesManager ||
       widget.entry.kind == AdminUserKind.brigader ||
-      widget.entry.kind == AdminUserKind.rezkaMaster;
+      widget.entry.kind == AdminUserKind.rezkaMaster ||
+      widget.entry.kind == AdminUserKind.metalayzer;
   bool get _warehouseManagementEnabled =>
       (_isQolipchi ||
           widget.entry.kind == AdminUserKind.tayyorlovMasteri ||
-          widget.entry.kind == AdminUserKind.homashyoRezkachi) &&
+          widget.entry.kind == AdminUserKind.homashyoRezkachi ||
+          widget.entry.kind == AdminUserKind.metalayzer) &&
       !widget.readOnly;
   bool get _isTayyorlovMasteri =>
       widget.entry.kind == AdminUserKind.tayyorlovMasteri ||
@@ -75,7 +77,9 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
   bool get _responsibilityManagementEnabled =>
       _isTayyorlovMasteri && !widget.readOnly;
   UserRole get _warehousePrincipalRole =>
-      widget.entry.kind == AdminUserKind.homashyoRezkachi
+      widget.entry.kind == AdminUserKind.metalayzer
+          ? UserRole.metalayzer
+          : widget.entry.kind == AdminUserKind.homashyoRezkachi
           ? UserRole.homashyoRezkachi
           : _isQolipchi
               ? UserRole.qolipchi

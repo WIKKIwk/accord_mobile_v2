@@ -106,6 +106,7 @@ class SessionProfile {
           'sales.access',
           'brigader.access',
           'rezka.master.access',
+          'metalayzer.access',
         ]) ||
         (role == UserRole.materialTaminotchi &&
             hasAnyCapability(materialTaminotchiWorkspaceCapabilities));
@@ -116,6 +117,9 @@ class SessionProfile {
   }
 
   UserRole? get accessRole {
+    if (role == UserRole.metalayzer && hasCapability('metalayzer.access')) {
+      return UserRole.metalayzer;
+    }
     if (role == UserRole.rezkaMaster && hasCapability('rezka.master.access')) {
       return UserRole.rezkaMaster;
     }

@@ -179,6 +179,7 @@ class _NotificationRuntimeState extends State<NotificationRuntime>
       case UserRole.homashyoRezkachi:
       case UserRole.brigader:
       case UserRole.rezkaMaster:
+      case UserRole.metalayzer:
       case UserRole.salesManager:
       case UserRole.materialTaminotchi:
       case UserRole.admin:

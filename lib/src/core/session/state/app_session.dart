@@ -46,6 +46,9 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.metalayzer && profile.hasCapability('metalayzer.access')) {
+      return '/metalayzer';
+    }
     if (profile.role == UserRole.rezkaMaster &&
         profile.hasCapability('rezka.master.access')) {
       return '/apparatus-queue';

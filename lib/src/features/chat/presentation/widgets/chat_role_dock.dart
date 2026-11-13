@@ -159,7 +159,7 @@ class ChatRoleDock extends StatelessWidget {
       UserRole.materialTaminotchi => const MaterialTaminotchiDock(
           activeTab: null,
         ),
-      null => const SizedBox.shrink(),
+      UserRole.metalayzer || null => const SizedBox.shrink(),
     };
   }
 }

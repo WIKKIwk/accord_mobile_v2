@@ -18,6 +18,7 @@ enum _ProfileShellKind {
   boyoqchi,
   preparation,
   rawMaterialSplit,
+  metalayzer,
   admin,
   none,
 }
@@ -33,6 +34,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.boyoqchiHome => _ProfileShellKind.boyoqchi,
     AppRoutes.preparation => _ProfileShellKind.preparation,
     AppRoutes.rawMaterialSplit => _ProfileShellKind.rawMaterialSplit,
+    AppRoutes.metalayzer => _ProfileShellKind.metalayzer,
     AppRoutes.brigaderHome || AppRoutes.salesHome || AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };

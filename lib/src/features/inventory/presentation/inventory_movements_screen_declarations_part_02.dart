@@ -273,6 +273,7 @@ class _InventoryAssetQrSheetState extends State<_InventoryAssetQrSheet> {
         if (asset.physicalLocation.name.trim().isNotEmpty)
           RpsQrDetail('Fizik joy', asset.physicalLocation.name),
         RpsQrDetail('Holati', _statusLabel(asset.status)),
+        RpsQrDetail('Metalayzer', asset.isMetalayzer ? 'Metalayzer bo‘ldi' : 'Metalayzer bo‘lmagan'),
       ],
       onReprint: _reprint,
       errorMessage: (error) => error is MobileApiException

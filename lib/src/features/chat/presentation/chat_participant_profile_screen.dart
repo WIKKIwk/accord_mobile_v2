@@ -59,6 +59,7 @@ Widget _buildParticipantProfile(
     UserRole.tayyorlovMasteri ||
     UserRole.brigader ||
     UserRole.rezkaMaster ||
+    UserRole.metalayzer ||
     UserRole.salesManager ||
     UserRole.homashyoRezkachi ||
     UserRole.boyoqchi =>
@@ -77,6 +78,7 @@ AdminUserListEntry _adminEntryFor(ChatPrincipal participant) {
     UserRole.homashyoRezkachi => AdminUserKind.homashyoRezkachi,
     UserRole.brigader => AdminUserKind.brigader,
     UserRole.rezkaMaster => AdminUserKind.rezkaMaster,
+    UserRole.metalayzer => AdminUserKind.metalayzer,
     UserRole.salesManager => AdminUserKind.salesManager,
     UserRole.aparatchi => AdminUserKind.worker,
     _ => AdminUserKind.worker,

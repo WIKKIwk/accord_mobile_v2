@@ -212,6 +212,10 @@ class _TechnicalRawMaterialSection extends StatelessWidget {
             value: _rawMaterialStatusLabel(report.status, context.l10n),
           ),
           _InfoRow(
+            label: 'Metalayzer',
+            value: report.isMetalayzer ? 'Metalayzer bo‘ldi' : 'Metalayzer bo‘lmagan',
+          ),
+          _InfoRow(
             label: context.l10n.productionText('worker.qr.report.receipt'),
             value: report.sourceReceiptId,
           ),
