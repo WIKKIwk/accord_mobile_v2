@@ -703,6 +703,7 @@ extension __InventoryMovementsScreenStateAstPart01
               : transfer.sourceWarehouse,
           itemCode: current?.itemCode ?? line.itemCode,
           itemName: current?.itemName ?? line.itemName,
+          isMetalayzer: current?.isMetalayzer ?? false,
           identifier: current?.identifier ?? line.identifier,
           qty: current?.qty ?? line.qty,
           uom: current?.uom ?? line.uom,

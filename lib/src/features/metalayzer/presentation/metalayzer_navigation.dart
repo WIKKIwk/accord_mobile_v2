@@ -10,34 +10,37 @@ class MetalayzerDock extends StatelessWidget {
   final bool profile;
 
   @override
-  Widget build(BuildContext context) => RoleDock(
-        compact: true,
-        tightToEdges: true,
-        selectionVisible: true,
-        selectedIndex: profile ? 1 : 0,
-        destinations: [
-          RoleDockDestination(
-            id: 'metalayzer-home',
-            label: 'Metalayzer',
-            icon: Icons.check_circle_outline,
-            selectedIcon: Icons.check_circle,
-            active: !profile,
-            routeName: AppRoutes.metalayzer,
-            onTap: () => AppRootNavigation.replaceRootRoute(
-                context, AppRoutes.metalayzer),
-          ),
-          RoleDockDestination(
-            id: 'metalayzer-profile',
-            label: 'Profil',
-            icon: Icons.person_outline,
-            selectedIcon: Icons.person,
-            active: profile,
-            routeName: AppRoutes.profile,
-            onTap: () =>
-                AppRootNavigation.replaceRootRoute(context, AppRoutes.profile),
-          ),
-        ],
-      );
+  Widget build(BuildContext context) {
+    final isChat = ModalRoute.of(context)?.settings.name == AppRoutes.chat;
+    return RoleDock(
+      compact: true,
+      tightToEdges: true,
+      selectionVisible: true,
+      selectedIndex: profile ? 1 : 0,
+      destinations: [
+        RoleDockDestination(
+          id: 'metalayzer-home',
+          label: 'Metalayzer',
+          icon: Icons.check_circle_outline,
+          selectedIcon: Icons.check_circle,
+          active: !profile && !isChat,
+          routeName: AppRoutes.metalayzer,
+          onTap: () =>
+              AppRootNavigation.replaceRootRoute(context, AppRoutes.metalayzer),
+        ),
+        RoleDockDestination(
+          id: 'metalayzer-profile',
+          label: 'Profil',
+          icon: Icons.person_outline,
+          selectedIcon: Icons.person,
+          active: profile && !isChat,
+          routeName: AppRoutes.profile,
+          onTap: () =>
+              AppRootNavigation.replaceRootRoute(context, AppRoutes.profile),
+        ),
+      ],
+    );
+  }
 }
 
 class MetalayzerDrawer extends StatelessWidget {
