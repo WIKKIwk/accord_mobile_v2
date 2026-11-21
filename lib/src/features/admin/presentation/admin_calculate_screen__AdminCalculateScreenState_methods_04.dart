@@ -127,6 +127,12 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
         const SizedBox(height: 18),
         _ResultPanel(
           response: freshResult,
+          layers: _layerInputs,
+          planned: _plannedResult(freshResult)!,
+          onSelectPlan: _savingOpenedOrder || _openingAutomaticOrder ||
+                  _openingSavedOrder || _openingTrainingOrder
+              ? null
+              : _selectMicronPlan,
           rollCount: _parseOptionalDouble(_rollCount.text),
           widthMm: _activePrintValSizeMm ?? _derivedWidthMm(),
           onViewMap: widget.openedOrder != null || _sourceMapId.trim().isEmpty
@@ -247,10 +253,10 @@ extension __AdminCalculateScreenStateAstPart04 on _AdminCalculateScreenState {
       if (_calculateByVal) _printValSizeMm.text.trim(),
       _wastePercent.text.trim(),
       _rollCount.text.trim(),
-      for (final layer in _layers) ...[
-        layer.material.text.trim(),
-        layer.micron.text.trim(),
-      ],
+      jsonEncode([
+        for (final layer in _layerInputs)
+          [layer.materialId, layer.material, layer.micron, layer.alternativeMicrons],
+      ]),
     ].join('\u001f');
   }
 }

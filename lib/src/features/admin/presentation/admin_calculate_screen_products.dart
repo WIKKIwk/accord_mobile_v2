@@ -251,7 +251,7 @@ extension _CalculateProducts on _AdminCalculateScreenState {
       ];
 
   Widget _productResult(CalculateResponse response, AppLocalizations l10n) {
-    final result = response.results.firstOrNull;
+    final result = _plannedResult(response);
     if (result == null) return const SizedBox.shrink();
     final expectedMeters =
         result.roundedLength * (1 - response.wastePercent / 100);

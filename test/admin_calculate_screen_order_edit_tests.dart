@@ -1,6 +1,91 @@
 part of 'admin_calculate_screen_test.dart';
 
 void _registerOpenedOrderEditTests() {
+  testWidgets('alternate micron results show thickness and save the confirmed plan',
+      (tester) async {
+    await TestModeController.instance.setEnabled(false);
+    final template = _template(itemCode: 'ITEM-1').copyWith(
+      kg: 100,
+      status: 'Rulon',
+      frameProductSizeMm: 985,
+      widthMm: 1000,
+      sourceMapId: 'zakaz-1234',
+      layers: const [CalculateLayerInput(material: 'OPP', micron: '12')],
+    );
+    final source = OpenedOrderEditSource.fromJson({
+      'map': {'id': 'zakaz-1234', 'base_length': 10000},
+      'revision': 0,
+      'template': template.toJson(),
+    });
+    Map<String, dynamic>? saved;
+    final client = MockClient((request) async {
+      switch (request.url.path) {
+        case '/v1/mobile/calculate/orders':
+          return http.Response('{"templates": []}', 200);
+        case '/v1/mobile/calculate/print-side':
+          return http.Response('{"standard_print_side": null}', 200);
+        case '/v1/mobile/calculate':
+          final body = jsonDecode(request.body) as Map;
+          expect(body['layers'], [
+            {'material': 'OPP', 'micron': '12', 'alternative_microns': [18]},
+          ]);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'width_mm': 1000,
+            'kg': 100,
+            'waste_percent': 5,
+            'results': [
+              {'base_length': 9208, 'rounded_length': 10000, 'total_gsm': 10.86},
+              {
+                'base_length': 6139,
+                'rounded_length': 6500,
+                'total_gsm': 16.29,
+                'micron_overrides': [{'layer_index': 0, 'micron': 18}],
+              },
+            ],
+          }), 200);
+        case '/v1/mobile/admin/production-maps/order-edit':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          saved = body['template'] as Map<String, dynamic>;
+          return http.Response(jsonEncode({...source.original, 'template': saved}), 200);
+      }
+      throw StateError('Unexpected request ${request.url.path}');
+    });
+
+    await http.runWithClient(() async {
+      await _pumpCalculateScreen(tester, openedOrder: source);
+      tester.view.physicalSize = const Size(430, 3000);
+      await tester.pumpAndSettle();
+      final add = find.byKey(const ValueKey('calculate-add-alternative-micron-0'));
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.descendant(
+          of: find.byType(AlertDialog), matching: find.byType(TextField)), '18');
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hisoblash'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('OPP 12 µm'), findsOneWidget);
+      expect(find.textContaining('OPP 18 µm'), findsOneWidget);
+      final choose = find.text('Rejaga tanlash');
+      await tester.ensureVisible(choose);
+      await tester.tap(choose);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Ishlab chiqarish rejasi 10'), findsOneWidget);
+      await tester.tap(find.text('Tasdiqlash'));
+      await tester.pumpAndSettle();
+      final save = find.text('O‘zgarishlarni saqlash');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(saved?['layers'], [
+        {'material': 'OPP', 'micron': '12', 'alternative_microns': [18], 'planned_micron': 18},
+      ]);
+    }, () => client);
+  });
+
   for (final unresolved in [false, true]) {
     testWidgets('opened order material locks protect assigned layers (unresolved=$unresolved)',
         (tester) async {

@@ -50,9 +50,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
             'zakaz-draft-${DateTime.now().microsecondsSinceEpoch}';
         _savedOrderRequestSignature = signature;
       }
-      final plannedLength = _result != null && _result!.results.isNotEmpty
-          ? _result!.results.first.roundedLength
-          : null;
+      final plannedLength = _plannedResult(_result)?.roundedLength;
       final clonedMap = sourceMap.copyWith(
         products: _activeProducts,
         combo: _multipleProducts ? _combo : null,
@@ -239,7 +237,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
     final templateScope = templateStore.captureScope();
     try {
       final orderContext = _buildProductionMapOrderContext();
-      final calculation = _result;
+      final plannedLength = _plannedResult(_result)?.roundedLength;
       final saved =
           await MobileApi.instance.adminSaveTrainingProductionMapWithOrder(
         map: ProductionMapDefinition(
@@ -256,9 +254,7 @@ extension __AdminCalculateScreenStateAstPart02 on _AdminCalculateScreenState {
           widthMm: _derivedWidthMm(),
           printValSizeMm: _activePrintValSizeMm,
           orderKg: _parseRequiredDouble(_kg.text),
-          baseLength: calculation != null && calculation.results.isNotEmpty
-              ? calculation.results.first.roundedLength
-              : null,
+          baseLength: plannedLength,
           duplicateRezkaLabels: _duplicateRezkaLabels,
           nodes: productionMapOrderFlowNodes(orderContext),
           edges: productionMapOrderFlowEdges(orderContext),

@@ -70,13 +70,7 @@ class CalculateOrderTemplate {
   factory CalculateOrderTemplate.fromJson(Map<String, dynamic> json) {
     final layers = (json['layers'] as List? ?? const [])
         .whereType<Map>()
-        .map(
-          (item) => CalculateLayerInput(
-            materialId: _calculateText(item['material_id']),
-            material: _calculateText(item['material']),
-            micron: _calculateText(item['micron']),
-          ),
-        )
+        .map((item) => CalculateLayerInput.fromJson(item.cast<String, dynamic>()))
         .where((layer) => !layer.isEmpty)
         .toList(growable: false);
     final widthMm = _calculateNumber(json['width_mm']);

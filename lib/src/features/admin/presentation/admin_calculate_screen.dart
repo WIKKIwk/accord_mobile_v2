@@ -10,6 +10,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/feedback/app_text_input_dialog.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/feedback/spring_pressable.dart';
 import '../../../core/widgets/forms/forms.dart';
 import '../../../core/widgets/shell/app_shell.dart';
@@ -180,18 +182,23 @@ class _AdminCalculateScreenState extends State<AdminCalculateScreen> {
       ];
 
   List<CalculateLayerInput> get _layerInputs => _layers
-      .map(
-        (layer) => CalculateLayerInput(
-          materialId: layer.materialId,
-          material: layer.material.text.trim(),
-          micron: layer.micron.text.trim(),
-        ),
-      )
+      .map((layer) => layer.toInput())
       .toList(growable: false);
+
+  CalculateResult? _plannedResult(CalculateResponse? response) {
+    final inputs = _layerInputs;
+    final plan = {
+      for (var index = 0; index < inputs.length; index++)
+        if (inputs[index].plannedMicron case final int micron) index: micron,
+    };
+    return response?.results
+        .where((result) => mapEquals(result.micronOverrides, plan))
+        .firstOrNull;
+  }
 
   bool get _hasFreshCalculation =>
       !_calculating && !_loadingCombo &&
-      _result != null && _lastCalculatedSignature == _calculationSignature() &&
+      _plannedResult(_result) != null && _lastCalculatedSignature == _calculationSignature() &&
       (!_needsComboIdentity || _hasCurrentCombo);
 
   Future<void> _saveOpenedOrder() async {

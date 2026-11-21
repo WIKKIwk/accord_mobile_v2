@@ -94,11 +94,27 @@ class CalculateLayerInput {
     this.materialId = '',
     this.material = '',
     this.micron = '',
+    this.alternativeMicrons = const [],
+    this.plannedMicron,
   });
+
+  factory CalculateLayerInput.fromJson(Map<String, dynamic> json) {
+    return CalculateLayerInput(
+      materialId: _calculateText(json['material_id']),
+      material: _calculateText(json['material']),
+      micron: _calculateText(json['micron']),
+      alternativeMicrons: (json['alternative_microns'] as List? ?? const [])
+          .whereType<int>()
+          .toList(growable: false),
+      plannedMicron: json['planned_micron'] as int?,
+    );
+  }
 
   final String materialId;
   final String material;
   final String micron;
+  final List<int> alternativeMicrons;
+  final int? plannedMicron;
 
   bool get isEmpty => material.trim().isEmpty && micron.trim().isEmpty;
 
@@ -107,6 +123,8 @@ class CalculateLayerInput {
       if (materialId.trim().isNotEmpty) 'material_id': materialId.trim(),
       'material': material.trim(),
       'micron': micron.trim(),
+      if (alternativeMicrons.isNotEmpty) 'alternative_microns': alternativeMicrons,
+      if (plannedMicron != null) 'planned_micron': plannedMicron,
     };
   }
 }
@@ -301,6 +319,7 @@ class CalculateLayer {
 
 class CalculateResult {
   const CalculateResult({
+    this.micronOverrides = const {},
     this.filmGsm = 0,
     this.adhesiveGsm = 0,
     this.totalGsm = 0,
@@ -315,6 +334,10 @@ class CalculateResult {
 
   factory CalculateResult.fromJson(Map<String, dynamic> json) {
     return CalculateResult(
+      micronOverrides: {
+        for (final value in (json['micron_overrides'] as List? ?? const []).whereType<Map>())
+          _calculateInt(value['layer_index']): _calculateInt(value['micron']),
+      },
       filmGsm: _calculateNumber(json['film_gsm']),
       adhesiveGsm: _calculateNumber(json['adhesive_gsm']),
       totalGsm: _calculateNumber(json['total_gsm']),
@@ -328,6 +351,7 @@ class CalculateResult {
     );
   }
 
+  final Map<int, int> micronOverrides;
   final double firstCoeff;
   final double filmGsm;
   final double adhesiveGsm;

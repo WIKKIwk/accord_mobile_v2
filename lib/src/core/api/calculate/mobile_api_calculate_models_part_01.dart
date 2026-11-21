@@ -338,30 +338,30 @@ extension MobileApiCalculate on MobileApi {
 }
 
 CalculateResponse _testModeCalculate(CalculateRequest request) {
-  final widthSm = request.widthMm / 10;
-  final rubberSize = productionMapRubberSizeFromWidth(request.widthMm);
   final layers = request.effectiveLayers;
-  final layerGsm = layers.map(_testModeLayerGsm).toList(growable: false);
-  if (layers.isEmpty || layerGsm.any((gsm) => gsm <= 0)) {
-    throw StateError('Xomashyo katalogdan aniq tanlanishi kerak');
-  }
   if (request.wastePercent < 0 || request.wastePercent >= 100) {
     throw StateError('Atxod foiz noto‘g‘ri');
   }
-  final filmGsm = layerGsm.fold<double>(0, (sum, gsm) => sum + gsm);
-  final adhesiveGsm = (layers.length - 1).clamp(0, layers.length).toDouble() *
-      kCalculateAdhesiveGsmPerBond;
-  final totalGsm = filmGsm + adhesiveGsm;
-  final baseLength = request.widthMm <= 0 || totalGsm <= 0
-      ? 0.0
-      : request.kg * 1000000 / (request.widthMm * totalGsm);
-  final productionLength = baseLength / (1 - request.wastePercent / 100);
-  final wasteLength = productionLength - baseLength;
-  final roundedLength = (productionLength / 500).ceil() * 500.0;
-  final firstGsm = layerGsm.isEmpty ? 0.0 : layerGsm.first;
-  final firstCoeff = firstGsm * 0.06;
-  final otherCoeff = (totalGsm - firstGsm) * 0.06;
-  final coeffSum = totalGsm * 0.06;
+  var variants = <Map<int, int>>[const {}];
+  for (var index = 0; index < layers.length; index++) {
+    final layer = layers[index];
+    if (layer.alternativeMicrons.isEmpty && layer.plannedMicron == null) continue;
+    final primary = int.tryParse(layer.micron.trim());
+    final planned = layer.plannedMicron ?? primary;
+    final allowed = {if (primary != null) primary, ...layer.alternativeMicrons};
+    if (primary == null || primary <= 0 || allowed.any((micron) => micron <= 0) ||
+        allowed.length != layer.alternativeMicrons.length + 1 || !allowed.contains(planned)) {
+      throw StateError('Qavatning mikron variantlari noto‘g‘ri');
+    }
+    if (variants.length * allowed.length > 64) {
+      throw StateError('Hisob variantlari 64 tadan oshmasligi kerak');
+    }
+    variants = [
+      for (final overrides in variants)
+        for (final micron in [planned!, ...allowed.where((value) => value != planned)])
+          {...overrides, if (micron != primary) index: micron},
+    ];
+  }
   return CalculateResponse(
     products: request.products,
     ok: true,
@@ -371,35 +371,57 @@ CalculateResponse _testModeCalculate(CalculateRequest request) {
     edgeAllowanceMm: request.edgeAllowanceMm,
     widthMm: request.widthMm,
     minMoldSizeMm: request.minMoldSizeMm,
-    rubberSizeMm: rubberSize,
+    rubberSizeMm: productionMapRubberSizeFromWidth(request.widthMm),
     wastePercent: request.wastePercent,
-    layers: layers
-        .map(
-          (layer) => CalculateLayer(
-            materialId: layer.materialId,
-            material: layer.material,
-            micron: layer.micron,
-          ),
-        )
-        .toList(growable: false),
-    results: [
-      CalculateResult(
-        filmGsm: filmGsm,
-        adhesiveGsm: adhesiveGsm,
-        totalGsm: totalGsm,
-        firstCoeff: firstCoeff,
-        otherCoeff: otherCoeff,
-        coeffSum: coeffSum,
-        widthSm: widthSm,
-        baseLength: baseLength,
-        wasteLength: wasteLength,
-        roundedLength: roundedLength,
-      ),
+    layers: [
+      for (final layer in layers)
+        CalculateLayer(materialId: layer.materialId, material: layer.material, micron: layer.micron),
     ],
+    results: [for (final overrides in variants) _testModeCalculateVariant(request, layers, overrides)],
   );
 }
 
-double _testModeLayerGsm(CalculateLayerInput layer) {
+CalculateResult _testModeCalculateVariant(
+  CalculateRequest request,
+  List<CalculateLayerInput> layers,
+  Map<int, int> overrides,
+) {
+  final layerGsm = [
+    for (var index = 0; index < layers.length; index++)
+      _testModeLayerGsm(layers[index], overrides[index]),
+  ];
+  if (layers.isEmpty || layerGsm.any((gsm) => gsm <= 0)) {
+    throw StateError('Xomashyo katalogdan aniq tanlanishi kerak');
+  }
+  final filmGsm = layerGsm.fold<double>(0, (sum, gsm) => sum + gsm);
+  final adhesiveGsm = (layers.length - 1) * kCalculateAdhesiveGsmPerBond;
+  final totalGsm = filmGsm + adhesiveGsm;
+  final baseLength = request.widthMm <= 0 || totalGsm <= 0
+      ? 0.0
+      : request.kg * 1000000 / (request.widthMm * totalGsm);
+  final productionLength = baseLength / (1 - request.wastePercent / 100);
+  final wasteLength = productionLength - baseLength;
+  final roundedLength = (productionLength / 500).ceil() * 500.0;
+  final firstGsm = layerGsm.first;
+  final firstCoeff = firstGsm * 0.06;
+  final otherCoeff = (totalGsm - firstGsm) * 0.06;
+  final coeffSum = totalGsm * 0.06;
+  return CalculateResult(
+    micronOverrides: overrides,
+    filmGsm: filmGsm,
+    adhesiveGsm: adhesiveGsm,
+    totalGsm: totalGsm,
+    firstCoeff: firstCoeff,
+    otherCoeff: otherCoeff,
+    coeffSum: coeffSum,
+    widthSm: request.widthMm / 10,
+    baseLength: baseLength,
+    wasteLength: wasteLength,
+    roundedLength: roundedLength,
+  );
+}
+
+double _testModeLayerGsm(CalculateLayerInput layer, int? alternateMicron) {
   final materialKey = _calculateMaterialKey(layer.material);
   CalculateMaterial? material;
   for (final candidate in _testModeCalculateMaterials) {
@@ -411,7 +433,7 @@ double _testModeLayerGsm(CalculateLayerInput layer) {
       break;
     }
   }
-  final micron = int.tryParse(layer.micron.trim()) ?? 0;
+  final micron = alternateMicron ?? int.tryParse(layer.micron.trim()) ?? 0;
   CalculateMaterialVariant? variant;
   for (final candidate
       in material?.variants ?? const <CalculateMaterialVariant>[]) {

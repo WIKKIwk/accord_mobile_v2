@@ -336,11 +336,13 @@ class _SavedTemplateSummary extends StatelessWidget {
                       'calculate.layer_label',
                       values: {'number': index + 1},
                     ),
-                    _layerValue(
-                      layers[index].material,
-                      layers[index].micron,
-                      micronSuffix,
-                    ),
+                    [
+                      _layerValue(layers[index].material, layers[index].micron, micronSuffix),
+                      if (layers[index].alternativeMicrons.isNotEmpty)
+                        l10n.adminText('calculate.micron_alternative_chip', values: {
+                          'micron': layers[index].alternativeMicrons.join(', '),
+                        }),
+                    ].join('\n'),
                   ),
               ],
             ),

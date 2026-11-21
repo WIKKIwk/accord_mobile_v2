@@ -341,6 +341,16 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
         ),
       );
       if (!mounted || scope != currentSessionReadScope() || signature != _calculationSignature()) return;
+      final layers = draft.effectiveLayers;
+      for (var index = 0; index < layers.length; index++) {
+        final shown = result.results.map((variant) => variant.micronOverrides[index]);
+        if (!layers[index].alternativeMicrons.every(shown.contains)) {
+          throw MobileApiException(
+            code: 'calculate_micron_results_missing',
+            message: context.l10n.adminText('calculate.micron_results_missing'),
+          );
+        }
+      }
       final comboReady = await _persistCalculatedCombo(
         draft: draft, calculationSignature: signature, scope: scope);
       if (!comboReady || !mounted || scope != currentSessionReadScope()) return;
@@ -551,7 +561,7 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           ),
         ],
       ),
-      for (var index = 0; index < _layers.length; index++)
+      for (var index = 0; index < _layers.length; index++) ...[
         _LayerInputs(
           enabled: !_orderEditLayerLocked(index),
           material: _layers[index].material,
@@ -566,6 +576,8 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
           onRemove: index == 0 || _orderEditLayerStructureLocked
               ? null : () => _removeLayer(index),
         ),
+        _alternativeMicronControls(index, l10n),
+      ],
       SpringPressable(
         child: FilledButton.icon(
           onPressed: _orderEditLayerStructureLocked ? null : _addLayer,
@@ -590,6 +602,34 @@ extension __AdminCalculateScreenStateAstPart03 on _AdminCalculateScreenState {
       ),
       ..._calculateActionChildren(l10n),
     ];
+  }
+
+  Widget _alternativeMicronControls(int index, AppLocalizations l10n) {
+    final locked = _orderEditLayerLocked(index);
+    final microns = _layers[index].toInput().alternativeMicrons;
+    if (locked && microns.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final micron in microns)
+            InputChip(
+              label: Text(l10n.adminText('calculate.micron_alternative_chip',
+                  values: {'micron': '$micron'})),
+              onDeleted: locked ? null : () => _removeAlternativeMicron(index, micron),
+            ),
+          if (!locked)
+            TextButton.icon(
+              key: ValueKey('calculate-add-alternative-micron-$index'),
+              onPressed: () => _addAlternativeMicron(index),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(l10n.adminText('calculate.add_alternative_micron')),
+            ),
+        ],
+      ),
+    );
   }
 
   List<Widget> _compactTemplateChildren(AppLocalizations l10n) {

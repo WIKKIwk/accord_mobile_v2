@@ -417,6 +417,61 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'en': 'Primary',
     'ru': 'Основной',
   },
+  'admin.calculate.add_alternative_micron': {
+    'uz': 'Muqobil mikron qo‘shish',
+    'en': 'Add an alternate thickness',
+    'ru': 'Добавить вариант толщины',
+  },
+  'admin.calculate.micron_alternative_chip': {
+    'uz': 'Muqobil {micron} µm',
+    'en': 'Alternate {micron} µm',
+    'ru': 'Замена {micron} мкм',
+  },
+  'admin.calculate.alternative_micron_invalid': {
+    'uz': 'Asosiy va boshqa muqobillardan farqli musbat butun mikron kiriting.',
+    'en': 'Enter a positive whole thickness different from the primary and other alternates.',
+    'ru': 'Введите целую положительную толщину, отличную от основной и других вариантов.',
+  },
+  'admin.calculate.micron_alternative': {
+    'uz': 'Muqobil',
+    'en': 'Alternate',
+    'ru': 'Замена',
+  },
+  'admin.calculate.current_micron_plan': {
+    'uz': 'Ishlab chiqarish rejasi',
+    'en': 'Production plan',
+    'ru': 'План производства',
+  },
+  'admin.calculate.choose_micron_plan': {
+    'uz': 'Rejaga tanlash',
+    'en': 'Use for production plan',
+    'ru': 'Выбрать для плана',
+  },
+  'admin.calculate.confirm_micron_plan': {
+    'uz': 'Ishlab chiqarish rejasi {from} m dan {to} m ga o‘zgaradi.',
+    'en': 'The production plan will change from {from} m to {to} m.',
+    'ru': 'План производства изменится с {from} м до {to} м.',
+  },
+  'admin.calculate.confirm_same_micron_plan': {
+    'uz': 'Tanlangan mikron varianti {to} m reja uchun qo‘llanadi.',
+    'en': 'Use the selected thickness for the {to} m production plan.',
+    'ru': 'Использовать выбранную толщину для плана на {to} м.',
+  },
+  'admin.calculate.micron_production_length': {
+    'uz': 'Ishlab chiqarishga · {percent}% atxod bilan, yaxlitlangan',
+    'en': 'Production length · rounded, with {percent}% waste',
+    'ru': 'Длина для производства · с отходами {percent}%, округлено',
+  },
+  'admin.calculate.micron_net_length': {
+    'uz': 'Sof metraj',
+    'en': 'Net length',
+    'ru': 'Чистая длина',
+  },
+  'admin.calculate.micron_results_missing': {
+    'uz': 'Server muqobil mikronlar uchun hisob natijasini qaytarmadi.',
+    'en': 'The server did not return a result for the alternate thicknesses.',
+    'ru': 'Сервер не вернул расчёт для вариантов толщины.',
+  },
   'admin.calculate.variant': {
     'uz': 'Variant {number}',
     'en': 'Variant {number}',

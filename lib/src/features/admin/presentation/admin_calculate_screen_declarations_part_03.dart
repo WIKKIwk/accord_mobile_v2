@@ -339,15 +339,20 @@ class _LayerControllers {
     String materialId = '',
     String material = '',
     String micron = '',
+    List<int> alternativeMicrons = const [],
+    this.plannedMicron,
   })  : materialId = materialId,
         material = TextEditingController(text: material),
-        micron = TextEditingController(text: micron);
+        micron = TextEditingController(text: micron),
+        alternativeMicrons = List.of(alternativeMicrons);
 
   factory _LayerControllers.fromInput(CalculateLayerInput input) {
     return _LayerControllers(
       materialId: input.materialId,
       material: input.material,
       micron: input.micron,
+      alternativeMicrons: input.alternativeMicrons,
+      plannedMicron: input.plannedMicron,
     );
   }
 
@@ -355,6 +360,20 @@ class _LayerControllers {
   final TextEditingController material;
   final TextEditingController micron;
   final FocusNode micronFocusNode = FocusNode();
+  final List<int> alternativeMicrons;
+  int? plannedMicron;
+
+  CalculateLayerInput toInput() {
+    final primary = int.tryParse(micron.text.trim());
+    final alternatives = alternativeMicrons.where((value) => value != primary).toList();
+    return CalculateLayerInput(
+      materialId: materialId,
+      material: material.text.trim(),
+      micron: micron.text.trim(),
+      alternativeMicrons: alternatives,
+      plannedMicron: alternatives.contains(plannedMicron) ? plannedMicron : null,
+    );
+  }
 
   void addListener(VoidCallback listener) {
     material.addListener(listener);

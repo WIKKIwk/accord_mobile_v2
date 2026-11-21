@@ -3,11 +3,7 @@ part of 'admin_calculate_screen.dart';
 
 extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
   CalculateLayerInput _legacyLayer(int index) => index < _layers.length
-      ? CalculateLayerInput(
-          materialId: _layers[index].materialId,
-          material: _layers[index].material.text.trim(),
-          micron: _layers[index].micron.text.trim(),
-        )
+      ? _layers[index].toInput()
       : const CalculateLayerInput();
 
   void _replaceLayers(List<CalculateLayerInput> layers) {
@@ -52,6 +48,65 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
         layer.removeListener(_handleCalculationInputChanged);
       }
       layer.dispose();
+    });
+  }
+
+  Future<void> _addAlternativeMicron(int index) async {
+    if (_orderEditLayerLocked(index)) return;
+    final layer = _layers[index];
+    final l10n = context.l10n;
+    final text = await showAppTextInputDialog(
+      context: context,
+      title: l10n.adminText('calculate.add_alternative_micron'),
+      keyboardType: TextInputType.number,
+      hintText: l10n.adminText('calculate.micron'),
+      cancelLabel: l10n.adminText('action.cancel'),
+      saveLabel: l10n.adminText('action.save'),
+    );
+    if (!mounted || text == null || !_layers.contains(layer)) return;
+    final value = int.tryParse(text, radix: 10);
+    if (value == null || value <= 0 || value > 0xffffffff ||
+        value == int.tryParse(layer.micron.text.trim()) ||
+        layer.alternativeMicrons.contains(value)) {
+      showAdminTopNotice(context, l10n.adminText('calculate.alternative_micron_invalid'),
+          tone: AdminTopNoticeTone.error);
+      return;
+    }
+    _applyStateChange(() => layer.alternativeMicrons.add(value));
+  }
+
+  void _removeAlternativeMicron(int index, int micron) {
+    if (_orderEditLayerLocked(index)) return;
+    final layer = _layers[index];
+    _applyStateChange(() {
+      layer.alternativeMicrons.remove(micron);
+      if (layer.plannedMicron == micron) layer.plannedMicron = null;
+    });
+  }
+
+  Future<void> _selectMicronPlan(CalculateResult next) async {
+    final response = _result;
+    final current = _plannedResult(response);
+    if (!_hasFreshCalculation || current == null || identical(current, next)) return;
+    final scope = currentSessionReadScope();
+    final l10n = context.l10n;
+    final sameLength = current.roundedLength == next.roundedLength;
+    final confirmed = await showM3ConfirmDialog(
+      context: context,
+      title: l10n.adminText('calculate.choose_micron_plan'),
+      message: l10n.adminText(
+        sameLength ? 'calculate.confirm_same_micron_plan' : 'calculate.confirm_micron_plan',
+        values: {'from': _fmt(current.roundedLength), 'to': _fmt(next.roundedLength)},
+      ),
+      cancelLabel: l10n.adminText('action.cancel'),
+      confirmLabel: l10n.adminText('action.confirm'),
+    );
+    if (!mounted || confirmed != true || scope != currentSessionReadScope() ||
+        !identical(response, _result) || !_hasFreshCalculation) return;
+    _applyStateChange(() {
+      for (var index = 0; index < _layers.length; index++) {
+        _layers[index].plannedMicron = next.micronOverrides[index];
+      }
     });
   }
 
@@ -219,6 +274,10 @@ extension __AdminCalculateScreenStateAstPart01 on _AdminCalculateScreenState {
     }
     final layer = _layers[index];
     _applyStateChange(() {
+      if (layer.materialId != picked.id || layer.material.text != picked.name) {
+        layer.alternativeMicrons.clear();
+        layer.plannedMicron = null;
+      }
       layer.materialId = picked.id;
       layer.material.text = picked.name;
     });

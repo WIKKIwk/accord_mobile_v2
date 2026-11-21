@@ -95,14 +95,20 @@ String _layerValue(String material, String micron, String micronSuffix) {
 class _ResultPanel extends StatelessWidget {
   const _ResultPanel({
     required this.response,
+    required this.layers,
+    required this.planned,
     required this.rollCount,
     required this.widthMm,
+    this.onSelectPlan,
     this.onViewMap,
   });
 
   final CalculateResponse response;
+  final List<CalculateLayerInput> layers;
+  final CalculateResult planned;
   final double? rollCount;
   final double widthMm;
+  final ValueChanged<CalculateResult>? onSelectPlan;
   final VoidCallback? onViewMap;
 
   @override
@@ -110,6 +116,13 @@ class _ResultPanel extends StatelessWidget {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final comparesMicrons = layers.any((layer) => layer.alternativeMicrons.isNotEmpty);
+    final results = comparesMicrons
+        ? [
+            ...response.results.where((result) => result.micronOverrides.isEmpty),
+            ...response.results.where((result) => result.micronOverrides.isNotEmpty),
+          ]
+        : response.results;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -143,10 +156,10 @@ class _ResultPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (response.results.isNotEmpty) ...[
+          if (!comparesMicrons) ...[
             _ResultRow(
               label: l10n.adminText('calculate.finished_gsm'),
-              value: '${_fmt(response.results.first.totalGsm)} g/m²',
+              value: '${_fmt(planned.totalGsm)} g/m²',
               emphasized: true,
             ),
             const Divider(height: 18),
@@ -159,16 +172,97 @@ class _ResultPanel extends StatelessWidget {
             ),
           ),
           const Divider(height: 18),
-          for (var i = 0; i < response.results.length; i++) ...[
-            _ResultVariant(
-              index: i,
-              result: response.results[i],
-              wastePercent: response.wastePercent,
-              rubberSizeMm: response.rubberSizeMm,
-              minMoldSizeMm: response.minMoldSizeMm,
-            ),
-            if (i != response.results.length - 1) const SizedBox(height: 12),
+          if (comparesMicrons) ...[
+            _ResultRow(label: l10n.adminText('calculate.size'), value: '${_fmt(response.widthMm)} mm'),
+            _ResultRow(label: l10n.adminText('calculate.minimum_mold'), value: '${_fmt(response.minMoldSizeMm)} mm'),
+            _ResultRow(label: l10n.adminText('calculate.rubber_size'), value: '${response.rubberSizeMm} mm'),
+            const SizedBox(height: 12),
           ],
+          for (var i = 0; i < results.length; i++) ...[
+            if (comparesMicrons)
+              _MicronResultCard(
+                result: results[i],
+                layers: layers,
+                wastePercent: response.wastePercent,
+                selected: identical(results[i], planned),
+                onSelect: onSelectPlan == null ? null : () => onSelectPlan!(results[i]),
+              )
+            else
+              _ResultVariant(
+                index: i,
+                result: results[i],
+                wastePercent: response.wastePercent,
+                rubberSizeMm: response.rubberSizeMm,
+                minMoldSizeMm: response.minMoldSizeMm,
+              ),
+            if (i != results.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MicronResultCard extends StatelessWidget {
+  const _MicronResultCard({
+    required this.result,
+    required this.layers,
+    required this.wastePercent,
+    required this.selected,
+    this.onSelect,
+  });
+
+  final CalculateResult result;
+  final List<CalculateLayerInput> layers;
+  final double wastePercent;
+  final bool selected;
+  final VoidCallback? onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final title = l10n.adminText(result.micronOverrides.isEmpty
+        ? 'calculate.primary'
+        : 'calculate.micron_alternative');
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            children: [
+              Text(title, style: theme.textTheme.titleSmall),
+              if (selected)
+                Text(l10n.adminText('calculate.current_micron_plan'),
+                    style: theme.textTheme.labelMedium?.copyWith(color: scheme.onPrimaryContainer)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (var index = 0; index < layers.length; index++)
+            if (layers[index].alternativeMicrons.isNotEmpty)
+              Text('${l10n.adminText('calculate.layer_label', values: {'number': index + 1})} · '
+                  '${layers[index].material} ${result.micronOverrides[index] ?? layers[index].micron} µm'),
+          const SizedBox(height: 10),
+          Text('${_fmt(result.roundedLength)} m', style: theme.textTheme.headlineSmall),
+          Text(l10n.adminText('calculate.micron_production_length',
+              values: {'percent': _fmt(wastePercent)})),
+          const SizedBox(height: 8),
+          _ResultRow(label: l10n.adminText('calculate.micron_net_length'), value: '${_fmt(result.baseLength)} m'),
+          _ResultRow(label: l10n.adminText('calculate.finished_gsm'), value: '${_fmt(result.totalGsm)} g/m²'),
+          if (!selected)
+            TextButton(
+              onPressed: onSelect,
+              child: Text(l10n.adminText('calculate.choose_micron_plan')),
+            ),
         ],
       ),
     );
