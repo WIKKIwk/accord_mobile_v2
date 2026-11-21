@@ -5,6 +5,8 @@ import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/widgets/navigation/role_dock.dart';
 import '../../../core/widgets/navigation/role_navigation_drawer.dart';
 
+const metalayzerMaterialsTitle = 'Metallangan xomashyolar';
+
 class MetalayzerDock extends StatelessWidget {
   const MetalayzerDock({super.key, this.profile = false});
   final bool profile;
@@ -44,12 +46,18 @@ class MetalayzerDock extends StatelessWidget {
 }
 
 class MetalayzerDrawer extends StatelessWidget {
-  const MetalayzerDrawer({super.key, this.profile = false});
+  const MetalayzerDrawer({
+    super.key,
+    this.profile = false,
+    this.selectedRouteName,
+  });
   final bool profile;
+  final String? selectedRouteName;
 
   @override
   Widget build(BuildContext context) => RoleNavigationDrawer(
-        selectedIndex: profile ? 1 : 0,
+        selectedIndex: profile ? 2 : 0,
+        selectedRouteName: selectedRouteName,
         headerLabel: 'Metalayzer',
         onNavigate: (route) =>
             AppRootNavigation.replaceRootRoute(context, route),
@@ -59,6 +67,13 @@ class MetalayzerDrawer extends StatelessWidget {
             icon: Icons.check_circle_outline,
             selectedIcon: Icons.check_circle,
             routeName: AppRoutes.metalayzer,
+          ),
+          RoleNavigationDrawerDestination(
+            label: metalayzerMaterialsTitle,
+            icon: Icons.list_rounded,
+            selectedIcon: Icons.list_rounded,
+            routeName: AppRoutes.metalayzerMaterials,
+            push: true,
           ),
           RoleNavigationDrawerDestination(
             label: 'Profil',

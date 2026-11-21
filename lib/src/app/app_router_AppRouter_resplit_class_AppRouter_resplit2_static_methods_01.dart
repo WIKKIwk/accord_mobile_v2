@@ -641,6 +641,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, const RawMaterialSplitScreen());
     case AppRoutes.metalayzer:
       return AppRouter._buildRoute(settings, const MetalayzerScreen());
+    case AppRoutes.metalayzerMaterials:
+      return AppRouter._buildRoute(settings, const MetalayzerMaterialsScreen());
     case AppRoutes.rawMaterialSplitHistory:
       return AppRouter._buildRoute(
         settings,

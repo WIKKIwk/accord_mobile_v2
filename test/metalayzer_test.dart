@@ -51,6 +51,7 @@ Widget _screen({Brightness brightness = Brightness.light, double scale = 1}) =>
         GlobalCupertinoLocalizations.delegate
       ],
       supportedLocales: AppLocalizations.supportedLocales,
+      onGenerateRoute: AppRouter.onGenerateRoute,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(scale)),
@@ -79,12 +80,156 @@ void main() {
 
   test('role can only open its workspace even with unrelated capabilities', () {
     expect(AppRouter.canOpenRoute(AppRoutes.metalayzer), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.metalayzerMaterials), isTrue);
     AppSession.instance.profile = AppSession.instance.profile!.copyWith(
       capabilities: ['metalayzer.access', 'admin.access', 'raw_material.split'],
     );
     expect(AppRouter.canOpenRoute(AppRoutes.adminHome), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.rawMaterialSplit), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.profile), isTrue);
+    final profile = AppSession.instance.profile!;
+    AppSession.instance.profile = profile.copyWith(capabilities: []);
+    expect(AppRouter.canOpenRoute(AppRoutes.metalayzerMaterials), isFalse);
+    AppSession.instance.profile = profile.copyWith(role: UserRole.admin);
+    expect(AppRouter.canOpenRoute(AppRoutes.metalayzerMaterials), isFalse);
+  });
+
+  testWidgets('marked materials can be paged, retried and refreshed',
+      (tester) async {
+    final first = {..._material, 'is_metalayzer': true};
+    var firstPageReads = 0;
+    var nextPageReads = 0;
+    final client = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/v1/mobile/metalayzer/materials');
+      expect(request.headers['Authorization'], 'Bearer token');
+      expect(request.url.queryParameters['limit'], '50');
+      final cursor = request.url.queryParameters['cursor'];
+      if (cursor == null) {
+        return _json(++firstPageReads == 1
+            ? {
+                'items': [first],
+                'next_cursor': 'raw:next&opaque'
+              }
+            : {'items': [], 'next_cursor': null});
+      }
+      expect(cursor, 'raw:next&opaque');
+      if (++nextPageReads == 1) {
+        return _json({'error': 'Keyingi sahifa yuklanmadi'}, 503);
+      }
+      return _json({
+        'items': [
+          {...first, 'barcode': 'raw-1'},
+          {
+            ...first,
+            'barcode': 'RAW-2',
+            'item_name': 'Sarflangan rulon',
+            'qty': 0
+          },
+        ],
+        'next_cursor': null,
+      });
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_screen());
+      expect(firstPageReads, 0);
+      await tester
+          .tap(find.widgetWithText(OutlinedButton, 'Metallangan xomashyolar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Film 1000/20'), findsOneWidget);
+      expect(find.text('Xomashyo'), findsOneWidget);
+      expect(find.text('QR: RAW-1'), findsOneWidget);
+      expect(find.text('100 kg'), findsOneWidget);
+
+      await tester.tap(find.text('Yana yuklash'));
+      await tester.pumpAndSettle();
+      expect(find.text('Keyingi sahifa yuklanmadi'), findsOneWidget);
+      expect(find.text('Film 1000/20'), findsOneWidget);
+      await tester.tap(find.text('Qayta urinish'));
+      await tester.pumpAndSettle();
+      expect(nextPageReads, 2);
+      expect(find.text('Film 1000/20'), findsOneWidget);
+      expect(find.text('Sarflangan rulon'), findsOneWidget);
+      expect(find.text('0 kg'), findsOneWidget);
+      expect(find.text('Yana yuklash'), findsNothing);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 210));
+      await tester.pumpAndSettle();
+      expect(firstPageReads, 2);
+      expect(find.text('Metallangan xomashyo hali yo‘q'), findsOneWidget);
+      expect(find.text('Film 1000/20'), findsNothing);
+    }, () => client);
+  });
+
+  testWidgets(
+      'drawer opens the list and switching accounts drops pending pages',
+      (tester) async {
+    final oldPage = Completer<http.Response>();
+    final session = AppSession.instance;
+    final first = {..._material, 'is_metalayzer': true};
+    final reads = <(String?, String?)>[];
+    final client = MockClient((request) async {
+      reads.add((
+        request.headers['Authorization'],
+        request.url.queryParameters['cursor']
+      ));
+      if (request.headers['Authorization'] == 'Bearer new-token') {
+        return _json({
+          'items': [
+            {...first, 'barcode': 'NEW-1', 'item_name': 'Yangi ombor ruloni'}
+          ],
+          'next_cursor': null,
+        });
+      }
+      if (request.url.queryParameters.containsKey('cursor')) {
+        return oldPage.future;
+      }
+      return _json({
+        'items': [first],
+        'next_cursor': 'old-cursor'
+      });
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_screen());
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+      final destination = find.descendant(
+        of: find.byType(NavigationDrawer),
+        matching: find.text('Metallangan xomashyolar'),
+      );
+      await tester.tap(destination);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+      expect(find.text('Film 1000/20'), findsOneWidget);
+      await tester.tap(find.text('Yana yuklash'));
+      await tester.pump();
+      expect(find.text('Yuklanmoqda...'), findsOneWidget);
+
+      session.token = 'new-token';
+      session.profile = session.profile!.copyWith(ref: 'metal-2');
+      session.revision.value++;
+      await tester.pumpAndSettle();
+      expect(reads, [
+        ('Bearer token', null),
+        ('Bearer token', 'old-cursor'),
+        ('Bearer new-token', null),
+      ]);
+      expect(find.text('Film 1000/20'), findsNothing);
+      expect(find.text('Yangi ombor ruloni'), findsOneWidget);
+
+      oldPage.complete(_json({
+        'items': [
+          {...first, 'barcode': 'OLD-2', 'item_name': 'Eski ombor ruloni'}
+        ],
+        'next_cursor': null,
+      }));
+      await tester.pumpAndSettle();
+      expect(find.text('Eski ombor ruloni'), findsNothing);
+      expect(find.text('Yangi ombor ruloni'), findsOneWidget);
+    }, () => client);
   });
 
   test('API reads and marks only barcode, then reads persisted true', () async {

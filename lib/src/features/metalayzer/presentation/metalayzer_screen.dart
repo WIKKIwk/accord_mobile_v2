@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/formatters/quantity_formatters.dart';
 import '../../../core/session/session.dart';
@@ -258,6 +259,19 @@ class _MetalayzerScreenState extends State<MetalayzerScreen> {
               label: const Text('Metalayzer bo‘ldi'),
             ),
           ],
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: enabled
+                ? () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    Navigator.of(context)
+                        .pushNamed(AppRoutes.metalayzerMaterials);
+                  }
+                : null,
+            style: appOutlinedActionButtonStyle(),
+            icon: const Icon(Icons.list_rounded),
+            label: const Text(metalayzerMaterialsTitle),
+          ),
         ],
       ),
     );

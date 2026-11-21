@@ -15,7 +15,8 @@ class MetalayzerMaterial {
   final double qty;
   final bool isMetalayzer;
 
-  factory MetalayzerMaterial.fromJson(Map<String, dynamic> json) {
+  factory MetalayzerMaterial.fromJson(Map<String, dynamic> json,
+      {bool allowZero = false}) {
     final barcode = json['barcode'];
     final flag = json['is_metalayzer'];
     final qty = json['qty'];
@@ -24,7 +25,7 @@ class MetalayzerMaterial {
         flag is! bool ||
         qty is! num ||
         !qty.isFinite ||
-        qty <= 0) {
+        (allowZero ? qty < 0 : qty <= 0)) {
       throw const FormatException('Xomashyo ma’lumotlari olinmadi');
     }
     return MetalayzerMaterial(
@@ -37,6 +38,14 @@ class MetalayzerMaterial {
       isMetalayzer: flag,
     );
   }
+}
+
+class MetalayzerMaterialsPage {
+  const MetalayzerMaterialsPage(
+      {required this.items, required this.nextCursor});
+
+  final List<MetalayzerMaterial> items;
+  final String? nextCursor;
 }
 
 extension MobileApiMetalayzer on MobileApi {
@@ -57,6 +66,43 @@ extension MobileApiMetalayzer on MobileApi {
   Future<MetalayzerMaterial> metalayzerComplete(String barcode) =>
       _metalayzerRequest(barcode, complete: true);
 
+  Future<MetalayzerMaterialsPage> metalayzerMaterials({String? cursor}) async {
+    final scope = metalayzerScope();
+    final data = await _metalayzerJsonRequest(scope, () {
+      final uri =
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/metalayzer/materials')
+              .replace(queryParameters: {
+        'limit': '50',
+        if (cursor != null) 'cursor': cursor,
+      });
+      return _get(uri, headers: _headers(requireToken()));
+    },
+        failureCode: 'metalayzer_list_failed',
+        failureMessage: 'Ro‘yxatni yuklab bo‘lmadi');
+
+    final rawItems = data['items'];
+    final nextCursor = data['next_cursor'];
+    const invalidPage = FormatException('Xomashyo ro‘yxati tasdiqlanmadi');
+    if (rawItems is! List ||
+        !data.containsKey('next_cursor') ||
+        (nextCursor != null &&
+            (nextCursor is! String ||
+                nextCursor.trim().isEmpty ||
+                nextCursor == cursor ||
+                rawItems.isEmpty))) {
+      throw invalidPage;
+    }
+    final items = <MetalayzerMaterial>[];
+    for (final row in rawItems) {
+      if (row is! Map<String, dynamic>) throw invalidPage;
+      final material = MetalayzerMaterial.fromJson(row, allowZero: true);
+      if (!material.isMetalayzer) throw invalidPage;
+      items.add(material);
+    }
+    return MetalayzerMaterialsPage(
+        items: items, nextCursor: nextCursor as String?);
+  }
+
   Future<MetalayzerMaterial> _metalayzerRequest(String barcode,
       {required bool complete}) async {
     final scope = metalayzerScope();
@@ -64,8 +110,7 @@ extension MobileApiMetalayzer on MobileApi {
     if (code.isEmpty) {
       throw const FormatException('Xomashyo QR kodini kiriting');
     }
-    final response = await _sendAuthorized(() {
-      if (metalayzerScope() != scope) throw StateError('Akkaunt o‘zgargan');
+    final data = await _metalayzerJsonRequest(scope, () {
       final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/metalayzer/'
           '${complete ? 'complete' : 'material'}');
       return complete
@@ -76,24 +121,40 @@ extension MobileApiMetalayzer on MobileApi {
           : _get(uri.replace(queryParameters: {'barcode': code}),
               headers: _headers(requireToken()));
     });
-    if (metalayzerScope() != scope) throw StateError('Akkaunt o‘zgargan');
-    Map<String, dynamic>? data;
-    try {
-      data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-    } catch (_) {}
-    if (response.statusCode != 200 || data == null) {
-      throw MobileApiException(
-        code: data?['code'] as String? ?? 'metalayzer_request_failed',
-        statusCode: response.statusCode,
-        message: data?['error'] as String? ??
-            'Xomashyoni tekshiring yoki qayta urinib ko‘ring',
-      );
-    }
     final material = MetalayzerMaterial.fromJson(data);
     if (material.barcode.trim().toLowerCase() != code.toLowerCase() ||
         (complete && !material.isMetalayzer)) {
       throw const FormatException('Metalayzer natijasi tasdiqlanmadi');
     }
     return material;
+  }
+
+  Future<Map<String, dynamic>> _metalayzerJsonRequest(
+    String scope,
+    Future<http.Response> Function() send, {
+    String failureCode = 'metalayzer_request_failed',
+    String failureMessage = 'Xomashyoni tekshiring yoki qayta urinib ko‘ring',
+  }) async {
+    final response = await _sendAuthorized(() {
+      if (metalayzerScope() != scope) throw StateError('Akkaunt o‘zgargan');
+      return send();
+    });
+    if (metalayzerScope() != scope) throw StateError('Akkaunt o‘zgargan');
+    Object? data;
+    try {
+      data = jsonDecode(response.body);
+    } on FormatException {
+      data = null;
+    }
+    if (response.statusCode != 200 || data is! Map<String, dynamic>) {
+      final code = data is Map ? data['code'] : null;
+      final message = data is Map ? data['error'] : null;
+      throw MobileApiException(
+        code: code is String ? code : failureCode,
+        statusCode: response.statusCode,
+        message: message is String ? message : failureMessage,
+      );
+    }
+    return data;
   }
 }
