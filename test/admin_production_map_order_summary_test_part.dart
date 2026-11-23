@@ -352,7 +352,7 @@ void _registerOrderSummaryTests() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('admin expected summary compares other micron variants on demand',
+  testWidgets('admin expected summary displays micron variants inline',
       (tester) async {
     await TestModeController.instance.setEnabled(true);
     await MobileApi.instance.upsertCalculateOrderTemplate(
@@ -375,18 +375,15 @@ void _registerOrderSummaryTests() {
       tester, widthMm: 1000, orderKg: 100, baseLength: 6500,
     );
 
-    final expand = find.text('Boshqa variantlar (2)');
-    expect(expand, findsOneWidget);
+    final variants = find.text('Variantlar');
+    expect(variants, findsOneWidget);
+    expect(find.ancestor(of: variants, matching: find.byType(ExpansionTile)),
+        findsNothing);
     expect(find.text('Amaldagi reja'), findsOneWidget);
-    final material = MaterialLocalizations.of(tester.element(expand));
+    final material = MaterialLocalizations.of(tester.element(variants));
     String length(int meters) => '${material.formatDecimal(meters)} metr';
     final currentPlan = find.text('${length(6500)}\n1-qatlam · OPP 18 µm');
     expect(currentPlan, findsOneWidget);
-    expect(find.text('1-qatlam · OPP 20 µm'), findsNothing);
-
-    await tester.ensureVisible(expand);
-    await tester.tap(expand);
-    await tester.pumpAndSettle();
 
     final primary = find.widgetWithText(ListTile, '1-qatlam · OPP 12 µm');
     final alternative = find.widgetWithText(ListTile, '1-qatlam · OPP 20 µm');

@@ -402,10 +402,10 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'en': 'Current plan',
     'ru': 'Текущий план',
   },
-  'worker.summary.other_micron_variants': {
-    'uz': 'Boshqa variantlar ({count})',
-    'en': 'Other variants ({count})',
-    'ru': 'Другие варианты ({count})',
+  'worker.summary.micron_variants': {
+    'uz': 'Variantlar',
+    'en': 'Variants',
+    'ru': 'Варианты',
   },
   'worker.summary.micron_variants_unavailable': {
     'uz': 'Variantlar metrajini yuklab bo‘lmadi.',
