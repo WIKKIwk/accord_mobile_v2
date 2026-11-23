@@ -1178,17 +1178,8 @@ class _OrderSummaryCard extends StatelessWidget {
     final showCalculationDetails = !workerMode &&
         AppSession.instance.profile?.isAdminOrBrigader == true;
     final plannedMeters = _workerOrderPlannedMeters(baseMetraj ?? map.baseLength);
-    if (plannedMeters != null) {
-      rows.add(
-        AppInfoRow(
-          label: context.l10n.productionText('worker.summary.length'),
-          value: context.l10n.productionText(
-            'worker.summary.length_value',
-            values: {'value': plannedMeters.toString()},
-          ),
-          icon: Icons.straighten_rounded,
-        ),
-      );
+    if (!showCalculationDetails && plannedMeters != null) {
+      rows.add(_orderSummaryLengthRow(context, plannedMeters));
     }
     final resolvedOrderKg = orderKg ?? map.orderKg;
     if (resolvedOrderKg != null && resolvedOrderKg > 0) {
@@ -1304,7 +1295,11 @@ class _OrderSummaryCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (showCalculationDetails)
-                          _OrderCalculationDetails(map: map, summaryRows: rows)
+                          _OrderCalculationDetails(
+                            map: map,
+                            plannedMeters: plannedMeters,
+                            summaryRows: rows,
+                          )
                         else
                           ...rows,
                       ],

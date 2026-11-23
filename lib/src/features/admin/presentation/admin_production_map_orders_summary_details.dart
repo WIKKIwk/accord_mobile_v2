@@ -1,12 +1,26 @@
 part of 'admin_production_map_orders_screen.dart';
 
+Widget _orderSummaryLengthRow(BuildContext context, int meters) {
+  final l10n = context.l10n;
+  return AppInfoRow(
+    label: l10n.productionText('worker.summary.length'),
+    value: l10n.productionText(
+      'worker.summary.length_value',
+      values: {'value': meters.toString()},
+    ),
+    icon: Icons.straighten_rounded,
+  );
+}
+
 class _OrderCalculationDetails extends StatefulWidget {
   const _OrderCalculationDetails({
     required this.map,
+    required this.plannedMeters,
     required this.summaryRows,
   });
 
   final ProductionMapDefinition map;
+  final int? plannedMeters;
   final List<Widget> summaryRows;
 
   @override
@@ -54,6 +68,12 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
     final theme = Theme.of(context);
     String text(String key, [Map<String, Object> values = const {}]) =>
         l10n.productionText('worker.summary.$key', values: values);
+    final calculation = _calculation;
+    final plannedMeters = widget.plannedMeters;
+    final showMicronVariants = calculation != null &&
+        AppSession.instance.profile?.role == UserRole.admin &&
+        calculation.effectiveLayers
+            .any((layer) => layer.alternativeMicrons.isNotEmpty);
     final summaryRows = <Widget>[
       Text(
         text('expected.subtitle'),
@@ -63,6 +83,15 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
         ),
       ),
       const SizedBox(height: 6),
+      if (showMicronVariants)
+        _OrderMicronVariants(
+          key: ValueKey(calculation),
+          map: widget.map,
+          template: calculation,
+          plannedMeters: plannedMeters,
+        )
+      else if (plannedMeters != null)
+        _orderSummaryLengthRow(context, plannedMeters),
       ...widget.summaryRows,
     ];
     if (_loading) {
@@ -92,8 +121,7 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
         ],
       );
     }
-    final calculation = _calculation!;
-    final products = calculation.products;
+    final products = calculation!.products;
     final layers = calculation.effectiveLayers;
     final width = widget.map.widthMm ?? calculation.widthMm;
     return Column(
@@ -169,6 +197,166 @@ class _OrderCalculationDetailsState extends State<_OrderCalculationDetails> {
           const SizedBox(height: 6),
           Text(calculation.note.trim()),
         ],
+      ],
+    );
+  }
+}
+
+class _OrderMicronVariants extends StatefulWidget {
+  const _OrderMicronVariants({
+    super.key,
+    required this.map,
+    required this.template,
+    required this.plannedMeters,
+  });
+
+  final ProductionMapDefinition map;
+  final CalculateOrderTemplate template;
+  final int? plannedMeters;
+
+  @override
+  State<_OrderMicronVariants> createState() => _OrderMicronVariantsState();
+}
+
+class _OrderMicronVariantsState extends State<_OrderMicronVariants> {
+  var _otherVariants = const AsyncSnapshot<List<CalculateResult>>.nothing();
+
+  Future<void> _load(Map<int, int> plannedMicrons, int count) async {
+    final request = _calculateRequestForOrder(
+      map: widget.map,
+      template: widget.template,
+    );
+    final scope = currentSessionReadScope();
+    setState(
+        () => _otherVariants = _otherVariants.inState(ConnectionState.waiting));
+    try {
+      final variants = await _calculateVariants(request, plannedMicrons, count);
+      if (!mounted || scope != currentSessionReadScope()) return;
+      setState(() => _otherVariants =
+          AsyncSnapshot.withData(ConnectionState.done, variants));
+    } catch (error, stackTrace) {
+      if (!mounted || scope != currentSessionReadScope()) return;
+      setState(() => _otherVariants =
+          AsyncSnapshot.withError(ConnectionState.done, error, stackTrace));
+    }
+  }
+
+  Future<List<CalculateResult>> _calculateVariants(
+    CalculateRequest request,
+    Map<int, int> plannedMicrons,
+    int count,
+  ) async {
+    final response = await MobileApi.instance.calculate(request);
+    var hasPlan = false;
+    final others = <CalculateResult>[];
+    for (final result in response.results) {
+      if (mapEquals(result.micronOverrides, plannedMicrons)) {
+        hasPlan = true;
+      } else if (!others.any((other) =>
+          mapEquals(other.micronOverrides, result.micronOverrides))) {
+        others.add(result);
+      }
+    }
+    if (!response.ok ||
+        !hasPlan ||
+        others.length != count ||
+        others.any((result) =>
+            !result.roundedLength.isFinite || result.roundedLength <= 0)) {
+      throw const FormatException('Incomplete order micron results');
+    }
+    return others;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final layers = widget.template.effectiveLayers;
+    final changingLayers = layers.asMap().entries.where(
+          (entry) => entry.value.alternativeMicrons.isNotEmpty,
+        );
+    final plannedMicrons = <int, int>{
+      for (final entry in changingLayers)
+        if (entry.value.plannedMicron case final int micron)
+          if (micron != int.tryParse(entry.value.micron.trim()))
+            entry.key: micron,
+    };
+    final count = changingLayers.fold<int>(
+          1,
+          (total, entry) => total * (entry.value.alternativeMicrons.length + 1),
+        ) -
+        1;
+    String describe(Map<int, int> microns) {
+      return changingLayers.map((entry) {
+        final layer = l10n.productionText('worker.summary.layer',
+            values: {'index': entry.key + 1});
+        final micron = microns[entry.key] ?? entry.value.micron;
+        return '$layer · ${entry.value.material} $micron µm';
+      }).join('\n');
+    }
+
+    String length(int meters) => l10n.productionText(
+          'worker.summary.length_value',
+          values: {
+            'value': MaterialLocalizations.of(context).formatDecimal(meters)
+          },
+        );
+    final plannedMeters = widget.plannedMeters;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppInfoRow(
+          label: l10n.productionText('worker.summary.current_micron_plan'),
+          value: [
+            if (plannedMeters != null) length(plannedMeters),
+            describe(plannedMicrons),
+          ].join('\n'),
+          icon: Icons.straighten_rounded,
+        ),
+        ExpansionTile(
+          key: const ValueKey('order-other-micron-variants'),
+          title: Text(
+            l10n.productionText('worker.summary.other_micron_variants',
+                values: {'count': count}),
+            style: theme.textTheme.bodyMedium,
+          ),
+          tilePadding: EdgeInsets.zero,
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          onExpansionChanged: (expanded) {
+            if (expanded &&
+                _otherVariants.connectionState == ConnectionState.none) {
+              unawaited(_load(plannedMicrons, count));
+            }
+          },
+          children: [
+            if (_otherVariants.connectionState == ConnectionState.waiting)
+              Text(l10n.loading)
+            else if (_otherVariants.hasError) ...[
+              Text(l10n.productionText(
+                  'worker.summary.micron_variants_unavailable')),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: () => unawaited(_load(plannedMicrons, count)),
+                  child: Text(
+                      l10n.productionText('worker.summary.calculation_retry')),
+                ),
+              ),
+            ] else
+              for (final variant
+                  in _otherVariants.data ?? const <CalculateResult>[])
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(describe(variant.micronOverrides)),
+                  subtitle: Text(l10n.adminText(variant.micronOverrides.isEmpty
+                      ? 'calculate.primary'
+                      : 'calculate.micron_alternative')),
+                  trailing: Text(length(variant.roundedLength.round()),
+                      style: theme.textTheme.titleSmall),
+                ),
+          ],
+        ),
       ],
     );
   }

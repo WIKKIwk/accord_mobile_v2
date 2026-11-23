@@ -397,6 +397,21 @@ const _app_localizations_declarations__productionTranslations_resplitPart04 = {
     'en': 'Length',
     'ru': 'Метраж',
   },
+  'worker.summary.current_micron_plan': {
+    'uz': 'Amaldagi reja',
+    'en': 'Current plan',
+    'ru': 'Текущий план',
+  },
+  'worker.summary.other_micron_variants': {
+    'uz': 'Boshqa variantlar ({count})',
+    'en': 'Other variants ({count})',
+    'ru': 'Другие варианты ({count})',
+  },
+  'worker.summary.micron_variants_unavailable': {
+    'uz': 'Variantlar metrajini yuklab bo‘lmadi.',
+    'en': 'Could not load the estimated lengths.',
+    'ru': 'Не удалось загрузить метраж вариантов.',
+  },
   'worker.output_progress.print': {
     'uz': 'Bosma progressi',
     'en': 'Printing progress',
