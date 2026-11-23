@@ -103,7 +103,7 @@ class PreparationDrawer extends StatelessWidget {
           routeName: AppRoutes.preparationFormulas,
         ),
         const RoleNavigationDrawerDestination(
-          label: 'Ishlab chiqarish',
+          label: 'Tayyorlov hisobi',
           icon: Icons.precision_manufacturing_outlined,
           selectedIcon: Icons.precision_manufacturing,
           routeName: AppRoutes.preparationProduction,

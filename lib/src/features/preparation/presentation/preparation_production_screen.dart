@@ -283,7 +283,7 @@ class _ProductionOrdersState extends _JournalState<PreparationProductionScreen,
 
   @override
   Widget build(BuildContext context) => AppShell(
-        title: 'Ishlab chiqarish',
+        title: 'Tayyorlov hisobi',
         subtitle: '',
         nativeTopBar: true,
         automaticallyImplyNativeLeading: false,
@@ -491,7 +491,7 @@ class _ProductionBatchState extends _JournalState<
 
   @override
   Widget build(BuildContext context) => AppShell(
-        title: _batch?.displayItem ?? 'Ishlab chiqarish',
+        title: _batch?.displayItem ?? 'Tayyorlov hisobi',
         subtitle: '',
         nativeTopBar: true,
         contentPadding: EdgeInsets.zero,

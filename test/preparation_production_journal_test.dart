@@ -204,7 +204,7 @@ void main() {
     await _withApp(tester, () async {
       await tester.pumpWidget(_app(const PreparationScreen()));
       await tester.pumpAndSettle();
-      final entry = find.text('Ishlab chiqarish');
+      final entry = find.text('Tayyorlov hisobi');
       await tester.ensureVisible(entry);
       await tester.tap(entry);
       await tester.pumpAndSettle();

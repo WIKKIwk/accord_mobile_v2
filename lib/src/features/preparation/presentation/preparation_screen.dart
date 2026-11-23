@@ -441,7 +441,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           slot: M3SegmentVerticalSlot.middle,
                           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
                           backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Ishlab chiqarish',
+                          title: 'Tayyorlov hisobi',
                           titleStyle: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
