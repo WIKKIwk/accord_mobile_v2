@@ -256,9 +256,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(requests.last.path, endsWith('/raw-material-paddons'));
       expect(requests.last.queryParameters['status'], 'all');
+      expect(find.text('Granula zaxirasi'), findsOneWidget);
+      expect(find.textContaining('P-001'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('preparation-paddon:p1')));
       await tester.pumpAndSettle();
+      expect(
+          find.widgetWithText(ListTile, 'Granula zaxirasi'), findsOneWidget);
       expect(find.text('Granula'), findsOneWidget);
       expect(find.text('Partiya: LOT-1 • 3 ta qop • 75 kg'), findsOneWidget);
       await tester.tapAt(const Offset(12, 12));
@@ -295,6 +299,7 @@ void main() {
             {
               'paddon_id': 'p1',
               'paddon_code': 'P-001',
+              'name': 'Granula zaxirasi',
               'warehouse': 'Own W',
               'remaining_kg': '75.000000',
               'contents': [
@@ -344,6 +349,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Paddon qo‘shish'));
         await tester.pumpAndSettle();
+        if (!materialRole) {
+          await tester.enterText(
+              find.byKey(const ValueKey('paddon-name')), '  Ertalabki granula  ');
+        }
         await tester.tap(find.byKey(const ValueKey('paddon-item-0')));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Granula'));
@@ -369,6 +378,11 @@ void main() {
             if (request.method == 'POST') {
               final body = jsonDecode(request.body) as Map;
               expect(body['warehouse'], 'Own W');
+              if (materialRole) {
+                expect(body.containsKey('name'), isFalse);
+              } else {
+                expect(body['name'], 'Ertalabki granula');
+              }
               expect(body['contents'], [
                 {
                   'item_code': 'G1',

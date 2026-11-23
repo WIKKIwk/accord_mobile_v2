@@ -782,12 +782,17 @@ Widget _materialPaddonRow(
   M3SegmentVerticalSlot slot,
 ) {
   final balance = 'Qoldiq: ${preparationDisplay(paddon.remainingKg)} kg';
+  final title = paddon.name.isEmpty ? 'Paddon ${paddon.code}' : paddon.name;
+  final subtitle = paddon.name.isEmpty
+      ? paddon.warehouse
+      : '${paddon.warehouse} • ${paddon.code}';
   return _JournalListRow(
     key: ValueKey('preparation-paddon:${paddon.id}'),
     slot: slot,
     icon: Icons.inventory_2_outlined,
-    title: 'Paddon ${paddon.code}',
-    subtitle: paddon.warehouse,
+    title: title,
+    titleMaxLines: 2,
+    subtitle: subtitle,
     metrics: balance,
     onTap: () => showModalBottomSheet<void>(
       context: context,
@@ -800,8 +805,8 @@ Widget _materialPaddonRow(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
           children: [
             ListTile(
-              title: UrduAwareText('Paddon ${paddon.code}'),
-              subtitle: UrduAwareText('${paddon.warehouse} • $balance'),
+              title: UrduAwareText(title),
+              subtitle: UrduAwareText('$subtitle • $balance'),
             ),
             Center(
               child: QrImageView(

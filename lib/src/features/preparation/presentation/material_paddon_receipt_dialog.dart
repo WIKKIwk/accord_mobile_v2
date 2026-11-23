@@ -65,6 +65,7 @@ class _MaterialPaddonReceiptDialogState
   final _api = MobileApi.instance;
   final _scope = currentSessionReadScope();
   final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
   final _lines = <_PaddonLine>[_PaddonLine()];
   late Future<void> _opening = _load();
   PreparationSnapshot? _preparation;
@@ -164,9 +165,11 @@ class _MaterialPaddonReceiptDialogState
       _failure = null;
     });
     try {
+      final name = _name.text.trim();
       final code = await _api.receiveMaterialPaddon(pending?.payload ??
           {
             'warehouse': _warehouse!,
+            if (name.isNotEmpty) 'name': name,
             'contents': [for (final line in _lines) line.payload],
           });
       if (_current) Navigator.of(context).pop(code);
@@ -189,6 +192,7 @@ class _MaterialPaddonReceiptDialogState
 
   @override
   void dispose() {
+    _name.dispose();
     for (final line in _lines) {
       line.dispose();
     }
@@ -392,6 +396,14 @@ class _MaterialPaddonReceiptDialogState
                 }
               }),
               validator: (value) => value == null ? 'Omborni tanlang' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              key: const ValueKey('paddon-name'),
+              controller: _name,
+              maxLength: 80,
+              textInputAction: TextInputAction.next,
+              decoration: _fieldDecoration('Paddon nomi (ixtiyoriy)'),
             ),
             const SizedBox(height: 18),
             UrduAwareText('Paddon tarkibi', style: theme.textTheme.titleSmall),

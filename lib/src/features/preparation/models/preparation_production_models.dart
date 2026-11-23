@@ -156,11 +156,12 @@ class PreparationMaterialPaddon extends PreparationProductionRow {
   PreparationMaterialPaddon.fromJson(Map<String, dynamic> json)
       : id = _identity(json, 'paddon_id'),
         code = _identity(json, 'paddon_code'),
+        name = _text(json, 'name').trim(),
         warehouse = _identity(json, 'warehouse'),
         remainingKg = _amount(json, 'remaining_kg'),
         contents = _items(json, 'contents', PreparationPaddonContent.fromJson);
 
-  final String id, code, warehouse, remainingKg;
+  final String id, code, name, warehouse, remainingKg;
   final List<PreparationPaddonContent> contents;
 
   @override
