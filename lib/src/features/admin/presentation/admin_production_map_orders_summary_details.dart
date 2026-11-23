@@ -311,24 +311,32 @@ class _OrderMicronVariantsState extends State<_OrderMicronVariants> {
             'value': MaterialLocalizations.of(context).formatDecimal(meters)
           },
         );
-    final plannedMeters = widget.plannedMeters;
+
+    Widget variantRow(Map<int, int> microns, int? meters,
+        {bool planned = false}) {
+      return ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        title: Text(describe(microns)),
+        subtitle: planned
+            ? Text(l10n.productionText('worker.summary.current_micron_plan'))
+            : null,
+        trailing: meters == null
+            ? null
+            : Text(length(meters), style: theme.textTheme.titleSmall),
+      );
+    }
+
     return Column(
+      key: const ValueKey('order-micron-variants'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppInfoRow(
-          label: l10n.productionText('worker.summary.current_micron_plan'),
-          value: [
-            if (plannedMeters != null) length(plannedMeters),
-            describe(_plannedMicrons),
-          ].join('\n'),
-          icon: Icons.straighten_rounded,
-        ),
         const SizedBox(height: 8),
         Text(
           l10n.productionText('worker.summary.micron_variants'),
-          key: const ValueKey('order-other-micron-variants'),
           style: theme.textTheme.titleSmall,
         ),
+        variantRow(_plannedMicrons, widget.plannedMeters, planned: true),
         if (_otherVariants.connectionState == ConnectionState.waiting)
           Text(l10n.loading)
         else if (_otherVariants.hasError) ...[
@@ -345,16 +353,7 @@ class _OrderMicronVariantsState extends State<_OrderMicronVariants> {
         ] else
           for (final variant
               in _otherVariants.data ?? const <CalculateResult>[])
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(describe(variant.micronOverrides)),
-              subtitle: Text(l10n.adminText(variant.micronOverrides.isEmpty
-                  ? 'calculate.primary'
-                  : 'calculate.micron_alternative')),
-              trailing: Text(length(variant.roundedLength.round()),
-                  style: theme.textTheme.titleSmall),
-            ),
+            variantRow(variant.micronOverrides, variant.roundedLength.round()),
       ],
     );
   }

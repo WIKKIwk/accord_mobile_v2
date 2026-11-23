@@ -310,7 +310,7 @@ void _registerOrderSummaryTests() {
     }
     final details =
         find.byKey(const ValueKey('production-order-calculation-details'));
-    expect(find.byKey(const ValueKey('order-other-micron-variants')), findsNothing);
+    expect(find.byKey(const ValueKey('order-micron-variants')), findsNothing);
     for (final value in [
       'Taraf',
       'Nostandart',
@@ -375,24 +375,30 @@ void _registerOrderSummaryTests() {
       tester, widthMm: 1000, orderKg: 100, baseLength: 6500,
     );
 
-    final variants = find.text('Variantlar');
+    final variants = find.byKey(const ValueKey('order-micron-variants'));
     expect(variants, findsOneWidget);
+    expect(find.descendant(of: variants, matching: find.text('Variantlar')),
+        findsOneWidget);
     expect(find.ancestor(of: variants, matching: find.byType(ExpansionTile)),
         findsNothing);
-    expect(find.text('Amaldagi reja'), findsOneWidget);
+    expect(find.descendant(of: variants, matching: find.byType(ListTile)),
+        findsNWidgets(3));
     final material = MaterialLocalizations.of(tester.element(variants));
     String length(int meters) => '${material.formatDecimal(meters)} metr';
-    final currentPlan = find.text('${length(6500)}\n1-qatlam · OPP 18 µm');
-    expect(currentPlan, findsOneWidget);
-
-    final primary = find.widgetWithText(ListTile, '1-qatlam · OPP 12 µm');
-    final alternative = find.widgetWithText(ListTile, '1-qatlam · OPP 20 µm');
-    expect(find.descendant(of: primary, matching: find.text(length(10000))), findsOneWidget);
-    expect(find.descendant(of: primary, matching: find.text('Asosiy')), findsOneWidget);
-    expect(find.descendant(of: alternative, matching: find.text(length(6000))), findsOneWidget);
-    expect(find.descendant(of: alternative, matching: find.text('Muqobil')), findsOneWidget);
-    expect(find.widgetWithText(ListTile, '1-qatlam · OPP 18 µm'), findsNothing);
-    expect(currentPlan, findsOneWidget);
+    for (final (micron, meters) in [(18, 6500), (12, 10000), (20, 6000)]) {
+      final row = find.descendant(
+        of: variants,
+        matching: find.widgetWithText(ListTile, '1-qatlam · OPP $micron µm'),
+      );
+      expect(find.descendant(of: row, matching: find.text(length(meters))),
+          findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('Amaldagi reja')),
+          micron == 18 ? findsOneWidget : findsNothing);
+    }
+    for (final label in ['Asosiy', 'Muqobil']) {
+      expect(find.descendant(of: variants, matching: find.text(label)),
+          findsNothing);
+    }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
