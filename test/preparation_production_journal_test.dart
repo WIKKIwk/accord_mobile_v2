@@ -135,6 +135,12 @@ http.Response _route(http.Request request, {Object? recipe = _recipe}) {
   expect(request.method, 'GET');
   expect(request.headers['Authorization'], 'Bearer token');
   switch (request.url.path) {
+    case '/v1/mobile/preparation/production/batches':
+      return _json({
+        'batches': [_batch(recipe: recipe)],
+        'has_more': false,
+        'next_offset': null
+      });
     case '/v1/mobile/preparation/production/orders':
       return _json({
         'orders': [_order()],
@@ -161,6 +167,12 @@ http.Response _route(http.Request request, {Object? recipe = _recipe}) {
       fail(
           'Unexpected request ${request.url}: the journal must use saved production records');
   }
+}
+
+Future<void> _openOrders(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('production-view-orders')));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _withApp(WidgetTester tester, Future<void> Function() body,
@@ -209,7 +221,7 @@ void main() {
       await tester.tap(entry);
       await tester.pumpAndSettle();
       expect(find.byType(PreparationProductionScreen), findsOneWidget);
-      expect(find.byKey(const ValueKey('production-order:zakaz-0317')),
+      expect(find.byKey(const ValueKey('production-batch:batch-lg')),
           findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -225,12 +237,204 @@ void main() {
             : _route(request));
   });
 
+  testWidgets('paddons show incoming stock and use their own balance filter',
+      (tester) async {
+    final requests = <Uri>[];
+    await _withApp(tester, () async {
+      tester.view.physicalSize = const Size(360, 800);
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-status-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-status-active')));
+      await tester.pumpAndSettle();
+
+      final paddons = find.byKey(const ValueKey('production-view-paddons'));
+      await tester.ensureVisible(paddons);
+      await tester.pumpAndSettle();
+      await tester.tap(paddons);
+      await tester.pumpAndSettle();
+      expect(requests.last.path, endsWith('/raw-material-paddons'));
+      expect(requests.last.queryParameters['status'], 'all');
+
+      await tester.tap(find.byKey(const ValueKey('preparation-paddon:p1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Granula'), findsOneWidget);
+      expect(find.text('Partiya: LOT-1 • 3 ta qop • 75 kg'), findsOneWidget);
+      await tester.tapAt(const Offset(12, 12));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('paddon-balance-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('paddon-balance-empty')));
+      await tester.pumpAndSettle();
+      expect(requests.last.queryParameters['status'], 'empty');
+      expect(find.byKey(const ValueKey('preparation-paddon:p1')), findsNothing);
+      expect(find.text('Xomashyo paddonlari topilmadi.'), findsOneWidget);
+
+      final batches = find.byKey(const ValueKey('production-view-batches'));
+      await tester.ensureVisible(batches);
+      await tester.pumpAndSettle();
+      await tester.tap(batches);
+      await tester.pumpAndSettle();
+      expect(requests.last.path, endsWith('/production/batches'));
+      expect(requests.last.queryParameters['status'], 'active');
+      expect(tester.takeException(), isNull);
+    }, (request) {
+      requests.add(request.url);
+      if (!request.url.path.endsWith('/raw-material-paddons')) {
+        return _route(request);
+      }
+      expect(request.method, 'GET');
+      expect(request.headers['Authorization'], 'Bearer token');
+      return _json({
+        'has_more': false,
+        'next_offset': null,
+        'paddons': [
+          if (request.url.queryParameters['status'] != 'empty')
+            {
+              'paddon_id': 'p1',
+              'paddon_code': 'P-001',
+              'warehouse': 'Own W',
+              'remaining_kg': '75.000000',
+              'contents': [
+                {
+                  'item_name': 'Granula',
+                  'lot_number': 'LOT-1',
+                  'kind': 'bag',
+                  'remaining_count': 3,
+                  'remaining_kg': '75.000000',
+                },
+              ],
+            },
+        ],
+      });
+    });
+  });
+
+  for (final materialRole in [false, true]) {
+    testWidgets('paddon FAB receives stock for the active role ($materialRole)',
+        (tester) async {
+      if (materialRole) {
+        AppSession.instance.profile = _profile(
+          ref: 'material-1',
+          role: UserRole.materialTaminotchi,
+          capabilities: ['gscale.catalog.read', 'gscale.print'],
+        ).copyWith(assignedWarehouses: ['Own W']);
+      }
+      expect(AppRouter.canOpenRoute(AppRoutes.materialPaddons), materialRole);
+      final submissions = <Object?>[];
+      var created = false;
+      await _withApp(tester, () async {
+        await tester.pumpWidget(_app(materialRole
+            ? const PreparationProductionScreen.materialPaddons()
+            : const PreparationProductionScreen()));
+        await tester.pumpAndSettle();
+        if (!materialRole) {
+          expect(find.byIcon(Icons.add_rounded), findsNothing);
+          final paddons = find.byKey(const ValueKey('production-view-paddons'));
+          await tester.ensureVisible(paddons);
+          await tester.pumpAndSettle();
+          await tester.tap(paddons);
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(materialRole
+            ? find.byKey(const ValueKey('material-paddons-fab'))
+            : find.byIcon(Icons.add_rounded));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Paddon qo‘shish'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('paddon-item-0')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Granula'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const ValueKey('paddon-count-0')), '3');
+        final kg = find.byKey(const ValueKey('paddon-unit-kg-0'));
+        await tester.ensureVisible(kg);
+        await tester.enterText(kg, '25');
+        final save = find.byKey(const ValueKey('paddon-receipt-save'));
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(submissions.length, 1);
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(submissions.length, 2);
+        expect(submissions.first, submissions.last);
+        expect(find.byKey(const ValueKey('preparation-paddon:p-new')),
+            findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, (request) {
+        switch (request.url.path) {
+          case '/v1/mobile/raw-material-paddons':
+            if (request.method == 'POST') {
+              final body = jsonDecode(request.body) as Map;
+              expect(body['warehouse'], 'Own W');
+              expect(body['contents'], [
+                {
+                  'item_code': 'G1',
+                  'lot_number': '',
+                  'kind': 'bag',
+                  'count': 3,
+                  'unit_kg': '25',
+                }
+              ]);
+              expect(body['request_id'], isNotEmpty);
+              submissions.add(body);
+              if (submissions.length == 1) {
+                return _json({'error': 'Temporary error'}, status: 503);
+              }
+              created = true;
+              return _json({'paddon_id': 'p-new', 'paddon_code': 'XP-NEW'});
+            }
+            return _json({
+              'has_more': false,
+              'paddons': [
+                if (created)
+                  {
+                    'paddon_id': 'p-new',
+                    'paddon_code': 'XP-NEW',
+                    'warehouse': 'Own W',
+                    'remaining_kg': '75',
+                    'contents': [
+                      {
+                        'item_name': 'Granula',
+                        'kind': 'bag',
+                        'remaining_count': 3,
+                        'unit_kg': '25',
+                        'remaining_kg': '75',
+                      }
+                    ],
+                  },
+              ],
+            });
+          case '/v1/mobile/preparation/snapshot':
+            return _json({
+              'warehouses': ['Own W'],
+              'assigned_warehouses': ['Own W'],
+              'material_warehouses': ['Own W'],
+              'materials': [
+                {'item_code': 'G1', 'name': 'Granula'}
+              ],
+              'orders': [],
+              'history': [],
+            });
+          case '/v1/mobile/gscale/items':
+            return _json([
+              {'code': 'G1', 'name': 'Granula', 'uom': 'kg', 'warehouse': ''}
+            ]);
+          default:
+            return _route(request);
+        }
+      });
+    });
+  }
+
   testWidgets('order opens material, frozen recipe and produced roll QR',
       (tester) async {
     final paths = <String>[];
     await _withApp(tester, () async {
       await tester.pumpWidget(_app(const PreparationProductionScreen()));
-      await tester.pumpAndSettle();
+      await _openOrders(tester);
       await tester
           .tap(find.byKey(const ValueKey('production-order:zakaz-0317')));
       await tester.pumpAndSettle();
@@ -258,7 +462,7 @@ void main() {
       (tester) async {
     await _withApp(tester, () async {
       await tester.pumpWidget(_app(const PreparationProductionScreen()));
-      await tester.pumpAndSettle();
+      await _openOrders(tester);
 
       AdminCatalogListRow row(String key) => tester.widget<AdminCatalogListRow>(
             find.descendant(
@@ -491,7 +695,7 @@ void main() {
     final queries = <Map<String, String>>[];
     await _withApp(tester, () async {
       await tester.pumpWidget(_app(const PreparationProductionScreen()));
-      await tester.pumpAndSettle();
+      await _openOrders(tester);
       final search = find.byType(AdminCatalogSearchField);
       expect(search, findsOneWidget);
       expect(find.ancestor(of: search, matching: find.byType(AppBar)),
@@ -541,6 +745,9 @@ void main() {
       expect(tester.takeException(), isNull);
     }, (request) {
       expect(request.method, 'GET');
+      if (request.url.path.endsWith('/production/batches')) {
+        return _route(request);
+      }
       final query = request.url.queryParameters;
       queries.add(query);
       final second = query['offset'] == '1';
@@ -560,7 +767,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('production-retry')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('production-order:zakaz-0317')),
+      expect(find.byKey(const ValueKey('production-batch:batch-lg')),
           findsOneWidget);
       expect(attempts, 2);
       expect(tester.takeException(), isNull);
@@ -581,12 +788,12 @@ void main() {
       AppSession.instance.profile = _profile(ref: 'prep-2');
       AppSession.instance.revision.value++;
       pending.complete(_json({
-        'orders': [_order()],
+        'batches': [_batch()],
         'has_more': false,
         'next_offset': null
       }));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('production-order:zakaz-0317')),
+      expect(find.byKey(const ValueKey('production-batch:batch-lg')),
           findsNothing);
       expect(tester.takeException(), isNull);
     }, (_) => pending.future);

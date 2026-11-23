@@ -127,6 +127,7 @@ part 'calculate/mobile_api_calculate.dart';
 part 'chat/mobile_api_chat.dart';
 part 'boyoqchi/mobile_api_boyoqchi.dart';
 part 'preparation/mobile_api_preparation.dart';
+part 'preparation/mobile_api_material_paddons.dart';
 part 'preparation/mobile_api_preparation_production.dart';
 part 'preparation/mobile_api_preparation_orders.dart';
 part 'preparation/mobile_api_preparation_warehouses.dart';

@@ -54,7 +54,12 @@ Map<String, dynamic> _object(Map<String, dynamic> json, String key) {
   return value.cast<String, dynamic>();
 }
 
-class PreparationProductionOrder {
+sealed class PreparationProductionRow {
+  const PreparationProductionRow();
+  String get journalKey;
+}
+
+class PreparationProductionOrder extends PreparationProductionRow {
   PreparationProductionOrder.fromJson(Map<String, dynamic> json)
       : id = _identity(json, 'order_id'),
         code = _text(json, 'order_code'),
@@ -69,12 +74,16 @@ class PreparationProductionOrder {
   final String id, code, title, customerName, netKg, lengthM, lastActivityAt;
   final int activeBatchCount, batchCount, rollCount;
   String get displayCode => code.isEmpty ? id : code;
+  @override
+  String get journalKey => id;
 }
 
-class PreparationProductionBatch {
+class PreparationProductionBatch extends PreparationProductionRow {
   PreparationProductionBatch.fromJson(Map<String, dynamic> json)
       : id = _identity(json, 'batch_id'),
-        orderId = _identity(json, 'order_id'),
+        orderId = _text(json, 'order_id'),
+        orderCode = _text(json, 'order_code'),
+        orderTitle = _text(json, 'order_title'),
         itemCode = _text(json, 'item_code'),
         itemName = _text(json, 'item_name'),
         warehouse = _text(json, 'warehouse'),
@@ -88,6 +97,8 @@ class PreparationProductionBatch {
         formula = _recipe(json);
   final String id,
       orderId,
+      orderCode,
+      orderTitle,
       itemCode,
       itemName,
       warehouse,
@@ -99,15 +110,21 @@ class PreparationProductionBatch {
   final bool active;
   final int rollCount;
   final Map<String, dynamic>? formula;
+  @override
+  String get journalKey => id;
   String get displayItem => itemName.isEmpty ? itemCode : itemName;
   String get formulaName =>
       formula?['variant_name']?.toString() ?? 'Formula qayd etilmagan';
 }
 
-class PreparationProductionRoll {
+class PreparationProductionRoll extends PreparationProductionRow {
   PreparationProductionRoll.fromJson(Map<String, dynamic> json)
       : epc = _identity(json, 'epc'),
         receiptName = _text(json, 'receipt_name'),
+        batchId = _text(json, 'batch_id'),
+        orderId = _text(json, 'order_id'),
+        orderCode = _text(json, 'order_code'),
+        orderTitle = _text(json, 'order_title'),
         itemCode = _text(json, 'item_code'),
         itemName = _text(json, 'item_name'),
         warehouse = _text(json, 'warehouse'),
@@ -120,6 +137,10 @@ class PreparationProductionRoll {
         formula = _recipe(json);
   final String epc,
       receiptName,
+      batchId,
+      orderId,
+      orderCode,
+      orderTitle,
       itemCode,
       itemName,
       warehouse,
@@ -127,6 +148,39 @@ class PreparationProductionRoll {
       printedAt;
   final String? grossKg, lengthM, widthMm, micron;
   final Map<String, dynamic>? formula;
+  @override
+  String get journalKey => receiptName.isEmpty ? epc : receiptName;
+}
+
+class PreparationMaterialPaddon extends PreparationProductionRow {
+  PreparationMaterialPaddon.fromJson(Map<String, dynamic> json)
+      : id = _identity(json, 'paddon_id'),
+        code = _identity(json, 'paddon_code'),
+        warehouse = _identity(json, 'warehouse'),
+        remainingKg = _amount(json, 'remaining_kg'),
+        contents = _items(json, 'contents', PreparationPaddonContent.fromJson);
+
+  final String id, code, warehouse, remainingKg;
+  final List<PreparationPaddonContent> contents;
+
+  @override
+  String get journalKey => id;
+}
+
+class PreparationPaddonContent {
+  PreparationPaddonContent.fromJson(Map<String, dynamic> json)
+      : itemName = _identity(json, 'item_name'),
+        lotNumber = _text(json, 'lot_number'),
+        remainingKg = _amount(json, 'remaining_kg'),
+        unitKg = json['unit_kg'] == null ? null : _amount(json, 'unit_kg'),
+        remainingCount = json['remaining_count'] == null
+            ? null
+            : _count(json, 'remaining_count'),
+        kind = _text(json, 'kind');
+
+  final String itemName, lotNumber, remainingKg, kind;
+  final String? unitKg;
+  final int? remainingCount;
 }
 
 abstract class PreparationProductionPage {
@@ -147,6 +201,25 @@ class PreparationProductionOrdersPage extends PreparationProductionPage {
   PreparationProductionOrdersPage.fromJson(super.json)
       : orders = _items(json, 'orders', PreparationProductionOrder.fromJson);
   final List<PreparationProductionOrder> orders;
+}
+
+class PreparationProductionBatchesPage extends PreparationProductionPage {
+  PreparationProductionBatchesPage.fromJson(super.json)
+      : batches = _items(json, 'batches', PreparationProductionBatch.fromJson);
+  final List<PreparationProductionBatch> batches;
+}
+
+class PreparationProductionRollsPage extends PreparationProductionPage {
+  PreparationProductionRollsPage.fromJson(super.json)
+      : rolls = _items(json, 'rolls', PreparationProductionRoll.fromJson);
+  final List<PreparationProductionRoll> rolls;
+}
+
+class PreparationMaterialPaddonsPage extends PreparationProductionPage {
+  PreparationMaterialPaddonsPage.fromJson(super.json)
+      : paddons = _items(json, 'paddons', PreparationMaterialPaddon.fromJson);
+
+  final List<PreparationMaterialPaddon> paddons;
 }
 
 class PreparationProductionOrderPage extends PreparationProductionPage {

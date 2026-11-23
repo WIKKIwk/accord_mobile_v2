@@ -27,16 +27,51 @@ extension MobileApiPreparationProduction on MobileApi {
     String status = 'all',
     int offset = 0,
   }) async {
+    return PreparationProductionOrdersPage.fromJson(
+        await _productionList('orders', query, status, offset));
+  }
+
+  Future<PreparationProductionBatchesPage> preparationProductionBatches({
+    String query = '',
+    String status = 'all',
+    int offset = 0,
+  }) async {
+    return PreparationProductionBatchesPage.fromJson(
+        await _productionList('batches', query, status, offset));
+  }
+
+  Future<PreparationProductionRollsPage> preparationProductionRolls({
+    String query = '',
+    String status = 'all',
+    int offset = 0,
+  }) async {
+    return PreparationProductionRollsPage.fromJson(
+        await _productionList('rolls', query, status, offset));
+  }
+
+  Future<Map<String, dynamic>> _productionList(
+      String mode, String query, String status, int offset) async {
     if (!const {'all', 'active', 'completed'}.contains(status) || offset < 0) {
       throw ArgumentError('Ishlab chiqarish filtri noto‘g‘ri');
     }
-    return PreparationProductionOrdersPage.fromJson(
-        await _productionRead('orders', {
-      'q': query.trim(),
-      'status': status,
-      'offset': '$offset',
-      'limit': '50',
-    }));
+    try {
+      return await _productionRead(mode, {
+        'q': String.fromCharCodes(query.trim().runes.take(200)),
+        'status': status,
+        'offset': '$offset',
+        'limit': '50',
+      });
+    } on MobileApiException catch (error) {
+      if (mode != 'orders' && error.statusCode == 404) {
+        throw const MobileApiException(
+          code: 'preparation_output_api_unavailable',
+          statusCode: 404,
+          message:
+              'Batch va rulon ro‘yxati uchun Mini RS ERP’ni yangilash kerak.',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<PreparationProductionOrderPage> preparationProductionOrder(

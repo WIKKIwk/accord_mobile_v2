@@ -347,6 +347,11 @@ List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
       title: 'Kirim',
       routeName: AppRoutes.gscaleMode,
     ),
+    const _MaterialHomeAction(
+      icon: Icons.inventory_2_outlined,
+      title: 'Xomashyo paddonlari',
+      routeName: AppRoutes.materialPaddons,
+    ),
     _MaterialHomeAction(
       icon: Icons.inventory_2_outlined,
       title: 'Homashyo biriktirish',

@@ -114,6 +114,7 @@ class AppRoutes {
   static const String adminSupplierItemsAdd = '/admin-supplier-items-add';
   static const String adminWerka = '/admin-werka';
   static const String materialHome = '/material-home';
+  static const String materialPaddons = '/material-paddons';
   static const String materialHistory = '/material-history';
   static const String inventoryMovements = '/inventory-movements';
   static const String gscaleMode = '/gscale-mode';

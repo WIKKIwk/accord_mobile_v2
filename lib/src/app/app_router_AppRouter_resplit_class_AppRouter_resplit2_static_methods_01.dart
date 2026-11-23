@@ -226,6 +226,9 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
     case AppRoutes.materialHome:
       return AppRouter._buildRoute(
           settings, const MaterialTaminotchiHomeScreen());
+    case AppRoutes.materialPaddons:
+      return AppRouter._buildRoute(
+          settings, const PreparationProductionScreen.materialPaddons());
     case AppRoutes.materialHistory:
       return AppRouter._buildRoute(
           settings, const MaterialTaminotchiHistoryScreen());

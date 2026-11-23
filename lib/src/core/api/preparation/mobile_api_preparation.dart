@@ -82,6 +82,8 @@ extension MobileApiPreparation on MobileApi {
     required String kind,
     required String path,
     required Map<String, dynamic> payload,
+    String Function()? storageKey,
+    void Function(Map<String, dynamic>)? validateResult,
   }) async {
     if (_preparationSending) throw StateError('Saqlash davom etmoqda');
     if (payload.containsKey('request_id')) {
@@ -94,7 +96,8 @@ extension MobileApiPreparation on MobileApi {
             code: 'test_mode',
             message: 'Tayyorlov ombori uchun haqiqiy akkaunt kerak');
       }
-      final key = _preparationStorageKey();
+      final resolveKey = storageKey ?? _preparationStorageKey;
+      final key = resolveKey();
       final preferences = await SharedPreferences.getInstance();
       final raw = preferences.getString(key);
       final pending = raw == null
@@ -114,7 +117,7 @@ extension MobileApiPreparation on MobileApi {
         throw StateError('Saqlash kaliti qurilmada saqlanmadi');
       }
       final response = await _sendAuthorized(() {
-        if (_preparationStorageKey() != key) {
+        if (resolveKey() != key) {
           throw StateError('Akkaunt o‘zgargan');
         }
         return _post(
@@ -138,15 +141,17 @@ extension MobileApiPreparation on MobileApi {
             'preparation_scope',
             'preparation_receipt_requires_qr',
             'preparation_warehouse_not_exclusive',
+            'preparation_material_not_in_warehouse',
             'preparation_insufficient_stock'
           ].contains(rejectedCode)) {
         await preferences.remove(key);
       }
       final result = _preparationResponse(response);
+      validateResult?.call(result);
       if (!await preferences.remove(key)) {
         throw StateError('Operatsiya natijasini qayta tekshiring');
       }
-      if (_preparationStorageKey() != key) {
+      if (resolveKey() != key) {
         throw StateError('Akkaunt o‘zgargan');
       }
       return result;

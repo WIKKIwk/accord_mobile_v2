@@ -4,11 +4,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/urdu_aware_text.dart';
+import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
@@ -20,12 +22,21 @@ import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
+import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
+import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
+import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../models/preparation_models.dart';
+import 'material_paddon_receipt_dialog.dart';
 import 'preparation_navigation.dart';
 
 class PreparationProductionScreen extends StatefulWidget {
-  const PreparationProductionScreen({super.key});
+  const PreparationProductionScreen({super.key}) : materialPaddonsOnly = false;
+  const PreparationProductionScreen.materialPaddons({super.key})
+      : materialPaddonsOnly = true;
+
+  final bool materialPaddonsOnly;
   @override
   State<PreparationProductionScreen> createState() => _ProductionOrdersState();
 }
@@ -70,7 +81,6 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
   Future<_JournalPage<T>> request(int offset);
   String identity(T item);
   void received(PreparationProductionPage page) {}
-  void clearSummary() {}
 
   bool get currentAccount => _valid && _scope == currentSessionReadScope();
   bool get canRefresh =>
@@ -99,7 +109,6 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
     _timer?.cancel();
     setState(() {
       items = [];
-      clearSummary();
       hasMore = false;
       loading = false;
       error = 'Akkaunt o‘zgargan. Sahifani qayta oching';
@@ -191,49 +200,66 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
   }
 
   Widget journal({
-    required List<Widget> children,
+    List<Widget> children = const [],
+    IndexedWidgetBuilder? rowBuilder,
     required String empty,
     EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(8, 8, 8, 136),
-  }) =>
-      AppRefreshIndicator(
-        onRefresh: load,
-        allowRefreshOnShortContent: true,
-        child: ListView(
-          physics: const TopRefreshScrollPhysics(),
-          padding: padding,
-          children: [
-            if (loading && items.isEmpty)
-              const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: AppLoadingIndicator())),
-            if (loading && items.isNotEmpty) const LinearProgressIndicator(),
-            if (error != null)
-              Card.filled(
-                  child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(children: [
-                        UrduAwareText(error!),
-                        if (currentAccount)
-                          TextButton(
-                              key: const ValueKey('production-retry'),
-                              onPressed: _busy ? null : () => load(),
-                              child: const UrduAwareText('Qayta urinish')),
-                      ]))),
-            ...children,
-            if (!loading && error == null && items.isEmpty)
-              Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: UrduAwareText(empty)),
-            if (hasMore && currentAccount)
-              Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: OutlinedButton(
-                      key: const ValueKey('production-load-more'),
-                      onPressed: _busy ? null : () => load(append: true),
-                      child: const UrduAwareText('Yana yuklash'))),
-          ],
+  }) {
+    final leading = <Widget>[
+      if (loading && items.isEmpty)
+        const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: AppLoadingIndicator())),
+      if (loading && items.isNotEmpty) const LinearProgressIndicator(),
+      if (error != null)
+        Card.filled(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: [
+              UrduAwareText(error!),
+              if (currentAccount)
+                TextButton(
+                  key: const ValueKey('production-retry'),
+                  onPressed: _busy ? null : () => load(),
+                  child: const UrduAwareText('Qayta urinish'),
+                ),
+            ]),
+          ),
         ),
-      );
+    ];
+    final trailing = <Widget>[
+      if (!loading && error == null && items.isEmpty)
+        Padding(padding: const EdgeInsets.all(24), child: UrduAwareText(empty)),
+      if (hasMore && currentAccount)
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: OutlinedButton(
+            key: const ValueKey('production-load-more'),
+            onPressed: _busy ? null : () => load(append: true),
+            child: const UrduAwareText('Yana yuklash'),
+          ),
+        ),
+    ];
+    return AppRefreshIndicator(
+      onRefresh: load,
+      allowRefreshOnShortContent: true,
+      child: CustomScrollView(
+        physics: const TopRefreshScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: padding,
+            sliver: SliverMainAxisGroup(slivers: [
+              SliverList.list(children: [...leading, ...children]),
+              if (rowBuilder != null)
+                SliverList.builder(
+                    itemCount: items.length, itemBuilder: rowBuilder),
+              SliverList.list(children: trailing),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -245,45 +271,133 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
   }
 }
 
-class _ProductionOrdersState extends _JournalState<PreparationProductionScreen,
-    PreparationProductionOrder> {
+enum _ProductionView { orders, batches, rolls, paddons }
+
+class _ProductionOrdersState
+    extends _JournalState<PreparationProductionScreen, PreparationProductionRow>
+    with SingleTickerProviderStateMixin {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _searchDebounce;
   String _query = '', _status = 'all';
+  String _paddonStatus = 'all';
   bool _statusExpanded = false;
+  late _ProductionView _view = widget.materialPaddonsOnly
+      ? _ProductionView.paddons
+      : _ProductionView.batches;
+  bool get _showPaddons => _view == _ProductionView.paddons;
+  late final _tabs = TabController(
+    length: _ProductionView.values.length,
+    initialIndex: _ProductionView.batches.index,
+    vsync: this,
+  );
+
   @override
-  Future<_JournalPage<PreparationProductionOrder>> request(int offset) async {
-    final page = await MobileApi.instance.preparationProductionOrders(
-        query: _query, status: _status, offset: offset);
-    return _JournalPage(page, page.orders);
+  Future<_JournalPage<PreparationProductionRow>> request(int offset) async {
+    final api = MobileApi.instance;
+    switch (_view) {
+      case _ProductionView.orders:
+        final page = await api.preparationProductionOrders(
+            query: _query, status: _status, offset: offset);
+        return _JournalPage(page, page.orders);
+      case _ProductionView.batches:
+        final page = await api.preparationProductionBatches(
+            query: _query, status: _status, offset: offset);
+        return _JournalPage(page, page.batches);
+      case _ProductionView.rolls:
+        final page = await api.preparationProductionRolls(
+            query: _query, status: _status, offset: offset);
+        return _JournalPage(page, page.rolls);
+      case _ProductionView.paddons:
+        final page = await api.materialPaddons(
+            query: _query, status: _paddonStatus, offset: offset);
+        return _JournalPage(page, page.paddons);
+    }
   }
 
   @override
-  String identity(PreparationProductionOrder item) => item.id;
+  String identity(PreparationProductionRow item) => item.journalKey;
+
   void _searchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), _filter);
   }
 
-  void _filter() {
+  void _filter({_ProductionView? view, String? status}) {
     _searchDebounce?.cancel();
     if (!currentAccount) return;
-    _query = _search.text.trim();
+    final query = _search.text.trim();
+    final nextView = view ?? _view;
+    final activeStatus =
+        nextView == _ProductionView.paddons ? _paddonStatus : _status;
+    if (nextView == _view &&
+        (status ?? activeStatus) == activeStatus &&
+        query == _query) {
+      return;
+    }
+    setState(() {
+      _view = nextView;
+      if (status != null) {
+        if (_showPaddons) {
+          _paddonStatus = status;
+        } else {
+          _status = status;
+        }
+      }
+      _query = query;
+      _statusExpanded = false;
+      items = [];
+      nextOffset = null;
+      hasMore = false;
+      error = null;
+      loading = true;
+    });
     unawaited(load());
   }
+
+  Future<void> _receivePaddon() async {
+    final code = await showMaterialPaddonReceipt(context);
+    if (!mounted || !currentAccount || code == null || !_showPaddons) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: UrduAwareText('Paddon $code kirim qilindi')),
+    );
+    if (_query.isEmpty && _paddonStatus == 'all' && _search.text.isEmpty) {
+      await load();
+    } else {
+      _search.clear();
+      _filter(status: 'all');
+    }
+  }
+
+  List<AdminFabMenuAction> get _paddonActions => [
+        if (_showPaddons &&
+            currentAccount &&
+            !loading &&
+            error == null &&
+            AppSession.instance.can(widget.materialPaddonsOnly
+                ? 'gscale.print'
+                : 'preparation.access'))
+          AdminFabMenuAction(
+            title: 'Paddon qo‘shish',
+            icon: Icons.inventory_2_outlined,
+            onTap: _receivePaddon,
+          ),
+      ];
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _search.dispose();
     _searchFocus.dispose();
+    if (!widget.materialPaddonsOnly) _tabs.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => AppShell(
-        title: 'Tayyorlov hisobi',
+        title: widget.materialPaddonsOnly
+            ? 'Xomashyo paddonlari'
+            : 'Tayyorlov hisobi',
         subtitle: '',
         nativeTopBar: true,
         automaticallyImplyNativeLeading: false,
@@ -295,7 +409,9 @@ class _ProductionOrdersState extends _JournalState<PreparationProductionScreen,
             key: const ValueKey('production-search'),
             controller: _search,
             focusNode: _searchFocus,
-            hintText: 'Buyurtma, homashyo yoki formula',
+            hintText: _showPaddons
+                ? 'Paddon, partiya yoki xomashyo'
+                : 'Nomi, buyurtma yoki QR',
             onChanged: _searchChanged,
             onClear: () {
               _search.clear();
@@ -306,82 +422,142 @@ class _ProductionOrdersState extends _JournalState<PreparationProductionScreen,
               if (navigator.canPop()) {
                 navigator.pop();
               } else {
-                navigator.pushNamedAndRemoveUntil(
-                    AppRoutes.preparation, (route) => false);
+                AppRootNavigation.replaceRootRoute(
+                    context,
+                    widget.materialPaddonsOnly
+                        ? AppRoutes.materialHome
+                        : AppRoutes.preparation);
               }
             },
           ),
         ),
         contentPadding: EdgeInsets.zero,
-        drawer: const PreparationDrawer(
-            selectedRouteName: AppRoutes.preparationProduction),
-        bottom: const PreparationDock(showPrimaryFab: false),
-        child: Column(children: [
-          IgnorePointer(
-            ignoring: !currentAccount,
-            child: AdminExpandableFilterChip<String>(
-              chipKey: const ValueKey('production-status-filter'),
-              label: 'Holat',
-              emptyLabel: 'Barchasi',
-              icon: Icons.filter_list_rounded,
-              selectedValue: _status,
-              options: const [
-                AdminFilterChipOption(
-                    key: ValueKey('production-status-all'),
-                    value: 'all',
-                    label: 'Barchasi'),
-                AdminFilterChipOption(
-                    key: ValueKey('production-status-active'),
-                    value: 'active',
-                    label: 'Davom etmoqda'),
-                AdminFilterChipOption(
-                    key: ValueKey('production-status-completed'),
-                    value: 'completed',
-                    label: 'Yakunlangan'),
-              ],
-              expanded: _statusExpanded,
-              onToggle: () =>
-                  setState(() => _statusExpanded = !_statusExpanded),
-              onSelect: (status) {
-                setState(() {
-                  _status = status;
-                  _statusExpanded = false;
-                });
-                _filter();
-              },
+        drawer: widget.materialPaddonsOnly
+            ? MaterialTaminotchiNavigationDrawer(
+                selectedRouteName: AppRoutes.materialPaddons,
+                onNavigate: (route) =>
+                    AppRootNavigation.replaceRootRoute(context, route),
+              )
+            : const PreparationDrawer(
+                selectedRouteName: AppRoutes.preparationProduction),
+        bottom: widget.materialPaddonsOnly
+            ? const MaterialTaminotchiDock()
+            : PreparationDock(primaryFabActions: _paddonActions),
+        child: Stack(children: [
+          Column(children: [
+            if (!widget.materialPaddonsOnly)
+              IgnorePointer(
+                ignoring: !currentAccount,
+                child: AdminSurfaceTabBar(
+                  key: const ValueKey('production-view-tabs'),
+                  controller: _tabs,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  onTap: (index) =>
+                      _filter(view: _ProductionView.values[index]),
+                  tabs: [
+                    for (final (key, label) in const [
+                      ('orders', 'Buyurtmalar'),
+                      ('batches', 'Batchlar'),
+                      ('rolls', 'Rulonlar'),
+                      ('paddons', 'Paddonlar'),
+                    ])
+                      Tab(
+                          key: ValueKey('production-view-$key'),
+                          text: AppLocalizations.of(context).uiText(label)),
+                  ],
+                ),
+              ),
+            IgnorePointer(
+              ignoring: !currentAccount,
+              child: AdminExpandableFilterChip<String>(
+                chipKey: ValueKey(_showPaddons
+                    ? 'paddon-balance-filter'
+                    : 'production-status-filter'),
+                label: _showPaddons ? 'Qoldiq' : 'Holat',
+                emptyLabel: 'Barchasi',
+                icon: Icons.filter_list_rounded,
+                selectedValue: _showPaddons ? _paddonStatus : _status,
+                options: _showPaddons
+                    ? const [
+                        AdminFilterChipOption(
+                            key: ValueKey('paddon-balance-all'),
+                            value: 'all',
+                            label: 'Barchasi'),
+                        AdminFilterChipOption(
+                            key: ValueKey('paddon-balance-available'),
+                            value: 'available',
+                            label: 'Qoldig‘i bor'),
+                        AdminFilterChipOption(
+                            key: ValueKey('paddon-balance-empty'),
+                            value: 'empty',
+                            label: 'Bo‘sh'),
+                      ]
+                    : const [
+                        AdminFilterChipOption(
+                            key: ValueKey('production-status-all'),
+                            value: 'all',
+                            label: 'Barchasi'),
+                        AdminFilterChipOption(
+                            key: ValueKey('production-status-active'),
+                            value: 'active',
+                            label: 'Davom etmoqda'),
+                        AdminFilterChipOption(
+                            key: ValueKey('production-status-completed'),
+                            value: 'completed',
+                            label: 'Yakunlangan'),
+                      ],
+                expanded: _statusExpanded,
+                onToggle: () =>
+                    setState(() => _statusExpanded = !_statusExpanded),
+                onSelect: (status) {
+                  setState(() => _statusExpanded = false);
+                  _filter(status: status);
+                },
+              ),
             ),
-          ),
-          Expanded(
-              child: journal(
-                  empty: 'Hali ishlab chiqarish yozuvlari yo‘q.',
-                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
-                  children: [
-                    M3SegmentSpacedColumn(children: [
-                      for (final (index, order) in items.indexed)
-                        _JournalListRow(
-                          key: ValueKey('production-order:${order.id}'),
-                          slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                              index, items.length),
-                          icon: Icons.receipt_long_outlined,
-                          title: '${order.displayCode} • ${order.title}',
-                          subtitle: [
-                            order.customerName,
-                            '${order.batchCount} ta ishlab chiqarish',
-                            if (order.activeBatchCount > 0)
-                              '${order.activeBatchCount} ta davom etmoqda',
-                            _date(order.lastActivityAt)
-                          ].where((value) => value.isNotEmpty).join(' • '),
-                          metrics:
-                              '${order.rollCount} ta rulon • ${preparationDisplay(order.netKg)} kg • ${preparationDisplay(order.lengthM)} m',
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => PreparationProductionOrderScreen(
-                                  orderId: order.id),
-                            ),
-                          ),
-                        ),
-                    ]),
-                  ])),
+            Expanded(
+                child: journal(
+                    empty: _showPaddons
+                        ? 'Xomashyo paddonlari topilmadi.'
+                        : 'Hali ishlab chiqarish yozuvlari yo‘q.',
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
+                    rowBuilder: (context, index) {
+                      final item = items[index];
+                      final slot =
+                          M3SegmentedListGeometry.standaloneListSlotForIndex(
+                              index, items.length);
+                      final row = switch (item) {
+                        PreparationProductionOrder() =>
+                          _productionOrderRow(context, item, slot),
+                        PreparationProductionBatch() => _productionBatchRow(
+                            context, item, slot,
+                            showOrder: true),
+                        PreparationProductionRoll() =>
+                          _productionRollRow(context, item, slot, canOpen: currentAccount),
+                        PreparationMaterialPaddon() =>
+                          _materialPaddonRow(context, item, slot),
+                      };
+                      return Padding(
+                        key: ValueKey('${_view.name}:${item.journalKey}'),
+                        padding: const EdgeInsets.only(
+                            bottom: M3SegmentedListGeometry.gap),
+                        child: row,
+                      );
+                    })),
+          ]),
+          if (widget.materialPaddonsOnly && _paddonActions.isNotEmpty)
+            PositionedDirectional(
+              end: 16,
+              bottom: 16,
+              child: AdminFabOverlayActionMenu(
+                key: const ValueKey('material-paddons-fab'),
+                actions: _paddonActions,
+                closedLabel: 'Amallar',
+                openLabel: 'Yopish',
+                closedIcon: Icons.add_rounded,
+              ),
+            ),
         ]),
       );
 }
@@ -539,6 +715,148 @@ class _ProductionBatchState extends _JournalState<
         ),
       );
 }
+
+String _nonEmpty(String preferred, String fallback, String otherwise) =>
+    preferred.isNotEmpty
+        ? preferred
+        : fallback.isNotEmpty
+            ? fallback
+            : otherwise;
+
+String _orderLabel(String code, String id, String title) => [
+      _nonEmpty(code, id, ''),
+      title
+    ].where((line) => line.isNotEmpty).join(' • ');
+
+Widget _productionOrderRow(
+  BuildContext context,
+  PreparationProductionOrder order,
+  M3SegmentVerticalSlot slot,
+) =>
+    _JournalListRow(
+      key: ValueKey('production-order:${order.id}'),
+      slot: slot,
+      icon: Icons.receipt_long_outlined,
+      title: _orderLabel(order.code, order.id, order.title),
+      subtitle: [
+        order.customerName,
+        '${order.batchCount} ta ishlab chiqarish',
+        if (order.activeBatchCount > 0)
+          '${order.activeBatchCount} ta davom etmoqda',
+        _date(order.lastActivityAt),
+      ].where((line) => line.isNotEmpty).join(' • '),
+      metrics:
+          '${order.rollCount} ta rulon • ${preparationDisplay(order.netKg)} kg • ${preparationDisplay(order.lengthM)} m',
+      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PreparationProductionOrderScreen(orderId: order.id),
+      )),
+    );
+
+Widget _productionBatchRow(
+  BuildContext context,
+  PreparationProductionBatch batch,
+  M3SegmentVerticalSlot slot, {
+  bool showOrder = false,
+}) =>
+    _JournalListRow(
+      key: ValueKey('production-batch:${batch.id}'),
+      slot: slot,
+      icon: Icons.inventory_2_outlined,
+      title: batch.displayItem,
+      subtitle: [
+        if (showOrder && batch.orderId.isNotEmpty)
+          _orderLabel(batch.orderCode, batch.orderId, batch.orderTitle),
+        batch.formulaName,
+        '${batch.active ? 'Davom etmoqda' : 'Yakunlangan'} • ${batch.warehouse} • ${_date(batch.lastActivityAt)}',
+      ].join('\n'),
+      metrics:
+          '${batch.rollCount} ta rulon • ${preparationDisplay(batch.netKg)} kg • ${preparationDisplay(batch.lengthM)} m',
+      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PreparationProductionBatchScreen(batchId: batch.id),
+      )),
+    );
+
+Widget _materialPaddonRow(
+  BuildContext context,
+  PreparationMaterialPaddon paddon,
+  M3SegmentVerticalSlot slot,
+) {
+  final balance = 'Qoldiq: ${preparationDisplay(paddon.remainingKg)} kg';
+  return _JournalListRow(
+    key: ValueKey('preparation-paddon:${paddon.id}'),
+    slot: slot,
+    icon: Icons.inventory_2_outlined,
+    title: 'Paddon ${paddon.code}',
+    subtitle: paddon.warehouse,
+    metrics: balance,
+    onTap: () => showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        top: false,
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          children: [
+            ListTile(
+              title: UrduAwareText('Paddon ${paddon.code}'),
+              subtitle: UrduAwareText('${paddon.warehouse} • $balance'),
+            ),
+            Center(
+              child: QrImageView(
+                data: 'raw-material-paddon:${paddon.code}',
+                size: 144,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            for (final item in paddon.contents)
+              ListTile(
+                title: UrduAwareText(item.itemName),
+                subtitle: UrduAwareText([
+                  if (item.lotNumber.isNotEmpty) 'Partiya: ${item.lotNumber}',
+                  if (item.remainingCount != null)
+                    '${item.remainingCount} ta ${_paddonUnit(item.kind)}',
+                  if (item.unitKg case final kg?)
+                    '${preparationDisplay(kg)} kg dan',
+                  '${preparationDisplay(item.remainingKg)} kg',
+                ].join(' • ')),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+String _paddonUnit(String kind) => switch (kind) {
+      'bag' => 'qop',
+      'roll' => 'rulon',
+      _ => 'birlik',
+    };
+
+
+Widget _productionRollRow(
+  BuildContext context,
+  PreparationProductionRoll roll,
+  M3SegmentVerticalSlot slot, {
+  required bool canOpen,
+}) =>
+    _JournalListRow(
+      key: ValueKey('production-roll:\${roll.epc}'),
+      slot: slot,
+      icon: Icons.qr_code_2_rounded,
+      title: _nonEmpty(roll.itemName, roll.itemCode, roll.epc),
+      titleMaxLines: 2,
+      subtitle: [
+        roll.epc,
+        if (roll.orderId.isNotEmpty)
+          _orderLabel(roll.orderCode, roll.orderId, roll.orderTitle),
+        '\${_date(roll.printedAt)} • \${roll.warehouse}',
+      ].join('\n'),
+      metrics: '\${preparationDisplay(roll.netKg)} kg',
+      onTap: canOpen ? () => _showRoll(context, roll, roll.orderId) : null,
+    );
 
 class _JournalListRow extends StatelessWidget {
   const _JournalListRow({

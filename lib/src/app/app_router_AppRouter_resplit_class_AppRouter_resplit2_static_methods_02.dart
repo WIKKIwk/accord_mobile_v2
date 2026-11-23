@@ -27,6 +27,10 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return isMetalayzerRoute && profile.hasCapability('metalayzer.access');
   }
   if (isMetalayzerRoute) return false;
+  if (routeName == AppRoutes.materialPaddons) {
+    return profile.role == UserRole.materialTaminotchi &&
+        profile.hasCapability('gscale.catalog.read');
+  }
   if (routeName == AppRoutes.inventoryMovements &&
       profile.role == UserRole.tayyorlovMasteri) {
     return profile.hasCapability('preparation.access');
