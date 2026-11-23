@@ -30,7 +30,7 @@ class _PaddonLine {
         'lot_number': lot.text.trim(),
         'kind': kind,
         'count': int.parse(count.text.trim()),
-        'unit_kg': _normalizedNumber(kg.text),
+        if (kg.text.trim().isNotEmpty) 'unit_kg': _normalizedNumber(kg.text),
         if (kind == 'roll') 'width_mm': _normalizedNumber(width.text),
         if (kind == 'roll') 'micron': _normalizedNumber(micron.text),
       };
@@ -172,7 +172,9 @@ class _MaterialPaddonReceiptDialogState
             if (name.isNotEmpty) 'name': name,
             'contents': [for (final line in _lines) line.payload],
           });
-      if (_current) Navigator.of(context).pop(code);
+      if (mounted && currentSessionReadScope() == _scope) {
+        Navigator.of(context).pop(code);
+      }
     } catch (failure) {
       if (!_current) return;
       final pending =
@@ -327,7 +329,9 @@ class _MaterialPaddonReceiptDialogState
                 },
               ),
               _number(line.kg, 'Birlik vazni',
-                  suffix: 'kg', key: ValueKey('paddon-unit-kg-$index')),
+                  suffix: 'kg',
+                  optional: true,
+                  key: ValueKey('paddon-unit-kg-$index')),
             ),
             if (line.kind == 'roll') ...[
               const SizedBox(height: 12),
@@ -341,13 +345,15 @@ class _MaterialPaddonReceiptDialogState
   }
 
   Widget _number(TextEditingController field, String label,
-          {String? suffix, Key? key}) =>
+          {String? suffix, Key? key, bool optional = false}) =>
       TextFormField(
         key: key,
         controller: field,
-        decoration: _fieldDecoration(label, suffix: suffix, showLabel: true),
+        decoration: _fieldDecoration(label, suffix: suffix, showLabel: true)
+            .copyWith(hintText: optional ? 'Ixtiyoriy' : null),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validator: _positiveKg,
+        validator: (text) =>
+            optional && (text ?? '').trim().isEmpty ? null : _positiveKg(text),
       );
 
   Widget _formContent(AsyncSnapshot<void> snapshot) {

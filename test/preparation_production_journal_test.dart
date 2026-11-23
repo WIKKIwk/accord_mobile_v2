@@ -10,6 +10,7 @@ import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_list_row.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_expandable_filter_chip.dart';
@@ -360,7 +361,7 @@ void main() {
         await tester.enterText(find.byKey(const ValueKey('paddon-count-0')), '3');
         final kg = find.byKey(const ValueKey('paddon-unit-kg-0'));
         await tester.ensureVisible(kg);
-        await tester.enterText(kg, '25');
+        if (!materialRole) await tester.enterText(kg, '25');
         final save = find.byKey(const ValueKey('paddon-receipt-save'));
         await tester.tap(save);
         await tester.pumpAndSettle();
@@ -389,7 +390,7 @@ void main() {
                   'lot_number': '',
                   'kind': 'bag',
                   'count': 3,
-                  'unit_kg': '25',
+                  if (!materialRole) 'unit_kg': '25',
                 }
               ]);
               expect(body['request_id'], isNotEmpty);
@@ -408,14 +409,16 @@ void main() {
                     'paddon_id': 'p-new',
                     'paddon_code': 'XP-NEW',
                     'warehouse': 'Own W',
-                    'remaining_kg': '75',
+                    'remaining_kg': materialRole ? '0' : '75',
+                    'unweighed_count': materialRole ? 3 : 0,
                     'contents': [
                       {
                         'item_name': 'Granula',
                         'kind': 'bag',
                         'remaining_count': 3,
-                        'unit_kg': '25',
-                        'remaining_kg': '75',
+                        if (!materialRole) 'unit_kg': '25',
+                        'unweighed_count': materialRole ? 3 : 0,
+                        'remaining_kg': materialRole ? '0' : '75',
                       }
                     ],
                   },
@@ -441,6 +444,251 @@ void main() {
         }
       });
     });
+  }
+
+  for (final viaScan in [true, false]) {
+    testWidgets(
+      'paddon checkout weighs and labels each unit (scan: $viaScan)',
+      (tester) async {
+        const code = 'XP-ABCDEF0123456789';
+        const printerAddress = '00:11:22:33:44:55';
+        if (viaScan) {
+          AppSession.instance.profile = _profile(
+            ref: 'material-1',
+            role: UserRole.materialTaminotchi,
+            capabilities: [
+              'gscale.catalog.read',
+              'gscale.print',
+              'inventory.movement.manage',
+            ],
+          );
+        }
+        final labels = <Map<Object?, Object?>>[];
+        final submits = <Map<dynamic, dynamic>>[];
+        final lookedUp = <String?>[];
+        const channel = MethodChannel('accord/bluetooth_printer');
+        final messenger = tester.binding.defaultBinaryMessenger;
+        SessionBluetoothPrinter.remember(
+          const BluetoothPrinterProfile(
+            name: 'XP-P323B',
+            address: printerAddress,
+          ),
+        );
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'pairedPrinters') {
+            return [
+              {'name': 'XP-P323B', 'address': printerAddress},
+            ];
+          }
+          if (call.method == 'printLabel') {
+            labels.add(Map<Object?, Object?>.from(call.arguments as Map));
+            return {'ok': true, 'bytes': 1};
+          }
+          return null;
+        });
+        addTearDown(() {
+          messenger.setMockMethodCallHandler(channel, null);
+          SessionBluetoothPrinter.forget();
+        });
+
+        await _withApp(
+          tester,
+          () async {
+            tester.view.physicalSize = const Size(360, 780);
+            await tester.pumpWidget(
+              _app(
+                viaScan
+                    ? const PreparationProductionScreen.materialPaddons()
+                    : const PreparationProductionScreen(),
+              ),
+            );
+            await tester.pumpAndSettle();
+            if (viaScan) {
+              await tester.tap(
+                find.byKey(const ValueKey('material-paddons-fab')),
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.text('Paddon QR skaneri'));
+              await tester.pumpAndSettle();
+              final input = find.descendant(
+                of: find.byType(RawMaterialScanDialog),
+                matching: find.byType(TextField),
+              );
+              await tester.enterText(input, 'raw-material-paddon:$code');
+              await tester.testTextInput.receiveAction(TextInputAction.done);
+              await tester.pumpAndSettle();
+              expect(lookedUp, [code]);
+            } else {
+              final tab = find.byKey(const ValueKey('production-view-paddons'));
+              await tester.ensureVisible(tab);
+              await tester.pumpAndSettle();
+              await tester.tap(tab);
+              await tester.pumpAndSettle();
+              await tester.tap(
+                find.byKey(const ValueKey('preparation-paddon:p1')),
+              );
+              await tester.pumpAndSettle();
+              expect(lookedUp, isEmpty);
+            }
+            await tester.tap(find.byKey(const ValueKey('paddon-print-qr')));
+            await tester.pumpAndSettle();
+            expect(labels, hasLength(1));
+            expect(
+              (labels.single['epc'] as String).toUpperCase(),
+              'RAW-MATERIAL-PADDON:$code',
+            );
+            expect(labels.single['item_name'], 'GRANULA ZAXIRASI');
+            expect(labels.single['material_data_matrix'], isNull);
+            labels.clear();
+
+            final openIssue = find.byKey(const ValueKey('paddon-open-issue'));
+            await tester.ensureVisible(openIssue);
+            await tester.tap(openIssue);
+            await tester.pumpAndSettle();
+            await tester.enterText(
+              find.byKey(const ValueKey('paddon-issue-count')),
+              '2',
+            );
+            await tester.pumpAndSettle();
+            await tester.enterText(
+              find.byKey(const ValueKey('paddon-issue-weight-1-0')),
+              '24,6',
+            );
+            final save = find.byKey(const ValueKey('paddon-issue-save'));
+            await tester.tap(save);
+            await tester.pumpAndSettle();
+            expect(submits, isEmpty);
+            final secondWeight = find.byKey(
+              const ValueKey('paddon-issue-weight-1-1'),
+            );
+            await tester.ensureVisible(secondWeight);
+            await tester.enterText(secondWeight, '26.1');
+            final destination = find.byKey(
+              const ValueKey('paddon-issue-destination'),
+            );
+            await tester.ensureVisible(destination);
+            await tester.tap(destination);
+            await tester.pumpAndSettle();
+            await tester.tap(
+              find.text(viaScan ? 'Sex • State' : 'Own Next').last,
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(save);
+            await tester.pumpAndSettle();
+            expect(submits, hasLength(1));
+            expect(labels, isEmpty);
+            expect(find.text('Natijani tekshirish'), findsOneWidget);
+            await tester.tap(save);
+            await tester.pumpAndSettle();
+            expect(submits, hasLength(2));
+            expect(submits.first, submits.last);
+            expect(find.text('Chiqim yorliqlari'), findsOneWidget);
+            expect(find.textContaining('50.7 kg'), findsOneWidget);
+            expect(labels.map((label) => label['epc']), [
+              _epc,
+              'PREP-PADDON-LEGACY',
+            ]);
+            expect(labels.map((label) => label['gross_qty']), [24.6, 26.1]);
+            expect(
+              labels.every(
+                (label) =>
+                    (label['item_name'] as String).contains('LOT-1') &&
+                    !label.containsKey('material_data_matrix'),
+              ),
+              isTrue,
+            );
+            final reprint = find.byKey(const ValueKey('paddon-print-unit:$_epc'));
+            await tester.ensureVisible(reprint);
+            await tester.tap(reprint);
+            await tester.pumpAndSettle();
+            expect(labels, hasLength(3));
+            expect(labels.last, labels.first);
+            expect(submits, hasLength(2));
+            expect(tester.takeException(), isNull);
+          },
+          (request) {
+            switch (request.url.path) {
+              case '/v1/mobile/raw-material-paddons':
+                final exactCode = request.url.queryParameters['code'];
+                if (exactCode != null) lookedUp.add(exactCode);
+                final remaining = submits.length < 2 ? 3 : 1;
+                return _json({
+                  'has_more': false,
+                  'paddons': [
+                    {
+                      'paddon_id': 'p1',
+                      'paddon_code': code,
+                      'name': 'Granula zaxirasi',
+                      'warehouse': 'Own W',
+                      'remaining_kg': '0',
+                      'unweighed_count': remaining,
+                      'contents': [
+                        {
+                          'line_no': 1,
+                          'item_name': 'Granula',
+                          'lot_number': 'LOT-1',
+                          'kind': 'bag',
+                          'remaining_count': remaining,
+                          'unweighed_count': remaining,
+                          'remaining_kg': '0',
+                        },
+                      ],
+                    },
+                  ],
+                });
+              case '/v1/mobile/admin/inventory/locations':
+                return _json([
+                  if (viaScan)
+                    {'id': 'state-sex', 'name': 'Sex', 'kind': 'state'}
+                  else
+                    {
+                      'id': 'warehouse-next',
+                      'name': 'Own Next',
+                      'kind': 'warehouse',
+                      'warehouse_id': 'next',
+                    },
+                ]);
+              case '/v1/mobile/raw-material-paddons/issues':
+                final body = jsonDecode(request.body) as Map;
+                expect(body['code'], code);
+                expect(body['line_no'], 1);
+                expect(body['weights'], ['24.6', '26.1']);
+                expect(
+                  body['destination'],
+                  viaScan
+                      ? {'kind': 'state', 'id': 'state-sex'}
+                      : {'kind': 'warehouse', 'id': 'next'},
+                );
+                submits.add(body);
+                if (submits.length == 1) {
+                  return _json({'error': 'No response'}, status: 503);
+                }
+                return _json({
+                  'issue_id': 'issue1',
+                  'paddon_code': code,
+                  'destination': viaScan ? 'Sex' : 'Own Next',
+                  'label_warehouse': viaScan ? 'Own W' : 'Own Next',
+                  'labels': [
+                    for (final (barcode, weight) in [
+                      (_epc, '24.6'),
+                      ('PREP-PADDON-LEGACY', '26.1'),
+                    ])
+                      {
+                        'barcode': barcode,
+                        'item_name': 'Granula',
+                        'item_code': 'G1',
+                        'lot_number': 'LOT-1',
+                        'kg': weight,
+                      },
+                  ],
+                });
+              default:
+                return _route(request);
+            }
+          },
+        );
+      },
+    );
   }
 
   testWidgets('order opens material, frozen recipe and produced roll QR',

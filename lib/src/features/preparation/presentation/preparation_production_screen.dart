@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
@@ -20,6 +19,7 @@ import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
+import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../admin/presentation/widgets/admin_catalog_search_field.dart';
 import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
@@ -28,6 +28,7 @@ import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../models/preparation_models.dart';
+import 'material_paddon_details_sheet.dart';
 import 'material_paddon_receipt_dialog.dart';
 import 'preparation_navigation.dart';
 
@@ -282,6 +283,7 @@ class _ProductionOrdersState
   String _query = '', _status = 'all';
   String _paddonStatus = 'all';
   bool _statusExpanded = false;
+  bool _scanningPaddon = false;
   late _ProductionView _view = widget.materialPaddonsOnly
       ? _ProductionView.paddons
       : _ProductionView.batches;
@@ -369,20 +371,83 @@ class _ProductionOrdersState
     }
   }
 
+  Future<void> _openPaddon(PreparationMaterialPaddon paddon) =>
+      showMaterialPaddonDetails(
+        context,
+        paddon,
+        onChanged: () {
+          if (mounted && currentAccount && _showPaddons) {
+            unawaited(load(silent: true));
+          }
+        },
+      );
+
+  Future<void> _scanPaddon() async {
+    if (_scanningPaddon || !currentAccount) return;
+    _scanningPaddon = true;
+    try {
+      final scanned = await showRawMaterialScanDialog(
+        context,
+        title: 'Paddon QR skaneri',
+        manualLabel: 'Paddon kodi',
+      );
+      if (!mounted || !currentAccount || !_showPaddons || scanned == null) {
+        return;
+      }
+      final code = materialPaddonCodeFromQr(scanned);
+      if (code == null) {
+        throw const FormatException(
+          'Xomashyo paddonining QR kodini skanerlang',
+        );
+      }
+      final paddon = await MobileApi.instance.materialPaddonByCode(code);
+      if (!mounted || !currentAccount || !_showPaddons) return;
+      if (paddon == null) {
+        throw const FormatException(
+          'Paddon topilmadi yoki sizga biriktirilmagan',
+        );
+      }
+      await _openPaddon(paddon);
+    } catch (error) {
+      if (!mounted || !currentAccount) return;
+      final message = switch (error) {
+        MobileApiException() => error.message,
+        FormatException() => error.message,
+        _ => 'Paddonni yuklab bo‘lmadi',
+      };
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: UrduAwareText(message)));
+    } finally {
+      _scanningPaddon = false;
+    }
+  }
+
   List<AdminFabMenuAction> get _paddonActions => [
-        if (_showPaddons &&
-            currentAccount &&
-            !loading &&
-            error == null &&
-            AppSession.instance.can(widget.materialPaddonsOnly
-                ? 'gscale.print'
-                : 'preparation.access'))
-          AdminFabMenuAction(
-            title: 'Paddon qo‘shish',
-            icon: Icons.inventory_2_outlined,
-            onTap: _receivePaddon,
-          ),
-      ];
+    if (_showPaddons &&
+        currentAccount &&
+        !loading &&
+        error == null &&
+        AppSession.instance.can(
+          widget.materialPaddonsOnly ? 'gscale.print' : 'preparation.access',
+        ))
+      AdminFabMenuAction(
+        title: 'Paddon qo‘shish',
+        icon: Icons.inventory_2_outlined,
+        onTap: _receivePaddon,
+      ),
+    if (_showPaddons &&
+        currentAccount &&
+        AppSession.instance.can(
+          widget.materialPaddonsOnly
+              ? 'gscale.catalog.read'
+              : 'preparation.access',
+        ))
+      AdminFabMenuAction(
+        title: 'Paddon QR skaneri',
+        icon: Icons.qr_code_scanner_rounded,
+        onTap: _scanPaddon,
+      ),
+  ];
 
   @override
   void dispose() {
@@ -536,7 +601,7 @@ class _ProductionOrdersState
                         PreparationProductionRoll() =>
                           _productionRollRow(context, item, slot, canOpen: currentAccount),
                         PreparationMaterialPaddon() =>
-                          _materialPaddonRow(context, item, slot),
+                          _materialPaddonRow(item, slot, () => _openPaddon(item)),
                       };
                       return Padding(
                         key: ValueKey('${_view.name}:${item.journalKey}'),
@@ -777,68 +842,21 @@ Widget _productionBatchRow(
     );
 
 Widget _materialPaddonRow(
-  BuildContext context,
   PreparationMaterialPaddon paddon,
   M3SegmentVerticalSlot slot,
-) {
-  final balance = 'Qoldiq: ${preparationDisplay(paddon.remainingKg)} kg';
-  final title = paddon.name.isEmpty ? 'Paddon ${paddon.code}' : paddon.name;
-  final subtitle = paddon.name.isEmpty
+  VoidCallback onTap,
+) => _JournalListRow(
+  key: ValueKey('preparation-paddon:${paddon.id}'),
+  slot: slot,
+  icon: Icons.inventory_2_outlined,
+  title: paddon.title,
+  titleMaxLines: 2,
+  subtitle: paddon.name.isEmpty
       ? paddon.warehouse
-      : '${paddon.warehouse} • ${paddon.code}';
-  return _JournalListRow(
-    key: ValueKey('preparation-paddon:${paddon.id}'),
-    slot: slot,
-    icon: Icons.inventory_2_outlined,
-    title: title,
-    titleMaxLines: 2,
-    subtitle: subtitle,
-    metrics: balance,
-    onTap: () => showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        top: false,
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-          children: [
-            ListTile(
-              title: UrduAwareText(title),
-              subtitle: UrduAwareText('$subtitle • $balance'),
-            ),
-            Center(
-              child: QrImageView(
-                data: 'raw-material-paddon:${paddon.code}',
-                size: 144,
-                backgroundColor: Colors.white,
-              ),
-            ),
-            for (final item in paddon.contents)
-              ListTile(
-                title: UrduAwareText(item.itemName),
-                subtitle: UrduAwareText([
-                  if (item.lotNumber.isNotEmpty) 'Partiya: ${item.lotNumber}',
-                  if (item.remainingCount != null)
-                    '${item.remainingCount} ta ${_paddonUnit(item.kind)}',
-                  if (item.unitKg case final kg?)
-                    '${preparationDisplay(kg)} kg dan',
-                  '${preparationDisplay(item.remainingKg)} kg',
-                ].join(' • ')),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-String _paddonUnit(String kind) => switch (kind) {
-      'bag' => 'qop',
-      'roll' => 'rulon',
-      _ => 'birlik',
-    };
+      : '${paddon.warehouse} • ${paddon.code}',
+  metrics: materialPaddonBalance(paddon),
+  onTap: onTap,
+);
 
 
 Widget _productionRollRow(

@@ -154,15 +154,24 @@ class PreparationProductionRoll extends PreparationProductionRow {
 
 class PreparationMaterialPaddon extends PreparationProductionRow {
   PreparationMaterialPaddon.fromJson(Map<String, dynamic> json)
-      : id = _identity(json, 'paddon_id'),
-        code = _identity(json, 'paddon_code'),
-        name = _text(json, 'name').trim(),
-        warehouse = _identity(json, 'warehouse'),
-        remainingKg = _amount(json, 'remaining_kg'),
-        contents = _items(json, 'contents', PreparationPaddonContent.fromJson);
+    : id = _identity(json, 'paddon_id'),
+      code = _identity(json, 'paddon_code'),
+      name = _text(json, 'name').trim(),
+      warehouse = _identity(json, 'warehouse'),
+      remainingKg = _amount(json, 'remaining_kg'),
+      unweighedCount = json['unweighed_count'] == null
+          ? 0
+          : _count(json, 'unweighed_count'),
+      contents = _items(json, 'contents', PreparationPaddonContent.fromJson);
 
   final String id, code, name, warehouse, remainingKg;
+  final int unweighedCount;
   final List<PreparationPaddonContent> contents;
+
+  int get remainingCount =>
+      contents.fold(0, (total, item) => total + (item.remainingCount ?? 0));
+  String get title => name.isEmpty ? 'Paddon $code' : name;
+  String get qrPayload => 'raw-material-paddon:$code';
 
   @override
   String get journalKey => id;
@@ -170,18 +179,58 @@ class PreparationMaterialPaddon extends PreparationProductionRow {
 
 class PreparationPaddonContent {
   PreparationPaddonContent.fromJson(Map<String, dynamic> json)
-      : itemName = _identity(json, 'item_name'),
-        lotNumber = _text(json, 'lot_number'),
-        remainingKg = _amount(json, 'remaining_kg'),
-        unitKg = json['unit_kg'] == null ? null : _amount(json, 'unit_kg'),
-        remainingCount = json['remaining_count'] == null
-            ? null
-            : _count(json, 'remaining_count'),
-        kind = _text(json, 'kind');
+    : itemName = _identity(json, 'item_name'),
+      lotNumber = _text(json, 'lot_number'),
+      lineNo = json['line_no'] == null ? null : _count(json, 'line_no'),
+      remainingKg = _amount(json, 'remaining_kg'),
+      unitKg = json['unit_kg'] == null ? null : _amount(json, 'unit_kg'),
+      remainingCount = json['remaining_count'] == null
+          ? null
+          : _count(json, 'remaining_count'),
+      unweighedCount = json['unweighed_count'] == null
+          ? 0
+          : _count(json, 'unweighed_count'),
+      kind = _text(json, 'kind');
 
   final String itemName, lotNumber, remainingKg, kind;
   final String? unitKg;
-  final int? remainingCount;
+  final int? lineNo, remainingCount;
+  final int unweighedCount;
+  String get unit => switch (kind) {
+    'bag' => 'qop',
+    'roll' => 'rulon',
+    _ => 'birlik',
+  };
+}
+
+class PreparationPaddonIssue {
+  PreparationPaddonIssue.fromJson(Map<String, dynamic> json)
+    : id = _identity(json, 'issue_id'),
+      paddonCode = _identity(json, 'paddon_code'),
+      destination = _identity(json, 'destination'),
+      labelWarehouse = _identity(json, 'label_warehouse'),
+      awaitsTransfer = json['transfer_status'] == 'requested',
+      labels = _items(json, 'labels', PreparationPaddonLabel.fromJson) {
+    if (labels.isEmpty ||
+        labels.map((label) => label.barcode).toSet().length != labels.length) {
+      throw const FormatException('Xomashyo yorliqlari noto‘g‘ri');
+    }
+  }
+
+  final String id, paddonCode, destination, labelWarehouse;
+  final bool awaitsTransfer;
+  final List<PreparationPaddonLabel> labels;
+}
+
+class PreparationPaddonLabel {
+  PreparationPaddonLabel.fromJson(Map<String, dynamic> json)
+    : barcode = _identity(json, 'barcode'),
+      itemCode = _identity(json, 'item_code'),
+      itemName = _identity(json, 'item_name'),
+      lotNumber = _text(json, 'lot_number'),
+      kg = _amount(json, 'kg');
+
+  final String barcode, itemCode, itemName, lotNumber, kg;
 }
 
 abstract class PreparationProductionPage {

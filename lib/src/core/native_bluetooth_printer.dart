@@ -39,12 +39,14 @@ class NativeBluetoothPrinter {
   static Future<Map<String, Object?>> printLabel(
     UsbRpsPrintRequest request, {
     required BluetoothPrinterProfile printer,
+    bool qrCode = false,
   }) async {
-    final useDataMatrix = request.isProgressLabel ||
-        request.isPaddonCodeLabel ||
-        request.isQolipCodeLabel ||
-        request.isQolipCellLabel ||
-        request.isMaterialProductLabel;
+    final useDataMatrix = !qrCode &&
+        (request.isProgressLabel ||
+            request.isPaddonCodeLabel ||
+            request.isQolipCodeLabel ||
+            request.isQolipCellLabel ||
+            request.isMaterialProductLabel);
     final raw = await _channel.invokeMapMethod<String, Object?>(
       'printLabel',
       {
@@ -71,10 +73,9 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
         formatUnixSecondsLocalDateTime(request.completedAtUnix);
   }
   if (request.isPaddonCodeLabel && request.paddonLabelLines.isNotEmpty) {
-    payload['paddon_label_lines'] =
-        request.paddonLabelLines
-            .map((line) => bluetoothPrinterText(line.replaceAll('—', '-')))
-            .toList();
+    payload['paddon_label_lines'] = request.paddonLabelLines
+        .map((line) => bluetoothPrinterText(line.replaceAll('—', '-')))
+        .toList();
   }
   for (final key in const <String>[
     'item_code',
