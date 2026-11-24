@@ -53,7 +53,9 @@ void _registeradmin_production_map_test_screen_testCases07() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+      await tester.tap(find.text('Buyurtmalar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('opened-order-zakaz-rounded-b')));
       await tester.pumpAndSettle();
       final detailBottomSheet = tester.widget<BottomSheet>(
         find.byType(BottomSheet).first,
@@ -74,7 +76,8 @@ void _registeradmin_production_map_test_screen_testCases07() {
       await tester.tap(find.text('Kutilayotgan buyurtma ko‘rsatkichlari'));
       await tester.pumpAndSettle();
       expect(find.text('Metraj'), findsOneWidget);
-      expect(find.text('Val'), findsOneWidget);
+      expect(find.text('4000 metr'), findsOneWidget);
+      expect(find.text('100 kg'), findsOneWidget);
 
       await tester.tapAt(const Offset(20, 20));
       await tester.pumpAndSettle();
@@ -100,7 +103,7 @@ void _registeradmin_production_map_test_screen_testCases07() {
       await tester.pumpAndSettle();
       expect(find.text('Buyurtma kodi'), findsNothing);
 
-      await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+      await tester.tap(find.byKey(const ValueKey('opened-order-zakaz-rounded-a')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('production-order-detail-close')),
