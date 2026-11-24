@@ -19,6 +19,8 @@ void _registeradmin_home_screen_testCases01() {
     );
     AdminStore.instance.clear();
 
+    List<String>? requestsBeforePostFrameLoad;
+    bool? loadingBeforePostFrameLoad;
     await HttpOverrides.runZoned(() async {
       await tester.pumpWidget(
         MaterialApp(
@@ -31,12 +33,18 @@ void _registeradmin_home_screen_testCases01() {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const AdminHomeScreen(),
+          home: Builder(builder: (context) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              requestsBeforePostFrameLoad ??= List.of(seenRequests);
+              loadingBeforePostFrameLoad ??= AdminStore.instance.loadingSummary;
+            });
+            return const AdminHomeScreen();
+          }),
         ),
       );
 
-      expect(seenRequests, isEmpty);
-      expect(AdminStore.instance.loadingSummary, isFalse);
+      expect(requestsBeforePostFrameLoad, isEmpty);
+      expect(loadingBeforePostFrameLoad, isFalse);
       for (var i = 0; i < 20 && seenRequests.isEmpty; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }

@@ -64,7 +64,8 @@ void main() {
         'Homashyolar',
         'Mahsulot formulasi',
         'Buyurtmalar',
-        'Ishlab chiqarish',
+        'Tayyorlov hisobi',
+        'Ishlab chiqarilgan homashyolar',
         'Tarix',
       ]) {
         final finder = find.ancestor(

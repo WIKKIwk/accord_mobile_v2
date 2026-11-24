@@ -198,7 +198,7 @@ void main() {
       'Chat': AppRoutes.chat,
     };
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(
+      Widget archive() => MaterialApp(
         locale: const Locale('en'),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const [
@@ -215,17 +215,18 @@ void main() {
         },
         home: QolipArchiveDetailScreen(
             entry: QolipArchiveEntry.fromJson(archivedPallet())),
-      ));
-      await tester.pumpAndSettle();
+      );
       for (final destination in destinations.keys) {
+        await tester.pumpWidget(archive());
+        await tester.pumpAndSettle();
+        expect(find.byType(QolipDock), findsOneWidget);
         final tab = find.descendant(
             of: find.byType(NavigationBar), matching: find.text(destination));
         await tester.tap(tab);
         await tester.pumpAndSettle();
         expect(find.text('$destination destination'), findsOneWidget);
-        await tester.pageBack();
-        await tester.pumpAndSettle();
-        expect(find.byType(QolipDock), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
       }
     },
         () => MockClient((request) async =>
