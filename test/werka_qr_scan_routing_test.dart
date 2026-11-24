@@ -138,7 +138,9 @@ void main() {
       expectSync(requests.length,
           1); // A single read-only server identity and preview.
       final accept = find.byKey(const ValueKey('werka-paddon-receive'));
-      await tester.ensureVisible(accept);
+      await tester.scrollUntilVisible(accept, 180,
+          scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
       await tester.tap(accept);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('werka-paddon-confirm')));
@@ -374,8 +376,11 @@ void main() {
       expectSync(tester.widget<AparatchiPaddonDetailScreen>(
         find.byType(AparatchiPaddonDetailScreen),
       ).code, 'PALLET-A-2026');
-      await tester.ensureVisible(find.text('Qayta tekshirish'));
-      await tester.tap(find.text('Qayta tekshirish'));
+      final refresh = find.text('Qayta tekshirish');
+      await tester.scrollUntilVisible(refresh, 180,
+          scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      await tester.tap(refresh);
       await tester.pumpAndSettle();
       expectSync(
           find.byKey(const ValueKey('werka-paddon-error')), findsNothing);

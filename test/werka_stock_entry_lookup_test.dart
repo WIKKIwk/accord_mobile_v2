@@ -43,7 +43,10 @@ void main() {
     expect(find.text('Umar Oboy'), findsWidgets);
     expect(find.text('Customerga jo‘natish'), findsOneWidget);
 
-    await tester.tap(find.text('Customerga jo‘natish'));
+    final submit = find.text('Customerga jo‘natish');
+    await Scrollable.ensureVisible(tester.element(submit), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(submit.hitTestable());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
