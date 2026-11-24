@@ -115,6 +115,56 @@ extension MobileApiPreparationProduction on MobileApi {
     }
   }
 
+  Future<Map<String, dynamic>> syncPreparationJournal({
+    required String view,
+    required String query,
+    required String status,
+    required int length,
+    required PreparationJournalCheckpoint? baseline,
+    required bool watch,
+    required Future<void> abort,
+  }) async {
+    _preparationStorageKey();
+    final scope = currentSessionReadScope();
+    final uri = Uri.parse(
+        '${MobileApi.baseUrl}/v1/mobile/preparation/production/sync');
+    final body = jsonEncode({
+      'view': view,
+      'q': query,
+      'status': status,
+      'length': length,
+      'baseline': baseline?.toJson(),
+      'watch': watch,
+    });
+    void guardAccount() {
+      if (currentSessionReadScope() != scope) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+    }
+
+    final response = await _sendAuthorized(() async {
+      guardAccount();
+      final headers = _headers(requireToken())
+        ..['Content-Type'] = 'application/json';
+      if (NativeIrohTransport.canUseFor(uri)) {
+        return NativeIrohTransport.send(
+          method: 'POST',
+          uri: uri,
+          headers: headers,
+          body: body,
+          fallbackClient: _httpClient,
+        ).timeout(MobileApi._requestTimeout);
+      }
+      final request = http.AbortableRequest('POST', uri, abortTrigger: abort)
+        ..headers.addAll(headers)
+        ..body = body;
+      return _httpClient.send(request).then(http.Response.fromStream)
+          .timeout(MobileApi._requestTimeout);
+    });
+    guardAccount();
+    return _preparationResponse(response);
+  }
+
   Future<PreparationOutputNote> savePreparationBatchNote(
     String batchId,
     String? text,

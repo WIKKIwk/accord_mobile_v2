@@ -104,8 +104,14 @@ class _WerkaStockEntryLookupScreenState
     _future = _load();
   }
 
-  Future<StockEntryBarcodeLookup> _load() {
-    return widget.api.stockEntryLookup(barcode: widget.args.scannedBarcode);
+  Future<StockEntryBarcodeLookup> _load() async {
+    final barcode = widget.args.scannedBarcode;
+    final lookup = await widget.api.stockEntryLookup(barcode: barcode);
+    if (mounted &&
+        lookup.barcode.trim().toUpperCase() == barcode.trim().toUpperCase()) {
+      unawaited(showScannedPreparationRollNotes(context, barcode));
+    }
+    return lookup;
   }
 
   Future<void> _retry() async {

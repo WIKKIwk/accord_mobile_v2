@@ -283,10 +283,14 @@ void main() {
       final batches = find.byKey(const ValueKey('production-view-batches'));
       await tester.ensureVisible(batches);
       await tester.pumpAndSettle();
+      final readsBeforeReturning = requests.length;
       await tester.tap(batches);
       await tester.pumpAndSettle();
-      expect(requests.last.path, endsWith('/production/batches'));
-      expect(requests.last.queryParameters['status'], 'active');
+      expect(requests.length, readsBeforeReturning);
+      expect(requests.lastWhere((uri) => uri.path.endsWith('/production/batches'))
+          .queryParameters['status'], 'active');
+      expect(find.text('Holat: Davom etmoqda'), findsOneWidget);
+      expect(find.byKey(const ValueKey('production-batch:batch-lg')), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, (request) {
       requests.add(request.url);
@@ -1339,10 +1343,12 @@ void main() {
   });
 
   for (final printFails in [false, true]) {
-    testWidgets('production roll QR reprints the existing label (failure: $printFails)',
+    testWidgets(
+        'production roll QR reprints the existing label (failure: $printFails)',
         (tester) async {
       SessionBluetoothPrinter.remember(const BluetoothPrinterProfile(
-        name: 'XP-P323B', address: 'preparation-printer',
+        name: 'XP-P323B',
+        address: 'preparation-printer',
       ));
       const channel = MethodChannel('accord/bluetooth_printer');
       final printCalls = <MethodCall>[];
@@ -1351,13 +1357,15 @@ void main() {
           (call) async {
         printCalls.add(call);
         if (printFails) {
-          throw PlatformException(code: 'printer_error', message: 'Printer ulanmagan');
+          throw PlatformException(
+              code: 'printer_error', message: 'Printer ulanmagan');
         }
         return {'ok': true};
       });
       addTearDown(() {
         SessionBluetoothPrinter.forget();
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
+        tester.binding.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
       });
       await _withApp(tester, () async {
         await tester.pumpWidget(
@@ -1369,11 +1377,14 @@ void main() {
         expect(sheet, findsOneWidget);
         expect(find.descendant(of: sheet, matching: find.byTooltip('Yopish')),
             findsNothing);
-        expect(find.byKey(const ValueKey('rps-qr-drag-handle')), findsOneWidget);
-        final route = ModalRoute.of(tester.element(sheet)) as ModalBottomSheetRoute;
+        expect(
+            find.byKey(const ValueKey('rps-qr-drag-handle')), findsOneWidget);
+        final route =
+            ModalRoute.of(tester.element(sheet)) as ModalBottomSheetRoute;
         expect(route.showDragHandle, isFalse);
         expect(route.backgroundColor, Colors.transparent);
-        final reprint = find.byKey(const ValueKey('production-roll-reprint-$_epc'));
+        final reprint =
+            find.byKey(const ValueKey('production-roll-reprint-$_epc'));
         await tester.ensureVisible(reprint);
         await tester.tap(reprint);
         await tester.pumpAndSettle();
@@ -1382,24 +1393,37 @@ void main() {
         expect((printCalls.single.arguments as Map)['epc'], _epc);
         expect(confirmed, !printFails);
         if (printFails) expect(find.text('Printer ulanmagan'), findsOneWidget);
-        await tester.ensureVisible(find.byKey(const ValueKey('rps-qr-drag-handle')));
+        await tester
+            .ensureVisible(find.byKey(const ValueKey('rps-qr-drag-handle')));
         await tester.drag(find.byKey(const ValueKey('rps-qr-drag-handle')),
             const Offset(0, 700));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
       }, (request) {
         if (request.url.path.endsWith('/reprint/prepare')) {
-          expect(jsonDecode(request.body), {'barcode': _epc, 'order_id': 'zakaz-0317'});
+          expect(jsonDecode(request.body),
+              {'barcode': _epc, 'order_id': 'zakaz-0317'});
           return _json({
             'reprint_id': 'raw_label_test',
-            'stock': {'barcode': _epc, 'item_code': 'PE PR', 'qty': 23,
-              'source_receipt_id': 'MAT-TRACE-1'},
-            'print': {'epc': _epc, 'item_code': 'PE PR', 'item_name': 'PE PR',
-              'gross_qty': 23, 'label_kind': 'material_product', 'printer': 'godex'},
+            'stock': {
+              'barcode': _epc,
+              'item_code': 'PE PR',
+              'qty': 23,
+              'source_receipt_id': 'MAT-TRACE-1'
+            },
+            'print': {
+              'epc': _epc,
+              'item_code': 'PE PR',
+              'item_name': 'PE PR',
+              'gross_qty': 23,
+              'label_kind': 'material_product',
+              'printer': 'godex'
+            },
           });
         }
         if (request.url.path.endsWith('/reprint/confirm')) {
-          expect(jsonDecode(request.body), {'barcode': _epc, 'reprint_id': 'raw_label_test'});
+          expect(jsonDecode(request.body),
+              {'barcode': _epc, 'reprint_id': 'raw_label_test'});
           confirmed = true;
           return _json({'ok': true});
         }
@@ -1474,6 +1498,103 @@ void main() {
         'has_more': !second && (query['q'] ?? '').isEmpty,
         'next_offset': !second && (query['q'] ?? '').isEmpty ? 1 : null
       });
+    });
+  });
+
+  testWidgets('returning to a tab keeps its pages and applies journal deltas',
+      (tester) async {
+    var orderReads = 0;
+    var batchReads = 0;
+    var extended = false;
+    var changePending = false;
+    var deliveredUpdate = false;
+    final first = _order();
+    final second = _order(id: 'zakaz-0318', code: '0318');
+    final watchVersions = <String>[];
+    final orders = find.byKey(const ValueKey('production-view-orders'));
+    final batches = find.byKey(const ValueKey('production-view-batches'));
+    final firstRow = find.byKey(const ValueKey('production-order:zakaz-0317'));
+    final secondRow = find.byKey(const ValueKey('production-order:zakaz-0318'));
+
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await _openOrders(tester);
+      final more = find.byKey(const ValueKey('production-load-more'));
+      await tester.ensureVisible(more);
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      expect(extended, isTrue);
+      expect(secondRow, findsOneWidget);
+
+      await tester.tap(batches);
+      await tester.pumpAndSettle();
+      expect(batchReads, 1);
+      await tester.tap(orders);
+      await tester.pump();
+      expect(firstRow, findsOneWidget);
+      expect(secondRow, findsOneWidget);
+      expect(orderReads, 1);
+
+      changePending = true;
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(deliveredUpdate, isTrue);
+      expect(firstRow, findsNothing);
+      expect(secondRow, findsOneWidget);
+      expect(find.textContaining('4 ta rulon'), findsOneWidget);
+      expect(watchVersions, contains('loaded'));
+      expect(orderReads, 1);
+      expect(tester.takeException(), isNull);
+    }, (request) {
+      if (request.url.path.endsWith('/production/batches')) {
+        batchReads++;
+        return _route(request);
+      }
+      if (request.url.path.endsWith('/production/orders')) {
+        orderReads++;
+        expect(request.url.queryParameters['offset'], '0');
+        return _json({
+          'orders': [first],
+          'has_more': true,
+          'next_offset': 1,
+          'journal_sync': {'version': 'first', 'hashes': ['first-row']},
+        });
+      }
+      expect(request.method, 'POST');
+      expect(request.url.path, '/v1/mobile/preparation/production/sync');
+      final query = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(query['view'], 'orders');
+      final version = (query['baseline'] as Map)['version'] as String;
+      if (query['watch'] == true) watchVersions.add(version);
+      if (query['length'] == 100 && version == 'first') {
+        expect(query['watch'], isFalse);
+        extended = true;
+        return _json({
+          'type': 'delta',
+          'base_version': 'first',
+          'has_more': false,
+          'next_offset': null,
+          'journal_sync': {
+            'version': 'loaded',
+            'hashes': ['first-row', 'second-row'],
+          },
+          'upserts': {'second-row': second},
+        });
+      }
+      if (changePending && version == 'loaded') {
+        expect(query['length'], 100);
+        expect((query['baseline'] as Map)['hashes'], ['first-row', 'second-row']);
+        deliveredUpdate = true;
+        return _json({
+          'type': 'delta',
+          'base_version': 'loaded',
+          'has_more': false,
+          'next_offset': null,
+          'journal_sync': {'version': 'changed', 'hashes': ['updated-row']},
+          'upserts': {'updated-row': {...second, 'roll_count': 4}},
+        });
+      }
+      return _json({'type': 'unchanged', 'version': version});
     });
   });
 

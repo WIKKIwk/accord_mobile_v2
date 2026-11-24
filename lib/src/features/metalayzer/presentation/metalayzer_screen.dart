@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
@@ -13,6 +15,7 @@ import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
+import '../../shared/presentation/scanned_preparation_roll_notes.dart';
 import 'metalayzer_navigation.dart';
 
 class MetalayzerScreen extends StatefulWidget {
@@ -97,8 +100,15 @@ class _MetalayzerScreenState extends State<MetalayzerScreen> {
       _barcode.text = barcode;
       setState(() => _material = null);
       final material = await MobileApi.instance.metalayzerMaterial(barcode);
-      if (_isCurrent(operation, scope)) {
+      if (mounted && _isCurrent(operation, scope)) {
         setState(() => _material = material);
+        if (scan) {
+          unawaited(showScannedPreparationRollNotes(
+            context,
+            material.barcode,
+            isCurrent: () => operation == _operationId && _scope == scope,
+          ));
+        }
       }
     } catch (error) {
       if (_isCurrent(operation, scope)) {

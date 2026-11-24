@@ -253,22 +253,14 @@ void main() {
     final preparation = PreparationOrdersWarmStore(
       snapshots:
           ProductionSnapshotStore(backend: _PreparationRuntimeSnapshots()),
-      selectionLoader: () async => _selectedApparatus,
-      loader: (
-          {required apparatus,
-          required search,
-          cursor,
-          baseline,
-          required refresh}) async {
+      loader: ({required search, cursor, baseline, required refresh}) async {
         preparationReads++;
-        expect(apparatus, _selectedApparatus);
+        expect(search, isEmpty);
         return const PreparationOrderListWindow(
           scope: 'preparation-runtime',
           epoch: 'server',
           revision: 1,
           version: 'preparation-v1',
-          apparatusId: _selectedApparatus,
-          apparatus: [AdminApparatus(id: _selectedApparatus, name: 'Selected')],
           rows: [],
           total: 0,
         );

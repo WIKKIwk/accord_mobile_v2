@@ -79,8 +79,6 @@ class PreparationOrderListWindow {
     required this.epoch,
     required this.revision,
     required this.version,
-    required this.apparatusId,
-    required this.apparatus,
     required this.rows,
     required this.total,
     this.nextCursor,
@@ -91,8 +89,6 @@ class PreparationOrderListWindow {
   final String epoch;
   final int revision;
   final String version;
-  final String apparatusId;
-  final List<AdminApparatus> apparatus;
   final List<PreparationOrderListRow> rows;
   final int total;
   final String? nextCursor;
@@ -101,7 +97,7 @@ class PreparationOrderListWindow {
   factory PreparationOrderListWindow.fromJson(Map<String, dynamic> json) {
     if (json['ok'] != true ||
         json['projection'] != 'preparation_order_list_v1' ||
-        const {'scope', 'epoch', 'version', 'apparatus_id'}
+        const {'scope', 'epoch', 'version'}
             .any((key) => json[key] is! String) ||
         (json['scope'] as String).isEmpty ||
         (json['epoch'] as String).isEmpty ||
@@ -115,26 +111,21 @@ class PreparationOrderListWindow {
         (json['next_cursor'] != null && json['next_cursor'] is! String)) {
       throw _invalidPreparationOrderList();
     }
-    final apparatus = <AdminApparatus>[];
-    for (final raw in json['apparatus'] as List) {
-      if (raw is! Map ||
-          raw['id'] is! String ||
-          raw['name'] is! String ||
-          !isCanonicalApparatusId(raw['id'] as String)) {
-        throw _invalidPreparationOrderList();
-      }
-      apparatus.add(
-          AdminApparatus(id: raw['id'] as String, name: raw['name'] as String));
+    if (json['all_apparatus'] != true) {
+      throw const MobileApiException(
+        code: 'preparation_orders_mode_unavailable',
+        message: 'Barcha buyurtmalarni yuklash uchun serverni yangilash kerak.',
+      );
+    }
+    if (json['apparatus_id'] != '' || (json['apparatus'] as List).isNotEmpty) {
+      throw _invalidPreparationOrderList();
     }
     final rows = <PreparationOrderListRow>[];
     for (final raw in json['rows'] as List) {
       if (raw is! Map) throw _invalidPreparationOrderList();
       rows.add(PreparationOrderListRow.fromJson(raw.cast<String, dynamic>()));
     }
-    final selected = json['apparatus_id'] as String;
-    if ((selected.isNotEmpty &&
-            !apparatus.any((item) => item.id == selected)) ||
-        rows.map((row) => row.id).toSet().length != rows.length ||
+    if (rows.map((row) => row.id).toSet().length != rows.length ||
         rows.length > (json['total'] as int)) {
       throw _invalidPreparationOrderList();
     }
@@ -143,8 +134,6 @@ class PreparationOrderListWindow {
       epoch: json['epoch'] as String,
       revision: json['rev'] as int,
       version: json['version'] as String,
-      apparatusId: selected,
-      apparatus: List.unmodifiable(apparatus),
       rows: List.unmodifiable(rows),
       total: json['total'] as int,
       nextCursor: json['next_cursor'] as String?,
@@ -161,10 +150,9 @@ class PreparationOrderListWindow {
         'epoch': epoch,
         'rev': revision,
         'version': version,
-        'apparatus_id': apparatusId,
-        'apparatus': [
-          for (final item in apparatus) {'id': item.id, 'name': item.name},
-        ],
+        'all_apparatus': true,
+        'apparatus_id': '',
+        'apparatus': const [],
         'rows': rows.map((row) => row.toJson()).toList(),
         'total': total,
         'next_cursor': nextCursor,
@@ -185,8 +173,6 @@ class PreparationOrderListWindow {
         epoch: epoch,
         revision: revision ?? this.revision,
         version: version ?? this.version,
-        apparatusId: apparatusId,
-        apparatus: apparatus,
         rows: rows == null ? this.rows : List.unmodifiable(rows),
         total: total ?? this.total,
         nextCursor: clearNextCursor ? null : nextCursor ?? this.nextCursor,
@@ -198,8 +184,7 @@ class PreparationOrderListWindow {
     if (event['epoch'] != epoch ||
         event['scope'] != scope ||
         event['version'] != version ||
-        (event['apparatus_id'] != null &&
-            event['apparatus_id'] != apparatusId) ||
+        (event['apparatus_id'] != null && event['apparatus_id'] != '') ||
         event['rev'] is! int ||
         (event['rev'] as int) < revision) {
       throw _preparationOrdersResync();
@@ -213,7 +198,8 @@ class PreparationOrderListWindow {
     if (event['base_version'] != version ||
         event['scope'] != scope ||
         event['epoch'] != epoch ||
-        event['apparatus_id'] != apparatusId ||
+        event['all_apparatus'] != true ||
+        event['apparatus_id'] != '' ||
         event['rev'] is! int ||
         (event['rev'] as int) < revision ||
         event['order_ids'] is! List ||
@@ -279,17 +265,13 @@ MobileApiException _invalidPreparationOrderList() => const MobileApiException(
 
 extension MobileApiPreparationOrders on MobileApi {
   Future<PreparationOrderListWindow> preparationOrders({
-    String apparatus = '',
     String search = '',
     String? cursor,
     PreparationOrderListWindow? baseline,
     bool refresh = false,
   }) async {
     final normalizedSearch = search.trim().toLowerCase();
-    final conditional = cursor == null &&
-            baseline != null &&
-            baseline.search == normalizedSearch &&
-            (apparatus.isEmpty || apparatus == baseline.apparatusId)
+    final conditional = cursor == null && baseline?.search == normalizedSearch
         ? baseline
         : null;
     final owner = _preparationStorageKey();
@@ -303,7 +285,7 @@ extension MobileApiPreparationOrders on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/orders')
             .replace(queryParameters: {
           'limit': '30',
-          if (apparatus.isNotEmpty) 'apparatus': apparatus,
+          'all_apparatus': 'true',
           if (normalizedSearch.isNotEmpty) 'search': normalizedSearch,
           if (cursor != null) 'cursor': cursor,
           if (conditional != null && conditional.rows.length > 30)
@@ -384,7 +366,7 @@ extension MobileApiPreparationOrders on MobileApi {
           path: '/v1/mobile/preparation/orders/live',
           queryParameters: {
             'token': requireToken(),
-            'apparatus': window.apparatusId,
+            'all_apparatus': 'true',
             'search': search,
             'limit': '30',
             'epoch': window.epoch,

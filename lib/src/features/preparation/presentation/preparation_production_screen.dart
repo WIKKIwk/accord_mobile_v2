@@ -34,6 +34,7 @@ import 'material_paddon_receipt_dialog.dart';
 import 'preparation_navigation.dart';
 
 part 'preparation_production_notes.dart';
+part 'preparation_production_sync.dart';
 
 class PreparationProductionScreen extends StatefulWidget {
   const PreparationProductionScreen({super.key}) : materialPaddonsOnly = false;
@@ -67,8 +68,7 @@ class _JournalPage<T> {
   final List<T> items;
 }
 
-/// Only the visible journal polls. Late replies cannot cross accounts, filters
-/// or disposed routes, and requests never overlap.
+/// Paged reads shared by the journal lists and detail screens.
 abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
     with WidgetsBindingObserver {
   final _scope = currentSessionReadScope();
@@ -87,6 +87,8 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
   void received(PreparationProductionPage page) {}
   void clearSummary() {}
 
+  bool get _pollPages => true;
+  bool get _userReadBusy => _busy;
   bool get currentAccount => _valid && _scope == currentSessionReadScope();
   bool get canRefresh =>
       mounted &&
@@ -102,7 +104,7 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
     AppSession.instance.revision.addListener(_sessionChanged);
     unawaited(load());
     _timer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (canRefresh && !_busy) unawaited(load(silent: true));
+      if (_pollPages && canRefresh && !_busy) unawaited(load(silent: true));
     });
   }
 
@@ -126,7 +128,8 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
     final wasPaused =
         _lifecycle != null && _lifecycle != AppLifecycleState.resumed;
     _lifecycle = state;
-    if (wasPaused &&
+    if (_pollPages &&
+        wasPaused &&
         state == AppLifecycleState.resumed &&
         canRefresh &&
         !_busy) {
@@ -196,7 +199,7 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
     } finally {
       _busy = false;
       if (mounted && currentAccount) {
-        setState(() => loading = false);
+        if (epoch == _epoch) setState(() => loading = false);
         if (_queued) {
           _queued = false;
           unawaited(load());
@@ -226,7 +229,7 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
               if (currentAccount)
                 TextButton(
                   key: const ValueKey('production-retry'),
-                  onPressed: _busy ? null : () => load(),
+                  onPressed: _userReadBusy ? null : () => load(),
                   child: const UrduAwareText('Qayta urinish'),
                 ),
             ]),
@@ -241,7 +244,7 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
           padding: const EdgeInsets.all(12),
           child: OutlinedButton(
             key: const ValueKey('production-load-more'),
-            onPressed: _busy ? null : () => load(append: true),
+            onPressed: _userReadBusy ? null : () => load(append: true),
             child: const UrduAwareText('Yana yuklash'),
           ),
         ),
@@ -284,7 +287,8 @@ class _ProductionOrdersState
     with
         SingleTickerProviderStateMixin,
         _ProductionRollNotes<PreparationProductionScreen,
-            PreparationProductionRow> {
+            PreparationProductionRow>,
+        _ProductionJournalSync {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _searchDebounce;
@@ -296,6 +300,9 @@ class _ProductionOrdersState
       ? _ProductionView.paddons
       : _ProductionView.batches;
   bool get _showPaddons => _view == _ProductionView.paddons;
+  @override
+  _JournalFilter get _journalFilter =>
+      (view: _view, query: _query, status: _showPaddons ? _paddonStatus : _status);
   late final _tabs = TabController(
     length: _ProductionView.values.length,
     initialIndex: _ProductionView.batches.index,
@@ -342,7 +349,7 @@ class _ProductionOrdersState
   void _filter({_ProductionView? view, String? status}) {
     _searchDebounce?.cancel();
     if (!currentAccount) return;
-    final query = _search.text.trim();
+    final query = String.fromCharCodes(_search.text.trim().runes.take(200));
     final nextView = view ?? _view;
     final activeStatus =
         nextView == _ProductionView.paddons ? _paddonStatus : _status;
@@ -351,6 +358,9 @@ class _ProductionOrdersState
         query == _query) {
       return;
     }
+    _stopJournalSync();
+    _epoch++;
+    _queued = false;
     setState(() {
       _view = nextView;
       if (status != null) {
@@ -363,13 +373,13 @@ class _ProductionOrdersState
       _query = query;
       _statusExpanded = false;
       _selectedRolls.clear();
-      items = [];
-      nextOffset = null;
-      hasMore = false;
-      error = null;
-      loading = true;
+      _restoreJournal(_cachedJournal);
     });
-    unawaited(load());
+    if (_cachedJournal == null) {
+      unawaited(load());
+    } else {
+      _scheduleJournalWatch();
+    }
   }
 
   Future<void> _receivePaddon() async {
@@ -997,8 +1007,8 @@ class _ProductionRecipe extends StatelessWidget {
           UrduAwareText('Formula kodi: ${recipe['variant_code']}'),
         UrduAwareText(
             'Saqlangan tarkib • ${_date(recipe['captured_at']?.toString() ?? '')}'),
-        for (final screw in (recipe['formulas'] as List? ?? const [])
-            .whereType<Map>()) ...[
+        for (final screw
+            in (recipe['formulas'] as List? ?? const []).whereType<Map>()) ...[
           const SizedBox(height: 12),
           UrduAwareText(
               'Shnek ${screw['name']} • ${preparationDisplay(screw['share_percent']?.toString() ?? '—')}%',
@@ -1127,7 +1137,9 @@ Future<String?> _reprintRoll(
       message: 'Serverdagi QR identifikatori mos kelmadi',
     );
   }
-  if (!currentSession()) throw const RpsQrReprintCancelled();
+  if (!context.mounted || !currentSession()) {
+    throw const RpsQrReprintCancelled();
+  }
   final printer = await pickProgressPrinter(context);
   if (!currentSession() || printer == null) {
     throw const RpsQrReprintCancelled();
@@ -1143,19 +1155,22 @@ Future<String?> _reprintRoll(
   } else {
     final server = printer.server;
     if (server == null) throw StateError('Printer serveri tanlanmadi');
-    final response = await http.post(
-      Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        ...prepared.printRequest.toJson(),
-        if (printer.printer.isNotEmpty) 'printer': printer.printer,
-        if (printer.printMode.isNotEmpty) 'print_mode': printer.printMode,
-      }),
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .post(
+          Uri.parse('${server.endpoint.baseUrl}/v1/mobile/driver/print'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            ...prepared.printRequest.toJson(),
+            if (printer.printer.isNotEmpty) 'printer': printer.printer,
+            if (printer.printMode.isNotEmpty) 'print_mode': printer.printMode,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
     final payload = jsonDecode(response.body);
     if (response.statusCode < 200 ||
         response.statusCode > 299 ||
-        payload is! Map || payload['ok'] != true) {
+        payload is! Map ||
+        payload['ok'] != true) {
       final detail = payload is Map
           ? (payload['detail'] ?? payload['error'])?.toString().trim() ?? ''
           : '';

@@ -318,6 +318,11 @@ extension __AdminRawMaterialAssignmentPanelStateAstPart01
       if (!diagnosticIsCurrent && detail.assignment == null) {
         unawaited(_refreshScannedDiagnostic());
       }
+      unawaited(showScannedPreparationRollNotes(
+        context,
+        detail.barcode,
+        isCurrent: () => requestId == _scanLookupRequestId,
+      ));
     } catch (error) {
       if (!mounted ||
           requestId != _scanLookupRequestId ||

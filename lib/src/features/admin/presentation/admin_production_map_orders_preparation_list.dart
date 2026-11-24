@@ -1,7 +1,6 @@
 part of 'admin_production_map_orders_screen.dart';
 
-/// The preparation master's sequence contains display labels only. Neither the
-/// global queue nor the warehouse snapshot is needed to paint these rows.
+/// The preparation master's order list contains display labels only.
 class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     with WidgetsBindingObserver {
   final _searchController = TextEditingController();
@@ -17,7 +16,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
   Timer? _searchDebounce;
   Future<void>? _read;
   String _scope = '';
-  String _apparatus = '';
   String _search = '';
   String? _error;
   int _generation = 0;
@@ -25,7 +23,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
   int _reconnectAttempt = 0;
   bool _loading = true;
   bool _foreground = true;
-  bool _filterExpanded = false;
   bool _openingDetail = false;
   bool _reloadQueued = false;
   bool _forceReloadQueued = false;
@@ -41,59 +38,25 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     WidgetsBinding.instance.addObserver(this);
     AppSession.instance.revision.addListener(_sessionChanged);
     _scrollController.addListener(_scrollChanged);
-    _apparatus = AdminSequenceApparatusStore.instance.cachedApparatusId ?? '';
-    final cached = _store.peek(apparatus: _apparatus);
+    final cached = _store.peek();
     if (cached != null) _applyWindow(cached, persist: false);
-    unawaited(_start());
-  }
-
-  Future<void> _start() async {
-    try {
-      final selected =
-          await AdminSequenceApparatusStore.instance.loadSavedApparatusId();
-      if (!_current) return;
-      if (selected != null && selected != _apparatus) {
-        _apparatus = selected;
-        final cached = _store.peek(apparatus: selected);
-        if (cached != null) {
-          _applyWindow(cached, persist: false);
-        } else {
-          _clearRows();
-        }
-      }
-    } catch (_) {
-      // A missing device preference must not prevent the server's first picker.
-    }
-    if (!_current) return;
     final read = _reload();
     // Optional disk storage must never hold up the network or the first frame.
-    unawaited(_restoreCached(_generation, _apparatus, _search));
-    await read;
+    unawaited(_restoreCached(_generation, _search));
+    unawaited(read);
   }
 
-  Future<void> _restoreCached(
-      int generation, String apparatus, String search) async {
+  Future<void> _restoreCached(int generation, String search) async {
     if (_rows.isNotEmpty) return;
-    final cached = await _store.restore(apparatus: apparatus, search: search);
+    final cached = await _store.restore(search: search);
     if (!_current ||
         generation != _generation ||
-        apparatus != _apparatus ||
         search != _search ||
         _window != null ||
         _read == null ||
         _error != null ||
         cached == null) return;
     _applyWindow(cached, persist: false, keepLoading: _read != null);
-  }
-
-  void _clearRows() {
-    setState(() {
-      _window = null;
-      _rows.clear();
-      _presentationOrders.clear();
-      _imagesEnabled.clear();
-    });
-    _listRevision.value++;
   }
 
   bool _sameRow(PreparationOrderListRow a, PreparationOrderListRow b) =>
@@ -111,7 +74,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     final ids = next.rows.map((row) => row.id).toSet();
     setState(() {
       _window = next;
-      _apparatus = next.apparatusId;
       _rows
         ..clear()
         ..addAll(next.rows);
@@ -196,7 +158,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
   Future<void> _loadPage({bool append = false, bool force = false}) {
     if (!_current) return Future.value();
     final generation = ++_generation;
-    final apparatus = _apparatus;
     final search = _search;
     final previous = _window;
     final retainedLength = append ? 0 : _rows.length;
@@ -210,7 +171,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     pending = () async {
       try {
         var next = await _store.read(
-            apparatus: apparatus,
             search: search,
             cursor: cursor,
             baseline: append ? null : previous,
@@ -220,8 +180,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
         if (append &&
             (next.version != previous!.version ||
                 next.scope != previous.scope ||
-                next.epoch != previous.epoch ||
-                next.apparatusId != previous.apparatusId)) {
+                next.epoch != previous.epoch)) {
           _reloadQueued = true;
           return;
         }
@@ -235,7 +194,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
             next.nextCursor != null) {
           final usedCursor = next.nextCursor;
           final following = await _store.read(
-              apparatus: baseline.apparatusId,
               search: search,
               cursor: usedCursor,
               fresh: true);
@@ -243,7 +201,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
           if (following.version != baseline.version ||
               following.scope != baseline.scope ||
               following.epoch != baseline.epoch ||
-              following.apparatusId != baseline.apparatusId ||
               following.nextCursor == usedCursor ||
               following.rows.isEmpty) {
             throw const MobileApiException(
@@ -289,7 +246,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
               _rows.clear();
               _presentationOrders.clear();
               _imagesEnabled.clear();
-              unawaited(_store.forget(apparatus: apparatus, search: search));
+              unawaited(_store.forget(search: search));
             }
           });
           _listRevision.value++;
@@ -359,7 +316,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
           _error = 'Buyurtmalarga kirish huquqi o‘zgargan. Qayta yuklang.';
         });
         _listRevision.value++;
-        unawaited(_store.forget(apparatus: _apparatus, search: _search));
+        unawaited(_store.forget(search: _search));
       } else {
         _applyLiveEvent(event.cast<String, dynamic>());
       }
@@ -419,35 +376,33 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
     }
   }
 
-  void _changeQuery({String? apparatus, String? search}) {
+  void _changeSearch(String search) {
     _generation++;
     _read = null;
     _reloadQueued = false;
     _forceReloadQueued = false;
     _stopLive();
     setState(() {
-      _apparatus = apparatus ?? _apparatus;
-      _search = (search ?? _search).trim().toLowerCase();
+      _search = search.trim().toLowerCase();
       _window = null;
       _rows.clear();
       _presentationOrders.clear();
       _imagesEnabled.clear();
-      _filterExpanded = false;
       _loading = true;
     });
     _listRevision.value++;
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
-    final cached = _store.peek(apparatus: _apparatus, search: _search);
+    final cached = _store.peek(search: _search);
     if (cached != null) _applyWindow(cached, persist: false);
     final read = _reload();
-    unawaited(_restoreCached(_generation, _apparatus, _search));
+    unawaited(_restoreCached(_generation, _search));
     unawaited(read);
   }
 
   void _searchChanged(String text) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (_current) _changeQuery(search: text.trim());
+      if (_current) _changeSearch(text);
     });
   }
 
@@ -459,7 +414,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
         _current &&
         _window?.scope == listScope &&
         _rows.any((item) => item.id == row.id);
-    final apparatus = _window!.apparatus;
     double? baseMetraj;
     double? orderKg;
     Future<AdminApparatusQueueSnapshot> load() async {
@@ -498,7 +452,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
                   row.toPresentationOrder();
               return _ReadOnlyOrderDetailSheet(
                 order: saved,
-                apparatusCatalog: apparatus,
                 detailPending: detail == null,
                 detailError: error,
                 onRetryDetail: retry,
@@ -576,23 +529,6 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
                         child: AppRetryState(
                       message: _error!,
                       onRetry: _reload,
-                    )),
-                  if (window != null)
-                    SliverToBoxAdapter(
-                        child: Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-                      child: AdminSequenceApparatusFilter(
-                        apparatus: window.apparatus,
-                        selectedId: _apparatus,
-                        expanded: _filterExpanded,
-                        onToggle: () =>
-                            setState(() => _filterExpanded = !_filterExpanded),
-                        onSelect: (item) {
-                          unawaited(AdminSequenceApparatusStore.instance
-                              .saveApparatus(item));
-                          _changeQuery(apparatus: item.id);
-                        },
-                      ),
                     )),
                   if (_rows.isEmpty && _error == null)
                     const SliverToBoxAdapter(

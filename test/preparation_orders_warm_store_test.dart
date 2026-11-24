@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
@@ -32,12 +33,10 @@ PreparationOrderListWindow _window({
   String? nextCursor,
 }) =>
     PreparationOrderListWindow(
-      scope: 'preparation-$_apparatus-$search',
+      scope: 'preparation-all-$search',
       epoch: 'server',
       revision: revision,
       version: version,
-      apparatusId: _apparatus,
-      apparatus: const [AdminApparatus(id: _apparatus, name: 'Bosma')],
       rows: List.generate(count, (index) => _row(index + 1)),
       total: nextCursor == null ? count : count + 30,
       nextCursor: nextCursor,
@@ -108,13 +107,8 @@ void main() {
     var reads = 0;
     final store = PreparationOrdersWarmStore(
       snapshots: snapshots,
-      selectionLoader: () async => _apparatus,
       loader: (
-          {required apparatus,
-          required search,
-          cursor,
-          baseline,
-          required refresh}) {
+          {required search, cursor, baseline, required refresh}) {
         reads++;
         if (!entered.isCompleted) entered.complete();
         return response.future;
@@ -122,7 +116,7 @@ void main() {
     );
     final preparing = store.prepare();
     await entered.future;
-    final foreground = store.read(apparatus: _apparatus, fresh: true);
+    final foreground = store.read(fresh: true);
     response.complete(_window());
     await preparing;
     await foreground;
@@ -130,10 +124,10 @@ void main() {
     expect(reads, 1);
     final prefix = _window(count: 60, nextCursor: 'after-60');
     store.remember(prefix);
-    expect(store.peek(apparatus: _apparatus)!.rows.length, 60);
+    expect(store.peek()!.rows.length, 60);
     await snapshots.flush();
-    final restored = await PreparationOrdersWarmStore(snapshots: snapshots)
-        .restore(apparatus: _apparatus);
+    final restored =
+        await PreparationOrdersWarmStore(snapshots: snapshots).restore();
     expect(restored!.rows.length, 60);
     expect(restored.nextCursor, 'after-60');
   });
@@ -149,18 +143,13 @@ void main() {
     final fresh = _window(version: 'v8', revision: 8);
     final store = PreparationOrdersWarmStore(
       snapshots: snapshots,
-      loader: (
-              {required apparatus,
-              required search,
-              cursor,
-              baseline,
-              required refresh}) async =>
+      loader: ({required search, cursor, baseline, required refresh}) async =>
           fresh,
     );
-    final restoring = store.restore(apparatus: _apparatus);
-    final result = await store.read(apparatus: _apparatus, fresh: true);
+    final restoring = store.restore();
+    final result = await store.read(fresh: true);
     expect(result.version, 'v8');
-    expect(store.peek(apparatus: _apparatus)!.version, 'v8');
+    expect(store.peek()!.version, 'v8');
     backend.readGate!.complete();
     expect((await restoring)!.version, 'v8');
     await snapshots.flush();
@@ -176,7 +165,7 @@ void main() {
     final writes = backend.writes;
     store.remember(_window(revision: 8));
     await snapshots.flush();
-    expect(store.peek(apparatus: _apparatus)!.revision, 8);
+    expect(store.peek()!.revision, 8);
     expect(backend.writes, writes);
   });
 
@@ -185,22 +174,17 @@ void main() {
     final snapshots = ProductionSnapshotStore(backend: _MemoryBackend());
     final store = PreparationOrdersWarmStore(
       snapshots: snapshots,
-      loader: (
-              {required apparatus,
-              required search,
-              cursor,
-              baseline,
-              required refresh}) =>
+      loader: ({required search, cursor, baseline, required refresh}) =>
           response.future,
     );
-    final pending = store.read(apparatus: _apparatus, fresh: true);
+    final pending = store.read(fresh: true);
     store.remember(_window(version: 'v9', revision: 9, count: 60));
     response.complete(_window());
     expect((await pending).version, 'v9');
     await snapshots.flush();
-    expect(store.peek(apparatus: _apparatus)!.rows.length, 60);
-    final restored = await PreparationOrdersWarmStore(snapshots: snapshots)
-        .restore(apparatus: _apparatus);
+    expect(store.peek()!.rows.length, 60);
+    final restored =
+        await PreparationOrdersWarmStore(snapshots: snapshots).restore();
     expect(restored!.version, 'v9');
   });
 
@@ -213,29 +197,24 @@ void main() {
     final scope = currentSessionReadScope();
     _session(warehouses: const ['new warehouse']);
     expect(currentSessionReadScope(), isNot(scope));
-    expect(store.peek(apparatus: _apparatus), isNull);
-    expect(await store.restore(apparatus: _apparatus), isNull);
+    expect(store.peek(), isNull);
+    expect(await store.restore(), isNull);
     _session(ref: 'another-master');
-    expect(await store.restore(apparatus: _apparatus), isNull);
+    expect(await store.restore(), isNull);
   });
 
   test('late response after account switch is discarded', () async {
     final response = Completer<PreparationOrderListWindow>();
     final store = PreparationOrdersWarmStore(
       snapshots: ProductionSnapshotStore(backend: _MemoryBackend()),
-      loader: (
-              {required apparatus,
-              required search,
-              cursor,
-              baseline,
-              required refresh}) =>
+      loader: ({required search, cursor, baseline, required refresh}) =>
           response.future,
     );
-    final pending = store.read(apparatus: _apparatus, fresh: true);
+    final pending = store.read(fresh: true);
     _session(ref: 'other-master');
     response.complete(_window());
     await expectLater(pending, throwsA(isA<MobileApiException>()));
-    expect(store.peek(apparatus: _apparatus), isNull);
+    expect(store.peek(), isNull);
   });
 
   test('terminal authorization failure removes RAM and stored prefixes',
@@ -244,23 +223,18 @@ void main() {
     final snapshots = ProductionSnapshotStore(backend: backend);
     final store = PreparationOrdersWarmStore(
       snapshots: snapshots,
-      loader: (
-              {required apparatus,
-              required search,
-              cursor,
-              baseline,
-              required refresh}) async =>
+      loader: ({required search, cursor, baseline, required refresh}) async =>
           throw const MobileApiException(
               code: 'forbidden', message: 'Forbidden', statusCode: 403),
     );
     store.remember(_window());
     await snapshots.flush();
     expect(backend.data, isNotEmpty);
-    await expectLater(store.read(apparatus: _apparatus, fresh: true),
+    await expectLater(store.read(fresh: true),
         throwsA(isA<MobileApiException>()));
     await snapshots.flush();
-    expect(store.peek(apparatus: _apparatus), isNull);
-    expect(await store.restore(apparatus: _apparatus), isNull);
+    expect(store.peek(), isNull);
+    expect(await store.restore(), isNull);
     expect(backend.data, isEmpty);
   });
 
@@ -268,9 +242,10 @@ void main() {
       () async {
     final baseline = _window(count: 60, nextCursor: 'after-60');
     final result = await http.runWithClient(
-      () => MobileApi.instance
-          .preparationOrders(apparatus: _apparatus, baseline: baseline),
+      () => MobileApi.instance.preparationOrders(baseline: baseline),
       () => MockClient((request) async {
+        expect(request.url.queryParameters['all_apparatus'], 'true');
+        expect(request.url.queryParameters, isNot(contains('apparatus')));
         expect(request.url.queryParameters['if_version'], baseline.version);
         expect(request.url.queryParameters['length'], '60');
         return http.Response('', 304, headers: {
@@ -292,7 +267,6 @@ void main() {
       await http.runWithClient(
         () => expectLater(
           MobileApi.instance.preparationOrders(
-              apparatus: _apparatus,
               search: cursor == null ? 'different' : '',
               cursor: cursor,
               baseline: _window()),
@@ -305,6 +279,38 @@ void main() {
         }),
       );
     }
+  });
+
+  test('a machine-specific response cannot populate the all-orders store',
+      () async {
+    final snapshots = ProductionSnapshotStore(backend: _MemoryBackend());
+    final store = PreparationOrdersWarmStore(snapshots: snapshots);
+    final machineWindow = {
+      ..._window().toJson(),
+      'apparatus_id': _apparatus,
+      'apparatus': [
+        {'id': _apparatus, 'name': 'Bosma'},
+      ],
+    }..remove('all_apparatus');
+    await snapshots.write(
+      scope: currentSessionReadScope(),
+      key: jsonEncode(['preparation-orders-v1', '', '']),
+      value: {'schema': 1, 'search': '', 'window': machineWindow},
+    );
+    expect(await store.restore(), isNull);
+    await http.runWithClient(
+      () => expectLater(
+        store.read(fresh: true),
+        throwsA(isA<MobileApiException>().having(
+          (error) => error.code,
+          'code',
+          'preparation_orders_mode_unavailable',
+        )),
+      ),
+      () => MockClient((_) async => http.Response(jsonEncode(machineWindow), 200,
+          headers: {'content-type': 'application/json; charset=utf-8'})),
+    );
+    expect(store.peek(), isNull);
   });
 
   test('live delta changes only its exact baseline and validates prefix rows',
@@ -324,6 +330,8 @@ void main() {
     expect(identical(updated.rows.first, baseline.rows.last), isTrue);
     expect(updated.rows.first.title, baseline.rows.last.title);
     expect(() => baseline.applyLiveDelta({...delta, 'base_version': 'other'}),
+        throwsA(isA<MobileApiException>()));
+    expect(() => baseline.applyLiveDelta({...delta, 'all_apparatus': false}),
         throwsA(isA<MobileApiException>()));
     expect(
         () => baseline.applyLiveDelta({

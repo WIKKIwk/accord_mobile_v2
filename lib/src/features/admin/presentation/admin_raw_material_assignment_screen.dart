@@ -21,6 +21,7 @@ import '../logic/canonical_apparatus_display.dart';
 import '../logic/production_map_chain.dart';
 import '../models/production_map_models.dart';
 import 'raw_material_scan_dialog.dart';
+import '../../shared/presentation/scanned_preparation_roll_notes.dart';
 import 'widgets/admin_dock.dart';
 import 'widgets/admin_picker_field.dart';
 import 'widgets/admin_navigation_drawer.dart';

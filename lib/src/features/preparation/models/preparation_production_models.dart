@@ -284,11 +284,39 @@ class PreparationPaddonLabel {
   final int? unitNo;
 }
 
+class PreparationJournalCheckpoint {
+  const PreparationJournalCheckpoint(this.version, this.hashes);
+
+  final String version;
+  final List<String> hashes;
+
+  static PreparationJournalCheckpoint? decode(Object? value) {
+    if (value is! Map ||
+        value['version'] is! String ||
+        value['hashes'] is! List) {
+      return null;
+    }
+    final version = value['version'] as String;
+    final hashes = value['hashes'] as List;
+    if (version.isEmpty ||
+        hashes.any((hash) => hash is! String || hash.isEmpty)) {
+      return null;
+    }
+    final ordered = List<String>.unmodifiable(hashes.cast<String>());
+    if (ordered.toSet().length != ordered.length) return null;
+    return PreparationJournalCheckpoint(version, ordered);
+  }
+
+  Map<String, dynamic> toJson() => {'version': version, 'hashes': hashes};
+}
+
 abstract class PreparationProductionPage {
   PreparationProductionPage(Map<String, dynamic> json)
       : hasMore = json['has_more'] == true,
         nextOffset =
-            json['next_offset'] is int ? json['next_offset'] as int : null {
+            json['next_offset'] is int ? json['next_offset'] as int : null,
+        journalCheckpoint =
+            PreparationJournalCheckpoint.decode(json['journal_sync']) {
     if (json['has_more'] is! bool ||
         (hasMore && (nextOffset == null || nextOffset! <= 0))) {
       throw const FormatException('Ishlab chiqarish sahifasi noto‘g‘ri');
@@ -296,6 +324,7 @@ abstract class PreparationProductionPage {
   }
   final bool hasMore;
   final int? nextOffset;
+  final PreparationJournalCheckpoint? journalCheckpoint;
 }
 
 class PreparationProductionOrdersPage extends PreparationProductionPage {

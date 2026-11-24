@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import '../../features/admin/state/admin_sequence_apparatus_store.dart';
 import '../../features/shared/models/app_models.dart';
 import '../api/mobile_api.dart';
 import '../cache/production_snapshot_store.dart';
@@ -10,7 +9,6 @@ import '../session/state/app_session.dart';
 
 typedef PreparationOrdersWindowLoader = Future<PreparationOrderListWindow>
     Function({
-  required String apparatus,
   required String search,
   String? cursor,
   PreparationOrderListWindow? baseline,
@@ -33,11 +31,8 @@ class PreparationOrdersWarmStore {
   PreparationOrdersWarmStore({
     PreparationOrdersWindowLoader? loader,
     ProductionSnapshotStore? snapshots,
-    Future<String?> Function()? selectionLoader,
   })  : _loader = loader ?? MobileApi.instance.preparationOrders,
-        _snapshots = snapshots ?? ProductionSnapshotStore.instance,
-        _selectionLoader = selectionLoader ??
-            AdminSequenceApparatusStore.instance.loadSavedApparatusId;
+        _snapshots = snapshots ?? ProductionSnapshotStore.instance;
 
   static final _instance = PreparationOrdersWarmStore();
   static PreparationOrdersWarmStore? debugOverride;
@@ -45,7 +40,6 @@ class PreparationOrdersWarmStore {
 
   final PreparationOrdersWindowLoader _loader;
   final ProductionSnapshotStore _snapshots;
-  final Future<String?> Function() _selectionLoader;
   final _windows = <String, PreparationOrderListWindow>{};
   final _pending = <String, Future<PreparationOrderListWindow>>{};
   final _forcedReads = <String>{};
@@ -63,9 +57,8 @@ class PreparationOrdersWarmStore {
         _snapshots.generation,
       ]);
 
-  String _key(String apparatus, String search) => jsonEncode([
-        'preparation-orders-v1',
-        apparatus,
+  String _key(String search) => jsonEncode([
+        'preparation-all-orders-v1',
         search.trim().toLowerCase(),
       ]);
 
@@ -86,39 +79,29 @@ class PreparationOrdersWarmStore {
     _synchronize();
     if (!preparationOrdersWarmEnabled() || _prepared || _denied) return;
     _prepared = true;
-    final owner = _owner!;
-    final generation = _generation;
     try {
-      final apparatus = await _selectionLoader() ?? '';
-      if (!_current(owner, generation)) return;
       // Restore labels while the single shared network request is running.
-      unawaited(restore(apparatus: apparatus));
-      await read(apparatus: apparatus, fresh: true);
+      unawaited(restore());
+      await read(fresh: true);
     } catch (_) {
       // The foreground page retries optional preload failures. No timer or
       // repeated HTTP refresh is started by this store.
     }
   }
 
-  PreparationOrderListWindow? peek({
-    String apparatus = '',
-    String search = '',
-  }) {
+  PreparationOrderListWindow? peek({String search = ''}) {
     _synchronize();
     if (!preparationOrdersWarmEnabled() || _denied) return null;
-    return _windows[_key(apparatus, search)];
+    return _windows[_key(search)];
   }
 
-  Future<PreparationOrderListWindow?> restore({
-    String apparatus = '',
-    String search = '',
-  }) {
+  Future<PreparationOrderListWindow?> restore({String search = ''}) {
     _synchronize();
     if (!preparationOrdersWarmEnabled() || _denied) return Future.value();
-    final ready = peek(apparatus: apparatus, search: search);
+    final ready = peek(search: search);
     if (ready != null) return Future.value(ready);
     final normalizedSearch = search.trim().toLowerCase();
-    final key = _key(apparatus, normalizedSearch);
+    final key = _key(normalizedSearch);
     final pending = _restores[key];
     if (pending != null) return pending;
     final owner = _owner!;
@@ -130,7 +113,7 @@ class PreparationOrdersWarmStore {
       final saved = await _snapshots.read(scope: scope, key: key);
       if (!_current(owner, generation) || _denied) return null;
       if (_serverSerial != serverSerial) {
-        return peek(apparatus: apparatus, search: normalizedSearch);
+        return peek(search: normalizedSearch);
       }
       if (saved == null) return null;
       try {
@@ -141,8 +124,7 @@ class PreparationOrdersWarmStore {
         }
         final window = PreparationOrderListWindow.fromJson(
             (saved['window'] as Map).cast<String, dynamic>());
-        if (window.search != normalizedSearch ||
-            (apparatus.isNotEmpty && window.apparatusId != apparatus)) {
+        if (window.search != normalizedSearch) {
           throw const FormatException();
         }
         _remember(window, search: normalizedSearch, persist: false);
@@ -160,7 +142,6 @@ class PreparationOrdersWarmStore {
   }
 
   Future<PreparationOrderListWindow> read({
-    String apparatus = '',
     String search = '',
     String? cursor,
     PreparationOrderListWindow? baseline,
@@ -169,8 +150,8 @@ class PreparationOrdersWarmStore {
   }) {
     _synchronize();
     final normalizedSearch = search.trim().toLowerCase();
-    final key = _key(apparatus, normalizedSearch);
-    final ready = peek(apparatus: apparatus, search: normalizedSearch);
+    final key = _key(normalizedSearch);
+    final ready = peek(search: normalizedSearch);
     if (!fresh && !force && cursor == null && ready != null) {
       return Future.value(ready);
     }
@@ -179,7 +160,6 @@ class PreparationOrdersWarmStore {
     if (pending != null) {
       if (force && !_forcedReads.contains(pendingKey)) {
         return pending.then((_) => read(
-            apparatus: apparatus,
             search: normalizedSearch,
             cursor: cursor,
             baseline: baseline,
@@ -205,14 +185,13 @@ class PreparationOrdersWarmStore {
       requireCurrent();
       try {
         final window = await _loader(
-            apparatus: apparatus,
             search: normalizedSearch,
             cursor: cursor,
             baseline: _denied || cursor != null ? null : baseline ?? ready,
             refresh: force);
         requireCurrent();
         if (_readSerials[key] != serial) {
-          final latest = peek(apparatus: apparatus, search: normalizedSearch);
+          final latest = peek(search: normalizedSearch);
           if (cursor == null && latest != null) return latest;
           throw const MobileApiException(
               code: 'preparation_orders_resync',
@@ -236,7 +215,7 @@ class PreparationOrdersWarmStore {
             (error.statusCode == 401 ||
                 error.statusCode == 403 ||
                 const {'unauthorized', 'forbidden'}.contains(error.code))) {
-          unawaited(forget(apparatus: apparatus, search: normalizedSearch));
+          unawaited(forget(search: normalizedSearch));
         }
         rethrow;
       }
@@ -259,18 +238,14 @@ class PreparationOrdersWarmStore {
     _synchronize();
     if (!preparationOrdersWarmEnabled()) return;
     final normalizedSearch = search.trim().toLowerCase();
-    final previous = _windows[_key(window.apparatusId, normalizedSearch)];
+    final key = _key(normalizedSearch);
+    final previous = _windows[key];
     if (previous?.scope == window.scope &&
         previous?.epoch == window.epoch &&
         previous!.revision > window.revision) {
       return;
     }
-    for (final key in {
-      _key('', normalizedSearch),
-      _key(window.apparatusId, normalizedSearch)
-    }) {
-      _readSerials[key] = ++_nextReadSerial;
-    }
+    _readSerials[key] = ++_nextReadSerial;
     _serverSerial++;
     _denied = false;
     _remember(window.copyWith(search: normalizedSearch),
@@ -282,22 +257,18 @@ class PreparationOrdersWarmStore {
     required String search,
     bool persist = true,
   }) {
-    final keys = {_key('', search), _key(window.apparatusId, search)};
-    final scope = currentSessionReadScope();
-    for (final key in keys) {
-      final previous = _windows[key];
-      _windows.remove(key);
-      _windows[key] = window;
-      if (persist &&
-          (previous?.version != window.version ||
-              previous?.epoch != window.epoch ||
-              previous?.scope != window.scope ||
-              previous?.rows.length != window.rows.length)) {
-        unawaited(_snapshots.write(
-            scope: scope,
-            key: key,
-            value: {'schema': 1, 'search': search, 'window': window.toJson()}));
-      }
+    final key = _key(search);
+    final previous = _windows.remove(key);
+    _windows[key] = window;
+    if (persist &&
+        (previous?.version != window.version ||
+            previous?.epoch != window.epoch ||
+            previous?.scope != window.scope ||
+            previous?.rows.length != window.rows.length)) {
+      unawaited(_snapshots.write(
+          scope: currentSessionReadScope(),
+          key: key,
+          value: {'schema': 1, 'search': search, 'window': window.toJson()}));
     }
     while (_windows.length > 8) {
       final oldest = _windows.keys.first;
@@ -308,10 +279,10 @@ class PreparationOrdersWarmStore {
 
   /// Withdraw all current preparation baselines after an authorization error.
   /// Disk saves queued by an older request are invalidated synchronously.
-  Future<void> forget({String apparatus = '', String search = ''}) {
+  Future<void> forget({String search = ''}) {
     _synchronize();
     final scope = currentSessionReadScope();
-    final keys = {..._windows.keys, _key('', search), _key(apparatus, search)};
+    final keys = {..._windows.keys, _key(search)};
     _generation++;
     _serverSerial++;
     _windows.clear();

@@ -12,6 +12,7 @@ import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/shell/app_retry_state.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_production_map_orders_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_sequence_apparatus_filter.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/admin_sequence_apparatus_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -60,14 +61,13 @@ class _OrdersApi {
   Map<String, dynamic> window({String search = ''}) => {
         'ok': true,
         'projection': 'preparation_order_list_v1',
-        'scope': 'master|$_apparatus|$search',
+        'scope': 'master|all|$search',
         'epoch': 'preparation-orders-test',
         'rev': revision,
         'version': revision.toRadixString(16).padLeft(64, '0'),
-        'apparatus_id': _apparatus,
-        'apparatus': [
-          {'id': _apparatus, 'name': 'Master machine'}
-        ],
+        'all_apparatus': true,
+        'apparatus_id': '',
+        'apparatus': [],
         'limit': 30,
         'search': search,
         'total': search.isEmpty ? rowCount : 1,
@@ -138,7 +138,10 @@ class _OrdersApi {
     requests.add(request);
     final path = request.url.path;
     if (path == _ordersPath) {
-      listQueries.add(request.url.queryParameters);
+      final query = request.url.queryParameters;
+      listQueries.add(query);
+      expect(query['all_apparatus'], 'true');
+      expect(query.containsKey('apparatus'), isFalse);
       if (failLists > 0) {
         failLists--;
         return _response({'code': 'store_failed', 'message': 'Offline'}, 503);
@@ -311,7 +314,7 @@ void main() {
     api.listResponse = (_) async => http.Response('', 304, headers: {
           'x-production-epoch': 'preparation-orders-test',
           'x-production-revision': '8',
-          'x-preparation-scope': 'master|$_apparatus|',
+          'x-preparation-scope': api.window()['scope'] as String,
           'x-preparation-version': api.window()['version'] as String,
         });
     await http.runWithClient(() async {
@@ -345,6 +348,8 @@ void main() {
       await tester.runAsync(() async {
         await Future<void>.delayed(Duration.zero);
       });
+      await tester.pump();
+      // The storage completion can schedule the frame during that pump.
       await tester.pump();
       expect(api.listQueries, hasLength(1));
       expect(find.text('Master product 1'), findsOneWidget);
@@ -556,12 +561,17 @@ void main() {
     }, () => MockClient(api.respond));
   });
 
-  testWidgets('master search stays on the server and keeps canonical numbering',
+  testWidgets('master ignores saved machine and searches all orders on server',
       (tester) async {
     final api = _OrdersApi();
+    await AdminSequenceApparatusStore.instance
+        .saveApparatus(const AdminApparatus(id: _apparatus, name: 'Bosma'));
     await http.runWithClient(() async {
       await api.mount(tester);
       await tester.pumpAndSettle();
+      expect(find.byType(AdminSequenceApparatusFilter), findsNothing);
+      expect(find.text('Master product 1'), findsOneWidget);
+      expect(find.text('Master product 2'), findsOneWidget);
       await tester.enterText(
           find.byType(EditableText).first, 'master product 2');
       await tester.pump(const Duration(milliseconds: 400));
