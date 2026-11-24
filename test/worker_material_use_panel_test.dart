@@ -67,7 +67,8 @@ void main() {
 
   for (final scenario in ['confirm', 'cancel', 'wrong', 'changed']) {
     testWidgets('precomputed material scan: $scenario', (tester) async {
-      var posts = 0;
+      final requests = <http.Request>[];
+      final posts = <http.Request>[];
       var available = true;
       final used = <String>[];
       await http.runWithClient(() async {
@@ -78,7 +79,7 @@ void main() {
         await tester.pumpAndSettle();
         final scanner = tester.widget<ProductionQuickScannerPanel>(
             find.byType(ProductionQuickScannerPanel));
-        unawaited(scanner.onCodeDetected(scenario == 'wrong' ? 'OTHER' : 'R1'));
+        final scan = scanner.onCodeDetected(scenario == 'wrong' ? 'OTHER' : 'R1');
         await tester.pumpAndSettle();
         final feedback = tester
             .widget<ProductionQuickScannerPanel>(
@@ -89,7 +90,7 @@ void main() {
             scenario == 'wrong'
                 ? ProductionQuickScanFeedback.rejected
                 : ProductionQuickScanFeedback.accepted);
-        expect(posts, 0);
+        expect(posts, isEmpty);
         if (scenario == 'wrong') {
           expect(find.byKey(const ValueKey('worker-material-use-confirm')),
               findsNothing);
@@ -101,7 +102,15 @@ void main() {
               ? find.text('Yo‘q')
               : find.byKey(const ValueKey('worker-material-use-confirm')));
           await tester.pumpAndSettle();
-          expect(posts, scenario == 'cancel' ? 0 : 1);
+          expect(posts, hasLength(scenario == 'cancel' ? 0 : 1));
+          if (posts.isNotEmpty) {
+            expect(jsonDecode(posts.single.body), {
+              'order_id': 'zakaz-1',
+              'apparatus': 'apparatus:test:print',
+              'barcode': 'R1',
+              'placement_version': 7,
+            });
+          }
           expect(used, scenario == 'confirm' ? ['R1'] : isEmpty);
           if (scenario == 'confirm') {
             expect(find.byKey(const ValueKey('worker-material-use-button')),
@@ -116,18 +125,23 @@ void main() {
                 ProductionQuickScanFeedback.rejected);
           }
         }
+        await scan;
+        expect(requests, isNotEmpty);
+        for (final request in requests) {
+          expect(request.headers['authorization'], 'Bearer worker-token');
+          if (request.method == 'GET') {
+            expect(request.url.queryParameters['order_id'], 'zakaz-1');
+          }
+        }
         await tester.pumpWidget(const SizedBox.shrink());
       },
           () => MockClient((request) async {
-                expect(request.headers['authorization'], 'Bearer worker-token');
+                if (!request.url.path.endsWith('/worker-material-use')) {
+                  return http.Response('{}', 404);
+                }
+                requests.add(request);
                 if (request.method == 'POST') {
-                  posts++;
-                  expect(jsonDecode(request.body), {
-                    'order_id': 'zakaz-1',
-                    'apparatus': 'apparatus:test:print',
-                    'barcode': 'R1',
-                    'placement_version': 7
-                  });
+                  posts.add(request);
                   if (scenario == 'changed') {
                     return http.Response(
                         '{"error":"raw_material_stock_unavailable"}', 409);
@@ -136,7 +150,6 @@ void main() {
                   return http.Response(
                       '{"ok":true,"barcode":"R1","in_use":true}', 200);
                 }
-                expect(request.url.queryParameters['order_id'], 'zakaz-1');
                 return http.Response(
                     jsonEncode({
                       'enabled': true,

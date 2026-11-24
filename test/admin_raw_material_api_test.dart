@@ -245,7 +245,7 @@ void main() {
     );
     const expectedMessages = {
       'laminatsiya_completion_metrics_required':
-          'Laminatsiyani tugatish uchun barcha majburiy qiymatlarni kiriting',
+          'Ishni tugatish uchun barcha majburiy qiymatlarni kiriting',
       'laminatsiya_rubber_too_large':
           'Rezina razmeri 1050 mm dan katta bo‘lsa laminatsiya mumkin emas',
       'rezka_frame_count_mismatch':
@@ -312,8 +312,8 @@ void main() {
           isA<MobileApiException>().having(
             (error) => error.message,
             'message',
-            'Order navbat amali bajarilmadi. Server sababini batafsil '
-                'yubormadi. Oynani yangilang va qayta urinib ko‘ring.',
+            'Order navbat amali bajarilmadi. Server xato kodi: '
+                'backend_timeout (HTTP 400). Oynani yangilang va qayta urinib ko‘ring.',
           ),
         ),
       );
@@ -1256,6 +1256,7 @@ void main() {
       phone: '',
       avatarUrl: '',
       capabilities: ['apparatus.queue.manage'],
+      assignedApparatus: ['apparatus:default:asset-005'],
     );
     await MobileApi.instance.adminSaveProductionMapSequence(
       apparatus: 'apparatus:default:asset-005',

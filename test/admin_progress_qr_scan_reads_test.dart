@@ -434,7 +434,11 @@ void main() {
           findsOneWidget,
         );
         expect(find.text(_manualTitle), findsOneWidget);
-        expect(paths.where((path) => path.endsWith(suffix)), hasLength(1));
+        final attempts =
+            source == 'raw-material' && {'connection', 'server'}.contains(failure)
+                ? 2
+                : 1;
+        expect(paths.where((path) => path.endsWith(suffix)), hasLength(attempts));
         expect(paths.last, endsWith('/raw-material-assignments/lookup'));
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
