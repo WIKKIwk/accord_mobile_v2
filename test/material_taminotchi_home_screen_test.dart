@@ -10,6 +10,8 @@ import 'package:accord_mobile_v2/src/features/werka/presentation/widgets/m3_pick
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -230,54 +232,67 @@ void main() {
       assignedItemGroups: ['Rulon'],
     );
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        home: GScaleModeScreen(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    var batchReads = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          home: GScaleModeScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Homashyo kirimi'), findsWidgets);
-    expect(find.widgetWithText(Tab, 'Print'), findsOneWidget);
-    expect(find.widgetWithText(Tab, 'Print tarixi'), findsOneWidget);
-    expect(find.byKey(const ValueKey('control-section')), findsOneWidget);
-    expect(find.text('Kirim'), findsOneWidget);
-    expect(
-      find.byTooltip('Printer yoki tarozi tanlash'),
-      findsOneWidget,
-    );
-    expect(find.text('Mahsulot tanlang'), findsOneWidget);
-    expect(find.text('Babina'), findsOneWidget);
-    expect(find.text('Joriy kg'), findsNothing);
-    expect(find.text('Boshqaruv'), findsNothing);
-    expect(find.text('Arxiv'), findsNothing);
-    expect(find.text('Server'), findsNothing);
+      expect(find.text('Homashyo kirimi'), findsWidgets);
+      expect(find.widgetWithText(Tab, 'Print'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Print tarixi'), findsOneWidget);
+      expect(find.byKey(const ValueKey('control-section')), findsOneWidget);
+      expect(find.text('Kirim'), findsOneWidget);
+      expect(
+        find.byTooltip('Printer yoki tarozi tanlash'),
+        findsOneWidget,
+      );
+      expect(find.text('Mahsulot tanlang'), findsOneWidget);
+      expect(find.text('Babina'), findsOneWidget);
+      expect(find.text('Joriy kg'), findsNothing);
+      expect(find.text('Boshqaruv'), findsNothing);
+      expect(find.text('Arxiv'), findsNothing);
+      expect(find.text('Server'), findsNothing);
 
-    await tester.tap(find.text('Mahsulot tanlang'), warnIfMissed: false);
-    await tester.pump();
+      expect(batchReads, greaterThan(0));
+      final itemField = find.text('Homashyo');
+      await tester.ensureVisible(itemField);
+      await tester.pumpAndSettle();
+      await tester.tap(itemField.hitTestable());
+      await tester.pumpAndSettle();
 
-    final picker = tester.widget<M3AsyncPickerSheet<MaterialReceiptChoice>>(
-      find.byType(M3AsyncPickerSheet<MaterialReceiptChoice>),
-    );
-    expect(picker.pageSize, 50);
+      final picker = tester.widget<M3AsyncPickerSheet<MaterialReceiptChoice>>(
+        find.byType(M3AsyncPickerSheet<MaterialReceiptChoice>),
+      );
+      expect(picker.pageSize, 50);
 
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(Tab, 'Print tarixi'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, 'Print tarixi'));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text("Print tarixi hali bo'sh.").hitTestable(),
-      findsOneWidget,
-    );
-    expect(find.text('Qurilma tanlash'), findsNothing);
+      expect(
+        find.text("Print tarixi hali bo'sh.").hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text('Qurilma tanlash'), findsNothing);
+    }, () => MockClient((request) async {
+      if (request.url.path.endsWith('/rps/batch/state')) {
+        batchReads++;
+        return http.Response('{"ok":true,"batch":{"active":false}}', 200);
+      }
+      return http.Response('[]', 200);
+    }));
   });
 }
