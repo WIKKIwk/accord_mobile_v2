@@ -9,6 +9,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/admin_route_session.dart';
+
 part 'admin_apparatus_master_data_test_cases_resplit_part_01.dart';
 part 'admin_apparatus_master_data_test_cases_resplit_part_02.dart';
 
@@ -16,6 +18,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    signInToAdminRoutes();
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     resetMobileApiTestModeData();
   });

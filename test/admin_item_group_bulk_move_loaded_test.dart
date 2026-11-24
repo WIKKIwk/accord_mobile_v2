@@ -65,8 +65,8 @@ void main() {
       expect(groups, ['Group A', 'Group B']);
       expect(seenRequests, contains('GET /v1/mobile/admin/item-groups'));
       expect(seenRequests, contains('GET /v1/mobile/admin/items?limit=30'));
-      expect(find.text('Target group'), findsOneWidget);
-      expect(find.text('Group tanlang'), findsOneWidget);
+      expect(find.text('Maqsad guruh'), findsOneWidget);
+      expect(find.text('Guruhni tanlang'), findsOneWidget);
       expect(find.text("A'lo Ta'm Kanada"), findsOneWidget);
       expect(find.text('Item 001'), findsOneWidget);
       expect(

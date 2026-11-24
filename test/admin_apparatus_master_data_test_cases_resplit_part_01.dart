@@ -140,10 +140,7 @@ void _registeradmin_apparatus_master_data_testCases01() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('add-custom-apparatus-collection')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('app-primary-navigation-button')), findsOneWidget);
     expect(
       find.byKey(ValueKey('custom-apparatus-collection-${collection.id}')),
       findsOneWidget,
@@ -173,9 +170,9 @@ void _registeradmin_apparatus_master_data_testCases01() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey('add-custom-apparatus-collection')),
-    );
+    await tester.tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppLocalizations(const Locale('uz')).adminText('apparatus.group_add')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('apparatus-collection-name')),

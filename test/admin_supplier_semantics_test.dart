@@ -6,7 +6,10 @@ import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/admin_route_session.dart';
+
 void main() {
+  setUp(signInToAdminRoutes);
   testWidgets('admin supplier list builds with semantics enabled', (
     tester,
   ) async {

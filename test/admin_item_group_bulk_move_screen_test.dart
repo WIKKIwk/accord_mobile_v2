@@ -4,7 +4,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 
+import 'support/admin_route_session.dart';
+
 void main() {
+  setUp(signInToAdminRoutes);
   testWidgets(
     'admin item group bulk move screen builds without semantics errors',
     (tester) async {
@@ -28,7 +31,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text("Mahsulot group ko'chirish"), findsOneWidget);
+      expect(find.text('Mahsulotlarni boshqa guruhga ko‘chirish'), findsOneWidget);
       expect(find.text('Uy'), findsOneWidget);
       expect(find.text('Foydalanuvchi'), findsOneWidget);
       expect(find.text('Faoliyat'), findsOneWidget);

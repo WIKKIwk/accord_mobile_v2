@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/admin_route_session.dart';
+
 Widget _wrap(Widget child, {List<NavigatorObserver> observers = const []}) {
   return MaterialApp(
     locale: const Locale('uz'),
@@ -27,6 +29,7 @@ Widget _wrap(Widget child, {List<NavigatorObserver> observers = const []}) {
 }
 
 void main() {
+  setUp(signInToAdminRoutes);
   testWidgets('disabled custom FAB actions do not run or close the menu',
       (tester) async {
     var taps = 0;
