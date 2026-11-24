@@ -19,6 +19,8 @@ void _registerAdminMapWipFactsTests() {
       const orderId = 'zakaz-map-wip-facts';
       const cut5 = 'apparatus:default:asset-014';
       final alternative = scenario.startsWith('active_alternative');
+      final missingState = scenario == 'missing' || scenario == 'empty';
+      final outputConsumer = alternative ? cut5 : _rezkaId;
       final saved = await MobileApi.instance.adminSaveProductionMap(
         ProductionMapDefinition(
           id: orderId,
@@ -71,13 +73,23 @@ void _registerAdminMapWipFactsTests() {
         maps: [saved],
         sequences: const {},
         visibleOrderIds: const {},
-        queueStates: const {
+        queueStates: {
           _print9Id: {orderId: 'completed'},
-          _lamination1Id: {orderId: 'pending'},
+          if (!missingState)
+            _lamination1Id: {
+              orderId: scenario == 'completed' ? 'completed' : 'pending',
+            },
           _rezkaId: {orderId: 'pending'},
+          if (alternative) cut5: {orderId: 'in_progress'},
         },
-        stageStates: const {
-          orderId: {'print': 'completed', 'lam': 'pending', 'cut': 'pending'}
+        stageStates: {
+          orderId: {
+            'print': 'completed',
+            if (!missingState)
+              'lam': scenario == 'completed' ? 'completed' : 'pending',
+            'cut': 'pending',
+            if (scenario == 'active_alternative') 'cut5': 'in_progress',
+          },
         },
         queuePolicies: const {},
         orderControls: const {},
@@ -134,7 +146,8 @@ void _registerAdminMapWipFactsTests() {
               find.descendant(
                   of: lam, matching: find.text('Holat tasdiqlanmagan')),
               findsOneWidget);
-          expect(find.text('Navbat kutmoqda'), findsNothing);
+          expect(find.descendant(of: lam, matching: find.text('Navbat kutmoqda')),
+              findsNothing);
         } else {
           expect(
               find.descendant(
@@ -169,6 +182,9 @@ void _registerAdminMapWipFactsTests() {
             rollCount = 9;
             await tester.pump(const Duration(seconds: 15));
             await tester.pumpAndSettle();
+            expect(wipLoads, 1, reason: 'the open detail waits for live revisions');
+            ProductionDataRevision.notify(epoch: 'map-facts', revision: 2);
+            await tester.pumpAndSettle();
             expect(find.text('Chiqarilgan WIP: 9 ta'), findsOneWidget);
             expect(wipLoads, 2);
           }
@@ -179,44 +195,14 @@ void _registerAdminMapWipFactsTests() {
           expect(request.url.queryParameters['status'], 'all');
           expect(request.url.queryParameters.containsKey('apparatus'), isFalse);
         }
-        expect(requests.any((r) => r.url.path.endsWith('/sequence')), isTrue);
+        expect(requests.where((r) => r.url.path.endsWith('/sequence')), isEmpty,
+            reason: 'the detail already carries the stage states');
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
       },
           () => MockClient((request) async {
                 requests.add(request);
-                if (request.url.path.endsWith('/sequence')) {
-                  final missing = scenario == 'missing' || scenario == 'empty';
-                  return http.Response(
-                      jsonEncode({
-                        'sequences': {},
-                        'visible_order_ids': {},
-                        'queue_states': {
-                          if (alternative) cut5: {orderId: 'in_progress'},
-                        },
-                        'stage_states': {
-                          orderId: {
-                            'print': 'completed',
-                            if (!missing)
-                              'lam': scenario == 'completed'
-                                  ? 'completed'
-                                  : 'pending',
-                            if (!missing) 'cut': 'pending',
-                            if (alternative)
-                              'cut5': scenario == 'active_alternative'
-                                  ? 'in_progress'
-                                  : 'pending'
-                          }
-                        },
-                        'queue_policies': [],
-                        'order_controls': {},
-                        'order_statuses': {},
-                        'queue_action_controls': {},
-                        'frozen_orders_by_apparatus': {},
-                      }),
-                      200);
-                }
                 if (request.url.path.endsWith('/wip-batches')) {
                   if (++wipLoads == 1 && scenario == 'retry')
                     return http.Response('{}', 503);
@@ -228,9 +214,9 @@ void _registerAdminMapWipFactsTests() {
                               'batch_id': 'roll-$i',
                               'order_id': orderId,
                               'apparatus': _lamination1Id,
-                              'next_apparatus': _rezkaId,
+                              'next_apparatus': outputConsumer,
                               'current_apparatus':
-                                  i < 6 ? _lamination1Id : _rezkaId,
+                                  i < 6 ? _lamination1Id : outputConsumer,
                               'action': i == 0 ? 'complete' : 'detach_roll',
                               'status': 'roll_detached',
                               'wip_status': i == 6
@@ -243,7 +229,7 @@ void _registerAdminMapWipFactsTests() {
                               'qr_payload': 'QR-$i',
                               'payload_json': {
                                 'stage_node_id': 'lam',
-                                'next_stage_node_id': 'cut'
+                                'next_stage_node_id': alternative ? 'cut5' : 'cut'
                               },
                             },
                         ]

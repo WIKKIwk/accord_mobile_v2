@@ -97,7 +97,8 @@ void _registeradmin_production_map_test_screen_testCases22() {
         ),
         findsOneWidget,
       );
-      expect(find.text('2 / 5 bosqich'), findsOneWidget);
+      expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Boshlash'), findsNothing);
     },
   );
 
