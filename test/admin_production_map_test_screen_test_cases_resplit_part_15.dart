@@ -69,7 +69,7 @@ void _registeradmin_production_map_test_screen_testCases15() {
 
     expect(find.text('Buyurtmalar'), findsNothing);
     expect(find.text('Buyurtmani izlash'), findsOneWidget);
-    expect(find.text('Godex aparat - DEMO'), findsOneWidget);
+    expect(find.text('Godex aparat - DEMO'), findsNothing);
     expect(find.text('7 ta rangli bosma aparat'), findsOneWidget);
     expect(find.text('Aparatlar'), findsNothing);
     expect(find.textContaining('Worker queue order'), findsNWidgets(2));
