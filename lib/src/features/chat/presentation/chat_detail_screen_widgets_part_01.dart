@@ -257,6 +257,7 @@ class _ChatParticipantProfileAction extends StatelessWidget {
         size: 44,
         iconWidget: ChatAvatar(
           name: name,
+          peer: participant,
           avatarUrl: participant?.avatarUrl ?? '',
           radius: 17,
         ),

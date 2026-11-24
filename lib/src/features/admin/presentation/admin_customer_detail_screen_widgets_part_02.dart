@@ -4,6 +4,7 @@ part of 'admin_customer_detail_screen.dart';
 class _AdminCustomerDetailCard extends StatelessWidget {
   const _AdminCustomerDetailCard({
     required this.detail,
+    required this.refreshAvatarUrl,
     required this.statusLabel,
     required this.profileSubtitle,
     required this.namelessLabel,
@@ -31,6 +32,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
   });
 
   final AdminCustomerDetail detail;
+  final Future<String> Function() refreshAvatarUrl;
   final String statusLabel;
   final String profileSubtitle;
   final String namelessLabel;
@@ -94,6 +96,7 @@ class _AdminCustomerDetailCard extends StatelessWidget {
                 top: 74,
                 child: AdminProfileAvatar(
                   avatarUrl: detail.avatarUrl,
+                  refreshUrl: refreshAvatarUrl,
                   fallbackText: initials,
                 ),
               ),

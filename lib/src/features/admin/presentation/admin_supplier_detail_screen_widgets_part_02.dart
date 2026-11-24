@@ -4,6 +4,7 @@ part of 'admin_supplier_detail_screen.dart';
 class _AdminSupplierDetailCard extends StatelessWidget {
   const _AdminSupplierDetailCard({
     required this.detail,
+    required this.refreshAvatarUrl,
     required this.readOnly,
     required this.chatTarget,
     required this.retryAfterSec,
@@ -23,6 +24,7 @@ class _AdminSupplierDetailCard extends StatelessWidget {
   });
 
   final AdminSupplierDetail detail;
+  final Future<String> Function() refreshAvatarUrl;
   final bool readOnly;
   final ChatDirectoryEntry? chatTarget;
   final int retryAfterSec;
@@ -84,6 +86,7 @@ class _AdminSupplierDetailCard extends StatelessWidget {
                 top: 74,
                 child: AdminProfileAvatar(
                   avatarUrl: detail.avatarUrl,
+                  refreshUrl: refreshAvatarUrl,
                   fallbackText: _supplierInitials(displayName),
                 ),
               ),

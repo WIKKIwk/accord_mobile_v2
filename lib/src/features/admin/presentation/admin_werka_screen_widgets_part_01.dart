@@ -269,6 +269,7 @@ class _AdminWerkaDetailCard extends StatelessWidget {
                 top: 74,
                 child: AdminProfileAvatar(
                   avatarUrl: avatarUrl,
+                  refreshUrl: () async => (await MobileApi.instance.adminSettings()).werkaAvatarUrl,
                   fallbackText: _werkaInitials(displayName),
                 ),
               ),

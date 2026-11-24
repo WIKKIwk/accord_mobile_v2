@@ -152,6 +152,7 @@ class _AdminCustomerDetailScreenState extends State<AdminCustomerDetailScreen> {
               padding: EdgeInsets.zero,
               child: _AdminCustomerDetailCard(
                 detail: detail,
+                refreshAvatarUrl: () async => (await _loadDetail()).avatarUrl,
                 statusLabel: _loading
                     ? l10n.adminText('detail.loading')
                     : _loadError != null

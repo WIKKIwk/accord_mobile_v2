@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/display/image_fade.dart';
 import '../../../shared/presentation/widgets/profile_avatar_preview.dart';
+import '../../../shared/presentation/widgets/refreshing_avatar.dart';
 
 class AdminProfileAvatar extends StatelessWidget {
   const AdminProfileAvatar({
@@ -9,6 +10,7 @@ class AdminProfileAvatar extends StatelessWidget {
     required this.avatarUrl,
     required this.fallbackText,
     this.size = 92,
+    this.refreshUrl,
     this.previewDisplayName = '',
   });
 
@@ -17,13 +19,17 @@ class AdminProfileAvatar extends StatelessWidget {
   final double size;
   final String previewDisplayName;
 
-  bool get _canLoadAvatar {
-    final value = avatarUrl.trim().toLowerCase();
-    return value.startsWith('http://') || value.startsWith('https://');
-  }
+  final Future<String> Function()? refreshUrl;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => RefreshingAvatar(
+        url: avatarUrl,
+        refreshUrl: refreshUrl,
+        builder: (image, onError) => _avatar(context, image, onError),
+      );
+
+  Widget _avatar(BuildContext context, ImageProvider<Object>? image,
+      VoidCallback onError) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final padding = size >= 60 ? 5.0 : 2.0;
@@ -39,7 +45,6 @@ class AdminProfileAvatar extends StatelessWidget {
       ),
     );
 
-    final image = _canLoadAvatar ? NetworkImage(avatarUrl.trim()) : null;
     final avatar = Container(
       height: size,
       width: size,
@@ -58,7 +63,10 @@ class AdminProfileAvatar extends StatelessWidget {
                   width: innerSize,
                   fit: BoxFit.cover,
                   placeholder: fallback,
-                  errorBuilder: (context, _) => fallback,
+                  errorBuilder: (context, _) {
+                    onError();
+                    return fallback;
+                  },
                 )
               : fallback,
         ),

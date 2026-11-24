@@ -223,6 +223,7 @@ class _AdminSupplierDetailScreenState extends State<AdminSupplierDetailScreen> {
                     padding: EdgeInsets.zero,
                     child: _AdminSupplierDetailCard(
                       detail: detail,
+                      refreshAvatarUrl: () async => (await _loadDetail()).avatarUrl,
                       readOnly: widget.readOnly,
                       chatTarget: widget.chatTarget,
                       retryAfterSec: _retryAfterSec,

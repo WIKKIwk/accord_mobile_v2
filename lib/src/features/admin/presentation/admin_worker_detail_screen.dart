@@ -166,6 +166,7 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
                 padding: EdgeInsets.zero,
                 child: _WorkerProfileExpandableCard(
                   detail: detail,
+                  refreshAvatarUrl: () async => (await _loadDetail()).avatarUrl,
                   readOnly: widget.readOnly,
                   chatTarget: widget.chatTarget,
                   warehouseManagementEnabled: _warehouseManagementEnabled,

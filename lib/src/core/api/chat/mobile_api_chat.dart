@@ -1,5 +1,9 @@
 part of '../mobile_api.dart';
 
+// A conversation list can display many avatar tickets that expire together.
+final _chatAvatarPageReads =
+    Expando<Map<(String, String?, int), Future<ChatConversationPage>>>();
+
 extension MobileApiChat on MobileApi {
   Future<void> chatRegisterDeviceToken({
     required String tokenValue,
@@ -50,11 +54,11 @@ extension MobileApiChat on MobileApi {
     );
   }
 
-  Future<ChatConversationPage> chatConversations() async {
+  Future<ChatConversationPage> chatConversations({int offset = 0}) async {
     final response = await _sendAuthorized(
       () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/chat/conversations').replace(
-          queryParameters: {'limit': '100'},
+          queryParameters: {'limit': '100', if (offset > 0) 'offset': '$offset'},
         ),
         headers: _headers(requireToken()),
       ),
@@ -63,6 +67,30 @@ extension MobileApiChat on MobileApi {
     return ChatConversationPage.fromJson(
       await decodeJsonMapPayload(response.body),
     );
+  }
+
+  Future<String> chatPeerAvatarUrl(ChatPrincipal participant) async {
+    final scope = currentSessionReadScope();
+    final token = AppSession.instance.token;
+    final reads = _chatAvatarPageReads[Zone.current] ??= {};
+    bool current() => scope == currentSessionReadScope() && token == AppSession.instance.token;
+    var offset = 0;
+    while (current()) {
+      final key = (scope, token, offset);
+      final page = await reads.putIfAbsent(key, () => chatConversations(offset: offset)
+          .whenComplete(() { reads.remove(key); }));
+      if (!current()) return '';
+
+      for (final conversation in page.items) {
+        final peer = conversation.peer;
+        if (peer != null && peer.role == participant.role && peer.ref == participant.ref) {
+          return peer.avatarUrl;
+        }
+      }
+      if (!page.hasMore || page.items.isEmpty) break;
+      offset += page.items.length;
+    }
+    return '';
   }
 
   Future<ChatConversation> chatCreateDm(ChatDirectoryEntry target) async {

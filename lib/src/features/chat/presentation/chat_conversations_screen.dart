@@ -232,6 +232,7 @@ class _ConversationTile extends StatelessWidget {
             ),
             child: ChatAvatar(
               name: conversation.displayTitle,
+              peer: peer,
               avatarUrl: peer?.avatarUrl ?? '',
               radius: 15,
             ),

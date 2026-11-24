@@ -163,6 +163,7 @@ class _ChatParticipantSummaryProfile extends StatelessWidget {
                         top: 74,
                         child: AdminProfileAvatar(
                           avatarUrl: participant.avatarUrl,
+                          refreshUrl: () => MobileApi.instance.chatPeerAvatarUrl(participant),
                           fallbackText: _participantInitials(displayName),
                         ),
                       ),

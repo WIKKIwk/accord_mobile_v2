@@ -1,5 +1,8 @@
 import 'dart:async';
 import '../../shared/models/app_models.dart';
+import '../../../core/api/mobile_api.dart';
+import '../../../core/session/session_read_scope.dart';
+import '../../../core/session/state/app_session.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -60,21 +63,47 @@ class ProfileAvatarCache {
   }
 
   static Future<Uint8List?> refreshFromUrl(SessionProfile profile) async {
-    if (profile.avatarUrl.trim().isEmpty) {
-      return null;
+    if (profile.avatarUrl.trim().isEmpty) return null;
+    final session = AppSession.instance;
+    final token = session.token;
+    final scope = currentSessionReadScope();
+    bool current() =>
+        token == session.token && scope == currentSessionReadScope();
+    var bytes = await _download(profile.avatarUrl);
+    if (bytes == null &&
+        current() &&
+        token != null &&
+        session.profile?.role == profile.role &&
+        session.profile?.ref == profile.ref) {
+      try {
+        final fresh =
+            await MobileApi.instance.profile(onlyWhenApparatusChanged: true);
+        if (!current() ||
+            fresh.role != profile.role ||
+            fresh.ref != profile.ref ||
+            fresh.avatarUrl.trim().isEmpty) {
+          return null;
+        }
+        bytes = await _download(fresh.avatarUrl);
+      } catch (_) {
+        return null;
+      }
     }
-    final http.Response response;
+    if (bytes == null || !current()) return null;
+    return cacheFromBytes(profile, bytes, profile.avatarUrl);
+  }
+
+  static Future<Uint8List?> _download(String url) async {
     try {
-      final uri = Uri.parse(profile.avatarUrl);
-      response = await (debugHttpClient?.get(uri) ?? http.get(uri))
+      final uri = Uri.parse(url);
+      final response = await (debugHttpClient?.get(uri) ?? http.get(uri))
           .timeout(_downloadTimeout);
+      return response.statusCode == 200 && response.bodyBytes.isNotEmpty
+          ? response.bodyBytes
+          : null;
     } catch (_) {
       return null;
     }
-    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
-      return null;
-    }
-    return cacheFromBytes(profile, response.bodyBytes, profile.avatarUrl);
   }
 
   static Future<void> clearForProfile(SessionProfile profile) async {

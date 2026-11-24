@@ -177,6 +177,7 @@ class _WorkerAssignmentSummaryLine extends StatelessWidget {
 class _WorkerProfileExpandableCard extends StatelessWidget {
   const _WorkerProfileExpandableCard({
     required this.detail,
+    required this.refreshAvatarUrl,
     required this.readOnly,
     required this.chatTarget,
     required this.warehouseManagementEnabled,
@@ -193,6 +194,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
   });
 
   final AdminWorkerDetail detail;
+  final Future<String> Function() refreshAvatarUrl;
   final bool readOnly;
   final ChatDirectoryEntry? chatTarget;
   final bool warehouseManagementEnabled;
@@ -243,6 +245,7 @@ class _WorkerProfileExpandableCard extends StatelessWidget {
                 top: 74,
                 child: AdminProfileAvatar(
                   avatarUrl: detail.avatarUrl,
+                  refreshUrl: refreshAvatarUrl,
                   fallbackText: initials,
                 ),
               ),
