@@ -173,34 +173,28 @@ void _registeradmin_production_map_test_screen_testCases21() {
 
       await tester.tap(find.text('Laminatsiya 1'));
       await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('Worker waiting WIP').first);
-      await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(const ValueKey('production-quick-scanner-manual-toggle')),
-      );
+          find.byKey(const ValueKey('worker-order-$targetOrderId')));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('production-quick-scanner-manual')),
-        processedInput.qrPayload,
-      );
-      await tester.tap(find.byTooltip('Qabul qilish'));
+      final scanner = find.byType(ProductionQuickScannerPanel);
+      final rejected = tester.widget<ProductionQuickScannerPanel>(scanner)
+          .onCodeDetected(processedInput.qrPayload);
       await tester.pumpAndSettle();
-
+      expect(find.byKey(const ValueKey('production-wip-guidance-dialog')),
+          findsOneWidget);
       expect(find.text('Oldingi bosqich tasdiqlandi'), findsNothing);
-      expect(find.text('Bu QR oldingi bosqichga mos emas'), findsOneWidget);
-      expect(find.byType(ProductionQuickScannerPanel), findsOneWidget);
+      await _closeInlineWipGuidance(tester);
+      await rejected;
+      expect(scanner, findsOneWidget);
       final startButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),
       );
       expect(startButton.onPressed, isNull);
 
-      await tester.enterText(
-        find.byKey(const ValueKey('production-quick-scanner-manual')),
-        waitingInput.qrPayload,
-      );
-      await tester.tap(find.byTooltip('Qabul qilish'));
+      final accepted = tester.widget<ProductionQuickScannerPanel>(scanner)
+          .onCodeDetected(waitingInput.qrPayload);
       await tester.pumpAndSettle();
-      await _waitForQuickScannerFeedback(tester);
+      await accepted;
 
       expect(find.text('Oldingi bosqich tasdiqlandi'), findsWidgets);
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
@@ -331,7 +325,7 @@ void _registeradmin_production_map_test_screen_testCases21() {
 
       await tester.tap(find.text('Laminatsiya 1'));
       await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('Worker Opening WIP').first);
+      await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
       await tester.pumpAndSettle();
 
       final openingWipCard =
@@ -374,19 +368,15 @@ void _registeradmin_production_map_test_screen_testCases21() {
       );
       expect(startButton.onPressed, isNull);
 
-      await tester
+      final invalidScan = tester
           .widget<ProductionQuickScannerPanel>(
             find.byType(ProductionQuickScannerPanel),
           )
           .onCodeDetected('NOT-THIS-ORDER-OPENING-WIP');
       await tester.pumpAndSettle();
-
-      expect(
-        find.text(
-          'Bu QR ushbu orderning kutilayotgan Opening WIP ruloniga mos emas',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Oldingi bosqich tasdiqlandi'), findsNothing);
+      await _closeInlineWipGuidance(tester);
+      await invalidScan;
       startButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Boshlash'),
       );
