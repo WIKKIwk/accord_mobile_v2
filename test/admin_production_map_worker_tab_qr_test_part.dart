@@ -162,7 +162,7 @@ class _WorkerTabQrFixture extends _TemporaryPauseFixture {
 
   @override
   Future<http.Response> respond(http.Request request) async {
-    if (request.url.path.endsWith('/lookup')) {
+    if (request.url.path.endsWith('/progress-qr/lookup')) {
       requests.add(request);
       final body = jsonDecode(request.body) as Map;
       if (body['apparatus'] != null) {
@@ -382,7 +382,7 @@ void _registerWorkerTabQrTests() {
     }, () => MockClient(fixture.respond));
   });
 
-  testWidgets('worker FAB QR requires an apparatus on the completed tab',
+  testWidgets('worker FAB QR keeps WIP actions locked on the completed tab',
       (tester) async {
     final fixture = _WorkerTabQrFixture();
     await http.runWithClient(() async {
@@ -391,8 +391,13 @@ void _registerWorkerTabQrTests() {
       final scan = tester
           .widget<AparatchiDock>(find.byType(AparatchiDock))
           .onQrScanRequested!();
+      await tester.pumpAndSettle();
+      expect(fixture.scannerRoutes, 1);
+      await tester.tap(find.byKey(const ValueKey('return-tab-qr')));
       await _pumpTemporaryPauseUi(tester);
-      expect(fixture.scannerRoutes, 0);
+      expect(fixture.requests.where(
+        (r) => r.url.path.endsWith('/progress-qr/lookup'),
+      ), isEmpty);
       expect(fixture.scopedLookups, isEmpty);
       expect(fixture.mutations, isEmpty);
       expect(find.byKey(const ValueKey('production-wip-guidance-dialog')),
@@ -403,7 +408,7 @@ void _registerWorkerTabQrTests() {
     }, () => MockClient(fixture.respond));
   });
 
-  testWidgets('worker FAB QR does not scan from an unassigned visible tab',
+  testWidgets('worker FAB QR keeps WIP actions locked on an unassigned tab',
       (tester) async {
     final fixture = _WorkerTabQrFixture(unassignedSelected: true);
     await http.runWithClient(() async {
@@ -411,8 +416,13 @@ void _registerWorkerTabQrTests() {
       final scan = tester
           .widget<AparatchiDock>(find.byType(AparatchiDock))
           .onQrScanRequested!();
+      await tester.pumpAndSettle();
+      expect(fixture.scannerRoutes, 1);
+      await tester.tap(find.byKey(const ValueKey('return-tab-qr')));
       await _pumpTemporaryPauseUi(tester);
-      expect(fixture.scannerRoutes, 0);
+      expect(fixture.requests.where(
+        (r) => r.url.path.endsWith('/progress-qr/lookup'),
+      ), isEmpty);
       expect(fixture.scopedLookups, isEmpty);
       expect(fixture.mutations, isEmpty);
       expect(find.byKey(const ValueKey('production-wip-guidance-dialog')),
@@ -441,7 +451,7 @@ void _registerWorkerTabQrTests() {
         if (boundary == 'lookup') {
           await tester.tap(find.byKey(const ValueKey('return-tab-qr')));
           await _pumpTemporaryPauseUi(tester);
-          expect(fixture.requests.where((r) => r.url.path.endsWith('/lookup')),
+          expect(fixture.requests.where((r) => r.url.path.endsWith('/progress-qr/lookup')),
               hasLength(1));
         }
         controller.animateTo(0);

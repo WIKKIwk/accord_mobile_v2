@@ -223,13 +223,19 @@ class _WorkerQrWindowFixture extends _InlineWipFixture {
     ));
     await tester.pumpAndSettle();
     if (scanValue == _inlineWipQr) {
-      expect(find.text('Ko‘rsatish: 10 ta'), findsOneWidget);
+      await _waitForWorkerQueue(tester);
+      expect(windowReads, isNotEmpty,
+          reason: requests.map((request) => request.url.path).join(', '));
+      expect(windowReads.first.url.queryParameters['queue_limit'], '10');
+      await _selectWorkerApparatus(
+          tester, apparatus.singleWhere((item) => item.id == station).name);
       expect(find.byKey(const ValueKey('worker-order-$_inlineOrderId')),
           findsNothing);
     }
     if (scenario == 'search') {
       await tester.enterText(find.byType(EditableText).first, 'Other visible');
       await tester.pump(const Duration(milliseconds: 400));
+      await _waitForWorkerQueue(tester);
       await tester.pumpAndSettle();
       expect(windowReads.last.url.queryParameters['queue_search'],
           'Other visible');

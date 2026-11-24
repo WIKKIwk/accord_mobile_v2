@@ -17,8 +17,8 @@ void _registerWorkerQrErrorTests() {
     'frozen-after-lookup-route-error': 'worker.freeze.named',
     'not-found': 'worker.qr.not_found',
     'not-accepted': 'worker.qr.not_accepted',
-    'no-assignment': 'worker.qr.no_assignment',
-    'catalog-missing': 'worker.qr.catalog_missing',
+    'no-assignment': 'worker.qr.select_apparatus',
+    'catalog-missing': 'worker.qr.select_apparatus',
     'timeout': 'worker.error.network_timeout',
     'connection': 'worker.qr.connection',
     'unauthorized': 'worker.qr.session_expired',
@@ -29,10 +29,10 @@ void _registerWorkerQrErrorTests() {
     'incomplete-batch': 'worker.qr.invalid_response',
     'unconfirmed': 'worker.qr.invalid_response',
     'unknown-error': 'worker.qr.lookup_failed',
-    'future-stage-visible': 'worker.qr.stage_not_reached',
-    'future-stage-hidden': 'worker.qr.stage_not_reached',
-    'future-stage-remapped': 'worker.qr.stage_not_reached',
-    'passed-stage-hidden': 'worker.qr.route_unassigned',
+    'future-stage-visible': 'worker.qr.wrong_stage',
+    'future-stage-hidden': 'worker.qr.wrong_stage',
+    'future-stage-remapped': 'worker.qr.wrong_stage',
+    'passed-stage-hidden': 'worker.qr.wrong_stage',
     'missing-map': 'worker.qr.order_unavailable',
     'map-read-failed': 'worker.qr.server',
   };
@@ -204,6 +204,10 @@ void _registerWorkerQrErrorTests() {
           ),
         ));
         await tester.pumpAndSettle();
+        if (scenario.key != 'no-assignment' && scenario.key != 'catalog-missing') {
+          await _selectWorkerApparatus(
+              tester, foreignStage ? 'Laminatsiya 1' : 'Worker machine');
+        }
         final scan = tester
             .widget<AparatchiDock>(find.byType(AparatchiDock))
             .onQrScanRequested!();
@@ -216,8 +220,17 @@ void _registerWorkerQrErrorTests() {
         final message = l10n.productionText(scenario.value,
             values: const {'order': 'Frozen WIP', 'destination': 'Rezka',
               'current': 'Laminatsiya 1'});
-        expect(scenario.key == 'passed-stage-hidden'
-            ? find.textContaining(message) : find.text(message), findsOneWidget,
+        final wrongTab = scenario.value == 'worker.qr.wrong_stage';
+        if (wrongTab) {
+          final route = l10n.productionText('worker.qr.route_source_destination',
+            values: {
+              'source': futureStage ? 'Bosma 9' : 'Laminatsiya 1',
+              'destination': 'Rezka',
+            });
+          expect(find.textContaining(route), findsOneWidget);
+        }
+        expect(wrongTab ? find.textContaining(message) : find.text(message),
+            findsOneWidget,
             reason: tester
                 .widgetList<Text>(find.byType(Text))
                 .map((text) => text.data)
@@ -231,7 +244,9 @@ void _registerWorkerQrErrorTests() {
           expect(find.textContaining('hali sizning bosqichingizga yetib kelmagan'),
               findsNothing);
         }
-        expect(mapReads, hiddenOrder ? 1 : 0);
+        expect(mapReads,
+            ['missing-map', 'map-read-failed'].contains(scenario.key) ? 1 : 0,
+            reason: 'Explicit server route evidence needs no full map read');
         expect(workMutations, 0);
         expect(find.text(l10n.productionText('worker.error.assigned_machine')),
             findsNothing);
@@ -241,7 +256,8 @@ void _registerWorkerQrErrorTests() {
             findsNothing);
         expect(scopedLookups,
             ['unconfirmed', 'frozen-scoped-server'].contains(scenario.key) ? 1 : 0);
-        expect(qrRequests, isNotEmpty);
+        expect(qrRequests, scenario.value == 'worker.qr.select_apparatus'
+            ? isEmpty : isNotEmpty);
         for (final body in qrRequests) {
           expect(body['require_active_order'],
               scenario.key == 'frozen-legacy-error' && body == qrRequests.last

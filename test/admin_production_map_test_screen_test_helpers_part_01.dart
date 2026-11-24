@@ -55,6 +55,25 @@ Future<void> _completeQolipScan(WidgetTester tester) async {
   );
 }
 
+Future<void> _waitForWorkerQueue(WidgetTester tester) async {
+  final queue = find.byKey(const ValueKey('worker-queue-limit'));
+  for (var attempt = 0; queue.evaluate().isEmpty && attempt < 20; attempt++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  expect(queue, findsOneWidget,
+      reason: tester.widgetList<Text>(find.byType(Text)).map((text) => text.data).join(', '));
+}
+
+Future<void> _selectWorkerApparatus(WidgetTester tester, String name) async {
+  await _waitForWorkerQueue(tester);
+  final tab = find.byWidgetPredicate((widget) => widget is Tab && widget.text == name);
+  expect(tab, findsOneWidget,
+      reason: tester.widgetList<Tab>(find.byType(Tab)).map((tab) => tab.text).join(', '));
+  await tester.ensureVisible(tab);
+  await tester.tap(tab);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _waitForQuickScannerFeedback(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }

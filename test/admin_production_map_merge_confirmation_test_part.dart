@@ -42,6 +42,7 @@ void _registerMergeConfirmationTests() {
           ],
         ),
       );
+      final initial = await MobileApi.instance.adminProductionMapQueueSnapshot();
       await _usePhoneViewport(tester);
       final mutations = <http.Request>[];
       final response = Completer<http.Response>();
@@ -58,6 +59,7 @@ void _registerMergeConfirmationTests() {
           home: AdminProductionMapOrdersScreen(
               readOnly: true,
               workerMode: true,
+              queueSnapshotLoader: () async => initial,
               liveEventsLoader: _idleProductionLiveLoader()),
         ));
         await tester.pumpAndSettle();
@@ -173,7 +175,11 @@ void _registerMergeConfirmationTests() {
                 if (request.url.path.endsWith('/order-scan-bootstrap')) {
                   return http.Response('', 404);
                 }
-                if (request.url.path.endsWith('/lookup')) {
+                if (request.url.path.endsWith('/raw-material-assignments/lookup')) {
+                  return http.Response(
+                      '{"error":"raw_material_stock_not_found"}', 404);
+                }
+                if (request.url.path.endsWith('/progress-qr/lookup')) {
                   final payload = jsonDecode(request.body) as Map;
                   return http.Response(
                       jsonEncode({
@@ -258,6 +264,12 @@ void _registerMergeConfirmationTests() {
                 }
                 if (request.url.path.endsWith('/wip-batches')) {
                   return http.Response('{"batches":[]}', 200);
+                }
+                if (request.url.path.endsWith('/completed-orders')) {
+                  return http.Response('{"completed_orders":[]}', 200);
+                }
+                if (request.url.path.endsWith('/completion-request-decisions')) {
+                  return http.Response('{"decisions":[]}', 200);
                 }
                 return http.Response('{"error":"store_failed"}', 503);
               }));

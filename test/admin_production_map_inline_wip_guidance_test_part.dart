@@ -18,6 +18,7 @@ class _InlineWipFixture {
   String phase;
   String wipStatus = 'waiting';
   bool allowMerge = true;
+  bool mergeCommitted = false;
   bool useOpening = false;
   bool consumeInitialQr = false;
   bool openingStageRejected = false;
@@ -59,8 +60,15 @@ class _InlineWipFixture {
             'input_batch_id': 'mounted-input',
             'source_kind': 'progress_batch',
             'sequence_no': 1,
-            'status': 'in_use'
+            'status': mergeCommitted && !other ? 'processed' : 'in_use',
           },
+          if (mergeCommitted && !other)
+            {
+              'input_batch_id': 'merged-input',
+              'source_kind': 'progress_batch',
+              'sequence_no': 2,
+              'status': 'in_use',
+            },
         ],
       'interaction': {
         'mode': switch (selectedPhase) {
@@ -72,6 +80,7 @@ class _InlineWipFixture {
         },
         'start_materials_mode': 'hidden',
         'material_scan_required': false,
+        if (selectedPhase == 'paused') 'resume_input_required': false,
         'assigned_materials_display_only': true,
         'material_intake_allowed':
             selectedPhase == 'active' && entrypoint == 'intake',
@@ -269,7 +278,10 @@ class _InlineWipFixture {
         return http.Response('{"error":"opening_wip_qr_mismatch"}', 409);
       return http.Response(jsonEncode({'batch': openingBatch()}), 200);
     }
-    if (path.endsWith('/lookup')) {
+    if (path.endsWith('/raw-material-assignments/lookup')) {
+      return http.Response('{"error":"raw_material_stock_not_found"}', 404);
+    }
+    if (path.endsWith('/progress-qr/lookup')) {
       final payload = jsonDecode(request.body) as Map;
       final qr = payload['qr_payload'];
       if (useOpening || (qr != _inlineWipQr && qr != _inlineOtherWipQr)) {
@@ -296,11 +308,29 @@ class _InlineWipFixture {
         if (rejectionPhase != null) changePhase(rejectionPhase!);
         return http.Response(jsonEncode({'error': mutationRejection}), 409);
       }
+      final command = jsonDecode(request.body) as Map;
+      if (command['action'] == 'merge') {
+        mergeCommitted = true;
+        revision++;
+        events.add(snapshot());
+      }
       return http.Response(
           jsonEncode({
             'ok': true,
+            'rev': revision,
+            'epoch': 'inline-server',
             'states': {_inlineOrderId: 'in_progress'},
             'order_control': {'state': 'active'},
+            'control_state': {
+              'apparatus': station,
+              'order_id': _inlineOrderId,
+              'rev': revision,
+              'epoch': 'inline-server',
+              'control': control(),
+              'queue_state': 'in_progress',
+              'stage_states': {'second-apparatus': 'in_progress'},
+              'order_control': 'active',
+            },
           }),
           200);
     }
@@ -382,9 +412,12 @@ class _InlineWipFixture {
       ),
     ));
     await tester.pumpAndSettle();
-    if (consumeInitialQr) return;
-    await tester.tap(find.text(_fixtureApparatusName(station)));
-    await tester.pumpAndSettle();
+    if (consumeInitialQr) {
+      await _waitForWorkerQueue(tester);
+      await tester.pumpAndSettle();
+      return;
+    }
+    await _selectWorkerApparatus(tester, _fixtureApparatusName(station));
     await TestModeController.instance.setEnabled(false);
     if (scanViaFab) {
       final scan = tester.widget<AparatchiDock>(find.byType(AparatchiDock))
@@ -594,13 +627,13 @@ void _registerInlineWipGuidanceTests() {
               .productionText('worker.progress.previous.confirmed')),
           findsOneWidget);
       final lookupsBeforeLiveUpdate =
-          fixture.requests.where((r) => r.url.path.endsWith('/lookup')).length;
+          fixture.requests.where((r) => r.url.path.endsWith('/progress-qr/lookup')).length;
       expect(lookupsBeforeLiveUpdate, 4,
           reason:
               'FAB and detail each identify once and validate one scoped route');
       fixture.changePhase('start', publish: true);
       await tester.pumpAndSettle();
-      expect(fixture.requests.where((r) => r.url.path.endsWith('/lookup')),
+      expect(fixture.requests.where((r) => r.url.path.endsWith('/progress-qr/lookup')),
           hasLength(lookupsBeforeLiveUpdate),
           reason: 'A live refresh must not replay the initial QR');
       expect(find.byType(ProductionQuickScannerPanel), findsNothing);
@@ -649,7 +682,7 @@ void _registerInlineWipGuidanceTests() {
         _expectInlineWipGuidance(tester, 'worker.qr.start_ready',
             values: {'order': 'Other inline work'});
         expect(fixture.mutations, isEmpty);
-        expect(fixture.requests.where((r) => r.url.path.endsWith('/lookup')),
+        expect(fixture.requests.where((r) => r.url.path.endsWith('/progress-qr/lookup')),
             isNotEmpty);
         await _closeInlineWipGuidance(tester);
         await scan;
@@ -775,7 +808,7 @@ void _registerInlineWipGuidanceTests() {
           findsOneWidget);
       expect(fixture.mutations, isEmpty);
       final lookups = fixture.requests
-          .where((r) => r.url.path.endsWith('/lookup'))
+          .where((r) => r.url.path.endsWith('/progress-qr/lookup'))
           .toList();
       expect(lookups.length, greaterThanOrEqualTo(2));
       expect(jsonDecode(lookups.first.body), isNot(contains('apparatus')));
@@ -916,7 +949,7 @@ void _registerInlineWipGuidanceTests() {
         final scan = scanner(_inlineWipQr);
         await tester.pump();
         await scanner(_inlineWipQr);
-        expect(fixture.requests.where((r) => r.url.path.endsWith('/lookup')),
+        expect(fixture.requests.where((r) => r.url.path.endsWith('/progress-qr/lookup')),
             hasLength(1));
         fixture.changePhase(phase);
         fixture.lookupGate!.complete();

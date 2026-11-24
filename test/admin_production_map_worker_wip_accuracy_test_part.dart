@@ -117,7 +117,7 @@ void _registerWorkerWipAccuracyTests() {
       }), 200);
     }
     if (request.url.path.endsWith('/raw-material-assignments')) {
-      return http.Response('{"assignments":[]}', 200);
+      return http.Response('[]', 200);
     }
     if (request.url.path.endsWith('/qolip-validate')) {
       final body = jsonDecode(request.body) as Map;
@@ -345,11 +345,15 @@ void _registerWorkerWipAccuracyTests() {
           ),
           findsOneWidget);
       for (var n = 1; n <= 3; n++) {
-        tester
+        final scan = tester
             .widget<ProductionQuickScannerPanel>(
                 find.byType(ProductionQuickScannerPanel))
             .onCodeDetected('mold-$n');
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('$n/3'), findsOneWidget,
+            reason: 'A required mold scan must advance start eligibility');
+        await scan;
       }
       expect(
           find.descendant(

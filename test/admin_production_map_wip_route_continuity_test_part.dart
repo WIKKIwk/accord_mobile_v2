@@ -208,6 +208,8 @@ void _registerWipRouteContinuityTests() {
           ),
         ));
         await tester.pumpAndSettle();
+        await _selectWorkerApparatus(
+            tester, scenario == 'unassigned' ? 'Laminatsiya1' : 'Rezka2');
         final repetitions = scenario == 'resolved-repeat' ? 2 : 1;
         for (var scan = 0; scan < repetitions; scan++) {
           final scanFuture = tester
@@ -279,7 +281,10 @@ void _registerWipRouteContinuityTests() {
                                 ? l10n.productionText('worker.error.wip_in_use')
                                 : l10n.productionText(
                                     'worker.error.assigned_machine');
-            expect(find.text(expectedText), findsOneWidget,
+            expect(scenario == 'unassigned'
+                ? find.textContaining(l10n.productionText('worker.qr.wrong_stage',
+                    values: {'current': 'Laminatsiya1'}))
+                : find.text(expectedText), findsOneWidget,
                 reason:
                     'requests=$qrRequests texts=${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).toList()}');
           }
