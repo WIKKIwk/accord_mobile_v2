@@ -12,6 +12,12 @@ export PUB_CACHE ?= $(LOCAL_TOOLS_ROOT)/pub-cache
 # Keep Flutter compiler files on the workspace drive when it has a scratch directory.
 ifneq ($(wildcard $(LOCAL_TOOLS_ROOT)/flutter-tmp/.),)
 export TMPDIR := $(abspath $(LOCAL_TOOLS_ROOT)/flutter-tmp)
+ifeq ($(findstring -Djava.io.tmpdir=,$(JAVA_TOOL_OPTIONS)),)
+android-sdk-setup apk apk-remote apk-domain: export JAVA_TOOL_OPTIONS := $(strip $(JAVA_TOOL_OPTIONS) -Djava.io.tmpdir="$(TMPDIR)")
+endif
+endif
+ifneq ($(wildcard $(LOCAL_TOOLS_ROOT)/gradle-home/.),)
+export GRADLE_USER_HOME ?= $(abspath $(LOCAL_TOOLS_ROOT)/gradle-home)
 endif
 # Flutter reads its SDK preferences from the settings file in this directory.
 ifneq ($(wildcard $(LOCAL_TOOLS_ROOT)/home/.config/flutter/settings),)
@@ -57,10 +63,10 @@ RUN_DEVICE ?= chrome
 RUN_DART_DEFINES ?= --dart-define=APP_FORCE_DEVICE_PREVIEW=true
 endif
 
-CHROME_PROFILE_DIR := $(shell mktemp -d /tmp/accord-mobile-chrome.XXXXXX)
-CHROME_WEB_BROWSER_FLAGS := --web-browser-flag=--disable-web-security --web-browser-flag=--disable-site-isolation-trials --web-browser-flag=--user-data-dir=$(CHROME_PROFILE_DIR)
+CHROME_PROFILE_DIR = $(shell mktemp -d "$(if $(TMPDIR),$(TMPDIR),/tmp)/accord-mobile-chrome.XXXXXX")
+CHROME_WEB_BROWSER_FLAGS = --web-browser-flag=--disable-web-security --web-browser-flag=--disable-site-isolation-trials --web-browser-flag=--user-data-dir="$(CHROME_PROFILE_DIR)"
 ifeq ($(RUN_DEVICE),chrome)
-RUN_BROWSER_FLAGS := $(CHROME_WEB_BROWSER_FLAGS) --dart-define=ACCORD_DEV_API_PROXY=true
+RUN_BROWSER_FLAGS = $(CHROME_WEB_BROWSER_FLAGS) --dart-define=ACCORD_DEV_API_PROXY=true
 else ifeq ($(RUN_DEVICE),web-server)
 RUN_BROWSER_FLAGS := --web-hostname=$(RUN_WEB_HOST) --dart-define=ACCORD_DEV_API_PROXY=true
 ifneq ($(strip $(RUN_WEB_PORT)),auto)

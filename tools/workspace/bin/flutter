@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+# Flutter uses XDG_CONFIG_HOME directly for its settings file on this Mac.
+# Limit that override to Flutter so Git and other developer tools keep their settings.
+XDG_CONFIG_HOME="${LOCAL_TOOLS_ROOT:?}/home/.config/flutter"
+PATH="${FLUTTER_ROOT:?}/bin:$PATH"
+export XDG_CONFIG_HOME PATH
+exec "$FLUTTER_ROOT/bin/flutter" "$@"
