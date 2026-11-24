@@ -25,9 +25,23 @@ class _AdminRolesHttpClient implements HttpClient {
     Object body;
     var statusCode = HttpStatus.ok;
     if (key.startsWith('GET /v1/mobile/admin/apparatus')) {
-      body = const [
-        {'name': 'Godex aparat - DEMO'},
-        {'name': 'Paket aparat'},
+      body = [
+        AdminApparatus(
+          id: 'apparatus:test:godex-demo',
+          name: 'Godex aparat - DEMO',
+          sourceRevision: 1,
+          sourceAasxSha256: 'a' * 64,
+          operation: 'print',
+          technology: 'flexographic',
+        ).toJson(),
+        AdminApparatus(
+          id: 'apparatus:test:paket',
+          name: 'Paket aparat',
+          sourceRevision: 1,
+          sourceAasxSha256: 'b' * 64,
+          operation: 'cut',
+          technology: 'slitter',
+        ).toJson(),
       ];
     } else {
       switch (key) {
@@ -146,7 +160,7 @@ class _AdminRolesHttpClient implements HttpClient {
             'principal_role': 'werka',
             'principal_ref': 'werka',
             'role_id': 'scale_operator',
-            'assigned_apparatus': ['Godex aparat - DEMO'],
+            'assigned_apparatus': ['apparatus:test:godex-demo'],
           };
         default:
           statusCode = HttpStatus.notFound;
