@@ -114,6 +114,17 @@ void main() {
             }));
   });
 
+  test('requesting a live ticket preserves the catalog snapshot', () async {
+    await http.runWithClient(() async {
+      final snapshot = await _load();
+      await expectLater(_api.connectPrivateLive(_api.adminWarehouseLiveUri()),
+          emitsError(isA<MobileApiException>().having((e) => e.statusCode, 'status', 403)));
+      expect(identical(_api.cachedQolipProducts, snapshot), isTrue);
+    }, () => qolipCatalogClient((request) async =>
+        request.url.path == '/v1/mobile/auth/live-ticket'
+            ? http.Response('', 403) : _catalog()));
+  });
+
   test('mutations invalidate the snapshot and its conditional validator',
       () async {
     var reads = 0;

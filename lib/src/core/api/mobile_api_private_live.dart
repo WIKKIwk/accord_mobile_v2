@@ -62,6 +62,7 @@ extension MobileApiPrivateLive on MobileApi {
       checkSession();
       final response = await _post(
           origin.resolve('/v1/mobile/auth/live-ticket'),
+          invalidatesSnapshots: false,
           headers: {..._headers(token), 'Content-Type': 'application/json'},
           body: jsonEncode({'path': route.path}));
       checkSession();

@@ -385,20 +385,24 @@ class MobileApi {
     Map<String, String>? headers,
     Object? body,
     Duration timeout = _requestTimeout,
-  }) => _mutationRequest(() {
-    if (NativeIrohTransport.canUseFor(uri)) {
-      return NativeIrohTransport.send(
-        method: 'POST',
-        fallbackClient: _httpClient,
-        uri: uri,
-        headers: headers,
-        body: body,
-      ).timeout(timeout);
+    bool invalidatesSnapshots = true,
+  }) {
+    Future<http.Response> send() {
+      if (NativeIrohTransport.canUseFor(uri)) {
+        return NativeIrohTransport.send(
+          method: 'POST',
+          fallbackClient: _httpClient,
+          uri: uri,
+          headers: headers,
+          body: body,
+        ).timeout(timeout);
+      }
+      return _httpClient
+          .post(uri, headers: headers, body: body)
+          .timeout(timeout);
     }
-    return _httpClient
-        .post(uri, headers: headers, body: body)
-        .timeout(timeout);
-  });
+    return invalidatesSnapshots ? _mutationRequest(send) : send();
+  }
 
   Future<http.Response> _put(
     Uri uri, {
