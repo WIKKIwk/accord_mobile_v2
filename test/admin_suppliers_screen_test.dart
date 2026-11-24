@@ -13,6 +13,7 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/admin_suppliers
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_user_create_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_detail_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_worker_profile_detail_screen.dart';
+import 'package:accord_mobile_v2/src/features/admin/state/admin_users_role_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -31,6 +32,7 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     await TestModeController.instance.setEnabled(false);
+    AdminUsersRoleStore.instance.clearCache();
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,

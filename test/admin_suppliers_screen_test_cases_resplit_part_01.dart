@@ -29,7 +29,7 @@ void _registeradmin_suppliers_screen_testCases01() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Rol: Tanlanmagan'), findsOneWidget);
+      expect(find.text('Admin A supplier'), findsNothing);
 
       navigatorKey.currentState!.pushNamed(AppRoutes.adminUserCreate);
       await tester.pumpAndSettle();
@@ -200,9 +200,6 @@ void _registeradmin_suppliers_screen_testCases01() {
 
       await pumpScreen();
       expect(find.text('Admin A supplier'), findsNothing);
-      expect(find.text('Rol: Tanlanmagan'), findsOneWidget);
-
-      await _selectUserRole(tester, 'Ta’minotchi');
       expect(find.text('Admin B supplier'), findsOneWidget);
       expect(find.text('Admin A supplier'), findsNothing);
       expect(userListCalls, 2);

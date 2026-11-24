@@ -205,7 +205,9 @@ void _registeradmin_suppliers_screen_testCases02() {
       expect(find.text('+998901112233'), findsWidgets);
       expect(client.requests, contains('PUT /v1/mobile/admin/workers'));
       expect(find.text('Kirish kodi'), findsOneWidget);
-      expect(find.text('Hali generatsiya qilinmagan'), findsOneWidget);
+      final codeNotShown =
+          AppLocalizations(const Locale('uz')).adminText('profile.code_not_shown');
+      expect(find.text(codeNotShown), findsOneWidget);
 
       final refreshButton = find.ancestor(
         of: find.byIcon(Icons.refresh_rounded),
