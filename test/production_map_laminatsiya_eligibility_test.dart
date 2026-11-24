@@ -412,7 +412,7 @@ void main() {
       await MobileApi.instance.upsertCalculateOrderTemplate(
         CalculateOrderTemplate.fromJson({
           'id': 'template-rezka-skip',
-          'source_map_id': 'template-$_mapId',
+          'source_map_id': _mapId,
           'frame_count': 3,
           'width_mm': 765,
         }),
