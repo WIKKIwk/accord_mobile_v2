@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_base.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
@@ -26,6 +27,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'production_snapshot_test_backend.dart';
+
 const machine = AdminApparatus(
     id: 'apparatus:test:bosma',
     name: 'Bosma',
@@ -38,11 +41,18 @@ final orders = [
         'id': 'zakaz-$i',
         'product_code': 'ITEM-$i',
         'title': 'Product $i',
+        'order_number': '000$i',
         'width_mm': 384,
         'nodes': [
-          {'id': 'stage-$i', 'kind': 'apparatus', 'apparatus_id': machine.id}
+          {'id': 'start', 'kind': 'start', 'title': 'Boshlash'},
+          {'id': 'stage-$i', 'kind': 'apparatus',
+            'apparatus_id': machine.id, 'title': machine.name},
+          {'id': 'end', 'kind': 'end', 'title': 'Tugatish'},
         ],
-        'edges': []
+        'edges': [
+          {'from': 'start', 'to': 'stage-$i'},
+          {'from': 'stage-$i', 'to': 'end'},
+        ],
       },
       'program': <String, dynamic>{},
     })
@@ -67,7 +77,7 @@ Widget screen({bool materialMode = false, bool sequenceMode = false,
         qolipTasksMode: !materialMode && !sequenceMode,
         materialTasksMode: materialMode && !sequenceMode,
         apparatusLoader: () async => [machine],
-        liveEventsLoader: liveEventsLoader ?? () => const Stream.empty(),
+        liveEventsLoader: liveEventsLoader ?? () => Stream<Object>.multi((_) {}),
         queueSnapshotLoader: () async => AdminApparatusQueueSnapshot(
           maps: orders,
           revision: snapshotRevision?.call() ?? 1,
@@ -87,10 +97,19 @@ Widget screen({bool materialMode = false, bool sequenceMode = false,
       ),
     );
 
+Future<void> _pumpTaskScreen(WidgetTester tester, Widget screen) async {
+  await tester.pumpWidget(screen);
+  // The initial REST read starts after the bounded cache restore.
+  await tester.pump(const Duration(milliseconds: 550));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() async {
     OrderImageCache.debugOverride = OrderImageCache(disk: _NoImageDisk());
+    ProductionSnapshotStore.debugOverride =
+        ProductionSnapshotStore(backend: MemoryProductionSnapshotBackend());
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(false);
     AdminSequenceApparatusStore.instance.clearCache();
@@ -106,6 +125,7 @@ void main() {
   });
   tearDown(() {
     OrderImageCache.debugOverride = null;
+    ProductionSnapshotStore.debugOverride = null;
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -162,9 +182,12 @@ void main() {
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(usbChannel, null);
       });
       await http.runWithClient(() async {
-        await tester.pumpWidget(screen(materialMode: true));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('material-task-zakaz-3')));
+        await _pumpTaskScreen(tester, screen(materialMode: true));
+        final task = find.byKey(const ValueKey('material-task-zakaz-3'));
+        expect(task, findsOneWidget,
+            reason: tester.widgetList<Text>(find.byType(Text))
+                .map((text) => text.data).join(' | '));
+        await tester.tap(task);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('production-materials-expansion')));
         await tester.pumpAndSettle();
@@ -238,7 +261,7 @@ void main() {
       var received = false;
       GScaleModeArgs? selected;
       await http.runWithClient(() async {
-        await tester.pumpWidget(screen(
+        await _pumpTaskScreen(tester, screen(
           materialMode: true,
           sequenceMode: sequenceMode,
           onGenerateRoute: (settings) {
@@ -248,7 +271,6 @@ void main() {
                 builder: (_) => const Scaffold(body: Text('Receipt')));
           },
         ));
-        await tester.pumpAndSettle();
         await tester.tap(find.byKey(ValueKey(sequenceMode
             ? 'sequence-static-${machine.id}-zakaz-3'
             : 'material-task-zakaz-3')));
@@ -301,7 +323,7 @@ void main() {
 
   for (final liveUpdate in [true, false]) {
     testWidgets(
-      'material task returns after transfer unlinks the last material with unchanged queue IDs (${liveUpdate ? 'live' : 'polling'})',
+      'material task returns after transfer unlinks the last material with unchanged queue IDs (${liveUpdate ? 'live' : 'foreground reload'})',
       (tester) async {
         AppSession.instance.profile = AppSession.instance.profile!.copyWith(
           role: UserRole.materialTaminotchi,
@@ -345,21 +367,31 @@ void main() {
               ),
             );
           } else {
+            final previousReads = taskReads;
             await tester.pump(const Duration(seconds: 2));
+            expect(taskReads, previousReads,
+                reason: 'An idle task list does not poll');
+            for (final state in [
+              AppLifecycleState.inactive,
+              AppLifecycleState.hidden,
+              AppLifecycleState.paused,
+              AppLifecycleState.hidden,
+              AppLifecycleState.inactive,
+              AppLifecycleState.resumed,
+            ]) {
+              tester.binding.handleAppLifecycleStateChanged(state);
+            }
           }
           await tester.pumpAndSettle();
         }
 
         await http.runWithClient(
           () async {
-            await tester.pumpWidget(
-              screen(
+            await _pumpTaskScreen(tester, screen(
                 materialMode: true,
                 liveEventsLoader: () => events.stream,
                 snapshotRevision: () => revision,
-              ),
-            );
-            await tester.pumpAndSettle();
+              ));
             final task = find.byKey(const ValueKey('material-task-zakaz-3'));
             expect(task, findsNothing);
             expect(taskReads, 1);
@@ -448,12 +480,11 @@ void main() {
     var completed = false;
     GScaleModeArgs? selected;
     await http.runWithClient(() async {
-      await tester.pumpWidget(screen(materialMode: true, onGenerateRoute: (settings) {
+      await _pumpTaskScreen(tester, screen(materialMode: true, onGenerateRoute: (settings) {
         expect(settings.name, AppRoutes.gscaleMode);
         selected = settings.arguments as GScaleModeArgs;
         return MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Receipt')));
       }));
-      await tester.pumpAndSettle();
       expect(AppRouter.canOpenRoute(AppRoutes.materialTasks), isTrue);
       expect(find.byKey(const ValueKey('material-task-zakaz-3')), findsOneWidget);
       expect(find.byKey(const ValueKey('material-task-zakaz-6')), findsOneWidget);
@@ -562,8 +593,7 @@ void main() {
     final missing = {'zakaz-3', 'zakaz-6'};
     final requests = <List<String>>[];
     await http.runWithClient(() async {
-      await tester.pumpWidget(screen());
-      await tester.pumpAndSettle();
+      await _pumpTaskScreen(tester, screen());
       expect(find.byKey(const ValueKey('qolip-task-zakaz-3')), findsOneWidget);
       expect(find.byKey(const ValueKey('qolip-task-zakaz-6')), findsOneWidget);
       expect(find.text('Profil'), findsNothing);
@@ -643,8 +673,7 @@ void main() {
       (tester) async {
     var failing = true;
     await http.runWithClient(() async {
-      await tester.pumpWidget(screen());
-      await tester.pumpAndSettle();
+      await _pumpTaskScreen(tester, screen());
       expect(
           find.text(
               'Qolip QR holatini tekshirib bo‘lmadi. Qayta urinib ko‘ring.'),
