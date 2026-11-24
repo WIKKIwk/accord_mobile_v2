@@ -68,8 +68,9 @@ void _registeradmin_production_map_test_screen_testCases08() {
       find.text('Tartibni o‘zgartirish uchun buyurtmani ushlab torting'),
       findsNothing,
     );
-    expect(find.byTooltip('Buyurtma ma’lumotlari'), findsOneWidget);
-    await tester.tap(find.byTooltip('Buyurtma ma’lumotlari'));
+    await tester.tap(find.byKey(
+      const ValueKey('sequence-static-$_godexId-zakaz-supply-sequence-order'),
+    ));
     await tester.pumpAndSettle();
     expect(find.text('Buyurtma kodi'), findsOneWidget);
     Navigator.of(tester.element(find.text('Buyurtma kodi'))).pop();
@@ -186,7 +187,8 @@ void _registeradmin_production_map_test_screen_testCases08() {
     );
     await tester.pumpAndSettle();
 
-    final orderFinder = find.textContaining('Qolip sequence order');
+    final orderFinder =
+        find.byKey(const ValueKey('sequence-static-$apparatus-$orderId'));
     expect(
       find.text(
         'Bir marta bosing — ma’lumot. Uzoq bosing — order qoliplarini ochish.',

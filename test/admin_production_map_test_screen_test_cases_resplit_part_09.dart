@@ -74,7 +74,8 @@ void _registeradmin_production_map_test_screen_testCases09() {
     );
     await tester.pumpAndSettle();
 
-    final orderFinder = find.textContaining('Material action order');
+    final orderFinder =
+        find.byKey(const ValueKey('sequence-static-$apparatus-$orderId'));
     expect(orderFinder, findsOneWidget);
     expect(
       find.text('Bir marta bosing — ma’lumot. Uzoq bosing — homashyo ulash.'),
@@ -91,7 +92,7 @@ void _registeradmin_production_map_test_screen_testCases09() {
     Navigator.of(tester.element(find.text('Buyurtma kodi'))).pop();
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.textContaining('Material action order'));
+    await tester.longPress(orderFinder.hitTestable());
     await tester.pumpAndSettle();
     expect(find.text('Buyurtmaga homashyo ulash'), findsOneWidget);
     expect(
@@ -250,7 +251,8 @@ void _registeradmin_production_map_test_screen_testCases09() {
       find.byKey(const ValueKey('admin-filter-option-Godex aparat - DEMO')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Material unlink order'));
+    await tester.tap(
+        find.byKey(const ValueKey('sequence-static-$apparatus-$orderId')));
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('production-materials-expansion')),
@@ -343,7 +345,8 @@ void _registeradmin_production_map_test_screen_testCases09() {
     );
     await tester.pumpAndSettle();
 
-    final orderFinder = find.textContaining('Material empty order');
+    final orderFinder =
+        find.byKey(const ValueKey('sequence-static-$apparatus-$orderId'));
     expect(orderFinder, findsOneWidget);
     await tester.longPress(orderFinder);
     await tester.pumpAndSettle();
