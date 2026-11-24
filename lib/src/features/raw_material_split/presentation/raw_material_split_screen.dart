@@ -436,7 +436,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
     return FilledButton(
         onPressed: _locked ? null : _addRoll,
         style: FilledButton.styleFrom(
-            minimumSize: Size.zero,
+            minimumSize: const Size(0, 56),
             padding: const EdgeInsets.symmetric(horizontal: 8),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             shape: RoundedRectangleBorder(

@@ -333,8 +333,10 @@ void main() {
         await tester.scrollUntilVisible(find.text(text), 150,
             scrollable: find.byType(Scrollable).first);
       }
-      await tester.ensureVisible(find.text(text));
-      await tester.tap(find.text(text));
+      final action = find.text(text);
+      await Scrollable.ensureVisible(tester.element(action), alignment: 0.45);
+      await tester.pumpAndSettle();
+      await tester.tap(action.hitTestable());
       await tester.pumpAndSettle();
     }
 
@@ -413,7 +415,7 @@ void main() {
       await tester.tap(find.text('Film'));
       await tester.pumpAndSettle();
       expect(find.text('Sabab: Tarozi tekshirilsin'), findsOneWidget);
-      expect(find.text('QR: parent'), findsOneWidget);
+      expect(find.text('parent'), findsOneWidget);
       expect(find.textContaining('Cutter ·'), findsOneWidget);
       expect(find.byTooltip('Shu rulonni qayta chop etish'), findsNothing);
       expect(find.text('Muammo bo‘yicha rulonlar saqlangan.'), findsOneWidget);
@@ -460,7 +462,8 @@ void main() {
                     'kg': '98.000000',
                     'gross_kg': '99.000000',
                     'bobina_kg': '1.000000',
-                    'width_mm': '700.000000'
+                    'width_mm': '700.000000',
+                    'length_m': '1000.000000'
                   }
                 ]);
                 report = _issueResult(body);
@@ -542,8 +545,8 @@ void main() {
       expect(tester.widget<TextField>(widths.first).decoration!.suffixIcon,
           isNull);
       expect(find.byTooltip('Enni tasdiqlash'), findsNothing);
-      expect(tester.getCenter(find.text('Netto: —')).dy,
-          closeTo(tester.getCenter(bobinas.first).dy, 0.1));
+      expect(tester.getRect(find.text('Netto: —')).top,
+          greaterThan(tester.getRect(bobinas.first).bottom));
       final widthBeforeWarning = tester.getRect(widths.first);
       await _submitWidth(tester, 0, '350');
       final warning = find.text('1-rulon: Eni kamida 355 mm bo‘lsin');
@@ -567,8 +570,8 @@ void main() {
       expect(find.text('Atxotga ketadi: 300 mm'), findsOneWidget);
       expect(find.text('Rulon qo‘shish'), findsNothing);
       expect(find.text('+ rulon'), findsNothing);
-      expect(tester.getCenter(find.text('Netto: —')).dy,
-          closeTo(tester.getCenter(bobinas.first).dy, 0.1));
+      expect(tester.getRect(find.text('Netto: —')).top,
+          greaterThan(tester.getRect(bobinas.first).bottom));
 
       sourceWidth = '1000';
       await scan();
@@ -593,8 +596,8 @@ void main() {
           .inputDecorationTheme
           .enabledBorder as OutlineInputBorder;
       expect(addShape.borderRadius, inputShape.borderRadius);
-      expect(tester.getRect(find.text('Netto: —')).top,
-          greaterThan(addRect.bottom));
+      expect(tester.getCenter(find.text('Netto: —')).dy,
+          closeTo(addRect.center.dy, 0.1));
       await _tapAddRoll(tester);
       expect(widths, findsNWidgets(2));
       expect(add, findsNothing); // An empty draft cannot be added twice.
@@ -783,7 +786,8 @@ void main() {
           'width_mm': '400',
           'kg': '5',
           'gross_kg': '6',
-          'bobina_kg': '1'
+          'bobina_kg': '1',
+          'length_m': '1000'
         },
         {
           ...source,
@@ -792,7 +796,8 @@ void main() {
           'width_mm': '400',
           'kg': '6',
           'gross_kg': '6.5',
-          'bobina_kg': '0.5'
+          'bobina_kg': '0.5',
+          'length_m': '1200'
         },
       ],
     };
@@ -851,6 +856,8 @@ void main() {
       expect(printed[0], containsPair('tare_enabled', true));
       expect(printed[1], containsPair('gross_qty', 6.5));
       expect(printed[1], containsPair('tare_kg', 0.5));
+      expect(printed[0], containsPair('progress_qty', 1000.0));
+      expect(printed[1], containsPair('progress_qty', 1200.0));
       expect(printed[0]['epc'], isNot(printed[1]['epc']));
       expect(await MobileApi.instance.rawSplitPending(), isNull);
       expect(tester.takeException(), isNull);
@@ -868,13 +875,15 @@ void main() {
                     'kg': '5.000000',
                     'width_mm': '400.000000',
                     'gross_kg': '6.000000',
-                    'bobina_kg': '1.000000'
+                    'bobina_kg': '1.000000',
+                    'length_m': '1000.000000'
                   },
                   {
                     'kg': '6.000000',
                     'width_mm': '400.000000',
                     'gross_kg': '6.500000',
-                    'bobina_kg': '0.500000'
+                    'bobina_kg': '0.500000',
+                    'length_m': '1200.000000'
                   },
                 ]);
                 return _json(result);
