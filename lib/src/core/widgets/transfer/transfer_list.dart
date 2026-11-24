@@ -158,11 +158,15 @@ class TransferItemTitle extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           );
         }
-        // Kod doim ko'rinib turadi, faqat uzun nom karusel bo'ladi.
+        // Tor ekranda uzun kod nom uchun ham joy qoldiradi.
         return Row(
           children: [
-            Flexible(
-              flex: 0,
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: title.isEmpty
+                    ? constraints.maxWidth
+                    : constraints.maxWidth / 2,
+              ),
               child: Text.rich(
                 TextSpan(
                   children: [
@@ -177,7 +181,7 @@ class TransferItemTitle extends StatelessWidget {
                   ],
                 ),
                 maxLines: 1,
-                overflow: TextOverflow.clip,
+                overflow: TextOverflow.ellipsis,
                 softWrap: false,
               ),
             ),
