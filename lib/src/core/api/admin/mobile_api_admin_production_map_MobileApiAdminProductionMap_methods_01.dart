@@ -288,6 +288,7 @@ extension MobileApiAdminProductionMapAstPart01 on MobileApi {
               : map;
           orderMap = orderMap.copyWith(
             combo: template.combo,
+            customerName: template.customer.trim(),
             printValSizeMm: template.printValSizeMm,
             clearPrintValSize: template.printValSizeMm == null,
           );

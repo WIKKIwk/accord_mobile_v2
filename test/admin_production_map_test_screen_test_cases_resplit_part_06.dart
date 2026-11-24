@@ -146,37 +146,36 @@ void _registeradmin_production_map_test_screen_testCases06() {
     tester,
   ) async {
     await TestModeController.instance.setEnabled(true);
-    await MobileApi.instance.upsertCalculateOrderTemplate(
-      CalculateOrderTemplate(
-        id: 'customer-template-2',
-        code: 'CUSTOMER-ORDER-2',
-        name: 'Customer order 2',
-        savedAt: DateTime.fromMillisecondsSinceEpoch(0),
-        orderNumber: '',
-        customerRef: 'CUSTOMER-2',
-        customer: 'Customer 2',
-        itemCode: 'ITEM-002',
-        product: 'zenit frutto ninja 70gr',
-        status: '',
-        materialDisplay: '',
-        color: '',
-        imageId: '',
-        imageName: '',
-        imageMime: '',
-        imageSizeBytes: 0,
-        imageUrl: '',
-        widthMm: 650,
-        wastePercent: 5,
-        rollCount: 7,
-        firstLayerMaterial: '',
-        firstLayerMicron: '',
-        secondLayerMaterial: '',
-        secondLayerMicron: '',
-        thirdLayerMaterial: '',
-        thirdLayerMicron: '',
-        note: '',
-      ),
+    final template = CalculateOrderTemplate(
+      id: 'customer-template-2',
+      code: 'CUSTOMER-ORDER-2',
+      name: 'Customer order 2',
+      savedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      orderNumber: '',
+      customerRef: 'CUSTOMER-2',
+      customer: 'Customer 2',
+      itemCode: 'ITEM-002',
+      product: 'zenit frutto ninja 70gr',
+      status: '',
+      materialDisplay: '',
+      color: '',
+      imageId: '',
+      imageName: '',
+      imageMime: '',
+      imageSizeBytes: 0,
+      imageUrl: '',
+      widthMm: 650,
+      wastePercent: 5,
+      rollCount: 7,
+      firstLayerMaterial: '',
+      firstLayerMicron: '',
+      secondLayerMaterial: '',
+      secondLayerMicron: '',
+      thirdLayerMaterial: '',
+      thirdLayerMicron: '',
+      note: '',
     );
+    await MobileApi.instance.upsertCalculateOrderTemplate(template);
     await _usePhoneViewport(tester);
     await tester.pumpWidget(
       MaterialApp(
@@ -189,9 +188,11 @@ void _registeradmin_production_map_test_screen_testCases06() {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapTestScreen(
+        home: AdminProductionMapTestScreen(
           orderContext: ProductionMapOrderContext(
-            templateId: 'ORDER-2',
+            templateId: template.id,
+            templateDraft: template,
+            templateAction: 'use',
             orderName: 'Zenit opened',
             productName: 'zenit frutto ninja 70gr',
             itemCode: 'ITEM-002',
@@ -224,6 +225,8 @@ void _registeradmin_production_map_test_screen_testCases06() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Buyurtmalar'));
+    await tester.pumpAndSettle();
     expect(find.text('Buyurtmani izlash'), findsOneWidget);
     expect(find.textContaining('Zenit opened'), findsOneWidget);
     expect(find.textContaining('Customer 2'), findsOneWidget);
