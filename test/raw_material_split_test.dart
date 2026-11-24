@@ -993,13 +993,14 @@ void main() {
                   : _json({'ok': true, 'status': 'done', 'barcode': 'child1'});
             }));
   });
-  testWidgets('scan lookup and measured weights show 98 stock plus 2 waste',
+  testWidgets('roll lookup shows preparation notes and keeps measured weights',
       (tester) async {
     tester.view.physicalSize = const Size(800, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     var saves = 0;
+    final scanned = <String>[];
     await http.runWithClient(() async {
       await tester.pumpWidget(const MaterialApp(
           locale: Locale('uz'),
@@ -1014,6 +1015,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'parent');
       await tester.tap(find.byTooltip('Rulonni topish'));
+      await tester.pumpAndSettle();
+      final notes = find.byKey(const ValueKey('scanned-preparation-roll-notes'));
+      expect(notes, findsOneWidget);
+      expect(find.text('Batchni tekshiring'), findsOneWidget);
+      expect(find.text('Rulon chetini tekshiring'), findsOneWidget);
+      await tester.tap(
+          find.descendant(of: notes, matching: find.byType(TextButton)));
       await tester.pumpAndSettle();
       final weights = find.widgetWithText(TextField, 'Og‘irlik (kg)');
       final bobinas = find.widgetWithText(TextField, 'Babina (kg)');
@@ -1080,6 +1088,14 @@ void main() {
       expect(saves, 0);
       expect(find.textContaining('Asl vazndan 0.000001 kg oshib ketdi'),
           findsOneWidget);
+      final barcode = find.widgetWithText(TextField, 'Rulon QR / shtrix-kodi');
+      await tester.ensureVisible(barcode);
+      await tester.enterText(barcode, 'child1');
+      await tester.tap(find.byTooltip('Rulonni topish'));
+      await tester.pumpAndSettle();
+      expect(scanned, ['parent', 'child1']);
+      expect(notes, findsNothing);
+      expect(find.text('Rulon chetini tekshiring'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     },
@@ -1088,7 +1104,23 @@ void main() {
                 saves++;
                 return _json(_result);
               }
-              if (request.url.path.endsWith('/source')) return _json(_source);
+              if (request.url.path.endsWith('/source')) {
+                return _json(request.url.queryParameters['barcode'] == 'child1'
+                    ? (_result['outputs'] as List).first
+                    : _source);
+              }
+              if (request.url.path.endsWith('/production/notes/scan')) {
+                final code = request.url.queryParameters['barcode']!;
+                scanned.add(code);
+                if (code == 'child1') {
+                  return _json({'barcode': code, 'batch_note': null, 'roll_note': null});
+                }
+                return _json({
+                  'barcode': 'parent',
+                  'batch_note': {'text': 'Batchni tekshiring', 'revision': 1},
+                  'roll_note': {'text': 'Rulon chetini tekshiring', 'revision': 1},
+                });
+              }
               return _json({
                 'warehouses': ['Raw W'],
                 'history': []

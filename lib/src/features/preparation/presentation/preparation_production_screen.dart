@@ -25,12 +25,15 @@ import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
+import '../../admin/presentation/widgets/admin_top_notice.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../models/preparation_models.dart';
 import 'material_paddon_details_sheet.dart';
 import 'material_paddon_receipt_dialog.dart';
 import 'preparation_navigation.dart';
+
+part 'preparation_production_notes.dart';
 
 class PreparationProductionScreen extends StatefulWidget {
   const PreparationProductionScreen({super.key}) : materialPaddonsOnly = false;
@@ -82,6 +85,7 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
   Future<_JournalPage<T>> request(int offset);
   String identity(T item);
   void received(PreparationProductionPage page) {}
+  void clearSummary() {}
 
   bool get currentAccount => _valid && _scope == currentSessionReadScope();
   bool get canRefresh =>
@@ -110,6 +114,7 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
     _timer?.cancel();
     setState(() {
       items = [];
+      clearSummary();
       hasMore = false;
       loading = false;
       error = 'Akkaunt o‘zgargan. Sahifani qayta oching';
@@ -276,7 +281,10 @@ enum _ProductionView { orders, batches, rolls, paddons }
 
 class _ProductionOrdersState
     extends _JournalState<PreparationProductionScreen, PreparationProductionRow>
-    with SingleTickerProviderStateMixin {
+    with
+        SingleTickerProviderStateMixin,
+        _ProductionRollNotes<PreparationProductionScreen,
+            PreparationProductionRow> {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _searchDebounce;
@@ -320,6 +328,12 @@ class _ProductionOrdersState
   @override
   String identity(PreparationProductionRow item) => item.journalKey;
 
+  @override
+  void clearSummary() {
+    super.clearSummary();
+    clearRollNotes();
+  }
+
   void _searchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), _filter);
@@ -348,6 +362,7 @@ class _ProductionOrdersState
       }
       _query = query;
       _statusExpanded = false;
+      _selectedRolls.clear();
       items = [];
       nextOffset = null;
       hasMore = false;
@@ -581,6 +596,7 @@ class _ProductionOrdersState
                 },
               ),
             ),
+            if (_selectedRolls.isNotEmpty) rollSelectionActions(),
             Expanded(
                 child: journal(
                     empty: _showPaddons
@@ -599,7 +615,7 @@ class _ProductionOrdersState
                             context, item, slot,
                             showOrder: true),
                         PreparationProductionRoll() =>
-                          _productionRollRow(context, item, slot, canOpen: currentAccount),
+                          rollRow(item, slot, showMaterial: true),
                         PreparationMaterialPaddon() =>
                           _materialPaddonRow(item, slot, () => _openPaddon(item)),
                       };
@@ -675,28 +691,22 @@ class _ProductionOrderState extends _JournalState<
                         0, items.length + 1),
                     icon: Icons.receipt_long_outlined,
                     title: order.title,
-                    subtitle: order.customerName,
+                    subtitle: [
+                      order.customerName,
+                      if (order.legacyNote case final note?
+                          when note.text.isNotEmpty)
+                        'Buyurtma eslatmasi: ${note.text}',
+                    ].where((line) => line.isNotEmpty).join('\n'),
                     metrics:
                         '${order.rollCount} ta rulon • ${preparationDisplay(order.netKg)} kg • ${preparationDisplay(order.lengthM)} m',
                   ),
                 for (final (index, batch) in items.indexed)
-                  _JournalListRow(
-                    key: ValueKey('production-batch:${batch.id}'),
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                  _productionBatchRow(
+                    context,
+                    batch,
+                    M3SegmentedListGeometry.standaloneListSlotForIndex(
                         index + (_order == null ? 0 : 1),
                         items.length + (_order == null ? 0 : 1)),
-                    icon: Icons.inventory_2_outlined,
-                    title: batch.displayItem,
-                    subtitle:
-                        '${batch.formulaName}\n${batch.active ? 'Davom etmoqda' : 'Yakunlangan'} • ${batch.warehouse} • ${_date(batch.lastActivityAt)}',
-                    metrics:
-                        '${batch.rollCount} ta rulon • ${preparationDisplay(batch.netKg)} kg • ${preparationDisplay(batch.lengthM)} m',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => PreparationProductionBatchScreen(
-                            batchId: batch.id),
-                      ),
-                    ),
                   ),
               ]),
             ]),
@@ -704,8 +714,16 @@ class _ProductionOrderState extends _JournalState<
 }
 
 class _ProductionBatchState extends _JournalState<
-    PreparationProductionBatchScreen, PreparationProductionRoll> {
+        PreparationProductionBatchScreen, PreparationProductionRoll>
+    with
+        _ProductionRollNotes<PreparationProductionBatchScreen,
+            PreparationProductionRoll> {
   PreparationProductionBatch? _batch;
+  PreparationOutputNote? _savedBatchNote;
+
+  PreparationOutputNote? get _batchNote =>
+      _latestNote(_batch?.note, _savedBatchNote);
+
   @override
   Future<_JournalPage<PreparationProductionRoll>> request(int offset) async {
     final page = await MobileApi.instance
@@ -714,39 +732,80 @@ class _ProductionBatchState extends _JournalState<
   }
 
   @override
-  String identity(PreparationProductionRoll item) => item.epc;
+  String identity(PreparationProductionRoll item) => item.journalKey;
   @override
   void received(PreparationProductionPage page) =>
       _batch = (page as PreparationProductionBatchPage).batch;
   @override
-  void clearSummary() => _batch = null;
+  void clearSummary() {
+    _batch = null;
+    _savedBatchNote = null;
+    clearRollNotes();
+  }
+
   @override
   void didUpdateWidget(PreparationProductionBatchScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.batchId != widget.batchId) {
       items = [];
-      _batch = null;
+      clearSummary();
       unawaited(load());
     }
   }
 
+  Future<void> _editBatchNote(PreparationProductionBatch batch) async {
+    if (!currentAccount || !batch.canAttachNote || _batch?.id != batch.id) {
+      return;
+    }
+    final note = _batchNote;
+    bool currentBatch() => mounted && currentAccount && _batch?.id == batch.id;
+    final saved = await _editProductionNote<PreparationOutputNote>(
+      context,
+      title: 'Batch eslatmasi',
+      description: 'Eslatma shu batchdagi har bir asl rulon kesilguncha amal qiladi.',
+      existing: [note],
+      currentAccount: currentBatch,
+      save: (text, audience) => MobileApi.instance.savePreparationBatchNote(
+        batch.id, text, note?.revision ?? 0, audience: audience,
+      ),
+      refresh: () => unawaited(load()),
+    );
+    if (saved == null || !currentBatch()) return;
+    setState(() => _savedBatchNote = saved);
+    unawaited(load(silent: true));
+  }
+
   @override
-  Widget build(BuildContext context) => AppShell(
-        title: _batch?.displayItem ?? 'Tayyorlov hisobi',
-        subtitle: '',
-        nativeTopBar: true,
-        contentPadding: EdgeInsets.zero,
-        bottom: const PreparationDock(showPrimaryFab: false),
-        child: journal(
+  Widget build(BuildContext context) {
+    final batch = _batch;
+    final note = _batchNote;
+    final showNote = batch?.canAttachNote == true;
+    final headerCount = batch == null
+        ? 0
+        : showNote
+            ? 3
+            : 2;
+    final rowCount = items.length + headerCount;
+    M3SegmentVerticalSlot slot(int index) =>
+        M3SegmentedListGeometry.standaloneListSlotForIndex(index, rowCount);
+    return AppShell(
+      title: _batch?.displayItem ?? 'Tayyorlov hisobi',
+      subtitle: '',
+      nativeTopBar: true,
+      contentPadding: EdgeInsets.zero,
+      bottom: const PreparationDock(showPrimaryFab: false),
+      child: Column(children: [
+        if (_selectedRolls.isNotEmpty) rollSelectionActions(),
+        Expanded(
+            child: journal(
           empty: 'Hali rulon kirim qilinmagan.',
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
           children: [
             M3SegmentSpacedColumn(children: [
-              if (_batch case final batch?) ...[
+              if (batch != null) ...[
                 _JournalListRow(
                   key: const ValueKey('production-batch-summary'),
-                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      0, items.length + 2),
+                  slot: slot(0),
                   icon: Icons.inventory_2_outlined,
                   title: batch.active ? 'Davom etmoqda' : 'Yakunlangan',
                   subtitle:
@@ -757,28 +816,36 @@ class _ProductionBatchState extends _JournalState<
                 _ProductionRecipe(
                   key: const ValueKey('production-batch-recipe'),
                   formula: batch.formula,
-                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      1, items.length + 2),
+                  slot: slot(1),
                 ),
+                if (showNote)
+                  _JournalListRow(
+                    key: const ValueKey('production-batch-note'),
+                    slot: slot(2),
+                    icon: Icons.edit_note_rounded,
+                    title: note?.text.isNotEmpty == true
+                        ? 'Batch eslatmasi'
+                        : 'Batchga eslatma',
+                    subtitle: note?.text ?? '',
+                    metrics: note != null && note.text.isNotEmpty
+                        ? _noteAudienceLabel(context, note.audience)
+                        : '',
+                    onTap: currentAccount ? () => _editBatchNote(batch) : null,
+                  ),
               ],
               for (final (index, roll) in items.indexed)
-                _JournalListRow(
-                  key: ValueKey('production-roll:${roll.epc}'),
-                  slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index + (_batch == null ? 0 : 2),
-                      items.length + (_batch == null ? 0 : 2)),
-                  icon: Icons.qr_code_2_rounded,
-                  title: roll.epc,
-                  titleMaxLines: 2,
-                  subtitle: '${_date(roll.printedAt)} • ${roll.warehouse}',
-                  metrics:
-                      '${preparationDisplay(roll.netKg)} kg${roll.lengthM == null ? '' : ' • ${preparationDisplay(roll.lengthM!)} m'}${roll.widthMm == null ? '' : ' • ${preparationDisplay(roll.widthMm!)} mm'}${roll.micron == null ? '' : ' • ${preparationDisplay(roll.micron!)} mkm'}',
-                  onTap: () => _showRoll(context, roll, _batch?.orderId ?? ''),
+                rollRow(
+                  roll,
+                  slot(index + headerCount),
+                  batchOrderId: batch?.orderId ?? '',
+                  batchNote: note,
                 ),
             ]),
           ],
-        ),
-      );
+        )),
+      ]),
+    );
+  }
 }
 
 String _nonEmpty(String preferred, String fallback, String otherwise) =>
@@ -858,29 +925,6 @@ Widget _materialPaddonRow(
   onTap: onTap,
 );
 
-
-Widget _productionRollRow(
-  BuildContext context,
-  PreparationProductionRoll roll,
-  M3SegmentVerticalSlot slot, {
-  required bool canOpen,
-}) =>
-    _JournalListRow(
-      key: ValueKey('production-roll:\${roll.epc}'),
-      slot: slot,
-      icon: Icons.qr_code_2_rounded,
-      title: _nonEmpty(roll.itemName, roll.itemCode, roll.epc),
-      titleMaxLines: 2,
-      subtitle: [
-        roll.epc,
-        if (roll.orderId.isNotEmpty)
-          _orderLabel(roll.orderCode, roll.orderId, roll.orderTitle),
-        '\${_date(roll.printedAt)} • \${roll.warehouse}',
-      ].join('\n'),
-      metrics: '\${preparationDisplay(roll.netKg)} kg',
-      onTap: canOpen ? () => _showRoll(context, roll, roll.orderId) : null,
-    );
-
 class _JournalListRow extends StatelessWidget {
   const _JournalListRow({
     super.key,
@@ -891,13 +935,14 @@ class _JournalListRow extends StatelessWidget {
     required this.metrics,
     this.titleMaxLines = 1,
     this.onTap,
+    this.onLongPress,
   });
 
   final M3SegmentVerticalSlot slot;
   final IconData icon;
   final String title, subtitle, metrics;
   final int titleMaxLines;
-  final VoidCallback? onTap;
+  final VoidCallback? onTap, onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -909,10 +954,11 @@ class _JournalListRow extends StatelessWidget {
       titleMaxLines: titleMaxLines,
       subtitle: [
         if (subtitle.isNotEmpty) l10n.uiText(subtitle),
-        l10n.uiText(metrics),
+        if (metrics.isNotEmpty) l10n.uiText(metrics),
       ].join('\n'),
       subtitleMaxLines: 8,
       onTap: onTap,
+      onLongPress: onLongPress,
     );
   }
 }
@@ -984,11 +1030,23 @@ String _date(String raw) {
   return '${two(value.day)}.${two(value.month)}.${value.year} ${two(value.hour)}:${two(value.minute)}';
 }
 
+Widget _rollNoteDetails(BuildContext context, PreparationOutputNote note) =>
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        UrduAwareText(note.text),
+        Text(_noteAudienceLabel(context, note.audience)),
+      ],
+    );
+
 Future<void> _showRoll(
   BuildContext context,
   PreparationProductionRoll roll,
-  String orderId,
-) {
+  String orderId, {
+  PreparationOutputNote? batchNote,
+  PreparationOutputNote? rollNote,
+}) {
   final scope = currentSessionReadScope();
   return showModalBottomSheet<void>(
     context: context,
@@ -1007,7 +1065,26 @@ Future<void> _showRoll(
           : error is PlatformException && error.message?.isNotEmpty == true
               ? error.message!
               : error.toString().replaceFirst('Bad state: ', ''),
-      detailsContent: _ProductionRecipe(formula: roll.formula),
+      detailsContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (batchNote != null && batchNote.text.isNotEmpty)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.sticky_note_2_outlined),
+              title: const UrduAwareText('Batch eslatmasi'),
+              subtitle: _rollNoteDetails(context, batchNote),
+            ),
+          if (rollNote != null && rollNote.text.isNotEmpty)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.sticky_note_2_outlined),
+              title: const UrduAwareText('Rulon eslatmasi'),
+              subtitle: _rollNoteDetails(context, rollNote),
+            ),
+          _ProductionRecipe(formula: roll.formula),
+        ],
+      ),
       details: [
         RpsQrDetail('Kirim raqami', roll.receiptName),
         RpsQrDetail('Netto', '${preparationDisplay(roll.netKg)} kg'),

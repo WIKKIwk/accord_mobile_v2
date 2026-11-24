@@ -324,6 +324,15 @@ extension _ReadOnlyWorkerWipScan on _ReadOnlyOrderDetailSheetState {
       return null;
     }
     if (wip == null) {
+      if (await _showNotesForMaterialScan(rawMaterialBarcodeFromQr(qr))) {
+        _wipScanHandled = true;
+        if (mounted &&
+            scope == currentSessionReadScope() &&
+            _materialContextIsCurrent(openedId, openedStation)) {
+          _updateWipScanState(() => _quickScanStatus = _defaultQuickScanStatus());
+        }
+        return null;
+      }
       if (purpose == _WorkerWipScanPurpose.merge ||
           purpose == _WorkerWipScanPurpose.context) {
         await _showWipScanGuidance(

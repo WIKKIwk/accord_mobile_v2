@@ -260,6 +260,18 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
                 label: 'Buyurtma',
                 value: orderLabel!,
               ),
+            if (asset.batchNote case final note? when note.text.isNotEmpty)
+              _AssetSheetDetail(
+                icon: Icons.sticky_note_2_outlined,
+                label: 'Batch eslatmasi',
+                value: note.text,
+              ),
+            if (asset.rollNote case final note? when note.text.isNotEmpty)
+              _AssetSheetDetail(
+                icon: Icons.sticky_note_2_outlined,
+                label: 'Rulon eslatmasi',
+                value: note.text,
+              ),
             if (showOrderAssignment) ...[
               const SizedBox(height: 10),
               RawMaterialOrderAssignmentSection(

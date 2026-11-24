@@ -1,3 +1,7 @@
+import '../../../core/models/preparation_output_note.dart';
+
+export '../../../core/models/preparation_output_note.dart';
+
 String _text(Map<String, dynamic> json, String key) =>
     json[key]?.toString() ?? '';
 
@@ -70,9 +74,11 @@ class PreparationProductionOrder extends PreparationProductionRow {
         rollCount = _count(json, 'roll_count'),
         netKg = _amount(json, 'total_net_kg'),
         lengthM = _amount(json, 'total_length_m'),
-        lastActivityAt = _text(json, 'last_activity_at');
+        lastActivityAt = _text(json, 'last_activity_at'),
+        legacyNote = PreparationOutputNote.fromJson(json['preparation_note']);
   final String id, code, title, customerName, netKg, lengthM, lastActivityAt;
   final int activeBatchCount, batchCount, rollCount;
+  final PreparationOutputNote? legacyNote;
   String get displayCode => code.isEmpty ? id : code;
   @override
   String get journalKey => id;
@@ -94,7 +100,8 @@ class PreparationProductionBatch extends PreparationProductionRow {
         rollCount = _count(json, 'roll_count'),
         netKg = _amount(json, 'total_net_kg'),
         lengthM = _amount(json, 'total_length_m'),
-        formula = _recipe(json);
+        formula = _recipe(json),
+        note = PreparationOutputNote.fromJson(json['batch_note']);
   final String id,
       orderId,
       orderCode,
@@ -110,6 +117,8 @@ class PreparationProductionBatch extends PreparationProductionRow {
   final bool active;
   final int rollCount;
   final Map<String, dynamic>? formula;
+  final PreparationOutputNote? note;
+  bool get canAttachNote => id.startsWith('batch:') && id.length > 6;
   @override
   String get journalKey => id;
   String get displayItem => itemName.isEmpty ? itemCode : itemName;
@@ -134,7 +143,9 @@ class PreparationProductionRoll extends PreparationProductionRow {
         widthMm = json['width_mm'] == null ? null : _amount(json, 'width_mm'),
         micron = json['micron'] == null ? null : _amount(json, 'micron'),
         printedAt = _text(json, 'printed_at'),
-        formula = _recipe(json);
+        formula = _recipe(json),
+        batchNote = PreparationOutputNote.fromJson(json['batch_note']),
+        rollNote = PreparationOutputNote.fromJson(json['roll_note']);
   final String epc,
       receiptName,
       batchId,
@@ -148,6 +159,7 @@ class PreparationProductionRoll extends PreparationProductionRow {
       printedAt;
   final String? grossKg, lengthM, widthMm, micron;
   final Map<String, dynamic>? formula;
+  final PreparationOutputNote? batchNote, rollNote;
   @override
   String get journalKey => receiptName.isEmpty ? epc : receiptName;
 }

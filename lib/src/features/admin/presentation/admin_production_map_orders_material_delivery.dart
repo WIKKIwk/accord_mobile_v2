@@ -1,6 +1,17 @@
 part of 'admin_production_map_orders_screen.dart';
 
 extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
+  Future<bool> _showNotesForMaterialScan(String barcode) async {
+    if (_isTrainingOrder) return false;
+    final order = widget.order.map.id.trim();
+    final station = widget.apparatus?.id.trim() ?? '';
+    return showScannedPreparationRollNotes(
+      context,
+      barcode,
+      isCurrent: () => _materialContextIsCurrent(order, station),
+    );
+  }
+
   Future<bool> _handleRawMaterialContextScan(
     String barcode, {
     required bool mergeMode,
@@ -23,6 +34,15 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
           error.code == 'raw_material_stock_not_found') {
         return false;
       }
+      if (current() &&
+          (error.statusCode == 403 || error.code == 'apparatus_not_assigned') &&
+          await _showNotesForMaterialScan(barcode)) {
+        _wipScanHandled = true;
+        if (current()) {
+          _applyStateChange(() => _quickScanStatus = _defaultQuickScanStatus());
+        }
+        return true;
+      }
       rethrow;
     }
     if (!current()) return true;
@@ -33,6 +53,8 @@ extension _WorkerMaterialDelivery on _ReadOnlyOrderDetailSheetState {
       throw const MobileApiException(
           code: 'raw_material_lookup_invalid_response', message: '');
     }
+    await _showNotesForMaterialScan(material.barcode);
+    if (!current()) return true;
     _wipScanHandled = true;
     final assignment = material.assignment;
     final name =

@@ -3,13 +3,20 @@ part of 'admin_production_map_test_screen_test.dart';
 /// Unlike test-mode queue reads, this fixture really omits the scanned order
 /// from the parent window while retaining its authoritative scoped controls.
 class _WorkerQrWindowFixture extends _InlineWipFixture {
-  _WorkerQrWindowFixture(this.scenario) : super('start') {
+  _WorkerQrWindowFixture(
+    this.scenario, {
+    super.station,
+    this.role = UserRole.aparatchi,
+    this.scanValue = _inlineWipQr,
+  }) : super('start') {
     useOpening = scenario == 'opening WIP';
     if (scenario == 'frozen') phase = 'frozen';
     if (scenario.startsWith('handoff return')) phase = 'busy';
   }
 
   final String scenario;
+  final UserRole role;
+  final String scanValue;
   final windowReads = <http.Request>[];
   int scopedControlReads = 0;
   int mapReads = 0;
@@ -156,13 +163,17 @@ class _WorkerQrWindowFixture extends _InlineWipFixture {
   Future<void> openWindow(WidgetTester tester) async {
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.profile = SessionProfile(
-      role: UserRole.aparatchi,
+      role: role,
       displayName: 'Window worker',
       legalName: '',
       ref: 'qr-window-worker',
       phone: '',
       avatarUrl: '',
-      capabilities: const ['apparatus.queue.read', 'apparatus.queue.manage'],
+      capabilities: [
+        'apparatus.queue.read',
+        'apparatus.queue.manage',
+        if (role == UserRole.rezkaMaster) 'rezka.master.access',
+      ],
       assignedApparatus: [station],
     );
     apparatus = await MobileApi.instance.adminApparatus(limit: 200);
@@ -196,7 +207,7 @@ class _WorkerQrWindowFixture extends _InlineWipFixture {
         builder: (context) => Scaffold(
           body: TextButton(
             key: const ValueKey('return-window-qr'),
-            onPressed: () => Navigator.of(context).pop(_inlineWipQr),
+            onPressed: () => Navigator.of(context).pop(scanValue),
             child: const Text('Scan window WIP'),
           ),
         ),
@@ -204,14 +215,18 @@ class _WorkerQrWindowFixture extends _InlineWipFixture {
       home: AdminProductionMapOrdersScreen(
         readOnly: true,
         workerMode: true,
+        queueSnapshotLoader:
+            scanValue == _inlineWipQr ? null : () async => snapshot(),
         apparatusLoader: () async => apparatus,
         liveEventsLoader: () => events.stream,
       ),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('Ko‘rsatish: 10 ta'), findsOneWidget);
-    expect(find.byKey(const ValueKey('worker-order-$_inlineOrderId')),
-        findsNothing);
+    if (scanValue == _inlineWipQr) {
+      expect(find.text('Ko‘rsatish: 10 ta'), findsOneWidget);
+      expect(find.byKey(const ValueKey('worker-order-$_inlineOrderId')),
+          findsNothing);
+    }
     if (scenario == 'search') {
       await tester.enterText(find.byType(EditableText).first, 'Other visible');
       await tester.pump(const Duration(milliseconds: 400));
@@ -234,6 +249,62 @@ class _WorkerQrWindowFixture extends _InlineWipFixture {
 }
 
 void _registerWorkerQrWindowTests() {
+  for (final role in [UserRole.aparatchi, UserRole.rezkaMaster]) {
+    testWidgets('${role.name} sees preparation notes from a scanned roll',
+        (tester) async {
+      const barcode = 'PREP-ROLL-1';
+      final fixture = _WorkerQrWindowFixture('limit 10',
+          station: _rezkaId, role: role, scanValue: barcode);
+      final scannedBarcodes = <String?>[];
+      await http.runWithClient(() async {
+        try {
+          await fixture.openWindow(tester);
+          final scan = tester
+              .widget<AparatchiDock>(find.byType(AparatchiDock))
+              .onQrScanRequested!();
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('return-window-qr')));
+          await tester.pumpAndSettle();
+          final notes = find.byKey(
+              const ValueKey('scanned-preparation-roll-notes'));
+          expect(scannedBarcodes, [barcode]);
+          expect(notes, findsOneWidget);
+          expect(find.text('Batchni tekshiring'), findsOneWidget);
+          expect(find.text('Rulon chetini tekshiring'), findsOneWidget);
+          await tester.tap(find.descendant(
+              of: notes, matching: find.byType(TextButton)));
+          await tester.pumpAndSettle();
+          await scan;
+          expect(fixture.mutations, isEmpty);
+        } finally {
+          dismissAdminTopNotice();
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          await fixture.events.close();
+        }
+      }, () => MockClient((request) {
+        final path = request.url.path;
+        if (path.endsWith('/progress-qr/lookup')) {
+          return Future.value(http.Response(
+              '{"error":"progress_batch_not_found"}', 404));
+        }
+        if (path.endsWith('/opening-wip/qr/report')) {
+          return Future.value(http.Response(
+              '{"error":"forbidden"}', role == UserRole.rezkaMaster ? 403 : 404));
+        }
+        if (path.endsWith('/production/notes/scan')) {
+          scannedBarcodes.add(request.url.queryParameters['barcode']);
+          return Future.value(http.Response(jsonEncode({
+            'barcode': barcode,
+            'batch_note': {'text': 'Batchni tekshiring', 'revision': 1},
+            'roll_note': {'text': 'Rulon chetini tekshiring', 'revision': 1},
+          }), 200));
+        }
+        return fixture.respond(request);
+      }));
+    });
+  }
+
   for (final scenario in [
     'handoff return',
     'handoff return with hidden current'

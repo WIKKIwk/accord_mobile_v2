@@ -38,6 +38,7 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
   if (profile.role == UserRole.rezkaMaster) {
     return profile.hasCapability('rezka.master.access') && const {
       AppRoutes.apparatusQueue,
+      AppRoutes.adminProgressQrScan,
       AppRoutes.apparatusDailyWork,
       AppRoutes.apparatusWorkInstructions,
       AppRoutes.apparatusPaddons,

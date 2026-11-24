@@ -118,6 +118,15 @@ extension __InventoryMovementsScreenStateAstPart01
         _qrScannedAssets = List<InventoryAsset>.unmodifiable(next);
         _qrLookupStatus = '${matches.length} ta mahsulot topildi';
       });
+      if (exactMatches.any((asset) =>
+          asset.kind == InventoryAssetKind.rawMaterial &&
+          asset.identifier.trim().toLowerCase() == lookupKey)) {
+        await showScannedPreparationRollNotes(
+          context,
+          barcode,
+          isCurrent: () => _qrLookupOpen && scope == _inventoryReadScope,
+        );
+      }
     } catch (error) {
       if (mounted &&
           scope == currentSessionReadScope() &&
@@ -704,6 +713,8 @@ extension __InventoryMovementsScreenStateAstPart01
           itemCode: current?.itemCode ?? line.itemCode,
           itemName: current?.itemName ?? line.itemName,
           isMetalayzer: current?.isMetalayzer ?? false,
+          batchNote: current?.batchNote,
+          rollNote: current?.rollNote,
           identifier: current?.identifier ?? line.identifier,
           qty: current?.qty ?? line.qty,
           uom: current?.uom ?? line.uom,

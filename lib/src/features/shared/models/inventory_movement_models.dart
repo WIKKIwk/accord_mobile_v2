@@ -1,3 +1,4 @@
+import '../../../core/models/preparation_output_note.dart';
 import 'app_models.dart';
 
 enum InventoryAssetKind {
@@ -204,6 +205,8 @@ class InventoryAsset {
     this.orderAssignment,
     this.orderAssignmentKnown = false,
     this.isMetalayzer = false,
+    this.batchNote,
+    this.rollNote,
   });
 
   final InventoryAssetKind kind;
@@ -223,6 +226,8 @@ class InventoryAsset {
   // Omitted metadata (legacy/mutation response) must not mean "unassigned".
   final bool orderAssignmentKnown;
   final bool isMetalayzer;
+  final PreparationOutputNote? batchNote;
+  final PreparationOutputNote? rollNote;
 
   bool get isAvailable =>
       status.trim().toLowerCase() == 'available' && transferId.trim().isEmpty;
@@ -245,6 +250,8 @@ class InventoryAsset {
       uom: json['uom']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       isMetalayzer: json['is_metalayzer'] == true,
+      batchNote: PreparationOutputNote.fromJson(json['batch_note']),
+      rollNote: PreparationOutputNote.fromJson(json['roll_note']),
       physicalLocation: InventoryLocationReference.fromJson(
         location is Map ? location.cast<String, dynamic>() : const {},
       ),
@@ -287,6 +294,8 @@ class InventoryAsset {
           : orderAssignment ?? this.orderAssignment,
       orderAssignmentKnown: orderAssignmentKnown ?? this.orderAssignmentKnown,
       isMetalayzer: isMetalayzer,
+      batchNote: batchNote,
+      rollNote: rollNote,
     );
   }
 }

@@ -691,6 +691,211 @@ void main() {
     );
   }
 
+  testWidgets('notes and audience apply only to the selected rolls', (tester) async {
+    const secondEpc = '303132333435363738394143';
+    const thirdEpc = '303132333435363738394144';
+    const audience = {'mode': 'roles', 'roles': ['homashyo_rezkachi']};
+    const note = {
+      'text': 'Keyin tekshirilsin', 'revision': 1, 'audience': audience,
+    };
+    final rolls = [
+      _roll(),
+      {..._roll(), 'epc': secondEpc, 'receipt_name': 'MAT-TRACE-2'},
+      {..._roll(), 'epc': thirdEpc, 'receipt_name': 'MAT-TRACE-3'},
+    ];
+    var writes = 0;
+    final confirmSave = Completer<void>();
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('production-batch:batch-lg')),
+          findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-view-rolls')));
+      await tester.pumpAndSettle();
+      final first = find.byKey(const ValueKey('production-roll:$_epc'));
+      final second = find.byKey(const ValueKey('production-roll:$secondEpc'));
+      await tester.longPress(first);
+      await tester.pumpAndSettle();
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(find.text('2 ta rulonga eslatma'), findsOneWidget);
+      await tester
+          .tap(find.byKey(const ValueKey('production-selected-rolls-note')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byKey(const ValueKey('production-note-input')),
+          note['text']! as String);
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('production-note-audience')));
+      await tester.pumpAndSettle();
+      final audienceChips = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(FilterChip),
+      );
+      expect(
+        tester.widgetList<FilterChip>(audienceChips).map((chip) => chip.key),
+        const [
+          ValueKey('production-note-audience-rezka_master'),
+          ValueKey('production-note-audience-homashyo_rezkachi'),
+          ValueKey('production-note-audience-rezka_worker'),
+        ],
+      );
+      final cutter = find.byKey(const ValueKey(
+          'production-note-audience-homashyo_rezkachi'));
+      await tester.ensureVisible(cutter);
+      await tester.tap(cutter);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-note-save')));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      final notice = find.widgetWithText(MaterialBanner, 'Eslatma saqlandi');
+      expect(notice, findsNothing);
+      confirmSave.complete();
+      await tester.pumpAndSettle();
+      expect(notice, findsOneWidget);
+      expect(tester.getTopLeft(notice).dy,
+          tester.getBottomLeft(find.byType(AppBar)).dy);
+      expect(find.text('2 ta rulonga eslatma'), findsNothing);
+      await tester.tap(first);
+      await tester.pumpAndSettle();
+      expect(find.byType(RpsQrReprintSheet), findsOneWidget);
+      expect(find.text(note['text']! as String), findsOneWidget);
+      expect(find.text('Homashyo rezkachisi'), findsOneWidget);
+      Navigator.of(tester.element(find.text(note['text']! as String))).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-roll:$thirdEpc')));
+      await tester.pumpAndSettle();
+      expect(find.byType(RpsQrReprintSheet), findsOneWidget);
+      expect(find.text(note['text']! as String), findsNothing);
+    }, (request) {
+      if (request.url.path.endsWith('/production/rolls')) {
+        return _json({'rolls': rolls, 'has_more': false, 'next_offset': null});
+      }
+      if (request.url.path.endsWith('/production/notes')) {
+        expect(request.method, 'PATCH');
+        expect(jsonDecode(request.body), {
+          'scope': 'rolls',
+          'rolls': [
+            {'receipt_name': 'MAT-TRACE-1', 'expected_revision': 0},
+            {'receipt_name': 'MAT-TRACE-2', 'expected_revision': 0},
+          ],
+          'text': note['text'],
+          'audience': audience,
+        });
+        writes++;
+        return confirmSave.future.then((_) {
+          rolls[0]['roll_note'] = note;
+          rolls[1]['roll_note'] = note;
+          return _json({
+            'notes': {'MAT-TRACE-1': note, 'MAT-TRACE-2': note}
+          });
+        });
+      }
+      return _route(request);
+    });
+  });
+
+  testWidgets('an unassigned batch note keeps its text when audience changes', (tester) async {
+    const batchId = 'batch:lg';
+    const noteText = 'Ushbu batch tekshirilsin';
+    final batch = {
+      ..._batch(recipe: null),
+      'batch_id': batchId,
+      'order_id': ''
+    };
+    var writes = 0;
+    const initialAudience = {'mode': 'roles', 'roles': ['rezka_master', 'rezka_worker']};
+    const updatedAudience = {'mode': 'roles', 'roles': ['rezka_worker']};
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-batch:$batchId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-batch-note')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byKey(const ValueKey('production-note-input')), noteText);
+      await tester.pump();
+      final audience = find.byKey(const ValueKey('production-note-audience'));
+      final rezkaMaster = find.byKey(const ValueKey('production-note-audience-rezka_master'));
+      final rezkaWorker = find.byKey(const ValueKey('production-note-audience-rezka_worker'));
+      await tester.tap(audience);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(rezkaMaster);
+      await tester.tap(rezkaMaster);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(rezkaWorker);
+      await tester.tap(rezkaWorker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-note-save')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('production-note-input')), findsNothing);
+      expect(find.widgetWithText(MaterialBanner, 'Eslatma saqlandi'),
+          findsOneWidget);
+      expect(find.textContaining(noteText), findsOneWidget);
+      expect(find.textContaining('Rezka master, Ishchi rezka'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('production-batch-note')));
+      await tester.pumpAndSettle();
+      await tester.tap(audience);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilterChip>(rezkaMaster).selected, isTrue);
+      expect(tester.widget<FilterChip>(rezkaWorker).selected, isTrue);
+      await tester.ensureVisible(rezkaMaster);
+      await tester.tap(rezkaMaster);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-note-save')));
+      await tester.pumpAndSettle();
+      expect(writes, 2);
+      await tester.tap(find.byKey(const ValueKey('production-roll:$_epc')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(RpsQrReprintSheet),
+          matching: find.text(noteText),
+        ),
+        findsOneWidget,
+      );
+      expect(find.descendant(
+        of: find.byType(RpsQrReprintSheet),
+        matching: find.text('Ishchi rezka'),
+      ), findsOneWidget);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'batches':
+          return _json({
+            'batches': [batch],
+            'has_more': false
+          });
+        case 'batch':
+          expect(request.url.queryParameters['batch_id'], batchId);
+          return _json({
+            'batch': batch,
+            'rolls': [_roll(recipe: null)],
+            'has_more': false
+          });
+        case 'notes':
+          expect(request.method, 'PATCH');
+          final audience = writes == 0 ? initialAudience : updatedAudience;
+          expect(jsonDecode(request.body), {
+            'scope': 'batch',
+            'batch_id': batchId,
+            'expected_revision': writes,
+            if (writes == 0) 'text': noteText,
+            'audience': audience,
+          });
+          writes++;
+          final note = {'text': noteText, 'revision': writes, 'audience': audience};
+          batch['batch_note'] = note;
+          return _json({
+            'notes': {batchId: note}
+          });
+        default:
+          return _route(request);
+      }
+    });
+  });
+
   testWidgets('order opens material, frozen recipe and produced roll QR',
       (tester) async {
     final paths = <String>[];
@@ -833,8 +1038,8 @@ void main() {
       expect(row(firstRoll).slot, M3SegmentVerticalSlot.middle);
       expect(row(secondRoll).slot, M3SegmentVerticalSlot.bottom);
       expect(row(firstRoll).title, _epc);
-      expect(row(firstRoll).subtitle,
-          contains('23 kg • 125 m • 495 mm • 50 mkm'));
+      expect(
+          row(firstRoll).subtitle, contains('23 kg • 125 m • 495 mm • 50 mkm'));
       expect(row(firstRoll).onTap, isNotNull);
       final card = tester.widget<AdminSummaryCard>(find.descendant(
         of: find.byKey(const ValueKey(firstRoll)),
@@ -843,21 +1048,28 @@ void main() {
       expect(card.showChevron, isFalse);
       expect(card.titleMaxLines, 2);
       expect(
-          tester.renderObject<RenderParagraph>(find.text(_epc)).didExceedMaxLines,
+          tester
+              .renderObject<RenderParagraph>(find.text(_epc))
+              .didExceedMaxLines,
           isFalse);
       await tester.tap(find.byKey(const ValueKey(firstRoll)));
       await tester.pumpAndSettle();
       expect(find.textContaining(_epc), findsWidgets);
       expect(tester.takeException(), isNull);
-    }, (request) => _json({
-          'batch': _batch(recipe: null),
-          'rolls': [
-            _roll(recipe: null),
-            {..._roll(recipe: null), 'epc': secondEpc},
-          ],
-          'has_more': false,
-          'next_offset': null,
-        }));
+    },
+        (request) => _json({
+              'batch': _batch(recipe: null),
+              'rolls': [
+                _roll(recipe: null),
+                {
+                  ..._roll(recipe: null),
+                  'epc': secondEpc,
+                  'receipt_name': 'MAT-TRACE-2'
+                },
+              ],
+              'has_more': false,
+              'next_offset': null,
+            }));
   });
 
   testWidgets('saved recipe keeps its complete content in the segmented list',

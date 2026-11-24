@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import '../../gscale/gscale_mobile_app.dart';
+import '../../shared/presentation/scanned_preparation_roll_notes.dart';
 import '../models/raw_material_split_models.dart';
 import '../models/raw_material_split_width_plan.dart';
 import 'raw_material_split_navigation.dart';
@@ -132,6 +133,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
       _source = null;
       _saved = null;
     });
+    RawSplitRoll? loadedSource;
     try {
       final source = await MobileApi.instance.rawSplitSource(barcode);
       _checkScope();
@@ -150,10 +152,19 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         _savedIssueId = null;
         _issueError = null;
       });
+      loadedSource = source;
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+    final source = loadedSource;
+    if (mounted && source != null) {
+      await showScannedPreparationRollNotes(
+        context,
+        source.barcode,
+        isCurrent: () => identical(_source, source) && !_locked,
+      );
     }
   }
 

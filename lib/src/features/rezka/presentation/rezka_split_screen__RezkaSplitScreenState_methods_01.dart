@@ -99,6 +99,11 @@ extension __RezkaSplitScreenStateAstPart01 on _RezkaSplitScreenState {
           ..add(_RezkaOutputDraft.fromSource(response.source))
           ..add(_RezkaOutputDraft.fromSource(response.source));
       });
+      unawaited(showScannedPreparationRollNotes(
+        context,
+        response.source.barcode,
+        isCurrent: () => identical(_source, response.source),
+      ));
     } catch (error) {
       if (!mounted) {
         return;

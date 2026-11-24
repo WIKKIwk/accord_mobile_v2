@@ -235,6 +235,11 @@ extension __AdminProgressQrScanScreenStateAstPart01
             _processing = false;
             _scanStatus = _QrScanStatus.materialReady;
           });
+          await showScannedPreparationRollNotes(
+            context,
+            rawReport.barcode,
+            isCurrent: () => identical(_rawMaterialReport, rawReport),
+          );
           return;
         } catch (fallbackError) {
           lookupError = _preferFallbackLookupError(lookupError, fallbackError);
@@ -436,6 +441,7 @@ extension __AdminProgressQrScanScreenStateAstPart01
       final queryPayload = (uri.queryParameters['qr_payload'] ??
               uri.queryParameters['progress_qr'] ??
               uri.queryParameters['epc'] ??
+              uri.queryParameters['barcode'] ??
               '')
           .trim();
       if (queryPayload.isNotEmpty) {

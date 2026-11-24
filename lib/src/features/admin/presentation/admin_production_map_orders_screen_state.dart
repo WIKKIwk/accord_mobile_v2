@@ -1499,24 +1499,33 @@ class _AdminProductionMapOrdersScreenState
   Future<void> _openWorkerQrScanner() async {
     if (_workerQrScanInFlight || _workerQrGuidanceOpen) return;
     final apparatus = _workerSelectedApparatus;
-    if (apparatus == null) {
-      await _showWorkerQrGuidance(context,
-          context.l10n.productionText('worker.qr.select_apparatus'));
-      return;
-    }
     final tabRevision = _workerQrTabRevision;
     _workerQrScanInFlight = true;
     final scope = currentSessionReadScope();
+    bool accountIsCurrent() => mounted && scope == currentSessionReadScope();
     try {
       final result = await Navigator.of(context).pushNamed(
         AppRoutes.adminProgressQrScan,
         arguments: const AdminProgressQrScanArgs(scanOnly: true),
       );
-      if (!mounted || scope != currentSessionReadScope() ||
-          result is! String || result.trim().isEmpty) {
+      if (!accountIsCurrent() || result is! String || result.trim().isEmpty) {
         return;
       }
-      await _handleWorkerFabQr(result.trim(),
+      final qr = result.trim();
+      if (apparatus == null || tabRevision != _workerQrTabRevision) {
+        if (!mounted) return;
+        final notesShown = await showScannedPreparationRollNotes(
+          context,
+          rawMaterialBarcodeFromQr(qr),
+          isCurrent: accountIsCurrent,
+        );
+        if (!notesShown && mounted && accountIsCurrent() && apparatus == null) {
+          await _showWorkerQrGuidance(context,
+              context.l10n.productionText('worker.qr.select_apparatus'));
+        }
+        return;
+      }
+      await _handleWorkerFabQr(qr,
           apparatusId: apparatus.id.trim(), tabRevision: tabRevision);
     } finally {
       _workerQrScanInFlight = false;
@@ -1526,6 +1535,7 @@ class _AdminProductionMapOrdersScreenState
   Future<void> _handleWorkerFabQr(String qrPayload,
       {required String apparatusId, required int tabRevision}) async {
     var orderTitle = '';
+    var wipIdentified = false;
     final scope = currentSessionReadScope();
     bool isCurrent() => mounted &&
         scope == currentSessionReadScope() &&
@@ -1540,6 +1550,7 @@ class _AdminProductionMapOrdersScreenState
           message: '',
         );
       }
+      wipIdentified = true;
       final batch = wip.progress;
       if (!isCurrent()) return;
       final targetOrderId = wip.orderId;
@@ -1890,6 +1901,14 @@ class _AdminProductionMapOrdersScreenState
         initialOrderSwitchBatch: wip,
       );
     } catch (error) {
+      if (!mounted || scope != currentSessionReadScope()) return;
+      if (!wipIdentified && error is MobileApiException) {
+        final notesShown = await showScannedPreparationRollNotes(
+          context,
+          rawMaterialBarcodeFromQr(qrPayload),
+        );
+        if (notesShown) return;
+      }
       if (!isCurrent()) return;
       if (error is MobileApiException && error.code == 'order_frozen' &&
           error.orderTitle.trim().isEmpty && orderTitle.isEmpty) {

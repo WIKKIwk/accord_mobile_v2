@@ -41,6 +41,7 @@ void main() {
     expect(session.canUseAdminComponents, isFalse);
     for (final route in [
       AppRoutes.apparatusQueue,
+      AppRoutes.adminProgressQrScan,
       AppRoutes.apparatusDailyWork,
       AppRoutes.apparatusPaddons,
       AppRoutes.apparatusPaddonDetail,

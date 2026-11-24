@@ -1,6 +1,47 @@
 part of '../mobile_api.dart';
 
 extension MobileApiPreparationProduction on MobileApi {
+  Future<PreparationRollNotes?> preparationRollNotesForScan(
+      String barcode) async {
+    final code = barcode.trim();
+    final scope = currentSessionReadScope();
+    if (code.isEmpty ||
+        !AppSession.instance.isLoggedIn ||
+        !const {
+          UserRole.rezkaMaster,
+          UserRole.homashyoRezkachi,
+          UserRole.aparatchi,
+        }.contains(AppSession.instance.profile?.role) ||
+        await TestModeController.instance.isEnabled() ||
+        scope != currentSessionReadScope()) {
+      return null;
+    }
+    final response = await _sendAuthorized(() {
+      if (scope != currentSessionReadScope()) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+      return _get(
+        Uri.parse(
+                '${MobileApi.baseUrl}/v1/mobile/preparation/production/notes/scan')
+            .replace(queryParameters: {'barcode': code}),
+        headers: _headers(requireToken()),
+      );
+    });
+    if (scope != currentSessionReadScope() ||
+        response.statusCode == 403 ||
+        response.statusCode == 404) {
+      return null;
+    }
+    final data = _preparationResponse(response);
+    final returnedCode = data['barcode'];
+    if (returnedCode is! String ||
+        returnedCode.trim().toUpperCase() != code.toUpperCase()) {
+      throw const FormatException('Eslatma boshqa rulonga tegishli');
+    }
+    final notes = PreparationRollNotes.fromJson(data);
+    return notes.isEmpty ? null : notes;
+  }
+
   Future<Map<String, dynamic>> _productionRead(
       String path, Map<String, String> query) async {
     final key = _preparationStorageKey();
@@ -72,6 +113,109 @@ extension MobileApiPreparationProduction on MobileApi {
       }
       rethrow;
     }
+  }
+
+  Future<PreparationOutputNote> savePreparationBatchNote(
+    String batchId,
+    String? text,
+    int revision, {
+    PreparationNoteAudience? audience,
+  }) async {
+    if (!batchId.startsWith('batch:') || batchId.length <= 6) {
+      throw ArgumentError('Batch tanlanmagan');
+    }
+    final result = await _savePreparationOutputNotes(
+      {'scope': 'batch', 'batch_id': batchId, 'expected_revision': revision},
+      {batchId: revision},
+      text,
+      audience,
+    );
+    return result[batchId]!;
+  }
+
+  Future<Map<String, PreparationOutputNote>> savePreparationRollNotes(
+    Map<String, int> revisions,
+    String? text, {
+    PreparationNoteAudience? audience,
+  }) {
+    return _savePreparationOutputNotes({
+      'scope': 'rolls',
+      'rolls': [
+        for (final entry in revisions.entries)
+          {'receipt_name': entry.key, 'expected_revision': entry.value},
+      ],
+    }, revisions, text, audience);
+  }
+
+  Future<Map<String, PreparationOutputNote>> _savePreparationOutputNotes(
+    Map<String, Object> input,
+    Map<String, int> revisions,
+    String? draft,
+    PreparationNoteAudience? audience,
+  ) async {
+    final expected = Map<String, int>.of(revisions);
+    final text = draft?.trim();
+    if ((text == null && audience == null) ||
+        expected.isEmpty ||
+        expected.length > preparationNoteSelectionLimit ||
+        expected.entries.any((entry) =>
+            entry.key.isEmpty ||
+            entry.key != entry.key.trim() ||
+            entry.key.length > 1024 ||
+            entry.key.contains('\u0000') ||
+            entry.value < 0 ||
+            entry.value >= 9007199254740991) ||
+        (text != null &&
+            (text.runes.length > preparationNoteLimit || text.contains('\u0000')))) {
+      throw ArgumentError('Eslatma yoki tanlangan rulonlar noto‘g‘ri');
+    }
+    final key = _preparationStorageKey();
+    final scope = currentSessionReadScope();
+    void requireCurrentAccount() {
+      if (_preparationStorageKey() != key ||
+          currentSessionReadScope() != scope) {
+        throw StateError('Akkaunt o‘zgargan. Sahifani qayta oching');
+      }
+    }
+
+    final response = await _sendAuthorized(() {
+      requireCurrentAccount();
+      return _patch(
+        Uri.parse(
+            '${MobileApi.baseUrl}/v1/mobile/preparation/production/notes'),
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          ...input,
+          if (text != null) 'text': text,
+          if (audience != null) 'audience': audience.toJson(),
+        }),
+      );
+    });
+    requireCurrentAccount();
+    if (response.statusCode == 404 && response.body.trim().isEmpty) {
+      throw const MobileApiException(
+        code: 'preparation_output_api_unavailable',
+        statusCode: 404,
+        message: 'Eslatma saqlash uchun Mini RS ERP’ni yangilash kerak.',
+      );
+    }
+    final raw = _preparationResponse(response)['notes'];
+    if (raw is! Map || raw.length != expected.length) {
+      throw const FormatException('Eslatmalar saqlangani tasdiqlanmadi');
+    }
+    final saved = <String, PreparationOutputNote>{};
+    for (final entry in expected.entries) {
+      final note = PreparationOutputNote.fromJson(raw[entry.key]);
+      if (note == null ||
+          (text != null && note.text != text) ||
+          (audience != null && note.audience != audience) ||
+          note.revision != entry.value + 1) {
+        throw const FormatException('Eslatmalar saqlangani tasdiqlanmadi');
+      }
+      saved[entry.key] = note;
+    }
+    return saved;
   }
 
   Future<PreparationProductionOrderPage> preparationProductionOrder(

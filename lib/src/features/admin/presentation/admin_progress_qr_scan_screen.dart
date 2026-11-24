@@ -15,6 +15,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/scanner/reliable_mobile_scanner.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/presentation/scanned_preparation_roll_notes.dart';
 import '../../aparatchi/presentation/aparatchi_paddon_detail_screen.dart';
 import '../logic/canonical_apparatus_display.dart';
 import '../models/production_map_models.dart';

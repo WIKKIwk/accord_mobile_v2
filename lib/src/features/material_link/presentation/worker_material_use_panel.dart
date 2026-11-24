@@ -7,6 +7,7 @@ import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
+import '../../shared/presentation/scanned_preparation_roll_notes.dart';
 
 /// The server supplies only free, compatible material physically placed at this apparatus.
 class WorkerMaterialUsePanel extends StatefulWidget {
@@ -171,6 +172,12 @@ class _WorkerMaterialUsePanelState extends State<WorkerMaterialUsePanel>
         l10n.productionText('worker.material_use.accepted'));
     setState(() => _confirming = true);
     try {
+      await showScannedPreparationRollNotes(
+        context,
+        material.barcode,
+        isCurrent: () => _current(scope, generation),
+      );
+      if (!mounted || !_current(scope, generation)) return;
       final confirmed = await showM3ConfirmDialog(
             context: context,
             title: l10n.productionText('worker.material_use.confirm'),

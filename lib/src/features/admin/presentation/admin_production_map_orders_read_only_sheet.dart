@@ -2135,7 +2135,10 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       if (scanTasks.materialIntake) {
         final knownMaterial = _materialAssignmentForScannedBarcode(
           assignments: _intakeCandidateAssignments, barcode: normalized);
-        if (knownMaterial == null) {
+        if (knownMaterial != null) {
+          await _showNotesForMaterialScan(knownMaterial.barcode);
+          if (!mounted || scanReadScope != currentSessionReadScope()) return;
+        } else {
           if (await _handleRawMaterialContextScan(normalized, mergeMode: false)) {
             return;
           }
@@ -2269,6 +2272,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         barcode: normalized,
       );
       if (material != null) {
+        await _showNotesForMaterialScan(material.barcode);
+        if (!mounted ||
+            scanReadScope != currentSessionReadScope() ||
+            !_materialContextIsCurrent(orderId, station)) {
+          return;
+        }
         final key = _materialBarcodeKey(material.barcode);
         if (_materialStartRequirements != null &&
             !_materialStartRequirements!.normalizedStagedBarcodes

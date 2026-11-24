@@ -26,6 +26,7 @@ import '../../../core/print_service.dart';
 import '../../../core/print_transport.dart';
 import '../../../core/session/state/app_session.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../shared/presentation/scanned_preparation_roll_notes.dart';
 import '../../../core/test_mode/test_mode_controller.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
