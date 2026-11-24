@@ -54,6 +54,7 @@ void _registerSequenceReorderTests() {
                             : '2') *
                     64
             },
+            sequenceRevisions: {_print8Id: revision},
             visibleOrderIds: {
               _print8Id: scenario == 'hidden' ? [ids[0], ids[2]] : ids
             },
@@ -79,7 +80,8 @@ void _registerSequenceReorderTests() {
       await _usePhoneViewport(tester);
       final requests = <http.Request>[];
       final response = Completer<http.Response>();
-      Completer<AdminApparatusQueueSnapshot>? reconcile;
+      final live = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+      addTearDown(live.close);
       await http.runWithClient(() async {
         await tester.pumpWidget(MaterialApp(
           locale: const Locale('uz'),
@@ -91,11 +93,10 @@ void _registerSequenceReorderTests() {
           ],
           supportedLocales: AppLocalizations.supportedLocales,
           home: AdminProductionMapOrdersScreen(
-              queueSnapshotLoader: () =>
-                  reconcile?.future ?? Future.value(snapshot()),
+              queueSnapshotLoader: () async => snapshot(),
               apparatusLoader: () async =>
                   catalog.where((item) => item.id == _print8Id).toList(),
-              liveEventsLoader: _idleProductionLiveLoader()),
+              liveEventsLoader: () => live.stream),
         ));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Ketma-ketlik'));
@@ -114,8 +115,24 @@ void _registerSequenceReorderTests() {
         final list = tester
             .widget<ReorderableListView>(find.byType(ReorderableListView));
         final down = scenario == 'down' || scenario == 'paused-down';
-        final reduced = scenario == 'frozen' || scenario == 'hidden';
-        if (reduced) expect(list.itemCount, 2);
+        final hidden = scenario == 'hidden';
+        expect(list.itemCount, hidden ? 2 : 3);
+        final frozenRow = find.byKey(
+            ValueKey('sequence-row-$_print8Id-${ids[1]}'));
+        const rowPrefix = 'sequence-row-$_print8Id-';
+        List<String> displayedOrderIds() => tester
+            .widgetList(find.byWidgetPredicate((widget) =>
+                widget.key is ValueKey<String> &&
+                (widget.key as ValueKey<String>).value.startsWith(rowPrefix)))
+            .map((widget) => (widget.key as ValueKey<String>)
+                .value.substring(rowPrefix.length))
+            .toList();
+        if (scenario == 'frozen') {
+          expect(frozenRow, findsOneWidget);
+          list.onReorderItem!(displayedOrderIds().indexOf(ids[1]), 0);
+          await tester.pump();
+          expect(requests, isEmpty, reason: 'The frozen row is not movable');
+        }
         final requested =
             down ? [ids[1], ids[2], ids[0]] : [ids[2], ids[0], ids[1]];
         final saved = switch (scenario) {
@@ -131,24 +148,15 @@ void _registerSequenceReorderTests() {
             ],
           _ => ids,
         };
-        list.onReorderItem!(
-            down
-                ? 0
-                : reduced
-                    ? 1
-                    : 2,
-            down ? 2 : 0);
+        final moved = down ? ids.first : ids.last;
+        list.onReorderItem!(displayedOrderIds().indexOf(moved), down ? 2 : 0);
         if (scenario == 'no-version') {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
           expect(requests, isEmpty);
-          expect(
-              find.textContaining('Navbatni xavfsiz surish'), findsOneWidget);
-          expect(
-              tester
-                  .widget<ReorderableListView>(find.byType(ReorderableListView))
-                  .key,
-              ValueKey('sequence-list-$_print8Id-${ids.join(',')}'));
+          expect(find.textContaining('Server navbat versiyasini bermadi'),
+              findsOneWidget);
+          expect(displayedOrderIds(), ids);
           dismissAdminTopNotice();
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pump();
@@ -168,19 +176,29 @@ void _registerSequenceReorderTests() {
             'before_order_id': ids.first,
           'expected_version': '0' * 64,
         });
-        // No overlapping writes may undo the server-adjusted result.
-        list.onReorderItem!(1, 0);
-        await tester.pumpAndSettle();
-        expect(requests, hasLength(1));
         authoritative = List<String>.from(saved);
         revision = 2;
         final newer = scenario.startsWith('newer-');
         if (newer) {
           authoritative = [ids[1], ids[0], ids[2]];
           revision = 3;
-          await tester.pump(const Duration(seconds: 2));
+          final fresh = snapshot();
+          live.add(AdminProductionMapLiveSnapshot(
+            maps: fresh.maps,
+            sequences: fresh.sequences,
+            sequenceVersions: fresh.sequenceVersions,
+            sequenceRevisions: fresh.sequenceRevisions,
+            visibleOrderIds: fresh.visibleOrderIds,
+            queueStates: fresh.queueStates,
+            queuePolicies: fresh.queuePolicies,
+            orderControls: fresh.orderControls,
+            completedOrders: const [],
+            completionRequests: const [],
+            completionRequestDecisions: const [],
+            epoch: fresh.epoch,
+            revision: fresh.revision,
+          ));
           await tester.pumpAndSettle();
-          reconcile = Completer<AdminApparatusQueueSnapshot>();
         }
         final rejected = scenario == 'rejected' || scenario == 'newer-rejected';
         if (scenario == 'lost-reply') {
@@ -189,53 +207,63 @@ void _registerSequenceReorderTests() {
           response.complete(http.Response(
               jsonEncode({
                 'ok': !rejected,
-                if (rejected) 'error': 'queue_reorder_conflict',
+                if (rejected)
+                  'error': newer ? 'queue_reorder_conflict' : 'forbidden',
+                'revision': 2,
                 if (scenario != 'missing-result') 'order_ids': saved,
                 'version': '1' * 64,
                 'adjusted': scenario == 'nearest' ||
                     scenario == 'locked' ||
                     scenario == 'down',
               }),
-              rejected ? 409 : 200));
+              rejected ? (newer ? 409 : 403) : 200));
         }
         await tester.pumpAndSettle();
-        final displayed = tester
-            .widgetList(find.byWidgetPredicate((widget) =>
-                widget.key is ValueKey<String> &&
-                (widget.key as ValueKey<String>)
-                    .value
-                    .startsWith('sequence-row-$_print8Id-')))
-            .map((widget) => (widget.key as ValueKey<String>)
-                .value
-                .substring('sequence-row-$_print8Id-'.length))
-            .toList();
-        expect(
-            displayed,
-            newer
-                ? authoritative
-                : scenario == 'hidden'
-                    ? [ids[2], ids[0]]
-                    : saved);
-        if (newer) {
-          reconcile!.complete(snapshot());
+        if (scenario == 'lost-reply') {
+          await tester.pump(const Duration(seconds: 1));
           await tester.pumpAndSettle();
+          expect(requests, hasLength(2));
+          expect(requests.last.body, requests.first.body);
+        } else if (scenario == 'newer-rejected') {
+          expect(requests, hasLength(2));
+          final rebased = jsonDecode(requests.last.body) as Map;
+          expect(rebased['order_id'], ids.last);
+          expect(rebased['before_order_id'], ids.first);
+          expect(rebased['expected_version'], '2' * 64);
+          expect(rebased['idempotency_key'],
+              isNot((jsonDecode(requests.first.body) as Map)['idempotency_key']));
+        } else {
+          expect(requests, hasLength(1));
         }
+        final displayed = displayedOrderIds();
+        expect(
+          scenario == 'frozen'
+              ? displayed.where((id) => id != ids[1]).toList()
+              : displayed,
+          scenario == 'newer-rejected'
+              ? [ids[1], ids[2], ids[0]]
+              : newer
+                  ? authoritative
+                  : hidden
+                      ? [ids[2], ids[0]]
+                      : saved,
+        );
         if (scenario == 'frozen') {
-          expect(find.byKey(ValueKey('sequence-row-$_print8Id-${ids[1]}')),
-              findsNothing);
-          // Only the draggable queue hides it, not the order itself.
+          expect(frozenRow, findsOneWidget);
           await tester.tap(find.text('Buyurtmalar'));
           await tester.pumpAndSettle();
-          expect(
-              find.byKey(ValueKey('opened-order-${ids[1]}')), findsOneWidget);
+          expect(find.byKey(ValueKey('opened-order-${ids[1]}')), findsOneWidget);
         }
         if (scenario == 'nearest' ||
             scenario == 'locked' ||
             scenario == 'down') {
-          expect(
-              find.textContaining('eng yaqin ruxsat etilgan'), findsOneWidget);
           final position = saved.indexOf(down ? ids.first : ids.last) + 1;
-          expect(find.textContaining('$position-o‘ringa'), findsOneWidget);
+          final notice = AppLocalizations(const Locale('uz')).adminText(
+              'sequence.nearest_position', values: {'position': position});
+          expect(find.text(notice), findsOneWidget,
+              reason: tester.widgetList<Text>(
+                  find.textContaining('eng yaqin ruxsat etilgan'))
+                  .map((widget) => widget.data).join(', '));
         } else {
           expect(find.textContaining('eng yaqin ruxsat etilgan'), findsNothing);
         }
@@ -247,7 +275,17 @@ void _registerSequenceReorderTests() {
                 if (request.method == 'POST' &&
                     request.url.path.endsWith('/production-maps/sequence')) {
                   requests.add(request);
-                  return response.future;
+                  if (requests.length == 1) return response.future;
+                  if (scenario == 'newer-rejected') {
+                    authoritative = [ids[1], ids[2], ids[0]];
+                    revision = 4;
+                  }
+                  return http.Response(jsonEncode({
+                    'ok': true,
+                    'order_ids': authoritative,
+                    'version': (revision == 2 ? '1' : '3') * 64,
+                    'revision': revision,
+                  }), 200);
                 }
                 return http.Response('{}', 200);
               }));
