@@ -106,7 +106,7 @@ void _registeradmin_production_map_test_screen_testCases12() {
   });
 
   testWidgets(
-    'opened orders move module hides cross-family Flexo and color orders',
+    'opened orders move module filters by target printing capacity',
     (tester) async {
       await TestModeController.instance.setEnabled(true);
       await MobileApi.instance.adminSaveProductionMap(
@@ -130,7 +130,7 @@ void _registeradmin_production_map_test_screen_testCases12() {
           product: 'Imperator salyami',
           orderNumber: '0002',
           rollCount: 7,
-          widthMm: 515,
+          widthMm: 850,
         ),
       );
       await _usePhoneViewport(tester);
@@ -159,13 +159,10 @@ void _registeradmin_production_map_test_screen_testCases12() {
       await tester.tap(find.text('Flexo pechat').last);
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('ABCD Family'), findsNothing);
-      expect(find.textContaining('Imperator salyami'), findsNothing);
-      expect(
-        find.text('7 ta rangli bosma aparat uchun zakaz yo‘q'),
-        findsOneWidget,
-      );
-      expect(find.text('Flexo pechat uchun zakaz yo‘q'), findsOneWidget);
+      expect(find.textContaining('ABCD Family'), findsWidgets,
+          reason: '765 mm can move from Flexo to the color apparatus');
+      expect(find.textContaining('Imperator salyami'), findsNothing,
+          reason: '850 mm exceeds the Flexo work width');
     },
   );
 
@@ -284,7 +281,13 @@ void _registeradmin_production_map_test_screen_testCases12() {
             reason: 'the producer occurrence remains available to historical QR records');
         expect(moved.nodes.firstWhere((node) => node.apparatusId == target)
             .alternativeAssignedApparatusId, target);
-        expect(find.text('1 ta buyurtma ko‘chirildi'), findsOneWidget);
+        final targetName = _fixtureApparatusName(target);
+        final targetRow = find.byWidgetPredicate((widget) {
+          final key = widget.key;
+          return key == ValueKey('move-order-$targetName-$orderId') ||
+              key == ValueKey('move-order-disabled-$targetName-$orderId');
+        });
+        expect(targetRow, findsOneWidget);
         await tester.pump(const Duration(seconds: 6));
       },
     );
