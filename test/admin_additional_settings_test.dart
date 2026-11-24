@@ -553,17 +553,22 @@ void main() {
     }, () => MockClient((_) async => http.Response('{}', 503)));
   });
 
-  test('paddon snapshot permits printed edits only with server permission', () {
+  test('paddon snapshot requires an unlocked pallet and server permission', () {
+    final paddon = {'id': 'p', 'code': '00001', 'locked_at_unix': 1};
     final data = {
-      'paddon': {'id': 'p', 'code': '00001', 'locked_at_unix': 1},
+      'paddon': paddon,
       'items': <Object>[],
       'free_movement_enabled': true,
-      'can_manage_items': true
+      'can_manage_items': true,
     };
-    expect(AdminPaddonSnapshot.fromJson(data).canManageItems, isTrue);
-    data['can_manage_items'] = false;
     expect(AdminPaddonSnapshot.fromJson(data).canManageItems, isFalse);
     data.remove('can_manage_items');
+    expect(AdminPaddonSnapshot.fromJson(data).canManageItems, isFalse);
+
+    paddon.remove('locked_at_unix');
+    data['can_manage_items'] = true;
+    expect(AdminPaddonSnapshot.fromJson(data).canManageItems, isTrue);
+    data['can_manage_items'] = false;
     expect(AdminPaddonSnapshot.fromJson(data).canManageItems, isFalse);
   });
 }

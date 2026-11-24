@@ -442,14 +442,13 @@ void main() {
             }));
   });
 
-  for (final editable in [false, true]) {
-    testWidgets(
-        'printed paddon scanner respects server edit permission: $editable',
+  for (final (editable, locked) in [(false, false), (true, false), (true, true)]) {
+    testWidgets('paddon scanner respects permission $editable and lock $locked',
         (tester) async {
       await _openScanner(tester,
-          initial: _payload(editable: editable, locked: true));
+          initial: _payload(editable: editable, locked: locked));
       expect(find.byType(ProductionQuickScannerPanel),
-          editable ? findsOneWidget : findsNothing);
+          editable && !locked ? findsOneWidget : findsNothing);
       await _dispose(tester);
     });
   }
