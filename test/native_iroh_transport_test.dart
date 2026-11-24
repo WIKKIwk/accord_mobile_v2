@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io' show gzip;
 import 'package:accord_mobile_v2/src/core/native_iroh_transport.dart';
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -188,6 +190,53 @@ void main() {
               return http.Response('{}', 503);
             }));
     expect(nativeCalls, 0);
+  });
+
+  test('Iroh upgrade 401 requests a second scoped ticket before retrying', () async {
+    const origin = 'https://test.invalid';
+    const path = '/v1/mobile/admin/warehouses/live';
+    SharedPreferences.setMockInitialValues({'iroh_endpoint_v2:$origin': cached});
+    await ServerEndpointStore.instance.setBaseUrl(origin);
+    AppSession.instance.token = 'iroh-session';
+    addTearDown(() async {
+      AppSession.instance.token = null;
+      await ServerEndpointStore.instance.clearOverride();
+    });
+    var tickets = 0;
+    var upgrades = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      final args = call.arguments as Map?;
+      if (call.method == 'isSupported') return true;
+      if (call.method == 'request') {
+        if (args!['path'] == '/healthz') {
+          return {'statusCode': 200, 'body': utf8.encode('{"ok":true}')};
+        }
+        expect(args['method'], 'POST');
+        expect(args['path'], '/v1/mobile/auth/live-ticket');
+        expect(args['headers']['Authorization'], 'Bearer iroh-session');
+        expect(jsonDecode(utf8.decode(args['body'] as List<int>)), {'path': path});
+        return {'statusCode': 200, 'body': utf8.encode(jsonEncode({'ticket': 't-${++tickets}'}))};
+      }
+      if (call.method == 'startLive') {
+        final uri = Uri.parse(args!['path'] as String);
+        expect(uri.path, path);
+        expect(uri.queryParameters, {'rev': '9', 'ticket': 't-${++upgrades}'});
+        final result = upgrades == 1
+            ? MethodCall('liveError', {'id': args['id'], 'httpStatus': 401})
+            : MethodCall('liveMessage', {'id': args['id'], 'text': '{"ok":true}'});
+        scheduleMicrotask(() => messenger.handlePlatformMessage(channel.name,
+            const StandardMethodCodec().encodeMethodCall(result), (_) {}));
+      }
+      return null;
+    });
+    await http.runWithClient(() async {
+      await NativeIrohTransport.warmUp(Uri.parse(origin));
+      final result = await MobileApi.instance.connectPrivateLive(
+          privateLiveUri(path, {'rev': '9'})).first;
+      expect(result['ok'], isTrue);
+    }, () => MockClient((_) async => http.Response('{}', 503)));
+    expect(tickets, 2);
+    expect(upgrades, 2);
   });
 
   test('stalled native live handshake raises an error for WSS fallback',
