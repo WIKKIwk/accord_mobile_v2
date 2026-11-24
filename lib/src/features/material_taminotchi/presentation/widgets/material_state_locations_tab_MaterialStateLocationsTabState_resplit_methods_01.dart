@@ -74,7 +74,11 @@ extension MaterialStateLocationsTabStateAstPart01
   Future<void> reload() async {
     clearSelection();
     final future = _load(force: true);
-    if (mounted) _applyStateChange(() => _future = future);
+    if (mounted) {
+      _applyStateChange(() {
+        _future = future;
+      });
+    }
     await future;
   }
 

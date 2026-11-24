@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/formatters/date_time_formatters.dart';
+import 'package:accord_mobile_v2/src/core/inventory/inventory_view_store.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_warehouses_screen.dart';
@@ -28,6 +29,7 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     resetMobileApiTestModeData();
+    InventoryViewStore.debugOverride = InventoryViewStore(liveEnabled: () => false);
     await TestModeController.instance.setEnabled(true);
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
@@ -71,6 +73,8 @@ void main() {
   });
 
   tearDown(() async {
+    InventoryViewStore.instance.reset();
+    InventoryViewStore.debugOverride = null;
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
