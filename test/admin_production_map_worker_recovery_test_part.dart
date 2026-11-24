@@ -10,6 +10,19 @@ Future<void> _pumpRecoveryFrames(WidgetTester tester) async {
   await tester.pump();
 }
 
+void _resumeOrdersFromBackground(WidgetTester tester) {
+  for (final phase in [
+    AppLifecycleState.inactive,
+    AppLifecycleState.hidden,
+    AppLifecycleState.paused,
+    AppLifecycleState.hidden,
+    AppLifecycleState.inactive,
+    AppLifecycleState.resumed,
+  ]) {
+    tester.binding.handleAppLifecycleStateChanged(phase);
+  }
+}
+
 class _WorkerRecoveryHarness {
   _WorkerRecoveryHarness(this.saved, this.apparatus);
 
@@ -148,10 +161,19 @@ void _registerWorkerRecoveryTests() {
 
   for (final failedCatalog in [false, true]) {
     testWidgets(
-        'worker recovery: cold ${failedCatalog ? 'catalog' : 'queue'} failure retries automatically in 2 seconds',
+        'worker recovery: cold ${failedCatalog ? 'catalog' : 'queue'} failure recovers on a new live connection',
         (tester) async {
       final h = await prepare();
       var offline = true;
+      var connections = 0;
+      final stream = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+      addTearDown(stream.close);
+      h.liveEvents = () {
+        connections++;
+        return offline
+            ? Stream.error(TimeoutException('offline socket'))
+            : stream.stream;
+      };
       h.readSnapshot = () async {
         if (offline && !failedCatalog) throw TimeoutException('offline');
         return h.snapshot();
@@ -166,10 +188,13 @@ void _registerWorkerRecoveryTests() {
       expect(order(), findsNothing);
       offline = false;
       await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(connections, greaterThan(1));
+      stream.add(h.live());
       await _pumpRecoveryFrames(tester);
       expect(order(), findsOneWidget);
       expect(find.byKey(_recoveryProgressKey), findsNothing);
-      expect(h.snapshotReads, 2);
+      expect(h.snapshotReads, 1);
       expect(h.apparatusReads, 2);
       await dispose(tester);
     });
@@ -177,11 +202,20 @@ void _registerWorkerRecoveryTests() {
 
   for (final failedCatalog in [false, true]) {
     testWidgets(
-        'admin connection progress: cold ${failedCatalog ? 'catalog' : 'queue'} failure recovers automatically',
+        'admin connection progress: cold ${failedCatalog ? 'catalog' : 'queue'} failure recovers on a new live connection',
         (tester) async {
       final h = await prepare();
       useAdminProfile();
       var offline = true;
+      var connections = 0;
+      final stream = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+      addTearDown(stream.close);
+      h.liveEvents = () {
+        connections++;
+        return offline
+            ? Stream.error(TimeoutException('offline socket'))
+            : stream.stream;
+      };
       h.readSnapshot = () async {
         if (offline && !failedCatalog) throw TimeoutException('offline');
         return h.snapshot();
@@ -199,10 +233,13 @@ void _registerWorkerRecoveryTests() {
       expect(find.text('Qayta urinish'), findsNothing);
       offline = false;
       await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(connections, greaterThan(1));
+      stream.add(h.live());
       await _pumpRecoveryFrames(tester);
       expect(progress, findsNothing);
       expect(find.textContaining('Worker recovery'), findsOneWidget);
-      expect(h.snapshotReads, 2);
+      expect(h.snapshotReads, 1);
       expect(h.apparatusReads, 2);
       await dispose(tester);
     });
@@ -217,18 +254,18 @@ void _registerWorkerRecoveryTests() {
     await h.mount(tester, workerMode: false);
     await _pumpRecoveryFrames(tester);
     h.readSnapshot = () async => throw http.ClientException('offline');
-    await tester.pump(const Duration(seconds: 2));
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     expect(find.byKey(_recoveryProgressKey), findsOneWidget);
     expect(find.textContaining('Worker recovery'), findsOneWidget);
     expect(find.byIcon(Icons.sync_problem_rounded), findsNothing);
     expect(find.text('Qayta urinish'), findsNothing);
     h.readSnapshot = () async => h.snapshot();
-    await tester.pump(const Duration(seconds: 2));
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     expect(find.byKey(_recoveryProgressKey), findsNothing);
     expect(find.textContaining('Worker recovery'), findsOneWidget);
-    expect(h.apparatusReads, 1);
+    expect(h.apparatusReads, 3);
     await dispose(tester);
   });
 
@@ -247,7 +284,7 @@ void _registerWorkerRecoveryTests() {
     await dispose(tester);
   });
 
-  testWidgets('admin connection progress: section outages share one indicator and retry without overlap',
+  testWidgets('admin connection progress: section outages share one indicator and revalidate on resume without overlap',
       (tester) async {
     final h = await prepare();
     useAdminProfile();
@@ -274,7 +311,7 @@ void _registerWorkerRecoveryTests() {
     expect(find.text('Server unavailable'), findsNothing);
     expect(find.text('Yopilgan orderlar yuklanmadi'), findsNothing);
     expect(find.text('Qayta urinish'), findsNothing);
-    await tester.pump(const Duration(seconds: 2));
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     expect(closedReads, 2);
     expect(requestReads, 2);
@@ -292,16 +329,17 @@ void _registerWorkerRecoveryTests() {
       'worker recovery: failed resume keeps rows and same revision clears error',
       (tester) async {
     final h = await prepare();
+    final stream = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+    addTearDown(stream.close);
+    h.liveEvents = () => stream.stream;
     await h.mount(tester);
     expect(order(), findsOneWidget);
     h.readSnapshot = () async => throw TimeoutException('old provider');
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     expect(order(), findsOneWidget);
     expect(find.byKey(_recoveryProgressKey), findsOneWidget);
-    h.readSnapshot = () async => h.snapshot();
-    await tester.pump(const Duration(seconds: 2));
+    stream.add(h.live());
     await _pumpRecoveryFrames(tester);
     expect(order(), findsOneWidget);
     expect(find.byKey(_recoveryProgressKey), findsNothing);
@@ -312,14 +350,15 @@ void _registerWorkerRecoveryTests() {
       (tester) async {
     final h = await prepare();
     h.readSnapshot = () async => h.snapshot(empty: true);
+    final stream = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+    addTearDown(stream.close);
+    h.liveEvents = () => stream.stream;
     await h.mount(tester);
     h.readSnapshot = () async => throw TimeoutException('offline');
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     expect(find.byKey(_recoveryProgressKey), findsOneWidget);
-    h.readSnapshot = () async => h.snapshot(empty: true);
-    await tester.pump(const Duration(seconds: 2));
+    stream.add(h.live(empty: true));
     await _pumpRecoveryFrames(tester);
     expect(find.byKey(_recoveryProgressKey), findsNothing);
     expect(order(), findsNothing);
@@ -370,14 +409,16 @@ void _registerWorkerRecoveryTests() {
       'worker recovery: hung old provider cannot block retry or overwrite recovery',
       (tester) async {
     final h = await prepare();
+    final stream = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+    addTearDown(stream.close);
+    h.liveEvents = () => stream.stream;
     final old = Completer<AdminApparatusQueueSnapshot>();
     h.readSnapshot = () => old.future;
     await h.mount(tester);
     await tester.pump(const Duration(seconds: 10));
     await tester.pump();
     expect(find.byKey(_recoveryProgressKey), findsOneWidget);
-    h.readSnapshot = () async => h.snapshot(revision: 9);
-    await tester.pump(const Duration(seconds: 2));
+    stream.add(h.live(revision: 9));
     await _pumpRecoveryFrames(tester);
     expect(order(), findsOneWidget);
     old.complete(h.snapshot(revision: 1, empty: true));
@@ -391,15 +432,17 @@ void _registerWorkerRecoveryTests() {
       'worker recovery: one failed read does not wait for a hung sibling',
       (tester) async {
     final h = await prepare();
+    final stream = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+    addTearDown(stream.close);
+    h.liveEvents = () => stream.stream;
     final old = Completer<List<AdminApparatus>>();
     h.readSnapshot = () async => throw TimeoutException('offline');
     h.readApparatus = () => old.future;
     await h.mount(tester);
     await _pumpRecoveryFrames(tester);
     expect(find.byKey(_recoveryProgressKey), findsOneWidget);
-    h.readSnapshot = () async => h.snapshot();
     h.readApparatus = () async => h.apparatus;
-    await tester.pump(const Duration(seconds: 2));
+    stream.add(h.live());
     await _pumpRecoveryFrames(tester);
     expect(order(), findsOneWidget);
     old.complete(h.apparatus);
@@ -448,12 +491,17 @@ void _registerWorkerRecoveryTests() {
     stream.add(h.live());
     await _pumpRecoveryFrames(tester);
     expect(order(), findsNothing);
+    expect(h.apparatusReads, 2,
+        reason: 'the first valid live message refreshes the missing catalog');
     h.readApparatus = () async => h.apparatus;
     await tester.pump(const Duration(seconds: 2));
     await _pumpRecoveryFrames(tester);
     expect(order(), findsOneWidget);
     expect(find.byKey(_recoveryProgressKey), findsNothing);
-    expect(h.apparatusReads, 2);
+    expect(h.snapshotReads, 1, reason: 'keep the complete live queue');
+    expect(h.apparatusReads, 3);
+    await tester.pump(const Duration(seconds: 20));
+    expect(h.apparatusReads, 3);
     await dispose(tester);
     unawaited(stream.close());
     await tester.pump();
@@ -463,15 +511,16 @@ void _registerWorkerRecoveryTests() {
       'worker recovery: permission rejection replaces retry notice and stops retrying',
       (tester) async {
     final h = await prepare();
+    final stream = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+    addTearDown(stream.close);
+    h.liveEvents = () => stream.stream;
     await h.mount(tester);
     h.readSnapshot = () async => throw TimeoutException('offline');
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     expect(find.byKey(_recoveryProgressKey), findsOneWidget);
-    h.readSnapshot = () async => throw const MobileApiException(
-        code: 'forbidden', statusCode: 403, message: 'Permission denied');
-    await tester.pump(const Duration(seconds: 2));
+    stream.addError(const MobileApiException(
+        code: 'forbidden', statusCode: 403, message: 'Permission denied'));
     await _pumpRecoveryFrames(tester);
     expect(order(), findsOneWidget);
     expect(find.text('Permission denied'), findsOneWidget);
@@ -533,7 +582,7 @@ void _registerWorkerRecoveryTests() {
       await tester.pump();
       expect(order(), findsOneWidget);
       expect(find.byKey(_recoveryProgressKey), findsNothing);
-      expect(h.snapshotReads, 2, reason: 'HTTPS confirms the state during WS outage');
+      expect(h.snapshotReads, 1, reason: 'the stream revalidates retained rows');
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(connections, 2);
@@ -549,7 +598,7 @@ void _registerWorkerRecoveryTests() {
     });
   }
 
-  testWidgets('worker recovery: HTTP fallback is bounded and stops on healthy live',
+  testWidgets('worker recovery: a socket outage retains rows without polling',
       (tester) async {
     final h = await prepare();
     final first = StreamController<AdminProductionMapLiveSnapshot>();
@@ -560,15 +609,18 @@ void _registerWorkerRecoveryTests() {
     first.addError(TimeoutException('WS blocked'));
     await tester.pump();
     await tester.pump();
-    expect(h.snapshotReads, 2);
+    expect(h.snapshotReads, 1);
     expect(h.apparatusReads, 1);
-    expect(find.byKey(_recoveryProgressKey), findsNothing);
+    expect(order(), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
-    expect(h.snapshotReads, 2, reason: 'fallback does not spin on immediate replies');
+    expect(h.snapshotReads, 1);
+    expect(connections, 2);
     second.add(h.live());
     await tester.pump();
     await tester.pump(const Duration(seconds: 30));
-    expect(h.snapshotReads, 2, reason: 'healthy WS stops HTTP fallback');
+    expect(h.snapshotReads, 1);
+    expect(find.byKey(_recoveryProgressKey), findsNothing);
+    expect(order(), findsOneWidget);
     await dispose(tester);
     unawaited(first.close());
     unawaited(second.close());

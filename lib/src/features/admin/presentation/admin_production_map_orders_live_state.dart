@@ -9,12 +9,16 @@ extension _AdminProductionMapOrdersLiveState
       return;
     }
     if (!widget.workerMode || !mounted || !_workerForeground ||
-        !_workerRetryAllowed || _workerRecoveryTimer != null || _workerLiveHealthy) {
+        _workerRecoveryTimer != null || (_workerLiveHealthy && _workerCatalogReady)) {
       return;
     }
     _workerRecoveryTimer = Timer(const Duration(seconds: 2), () {
       _workerRecoveryTimer = null;
-      unawaited(_restartWorkerLiveStream());
+      if (_workerLiveHealthy) {
+        unawaited(_refreshApparatusCatalog());
+      } else {
+        unawaited(_restartWorkerLiveStream());
+      }
     });
   }
 
@@ -1613,11 +1617,14 @@ extension _AdminProductionMapOrdersLiveState
     final readScope = currentSessionReadScope();
     final sessionRevision = AppSession.instance.revision.value;
     final cacheGeneration = ProductionSnapshotStore.instance.generation;
+    bool isCurrent() =>
+        mounted &&
+        readScope == currentSessionReadScope() &&
+        sessionRevision == AppSession.instance.revision.value &&
+        cacheGeneration == ProductionSnapshotStore.instance.generation;
     try {
       final apparatus = await _readOrdersApparatus();
-      if (!mounted || readScope != currentSessionReadScope() ||
-          sessionRevision != AppSession.instance.revision.value ||
-          cacheGeneration != ProductionSnapshotStore.instance.generation) return;
+      if (!isCurrent()) return;
       if (_workerCatalogReady &&
           _apparatusListsHaveSameCanonicalRevisions(_apparatus, apparatus)) {
         return;
@@ -1638,8 +1645,11 @@ extension _AdminProductionMapOrdersLiveState
           _syncMoveApparatusDefaults(apparatus);
         }
       });
-    } catch (_) {
-      // Keep last good catalog on failure.
+    } catch (error) {
+      if (isCurrent() && !_workerCatalogReady && _workerLiveHealthy &&
+          _canRetryWorkerRead(error)) {
+        _scheduleWorkerRecovery();
+      }
     }
   }
 
@@ -1717,13 +1727,11 @@ extension _AdminProductionMapOrdersLiveState
 
   void _applyInitialProductionMapLoadError(Object error) {
     final retryable = _canRetryWorkerRead(error);
-    if (widget.workerMode) {
-      _workerRetryAllowed = retryable;
-      if (_workerCatalogReady) {
-        _invalidateQueueSnapshotContract(_workerReadErrorText(error),
-          reconnecting: retryable);
-        return;
-      }
+    if (widget.workerMode) _workerRetryAllowed = retryable;
+    if (_workerCatalogReady && (widget.workerMode || retryable)) {
+      _invalidateQueueSnapshotContract(_workerReadErrorText(error),
+        reconnecting: retryable);
+      return;
     }
     _updateScreenState(() {
       _loading = false;
