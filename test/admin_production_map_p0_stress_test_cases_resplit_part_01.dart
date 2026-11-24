@@ -40,7 +40,7 @@ void _registeradmin_production_map_p0_stress_testCases01() {
       findsNothing,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Production map saqlandi'), findsOneWidget);
+    expect(find.text('Map saqlandi. №4444 buyurtmasi yangilandi.'), findsOneWidget);
 
     final maps = await MobileApi.instance.adminProductionMaps();
     final updated = maps.firstWhere((item) => item.map.id == 'zakaz-4444');
@@ -176,7 +176,7 @@ void _registeradmin_production_map_p0_stress_testCases01() {
     expect(snapshot.sequences[target], contains(orderId));
   });
 
-  test('flexo orders cannot move to color pechat apparatus', () {
+  test('flexo transfers to color printing respect target capacity', () {
     final map = _productionOrderMap(
       id: 'zakaz-flexo-1',
       title: 'Flexo paket zakaz',
@@ -189,27 +189,32 @@ void _registeradmin_production_map_p0_stress_testCases01() {
       widthMm: 650,
     );
 
-    expect(
-      productionMapCanMoveOrderToApparatus(
-        nodes: map.nodes,
-        fromApparatus: const AdminApparatus(
-          id: 'apparatus:test:flexo-a',
-          name: 'Flexo pechat - A',
-          operation: 'print',
-          technology: 'flexographic',
-        ),
-        toApparatus: const AdminApparatus(
-          id: 'apparatus:test:color-print-8',
-          name: '8 ta rangli pechat - A',
-          operation: 'print',
-          technology: 'rotogravure',
-          colorStations: 8,
-        ),
-        rollCount: map.rollCount,
-        widthMm: map.widthMm,
-      ),
-      isFalse,
+    const from = AdminApparatus(
+      id: 'apparatus:test:flexo-a',
+      name: 'Flexo pechat - A',
+      operation: 'print',
+      technology: 'flexographic',
     );
+    const to = AdminApparatus(
+      id: 'apparatus:test:color-print-8',
+      name: '8 ta rangli pechat - A',
+      operation: 'print',
+      technology: 'rotogravure',
+      colorStations: 8,
+    );
+    for (final (width, fits) in [(650.0, true), (1400.0, false)]) {
+      expect(
+        productionMapCanMoveOrderToApparatus(
+          nodes: map.nodes,
+          fromApparatus: from,
+          toApparatus: to,
+          rollCount: map.rollCount,
+          widthMm: width,
+        ),
+        fits,
+        reason: 'target capacity for $width mm',
+      );
+    }
   });
 
   test('batch move is all-or-nothing for pechat orders', () async {

@@ -428,7 +428,9 @@ void main() {
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
       expect(find.text('Rezka sozlash'), findsOneWidget);
-      expect(find.text('Kadr 3'), findsOneWidget);
+      expect(find.byKey(const ValueKey('rezka-frame-join-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('rezka-frame-join-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('rezka-frame-join-2')), findsNothing);
       await tester.tap(find.text('Saqlash'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('production-map-save')));
