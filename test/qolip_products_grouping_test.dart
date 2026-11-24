@@ -32,6 +32,7 @@ void main() {
     ]);
 
     expect(groups.map((group) => group.name), ['Botinka', 'Kross']);
+    expect(groups.every((group) => !group.hasUnavailableQolip), isTrue);
     expect(groups[1].children.map((child) => child.qolipCode), [
       'Q-A-01',
       'Q-A-02',
@@ -69,7 +70,7 @@ void main() {
       ),
     ]);
 
-    expect(groups.single.hasInUseQolip, isTrue);
+    expect(groups.single.hasUnavailableQolip, isTrue);
   });
 
   test('container keeps the order image map id for its cover', () {
