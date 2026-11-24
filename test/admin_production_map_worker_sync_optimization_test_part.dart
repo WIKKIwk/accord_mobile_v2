@@ -249,11 +249,17 @@ void _registerWorkerSyncOptimizationTests() {
                 r.url.path.endsWith('/completion-request-decisions') ||
                 r.url.path.endsWith('/sequence')),
             isEmpty);
-        if (ordering == 'live before ACK' ||
-            ordering == 'live after ACK' ||
-            ordering == 'newer freeze before ACK') {
-          expect(requests.where((r) => r.method == 'GET'),
-              hasLength(ordering == 'live after ACK' ? 2 : 1));
+        if (ordering == 'live before ACK' || ordering == 'live after ACK') {
+          expect(
+            requests.where((r) => r.method == 'GET').map((r) => r.url.path.split('/').last),
+            unorderedEquals([
+              if (ordering == 'live after ACK') 'order-scan-bootstrap',
+              'raw-material-assignments',
+              'wip-batches',
+            ]),
+          );
+        } else if (ordering == 'newer freeze before ACK') {
+          expect(requests.where((r) => r.method == 'GET'), hasLength(1));
         }
         if (ordering == 'ACK control without live' ||
             ordering == 'ACK control before older live' ||

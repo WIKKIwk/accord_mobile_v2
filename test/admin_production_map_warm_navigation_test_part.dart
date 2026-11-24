@@ -151,7 +151,9 @@ void _registerAdminWarmNavigationTests() {
             reason: 'An optimistic drag cannot certify the cached page');
         expect(harness.reads, hasLength(reads));
 
-        // The server's committed delta may arrive before its HTTP receipt.
+        // The optimistic first frame can precede the subscription.
+        await tester.pumpAndSettle();
+        harness.sequenceWindowId = activeOrderSequenceWindowId(tester);
         harness.installCanonical(moved,
             revision: 8, sequenceRevision: 6, sequenceVersion: '1' * 64);
         harness.sendCanonicalDelta();
@@ -211,6 +213,7 @@ void _registerAdminWarmNavigationTests() {
       final moved = [original[1], original[2], original[0]];
       harness.installCanonical(moved,
           revision: 9, sequenceRevision: 7, sequenceVersion: '2' * 64);
+      harness.sequenceWindowId = activeOrderSequenceWindowId(tester);
       harness.sendCanonicalDelta(baseVersion: 'v8');
       await tester.pumpAndSettle();
       harness.acknowledge(1, moved,
