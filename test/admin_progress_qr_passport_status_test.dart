@@ -168,17 +168,21 @@ void main() {
         await tester.tap(find.text('Tekshirish'));
         await tester.pumpAndSettle();
         expect(
-            tester
-                .widget<Text>(
-                    find.byKey(const ValueKey('qr-passport-order-status')))
-                .data,
-            'Zakaz 0063 • Ish jarayonida');
+          find.descendant(
+            of: find.byKey(const ValueKey('qr-passport-order-status')),
+            matching: find.text('Zakaz 0063 • Ish jarayonida'),
+            matchRoot: true,
+          ),
+          findsOneWidget,
+        );
         expect(
-            tester
-                .widget<Text>(find
-                    .byKey(const ValueKey('qr-passport-scanned-batch-status')))
-                .data,
-            'Skanerlangan rulon: Keyingi bosqichda ishlatilgan');
+          find.descendant(
+            of: find.byKey(const ValueKey('qr-passport-scanned-batch-status')),
+            matching: find.text('Skanerlangan rulon: Keyingi bosqichda ishlatilgan'),
+            matchRoot: true,
+          ),
+          findsOneWidget,
+        );
         expect(find.byKey(const ValueKey('qr-passport-current-batch-status')),
             findsOneWidget);
         expect(find.textContaining('Ishlab chiqarish tugagan'), findsNothing);

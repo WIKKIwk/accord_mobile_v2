@@ -5,6 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+String _visibleTotal(WidgetTester tester, String key) {
+  return tester
+      .widget<Text>(find.descendant(
+        of: find.byKey(ValueKey(key)),
+        matching: find.byType(Text),
+        matchRoot: true,
+      ))
+      .data!;
+}
+
 void main() {
   test('nullable server totals preserve zero and full precision', () {
     final p = AdminPaddon.fromJson(
@@ -63,12 +73,8 @@ void main() {
                   paddon: AdminPaddon.fromJson(
                       {'total_gross_kg': 1234.567891, 'total_net_kg': 0})))));
       await tester.pumpAndSettle();
-      final gross = tester
-          .widget<Text>(find.byKey(const ValueKey('paddon-total-gross')))
-          .data!;
-      final net = tester
-          .widget<Text>(find.byKey(const ValueKey('paddon-total-net')))
-          .data!;
+      final gross = _visibleTotal(tester, 'paddon-total-gross');
+      final net = _visibleTotal(tester, 'paddon-total-net');
       expect(gross, contains('1234.567891 kg'));
       expect(net, contains('0 kg'));
       expect(
@@ -88,15 +94,7 @@ void main() {
             body: PaddonWeightTotals(
                 paddon: AdminPaddon.fromJson({'total_net_kg': 0})))));
     await tester.pumpAndSettle();
-    expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('paddon-total-gross')))
-            .data,
-        endsWith('—'));
-    expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('paddon-total-net')))
-            .data,
-        endsWith('0 kg'));
+    expect(_visibleTotal(tester, 'paddon-total-gross'), endsWith('—'));
+    expect(_visibleTotal(tester, 'paddon-total-net'), endsWith('0 kg'));
   });
 }

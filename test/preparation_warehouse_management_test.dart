@@ -5,7 +5,7 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
-import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
+import 'package:accord_mobile_v2/src/core/widgets/feedback/spring_bottom_sheet.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -55,12 +55,14 @@ Future<void> openActions(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await tester.longPress(find.text('Child'));
   await tester.pumpAndSettle();
-  expect(find.text('Nomini o‘zgartirish'), findsOneWidget);
-  expect(
-      find.descendant(
-          of: find.byType(BottomSheet),
-          matching: find.byType(M3SegmentFilledSurface)),
-      findsNWidgets(2));
+  final sheet = find.byType(AppActionSheet<String>);
+  expect(sheet, findsOneWidget);
+  for (final action in ['Nomini o‘zgartirish', 'O‘chirish']) {
+    expect(
+      find.descendant(of: sheet, matching: find.text(action)),
+      findsOneWidget,
+    );
+  }
 }
 
 void main() {
