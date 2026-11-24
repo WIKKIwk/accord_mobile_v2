@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -11,34 +12,28 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const apparatus = 'apparatus:default:asset-007';
-Map<String, dynamic> sourcePayload({String kind = 'progress_batch'}) => {
-      'source_kind': kind,
-      'source_id': kind == 'raw_material' ? 'film-roll' : 'printed-roll',
-      'session_id': 'completed-lamination',
-      'revision': 3,
-      'qr_payload': kind == 'raw_material' ? 'film-qr' : 'printed-qr',
-      'item_code': 'PET',
-      'item_name': kind == 'raw_material' ? 'Film PET' : 'Printed PET',
-      'source_net_kg': 50,
-      'source_meter': 1500,
-      'tare_kg': 2,
-      'producer_name': 'Original owner',
-    };
+const _apparatus = 'apparatus:default:asset-007';
+const _historyPath = '/v1/mobile/admin/production-maps/layer-remainders';
+const _savedRoll = {
+  'operation_id': 'saved-remainder',
+  'request_id': 'report-1',
+  'item_name': 'Printed PET',
+  'source_kind': 'progress_batch',
+  'source_id': 'printed-roll',
+  'qr_payload': 'remaining-qr',
+  'remaining_net_kg': 20,
+  'remaining_meter': 600,
+  'producer_name': 'Original owner',
+  'recorded_by': {'display_name': 'Lamination operator'},
+};
+final _l10n = AppLocalizations(const Locale('uz'));
 
-Map<String, dynamic> remainderPayload(String requestId) => {
-      'operation_id': 'saved-remainder',
-      'request_id': requestId,
-      'source_kind': 'progress_batch',
-      'source_id': 'printed-roll',
-      'qr_payload': 'remaining-qr',
-      'remaining_net_kg': 20,
-      'remaining_meter': 600,
-      'producer_name': 'Original owner',
-      'recorded_by': {'display_name': 'Lamination operator'},
-    };
-
-Widget sheet({Key? key}) => MaterialApp(
+Widget _sheet({
+  Key? key,
+  AdminLaminationAstatkaResult? initialResult,
+  bool printFailed = false,
+}) =>
+    MaterialApp(
       locale: const Locale('uz'),
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -50,24 +45,14 @@ Widget sheet({Key? key}) => MaterialApp(
       home: Scaffold(
         body: LaminationLayerRemainderSheet(
           key: key,
-          apparatus: apparatus,
+          apparatus: _apparatus,
           orderId: 'order-1',
-          progressDriverUrlPicker: (_) async => 'http://printer.local:8080',
+          initialResult: initialResult,
+          printFailed: printFailed,
+          progressDriverUrlPicker: (_) async => 'http://printer.test:8080',
         ),
       ),
     );
-
-Future<void> scrollTo(WidgetTester tester, String key) async {
-  await tester.scrollUntilVisible(
-    find.byKey(ValueKey(key)),
-    160,
-    scrollable: find
-        .byWidgetPredicate((widget) =>
-            widget is Scrollable && widget.axisDirection == AxisDirection.down)
-        .first,
-  );
-  await tester.pumpAndSettle();
-}
 
 void main() {
   setUp(() async {
@@ -75,191 +60,116 @@ void main() {
     await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = 'worker-token';
   });
-  tearDown(() {
-    AppSession.instance.token = null;
-  });
+  tearDown(() => AppSession.instance.token = null);
 
-  testWidgets('lists scanned layers and previews meter from net kg',
+  testWidgets('history shows saved net weight, estimated length and both actors',
       (tester) async {
+    final requests = <http.Request>[];
     await http.runWithClient(() async {
-      await tester.pumpWidget(sheet());
+      await tester.pumpWidget(_sheet());
       await tester.pumpAndSettle();
       expect(find.text('Printed PET'), findsOneWidget);
-      expect(find.text('Film PET'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey(
-          'layer-remainder-source-progress_batch-printed-roll')));
-      await tester.pumpAndSettle();
-      await scrollTo(tester, 'layer-remainder-net-kg');
-      await tester.enterText(
-          find.byKey(const ValueKey('layer-remainder-net-kg')), '20');
-      await tester.pump();
-      expect(find.text('Taxminiy metraj: ≈ 600 m'), findsOneWidget);
-      final save = tester.widget<FilledButton>(
-          find.byKey(const ValueKey('layer-remainder-save')));
-      expect(save.onPressed, isNotNull);
-      await tester.enterText(
-          find.byKey(const ValueKey('layer-remainder-net-kg')), '51');
-      await tester.pump();
-      expect(
-          tester
-              .widget<FilledButton>(
-                  find.byKey(const ValueKey('layer-remainder-save')))
-              .onPressed,
-          isNull);
-    },
-        () => MockClient((request) async {
-              expect(request.method, 'GET');
-              return http.Response(
-                  jsonEncode({
-                    'sources': [
-                      sourcePayload(),
-                      sourcePayload(kind: 'raw_material')
-                    ],
-                    'remainders': [],
-                  }),
-                  200);
-            }));
+      expect(find.textContaining('20 kg · ≈ 600 m'), findsOneWidget);
+      expect(find.textContaining('Original owner'), findsOneWidget);
+      expect(find.textContaining('Lamination operator'), findsOneWidget);
+      expect(find.textContaining('remaining-qr'), findsOneWidget);
+      expect(find.text('Unreported film'), findsNothing);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(requests.single.method, 'GET');
+      expect(requests.single.url.path, _historyPath);
+      expect(requests.single.url.queryParameters,
+          {'apparatus': _apparatus, 'order_id': 'order-1'});
+    }, () => MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({
+            'sources': [
+              {'source_id': 'unreported', 'item_name': 'Unreported film'}
+            ],
+            'remainders': [_savedRoll],
+          }), 200);
+        }));
   });
 
-  testWidgets('saved print failure offers reprint without another return',
+  testWidgets('a print failure retries the same saved remainder only',
       (tester) async {
-    final creates = <http.Request>[];
-    final reprints = <http.Request>[];
-    Map<String, dynamic>? saved;
+    final writes = <http.Request>[];
+    final printFailed = _l10n.productionText('worker.layer_remainder.print_failed');
     await http.runWithClient(() async {
-      await tester.pumpWidget(sheet());
+      await tester.pumpWidget(_sheet());
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey(
-          'layer-remainder-source-progress_batch-printed-roll')));
+      final roll = find.widgetWithText(ListTile, 'Printed PET');
+      await tester.tap(roll);
       await tester.pumpAndSettle();
-      await scrollTo(tester, 'layer-remainder-net-kg');
-      await tester.enterText(
-          find.byKey(const ValueKey('layer-remainder-net-kg')), '20');
-      await tester.pump();
-      await scrollTo(tester, 'layer-remainder-save');
-      await tester.tap(find.byKey(const ValueKey('layer-remainder-save')));
+      expect(find.text(printFailed), findsOneWidget);
+      await tester.tap(roll);
       await tester.pumpAndSettle();
-      expect(creates, hasLength(1));
-      expect(find.textContaining('Qoldiq saqlangan. QR chop etilmadi'),
+      expect(find.text(_l10n.productionText('worker.layer_remainder.printed')),
           findsOneWidget);
-      await scrollTo(tester, 'layer-remainder-reprint');
-      await tester.tap(find.byKey(const ValueKey('layer-remainder-reprint')));
-      await tester.pumpAndSettle();
-      expect(creates, hasLength(1));
-      expect(reprints, hasLength(1));
-      expect(
-          jsonDecode(reprints.single.body)['operation_id'], 'saved-remainder');
-    },
-        () => MockClient((request) async {
-              if (request.method == 'GET') {
-                return http.Response(
-                    jsonEncode({
-                      'sources': saved == null ? [sourcePayload()] : [],
-                      'remainders': saved == null ? [] : [saved],
-                    }),
-                    200);
-              }
-              if (request.url.path.endsWith('/reprint')) {
-                reprints.add(request);
-              } else {
-                creates.add(request);
-                saved = remainderPayload(
-                    jsonDecode(request.body)['request_id'] as String);
-              }
-              return http.Response(
-                  jsonEncode({
-                    'ok': true,
-                    'remainder': saved,
-                    'print': {'ok': false, 'status': 'printer_unavailable'},
-                  }),
-                  200);
-            }));
+      expect(writes, hasLength(2));
+      for (final request in writes) {
+        expect(request.method, 'POST');
+        expect(request.url.path, '$_historyPath/reprint');
+        expect(jsonDecode(request.body), containsPair('operation_id', 'saved-remainder'));
+      }
+    }, () => MockClient((request) async {
+          if (request.method == 'GET') {
+            return http.Response(jsonEncode({'remainders': [_savedRoll]}), 200);
+          }
+          writes.add(request);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'remainder': _savedRoll,
+            'print': {'ok': writes.length == 2},
+          }), 200);
+        }));
   });
 
-  testWidgets('unknown save retry survives sheet reopen with same request ID',
+  testWidgets('reopening history restores the saved QR without submitting a report',
       (tester) async {
-    final requests = <Map<String, dynamic>>[];
+    final requests = <http.Request>[];
     await http.runWithClient(() async {
-      await tester.pumpWidget(sheet());
+      await tester.pumpWidget(_sheet());
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey(
-          'layer-remainder-source-progress_batch-printed-roll')));
+      expect(find.textContaining('remaining-qr'), findsOneWidget);
+      await tester.pumpWidget(_sheet(key: const ValueKey('reopened')));
       await tester.pumpAndSettle();
-      await scrollTo(tester, 'layer-remainder-net-kg');
-      await tester.enterText(
-          find.byKey(const ValueKey('layer-remainder-net-kg')), '20');
-      await tester.pump();
-      await scrollTo(tester, 'layer-remainder-save');
-      await tester.tap(find.byKey(const ValueKey('layer-remainder-save')));
-      await tester.pumpAndSettle();
-      expect(requests, hasLength(1));
-      await tester.pumpWidget(sheet(key: const ValueKey('reopened')));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Oldingi so‘rovning javobi kelmagan'),
-          findsOneWidget);
-      await scrollTo(tester, 'layer-remainder-save');
-      await tester.tap(find.byKey(const ValueKey('layer-remainder-save')));
-      await tester.pumpAndSettle();
-      expect(requests, hasLength(2));
-      expect(requests[0]['request_id'], requests[1]['request_id']);
-      expect(requests[1]['remaining_net_kg'], 20);
-      expect(requests[1]['expected_revision'], 3);
-    },
-        () => MockClient((request) async {
-              if (request.method == 'GET') {
-                return http.Response(
-                    jsonEncode({
-                      'sources': [sourcePayload()],
-                      'remainders': []
-                    }),
-                    200);
-              }
-              requests.add(
-                  (jsonDecode(request.body) as Map).cast<String, dynamic>());
-              throw http.ClientException('Connection lost after save');
-            }));
+      expect(find.textContaining('remaining-qr'), findsOneWidget);
+      expect(requests.map((r) => r.method), ['GET', 'GET']);
+      expect(requests.every((r) => r.url.path == _historyPath), isTrue);
+    }, () => MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({'remainders': [_savedRoll]}), 200);
+        }));
   });
 
-  testWidgets('reopening reconciles committed save whose response was lost',
+  testWidgets('a committed receipt keeps saved QR available when history fails',
       (tester) async {
-    Map<String, dynamic>? saved;
-    var creates = 0;
+    final writes = <http.Request>[];
+    final saved = AdminLayerRemainder.fromJson(_savedRoll);
     await http.runWithClient(() async {
-      await tester.pumpWidget(sheet());
+      await tester.pumpWidget(_sheet(
+        initialResult: AdminLaminationAstatkaResult(remainders: [saved]),
+        printFailed: true,
+      ));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey(
-          'layer-remainder-source-progress_batch-printed-roll')));
-      await tester.pumpAndSettle();
-      await scrollTo(tester, 'layer-remainder-net-kg');
-      await tester.enterText(
-          find.byKey(const ValueKey('layer-remainder-net-kg')), '20');
-      await tester.pump();
-      await scrollTo(tester, 'layer-remainder-save');
-      await tester.tap(find.byKey(const ValueKey('layer-remainder-save')));
-      await tester.pumpAndSettle();
-      expect(creates, 1);
-      await tester.pumpWidget(sheet(key: const ValueKey('recovered')));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Oldingi so‘rovning javobi kelmagan'),
-          findsNothing);
-      await scrollTo(tester, 'layer-remainder-reprint');
-      expect(find.byKey(const ValueKey('layer-remainder-reprint')),
+      expect(find.textContaining('remaining-qr'), findsOneWidget);
+      expect(find.textContaining('20 kg · ≈ 600 m'), findsOneWidget);
+      expect(find.text(_l10n.productionText('worker.layer_remainder.print_failed')),
           findsOneWidget);
-      expect(find.byKey(const ValueKey('layer-remainder-save')), findsNothing);
-      expect(creates, 1);
-    },
-        () => MockClient((request) async {
-              if (request.method == 'GET') {
-                return http.Response(
-                    jsonEncode({
-                      'sources': saved == null ? [sourcePayload()] : [],
-                      'remainders': saved == null ? [] : [saved],
-                    }),
-                    200);
-              }
-              creates++;
-              saved = remainderPayload(jsonDecode(request.body)['request_id']);
-              throw http.ClientException('Response lost after commit');
-            }));
+      await tester.tap(find.widgetWithText(ListTile, 'Printed PET'));
+      await tester.pumpAndSettle();
+      expect(writes.single.url.path, '$_historyPath/reprint');
+      expect(jsonDecode(writes.single.body), containsPair('operation_id', saved.operationId));
+    }, () => MockClient((request) async {
+          if (request.method == 'GET') {
+            return http.Response('{"error":"store_failed"}', 503);
+          }
+          writes.add(request);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'remainder': _savedRoll,
+            'print': {'ok': true},
+          }), 200);
+        }));
   });
 }
