@@ -52,6 +52,7 @@ void main() {
       await _pumpInventory(tester);
 
       expect(fixture.requests.map((uri) => uri.path).toSet(), {
+        _InventoryLazyFixture.ticketPath,
         '${_InventoryLazyFixture.prefix}/inventory/locations',
         '${_InventoryLazyFixture.prefix}/inventory/assets',
       });
@@ -216,6 +217,7 @@ class _InventoryLazyFixture {
   _InventoryLazyFixture({this.delayTransfers = false});
 
   static const prefix = '/v1/mobile/admin';
+  static const ticketPath = '/v1/mobile/auth/live-ticket';
   final bool delayTransfers;
   final requests = <Uri>[];
   final transferDirections = <String>[];
@@ -251,6 +253,12 @@ class _InventoryLazyFixture {
     requests.add(request.url);
     expect(request.headers['authorization'],
         'Bearer inventory-lazy-loading-token');
+    if (request.url.path == ticketPath) {
+      expect(request.method, 'POST');
+      expect(jsonDecode(request.body), {'path': '$prefix/inventory/live'});
+      // Exercise the screen's HTTP fallback while its live service is offline.
+      return http.Response('', HttpStatus.serviceUnavailable);
+    }
     if (request.method == 'POST' &&
         request.url.path == '$prefix/inventory/transfers') {
       final input = jsonDecode(request.body) as Map<String, dynamic>;
