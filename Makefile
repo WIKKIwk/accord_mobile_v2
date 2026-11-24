@@ -296,9 +296,6 @@ remote-stop:
 	@./tools/runtime/stop_remote_core.sh
 
 run: $(RUN_PREREQ) deps
-ifeq ($(HOST_OS),Darwin)
-run: print-bridge-up
-endif
 ifeq ($(RUN_DEVICE),web-server)
 ifeq ($(HOST_OS),Darwin)
 ifneq ($(strip $(RUN_WEB_PORT)),auto)
