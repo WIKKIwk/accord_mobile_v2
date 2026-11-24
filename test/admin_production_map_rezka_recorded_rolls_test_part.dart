@@ -274,15 +274,20 @@ void _registerRezkaRecordedRollTests() {
             findsOneWidget);
         if (savedIssue) expect(find.text('Kadr yirtilgan'), findsOneWidget);
         for (final field in ['meter', 'kg', 'bobina', 'diameter']) {
-          final saved = tester.widget<TextFormField>(
-              find.byKey(ValueKey('rezka-frame-0-$field')));
+          final recordedField = find.byKey(ValueKey('rezka-frame-0-$field'));
           final pending = tester.widget<TextFormField>(
               find.byKey(ValueKey('rezka-frame-1-$field')));
-          expect(saved.enabled, isFalse);
-          expect(saved.controller!.text, savedIssue ? isEmpty : isNotEmpty);
+          if (savedIssue && field == 'bobina') {
+            expect(recordedField, findsNothing);
+            expect(pending.controller!.text, isEmpty);
+          } else {
+            final saved = tester.widget<TextFormField>(recordedField);
+            expect(saved.enabled, isFalse);
+            expect(saved.controller!.text, savedIssue ? isEmpty : isNotEmpty);
+            expect(pending.controller!.text,
+                savedIssue ? isEmpty : saved.controller!.text);
+          }
           expect(pending.enabled, isTrue);
-          expect(pending.controller!.text,
-              savedIssue ? isEmpty : saved.controller!.text);
         }
         expect(
             find.byKey(const ValueKey('rezka-frame-0-print')), findsOneWidget);
