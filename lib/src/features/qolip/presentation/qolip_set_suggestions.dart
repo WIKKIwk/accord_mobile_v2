@@ -72,6 +72,7 @@ class _QolipSetSuggestionsState extends State<QolipSetSuggestions> {
   void initState() {
     super.initState();
     widget.controller.addListener(_changed);
+    QolipStorageWatch.instance.addListener(_changed);
     _changed();
   }
 
@@ -92,6 +93,7 @@ class _QolipSetSuggestionsState extends State<QolipSetSuggestions> {
   void dispose() {
     _timer?.cancel();
     widget.controller.removeListener(_changed);
+    QolipStorageWatch.instance.removeListener(_changed);
     super.dispose();
   }
 
@@ -119,7 +121,8 @@ class _QolipSetSuggestionsState extends State<QolipSetSuggestions> {
       final sets = await widget.lookup.load();
       if (!current()) return;
       final matches = await searchQolipSets(sets, query,
-          includeMoldCodes: widget.includeMoldCodes, isCurrent: current);
+          includeMoldCodes: widget.includeMoldCodes,
+          availableOnly: true, isCurrent: current);
       if (!current()) return;
       setState(() {
         _matches = matches;

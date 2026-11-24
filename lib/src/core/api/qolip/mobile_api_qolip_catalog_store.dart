@@ -45,6 +45,11 @@ class QolipCatalogStore extends ChangeNotifier {
     _overrides.clear();
   }
 
+  void invalidateStorage() {
+    reset();
+    notifyListeners();
+  }
+
   QolipCatalogWindow window(String query) {
     _synchronize();
     return _windows.putIfAbsent(

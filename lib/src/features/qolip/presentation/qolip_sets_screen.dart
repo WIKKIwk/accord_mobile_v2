@@ -40,14 +40,22 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
   @override
   void initState() {
     super.initState();
+    QolipStorageWatch.instance.addListener(_refreshAvailability);
     _future = MobileApi.instance.qolipManagedSets();
   }
 
   @override
   void dispose() {
+    QolipStorageWatch.instance.removeListener(_refreshAvailability);
     _search.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  void _refreshAvailability() {
+    setState(() {
+      _future = MobileApi.instance.qolipManagedSets();
+    });
   }
 
   Future<void> _reload() async {
@@ -322,6 +330,8 @@ class _QolipSetsScreenState extends State<QolipSetsScreen> {
                             if (entry.name.isNotEmpty) entry.set.id,
                             l10n.qolipText('products.mold_count',
                                 values: {'count': entry.set.members.length}),
+                            if (entry.set.unavailableReason.isNotEmpty)
+                              l10n.qolipAvailabilityText(entry.set.unavailableReason),
                           ].join(' · ')),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,

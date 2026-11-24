@@ -7,8 +7,7 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
   final _qolipCode = TextEditingController();
   final _size = TextEditingController();
   final _setLookup = QolipSetLookup();
-  late final Future<Set<String>> _placedQolipCodesFuture;
-  Future<List<QolipProduct>>? _productsFuture;
+  late final VoidCallback _storageListener = _onPlacementStorageChanged;
   QolipBlock? _block;
   List<String> _specWarehouses = const [];
   String? _specWarehouse;
@@ -62,9 +61,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
         : <QolipProduct>[widget.initialProduct!];
     _rowLetter = widget.initialRowLetter;
     _columnNumber = widget.initialColumnNumber;
-    _placedQolipCodesFuture = widget.mode == _QolipAttachMode.cellPlacement
-        ? _loadPlacedQolipCodes()
-        : Future.value(const <String>{});
+    if (!_createsMolds) {
+      QolipStorageWatch.instance.addListener(_storageListener);
+    }
     if (_createsMolds) {
       _loadSpecWarehouses();
     }
@@ -72,6 +71,9 @@ class _QolipAttachSheetState extends State<_QolipAttachSheet> {
 
   @override
   void dispose() {
+    if (!_createsMolds) {
+      QolipStorageWatch.instance.removeListener(_storageListener);
+    }
     _qolipCode.dispose();
     _size.dispose();
     super.dispose();

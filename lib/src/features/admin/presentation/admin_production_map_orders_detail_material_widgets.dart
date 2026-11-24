@@ -1325,8 +1325,8 @@ class _AttachedQolipTile extends StatelessWidget {
         _exactQolipHexColor(product.qolipColor) == null) {
       details.add(product.qolipColor.trim());
     }
-    if (product.isInUse) {
-      details.add(context.l10n.adminText('production.qolip_in_use'));
+    if (product.availabilityError.isNotEmpty) {
+      details.add(context.l10n.qolipAvailabilityText(product.availabilityError));
     }
     return GestureDetector(
       key: ValueKey('attached-qolip-$code'),

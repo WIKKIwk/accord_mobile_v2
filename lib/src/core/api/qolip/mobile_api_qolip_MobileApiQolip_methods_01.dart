@@ -15,6 +15,7 @@ extension MobileApiQolipAstPart01 on MobileApi {
         supportsCrossBlockMove: true,
       );
     }
+    final scope = currentSessionReadScope();
     final response = await _sendAuthorized(
       () => _get(
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/blocks'),
@@ -25,7 +26,47 @@ extension MobileApiQolipAstPart01 on MobileApi {
       throw Exception('Qolip blocks failed');
     }
     final data = await decodeJsonMapPayload(response.body);
+    QolipStorageWatch.instance._seed(data['storage_revision'], scope);
     return QolipBlocksResult.fromJson(data);
+  }
+
+  Future<({List<QolipProduct> products, bool filtered})> qolipPlacementProducts(
+      String warehouse) async {
+    if (await TestModeController.instance.isEnabled()) {
+      return (
+        products: await qolipProducts(limit: 20000, withQolipOnly: true),
+        filtered: false,
+      );
+    }
+    final scope = currentSessionReadScope();
+    final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/products')
+        .replace(queryParameters: {
+      'with_qolip': 'true',
+      'limit': '20000',
+      'placement_warehouse': warehouse,
+    });
+    final response = await _sendAuthorized(() {
+      if (scope != currentSessionReadScope()) {
+        throw StateError('Qolip storage account changed');
+      }
+      return _get(uri, headers: _headers(requireToken()));
+    });
+    if (response.statusCode != 200) {
+      throw _qolipApiException(response,
+          fallbackCode: 'qolip_products_failed',
+          fallbackMessage: 'Qoliplar yuklanmadi');
+    }
+    final data = await decodeJsonMapPayload(response.body);
+    if (scope != currentSessionReadScope()) {
+      throw StateError('Qolip storage account changed');
+    }
+    QolipStorageWatch.instance._seed(data['storage_revision'], scope);
+    return (
+      products: (data['products'] as List)
+          .map((raw) => QolipProduct.fromJson((raw as Map).cast<String, dynamic>()))
+          .toList(growable: false),
+      filtered: data['placement_filtered'] == true,
+    );
   }
 
   Future<QolipBlock> qolipCreateBlock({

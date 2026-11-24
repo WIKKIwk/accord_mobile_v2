@@ -14,7 +14,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
       _applyStateChange(() {
         _molds = molds;
         final available = _forProduct(_selectedProduct)
-            .where((m) => !m.isInUse)
+            .where((m) => m.availabilityError.isEmpty)
             .map((m) => m.qolipCode.trim().toLowerCase())
             .toSet();
         _selected.removeWhere((code) => !available.contains(code));
@@ -153,9 +153,13 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
         _selectedProduct = mold;
         if (_target?.code == mold.code) _target = null;
         _selected.clear();
-        if (!mold.isInUse) _selected.add(mold.qolipCode.trim().toLowerCase());
+        if (mold.availabilityError.isEmpty) {
+          _selected.add(mold.qolipCode.trim().toLowerCase());
+        }
       });
-      if (mold.isInUse) _message(context.l10n.qolipErrorText('qolip_in_use'));
+      if (mold.availabilityError.isNotEmpty) {
+        _message(context.l10n.qolipAvailabilityText(mold.availabilityError));
+      }
     } catch (error) {
       if (mounted) _showError(error, _text('scan_failed'));
     } finally {
@@ -177,7 +181,7 @@ extension _QolipProductTransferActions on _QolipProductTransferScreenState {
     }
     codes = codes.toSet().toList()..sort();
     final available = _forProduct(source)
-        .where((m) => !m.isInUse)
+        .where((m) => m.availabilityError.isEmpty)
         .map((m) => m.qolipCode.trim().toLowerCase())
         .toSet();
     if (codes.length > 100) {

@@ -86,6 +86,8 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
     }
   }
 
+  late final VoidCallback _releaseStorageWatch;
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +95,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
         initialScrollOffset:
             QolipCatalogStore.instance.window('').scrollOffset);
     QolipCatalogStore.instance.addListener(_catalogChanged);
+    _releaseStorageWatch = QolipStorageWatch.instance.retain();
     _scroll.addListener(_handleScroll);
     _future = _load();
   }
@@ -100,6 +103,7 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
   @override
   void dispose() {
     QolipCatalogStore.instance.removeListener(_catalogChanged);
+    _releaseStorageWatch();
     if (_scroll.hasClients) {
       QolipCatalogStore.instance.window(_query).scrollOffset = _scroll.offset;
     }

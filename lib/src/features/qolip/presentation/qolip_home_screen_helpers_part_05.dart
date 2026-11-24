@@ -13,7 +13,7 @@ List<QolipProduct> qolipProductsAvailableForCellPlacement(
   return _qolipProductsWithSavedCodeOnly(products)
       .where(
         (product) =>
-            !product.isInUse &&
+            product.availabilityError.isEmpty &&
             seen.add(product.qolipCode.trim().toLowerCase()) &&
             !normalizedPlacedCodes.contains(
               product.qolipCode.trim().toLowerCase(),

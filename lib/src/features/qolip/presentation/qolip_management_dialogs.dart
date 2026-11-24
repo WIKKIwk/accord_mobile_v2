@@ -15,6 +15,10 @@ Future<List<QolipProduct>?> reuseSelectedQolipSet(
   var changed = false;
   while (true) {
     if (!context.mounted) return null;
+    if (current.unavailableReason.isNotEmpty) {
+      throw MobileApiException(
+          code: current.unavailableReason, message: current.unavailableReason);
+    }
     final l10n = context.l10n;
     final body = l10n.qolipSharedSetText('body', values: {
       'code': setName == null || setName.isEmpty
@@ -121,7 +125,7 @@ Future<({bool handled, List<QolipProduct>? products, String? setId})>
 }
 
 Future<QolipManagedSet?> showQolipSetPicker(BuildContext context) {
-  Future<List<QolipManagedSet>>? future;
+  final lookup = QolipSetLookup();
   final l10n = context.l10n;
   return showModalBottomSheet<QolipManagedSet>(
     context: context,
@@ -131,9 +135,10 @@ Future<QolipManagedSet?> showQolipSetPicker(BuildContext context) {
     builder: (sheetContext) => M3AsyncPickerSheet<QolipManagedSet>(
       title: l10n.qolipManagementText('choose'),
       hintText: l10n.qolipManagementText('search'),
+      reloadListenable: QolipStorageWatch.instance,
       loadPage: (query, offset, limit) async {
-        final sets = await (future ??= MobileApi.instance.qolipManagedSets());
-        return (await searchQolipSets(sets, query))
+        final sets = await lookup.load();
+        return (await searchQolipSets(sets, query, availableOnly: true))
             .skip(offset)
             .take(limit)
             .toList();

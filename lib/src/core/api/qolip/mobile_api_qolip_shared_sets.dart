@@ -90,11 +90,13 @@ class QolipSharedSet {
       {required this.id,
       required this.fingerprint,
       required this.members,
-      required this.productLabels});
+      required this.productLabels,
+      this.unavailableReason = ''});
   final String id;
   final String fingerprint;
   final List<QolipProduct> members;
   final List<String> productLabels;
+  final String unavailableReason;
 
   factory QolipSharedSet.fromJson(Map<String, dynamic> json) {
     final id = json['set_id']?.toString() ?? '';
@@ -117,6 +119,7 @@ class QolipSharedSet {
     return QolipSharedSet(
         id: id,
         fingerprint: json['fingerprint']?.toString() ?? '',
+        unavailableReason: json['unavailable_reason']?.toString() ?? '',
         members: members,
         productLabels: (json['products'] as List).map((raw) {
           final product = raw as Map;

@@ -1,6 +1,15 @@
 part of 'app_localizations.dart';
 
 extension AppLocalizationsQolipStorage on AppLocalizations {
+  String qolipAvailabilityText(String reason) => qolipStorageText(switch (reason) {
+        'qolip_archived' => 'archived',
+        'qolip_in_paddon' => 'in_paddon',
+        'qolip_in_rework' => 'in_rework',
+        'qolip_in_transfer' => 'transferring',
+        'qolip_in_use' => 'in_use',
+        _ => 'available',
+      });
+
   String qolipStorageText(String key) => switch (key) {
         'paddons' => _t('Paddonlar', 'Pallets', 'Поддоны'),
         'paddons_search' =>

@@ -159,6 +159,7 @@ extension MobileApiQolipManagement on MobileApi {
         ..sort((a, b) => a.set.id.compareTo(b.set.id));
       return result;
     }
+    final scope = currentSessionReadScope();
     final response = await _sendAuthorized(() => _get(
           Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/sets'),
           headers: _headers(requireToken()),
@@ -169,6 +170,7 @@ extension MobileApiQolipManagement on MobileApi {
           fallbackMessage: 'Komplektlar yuklanmadi');
     }
     final data = await decodeJsonMapPayload(response.body);
+    QolipStorageWatch.instance._seed(data['storage_revision'], scope);
     return (data['sets'] as List)
         .map((raw) =>
             QolipManagedSet.fromJson((raw as Map).cast<String, dynamic>()))

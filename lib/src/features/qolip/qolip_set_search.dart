@@ -10,11 +10,13 @@ Future<List<QolipManagedSet>> searchQolipSets(
   Iterable<QolipManagedSet> sets,
   String query, {
   bool includeMoldCodes = true,
+  bool availableOnly = false,
   bool Function()? isCurrent,
 }) async {
   final documents = includeMoldCodes ? _setDocuments : _setNameDocuments;
   final matches = await filterQolipSearch(
-    sets.where((entry) => entry.set.members.isNotEmpty),
+    sets.where((entry) => entry.set.members.isNotEmpty &&
+        (!availableOnly || entry.set.unavailableReason.isEmpty)),
     query,
     (QolipManagedSet entry) => documents[entry] ??= QolipSearchDocument([
       entry.name,
@@ -52,6 +54,7 @@ Future<List<QolipManagedSet>> searchQolipSets(
 /// Share one scoped catalog read between typing, selection and saving a form.
 class QolipSetLookup {
   String? _scope;
+  String? _revision;
   Future<List<QolipManagedSet>>? _future;
 
   String get _currentScope =>
@@ -60,14 +63,16 @@ class QolipSetLookup {
 
   Future<List<QolipManagedSet>> load({bool refresh = false}) {
     final scope = _currentScope;
-    if (refresh || _scope != scope) {
+    final revision = QolipStorageWatch.instance.revision;
+    if (refresh || _scope != scope || _revision != revision) {
       _scope = scope;
+      _revision = revision;
       _future = null;
     }
-    return _future ??= _load(scope);
+    return _future ??= _load(scope, revision);
   }
 
-  Future<List<QolipManagedSet>> _load(String scope) async {
+  Future<List<QolipManagedSet>> _load(String scope, String? revision) async {
     try {
       final sets = await MobileApi.instance.qolipManagedSets();
       if (scope != _currentScope) {
@@ -76,7 +81,7 @@ class QolipSetLookup {
       }
       return sets;
     } catch (_) {
-      if (_scope == scope) _future = null;
+      if (_scope == scope && _revision == revision) _future = null;
       rethrow;
     }
   }

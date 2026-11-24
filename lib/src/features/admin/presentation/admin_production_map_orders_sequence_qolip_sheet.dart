@@ -171,10 +171,10 @@ class _SequenceQolipSheetState extends State<_SequenceQolipSheet> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     leading: Icon(
-                      qolip.isInUse
-                          ? Icons.precision_manufacturing_rounded
+                      qolip.availabilityError.isNotEmpty
+                          ? Icons.lock_outline_rounded
                           : Icons.inventory_2_outlined,
-                      color: qolip.isInUse
+                      color: qolip.availabilityError.isNotEmpty
                           ? scheme.primary
                           : scheme.onSurfaceVariant,
                     ),
@@ -190,13 +190,11 @@ class _SequenceQolipSheetState extends State<_SequenceQolipSheet> {
                       ].join(' • '),
                     ),
                     trailing: Text(
-                      l10n.adminText(
-                        qolip.isInUse
-                            ? 'production.qolip_in_use'
-                            : 'production.qolip_available',
-                      ),
+                      qolip.availabilityError.isEmpty
+                          ? l10n.adminText('production.qolip_available')
+                          : l10n.qolipAvailabilityText(qolip.availabilityError),
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: qolip.isInUse
+                        color: qolip.availabilityError.isNotEmpty
                             ? scheme.primary
                             : scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,

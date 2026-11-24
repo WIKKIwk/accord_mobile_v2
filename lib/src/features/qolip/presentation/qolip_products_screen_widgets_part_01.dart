@@ -39,7 +39,8 @@ class QolipProductContainer {
   final List<QolipProduct> children;
   final String imageOrderId;
 
-  bool get hasInUseQolip => children.any((child) => child.isInUse);
+  bool get hasUnavailableQolip =>
+      children.any((child) => child.availabilityError.isNotEmpty);
 
   Map<String, List<QolipProduct>> get qolipSets {
     final sets = <String, List<QolipProduct>>{};
@@ -210,7 +211,7 @@ class QolipProductContainerCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     final container = this.container;
-    final selectionDisabled = container.hasInUseQolip;
+    final selectionDisabled = container.hasUnavailableQolip;
     final sets = container.qolipSets;
     final hasDetails = container.children.isNotEmpty;
     final reworkCount = container.children.where((row) =>
@@ -475,7 +476,7 @@ class QolipProductContainerCard extends StatelessWidget {
                                             onCodeTap: () => qolipSelectionMode
                                                 ? onToggleQolip(child)
                                                 : onCopyCode(child),
-                                            onLongPress: child.isInUse || reworkCodes.contains(
+                                            onLongPress: child.availabilityError.isNotEmpty || reworkCodes.contains(
                                                 child.qolipCode.trim().toLowerCase())
                                                 ? () {}
                                                 : () => onToggleQolip(child),
@@ -546,6 +547,9 @@ class QolipCodeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
+    final reason = product.availabilityError.isEmpty && isInRework
+        ? 'qolip_in_rework'
+        : product.availabilityError;
     return InkWell(
       onTap: enabled ? onTap : null,
       onLongPress: enabled ? onLongPress : null,
@@ -554,7 +558,7 @@ class QolipCodeRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? scheme.secondaryContainer
-              : product.isInUse || isInRework
+              : reason.isNotEmpty
                   ? scheme.surfaceContainerHighest.withValues(alpha: 0.55)
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -571,9 +575,11 @@ class QolipCodeRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Icon(
-                    isInRework ? Icons.build_outlined : product.isInUse
-                        ? Icons.lock_outline_rounded
-                        : Icons.qr_code_2_rounded,
+                    switch (reason) {
+                      'qolip_in_rework' => Icons.build_outlined,
+                      '' => Icons.qr_code_2_rounded,
+                      _ => Icons.lock_outline_rounded,
+                    },
                     size: 17,
                     color: scheme.onSurfaceVariant,
                   ),
@@ -632,11 +638,9 @@ class QolipCodeRow extends StatelessWidget {
                     ),
                     Text(
                       subtitle ??
-                          (isInRework
-                              ? l10n.qolipReworkText('open')
-                              : product.isInUse
-                                  ? l10n.qolipText('products.issued')
-                                  : product.qolipSize > 0
+                          (reason.isNotEmpty
+                              ? l10n.qolipAvailabilityText(reason)
+                              : product.qolipSize > 0
                                       ? l10n.qolipText(
                                           'products.size_value',
                                           values: {'size': product.qolipSize},
@@ -654,9 +658,9 @@ class QolipCodeRow extends StatelessWidget {
               else if (selectionMode)
                 Checkbox(
                   value: selected,
-                  onChanged: product.isInUse || isInRework ? null : (_) => onTap(),
+                  onChanged: reason.isNotEmpty ? null : (_) => onTap(),
                 )
-              else if (!product.isInUse && !isInRework)
+              else if (reason.isEmpty)
                 IconButton(
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit_outlined, size: 18),

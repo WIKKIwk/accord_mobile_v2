@@ -167,7 +167,10 @@ abstract final class QolipProductPdf {
                 verticalAlignment: pw.TableCellVerticalAlignment.middle,
                 children: [
                   cell((++number).toString(), identifier: true),
-                  cell(mold.qolipCode, code: true),
+                  cell(mold.availabilityError.isEmpty
+                      ? mold.qolipCode
+                      : '${mold.qolipCode}\n${l10n.qolipAvailabilityText(mold.availabilityError)}',
+                      code: true),
                   cell(mold.qolipSize > 0 ? mold.qolipSize.toString() : '—',
                       identifier: true),
                   cell(mold.qolipColor.trim().isEmpty

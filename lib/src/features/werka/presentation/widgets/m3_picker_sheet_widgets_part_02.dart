@@ -27,6 +27,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
     this.confirmSelectionTooltip,
     this.multiSelectOnTap = false,
     this.initialSelectedKeys = const <Object>{},
+    this.reloadListenable,
   });
 
   static final Map<String, _AsyncPickerMemoryCache<dynamic>> _memoryCache =
@@ -67,6 +68,7 @@ class M3AsyncPickerSheet<T> extends StatefulWidget {
   final String? confirmSelectionTooltip;
   final bool multiSelectOnTap;
   final Set<Object> initialSelectedKeys;
+  final Listenable? reloadListenable;
 
   @override
   State<M3AsyncPickerSheet<T>> createState() => _M3AsyncPickerSheetState<T>();

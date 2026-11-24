@@ -7,6 +7,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
 
   static const _blockOrderPreferenceKey = 'qolip.home.block_order';
   static const _quietRefreshInterval = Duration(seconds: 30);
+  late final VoidCallback _storageListener = _handleLocationsChanged;
 
   final bool _preserveHome =
       AppSession.instance.profile?.role == UserRole.qolipchi;
@@ -43,6 +44,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     }
     _blocksFuture = _loadBlocks();
     QolipDataRevision.locations.addListener(_handleLocationsChanged);
+    QolipStorageWatch.instance.addListener(_storageListener);
   }
 
   @override
@@ -75,6 +77,7 @@ class _QolipHomeScreenState extends State<QolipHomeScreen>
     _quietRefreshGeneration++;
     _quietRefreshCooldown?.cancel();
     QolipDataRevision.locations.removeListener(_handleLocationsChanged);
+    QolipStorageWatch.instance.removeListener(_storageListener);
     _searchGeneration++;
     _blockSearchMatchCounts.dispose();
     for (final counts in _cellSearchMatchCounts.values) {

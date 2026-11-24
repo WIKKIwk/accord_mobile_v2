@@ -87,9 +87,14 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     if (_reworking) return;
     final generation = _selectionGeneration;
     final resolved = await _ensureDetails(container);
-    if (!mounted || generation != _selectionGeneration || resolved == null ||
-        resolved.hasInUseQolip || resolved.children.any((row) =>
-            _reworkCodes.contains(row.qolipCode.trim().toLowerCase()))) return;
+    if (!mounted ||
+        generation != _selectionGeneration ||
+        resolved == null ||
+        resolved.hasUnavailableQolip ||
+        resolved.children.any((row) =>
+            _reworkCodes.contains(row.qolipCode.trim().toLowerCase()))) {
+      return;
+    }
     container = resolved;
     if (_selectionMode != null &&
         _selectionMode != _QolipSelectionMode.containers) {
@@ -114,7 +119,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   }
 
   void _toggleQolipSelection(QolipProduct product) {
-    if (_reworking || product.isInUse ||
+    if (_reworking || product.availabilityError.isNotEmpty ||
         _reworkCodes.contains(product.qolipCode.trim().toLowerCase()) ||
         (_selectionMode != null &&
             _selectionMode != _QolipSelectionMode.qolips)) {
@@ -137,7 +142,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
 
   Future<void> _deleteSelection() async {
     if (_deleting || _selectedQolipCodes.isEmpty ||
-        _selectedProducts().any((product) => product.isInUse)) {
+        _selectedProducts().any((product) => product.availabilityError.isNotEmpty)) {
       return;
     }
     final selectedProducts = _selectedProducts();
@@ -299,7 +304,8 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
         ),
         const SizedBox(width: 6),
         IconButton.filled(
-          onPressed: _deleting || _printing || _reworking || _selectedProducts().any((p) => p.isInUse)
+          onPressed: _deleting || _printing || _reworking ||
+              _selectedProducts().any((p) => p.availabilityError.isNotEmpty)
               ? null : _deleteSelection,
           style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
           icon: _deleting

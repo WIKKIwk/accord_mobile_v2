@@ -3,7 +3,7 @@ part of 'qolip_products_screen.dart';
 
 extension __QolipProductsScreenStateAstPart02 on _QolipProductsScreenState {
   Future<void> _editQolip(QolipProduct product) async {
-    if (product.isInUse) {
+    if (product.availabilityError.isNotEmpty) {
       return;
     }
     QolipSharedSet? sharedSet;

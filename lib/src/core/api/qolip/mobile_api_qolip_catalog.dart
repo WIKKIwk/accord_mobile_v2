@@ -72,6 +72,7 @@ extension MobileApiQolipCatalog on MobileApi {
       );
     }
     final account = _qolipProductsAccount;
+    final scope = currentSessionReadScope();
     final uri = Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/products/page')
         .replace(queryParameters: {
       'limit': '$count',
@@ -121,6 +122,7 @@ extension MobileApiQolipCatalog on MobileApi {
           orderImageOrderId:
               (item['order_image_order_id'] as String? ?? '').trim()));
     }
+    QolipStorageWatch.instance._seed(data['storage_revision'], scope);
     return QolipCatalogPage(
         items: List.unmodifiable(items),
         nextCursor: data['has_more'] == true ? next as String : null);

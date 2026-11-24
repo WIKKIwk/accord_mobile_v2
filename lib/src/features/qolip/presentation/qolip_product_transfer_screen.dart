@@ -60,14 +60,20 @@ class _QolipProductTransferScreenState
   @override
   void initState() {
     super.initState();
+    QolipStorageWatch.instance.addListener(_refreshAvailability);
     unawaited(_reload());
   }
 
   @override
   void dispose() {
+    QolipStorageWatch.instance.removeListener(_refreshAvailability);
     _topScrollController.dispose();
     _bottomScrollController.dispose();
     super.dispose();
+  }
+
+  void _refreshAvailability() {
+    if (!_saving) unawaited(_reload());
   }
 
   List<QolipProduct> _forProduct(QolipProduct? product) => product == null
@@ -175,9 +181,11 @@ class _QolipProductTransferScreenState
           ValueKey('qolip-transfer-${mold.qolipCode.trim().toLowerCase()}'),
       sameZone: (a, b) =>
           a.code.trim().toLowerCase() == b.code.trim().toLowerCase(),
-      isItemDisabled: (mold, _) => mold.isInUse || _saving || _scanning,
+      isItemDisabled: (mold, _) =>
+          mold.availabilityError.isNotEmpty || _saving || _scanning,
       canMoveTo: (mold, target, origin) =>
-          !_saving && !_scanning && !mold.isInUse && target.code != origin.code,
+          !_saving && !_scanning && mold.availabilityError.isEmpty &&
+          target.code != origin.code,
       emptyState: Center(child: Text(_text('empty'))),
       batchLabel: (count) => _text('move', values: {'count': count}),
       onToggleSelect: (code) => _toggle(code, product),
@@ -189,7 +197,7 @@ class _QolipProductTransferScreenState
             ? zoneItems
                 .where((mold) =>
                     _selected.contains(mold.qolipCode.trim().toLowerCase()) &&
-                    !mold.isInUse)
+                    mold.availabilityError.isEmpty)
                 .toList()
             : [item],
       ),
@@ -232,7 +240,8 @@ class _QolipProductTransferScreenState
         if (item.qolipSize > 0) '${item.qolipSize}',
         if (item.qolipColor.trim().isNotEmpty)
           context.l10n.qolipColorName(item.qolipColor),
-        if (item.isInUse) context.l10n.qolipErrorText('qolip_in_use'),
+        if (item.availabilityError.isNotEmpty)
+          context.l10n.qolipAvailabilityText(item.availabilityError),
       ].join(' • '),
       leading: TransferIndexBadge(
           index: index,

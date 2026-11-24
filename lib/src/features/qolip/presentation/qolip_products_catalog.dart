@@ -29,7 +29,8 @@ extension _QolipProductsCatalog on _QolipProductsScreenState {
   void _catalogChanged() {
     if (!mounted) return;
     if (!QolipCatalogStore.instance.window(_query).loaded) {
-      unawaited(_reload(force: false));
+      unawaited(_reload(force: false,
+          preserveExpandedContainerKey: _expandedContainerKey));
       return;
     }
     _selectionGeneration++;

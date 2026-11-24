@@ -54,6 +54,7 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
       });
     }
     _scrollController.addListener(_handleScroll);
+    widget.reloadListenable?.addListener(_reloadChangedItems);
     if (!_restoreMemoryCache()) {
       _reload(reset: true);
     }
@@ -61,11 +62,27 @@ class _M3AsyncPickerSheetState<T> extends State<M3AsyncPickerSheet<T>> {
 
   @override
   void dispose() {
+    widget.reloadListenable?.removeListener(_reloadChangedItems);
     _debounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant M3AsyncPickerSheet<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reloadListenable != widget.reloadListenable) {
+      oldWidget.reloadListenable?.removeListener(_reloadChangedItems);
+      widget.reloadListenable?.addListener(_reloadChangedItems);
+    }
+  }
+
+  void _reloadChangedItems() {
+    _debounce?.cancel();
+    _selectedItems.clear();
+    _reload(reset: true);
   }
 
   static const Set<String> _genericRemoteTokens = {

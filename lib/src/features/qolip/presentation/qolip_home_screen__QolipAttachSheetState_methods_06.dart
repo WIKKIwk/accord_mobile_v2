@@ -66,16 +66,36 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
         .toSet();
   }
 
-  Future<List<QolipProduct>> _loadProducts() {
-    return _productsFuture ??= MobileApi.instance.qolipProducts(
-      limit: 20000,
-      withQolipOnly: widget.mode == _QolipAttachMode.cellPlacement,
+  Future<List<QolipProduct>> _loadPlacementProducts() async {
+    final warehouse = _block?.warehouse.trim();
+    if (warehouse == null || warehouse.isEmpty) return const [];
+    final result = await MobileApi.instance.qolipPlacementProducts(warehouse);
+    if (result.filtered) {
+      return qolipProductsAvailableForCellPlacement(result.products, const {});
+    }
+    final warehouseKey = warehouse.toLowerCase();
+    final ownedProducts = result.products.where((product) {
+      final owner = product.warehouse.trim().toLowerCase();
+      return owner.isEmpty || owner == warehouseKey;
+    }).toList(growable: false);
+    return qolipProductsAvailableForCellPlacement(
+      ownedProducts,
+      await _loadPlacedQolipCodes(),
     );
+  }
+
+  void _onPlacementStorageChanged() {
+    if (!mounted || _saving || _selectedProducts.isEmpty) return;
+    _applyStateChange(() {
+      _product = null;
+      _selectedProducts = const [];
+    });
   }
 
   Future<void> _pickProduct() async {
     final l10n = context.l10n;
     Future<List<QolipProduct>>? availableFuture;
+    String? availabilityRevision;
     final searchPages = <String, Future<List<QolipProduct>?>>{};
     var pickerOpen = true;
     final picked = await showModalBottomSheet<_QolipProductSelection>(
@@ -97,6 +117,7 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
               ? l10n.qolipText('home.mold_code_customer_search')
               : l10n.qolipText('home.product_customer_search'),
           pageSize: 80,
+          reloadListenable: isCellPlacement ? QolipStorageWatch.instance : null,
           cacheKey: widget.mode == _QolipAttachMode.cellPlacement
               ? null
               : 'qolip:products',
@@ -115,11 +136,22 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
                 limit: limit,
               );
             }
-            availableFuture ??= () async {
-              return qolipProductsAvailableForCellPlacement(
-                  await _loadProducts(), await _placedQolipCodesFuture);
-            }();
-            final available = await availableFuture!;
+            final revision = QolipStorageWatch.instance.revision;
+            if (availabilityRevision != revision) {
+              availabilityRevision = revision;
+              availableFuture = null;
+              searchPages.clear();
+            }
+            final pending = availableFuture ??= _loadPlacementProducts();
+            final List<QolipProduct> available;
+            try {
+              available = await pending;
+            } catch (_) {
+              if (identical(availableFuture, pending)) availableFuture = null;
+              rethrow;
+            }
+            if (!identical(availableFuture, pending)) return const [];
+            availabilityRevision ??= QolipStorageWatch.instance.revision;
             if (searchPages.length >= 8 && !searchPages.containsKey(query)) {
               searchPages.clear();
             }
@@ -127,7 +159,9 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
                 query,
                 () => filterQolipSearch(
                     available, query, qolipProductSearchDocument,
-                    isCurrent: () => mounted && pickerOpen));
+                    isCurrent: () => mounted &&
+                        pickerOpen &&
+                        identical(availableFuture, pending)));
             return filtered?.skip(offset).take(limit).toList(growable: false) ??
                 const <QolipProduct>[];
           },
@@ -180,6 +214,10 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
     );
     pickerOpen = false;
     if (picked != null && mounted) {
+      if (widget.mode == _QolipAttachMode.cellPlacement &&
+          availabilityRevision != QolipStorageWatch.instance.revision) {
+        return;
+      }
       if (picked.isMultiSelection) {
         await _confirmAndSaveSelectedProducts(picked.products);
         return;
@@ -211,7 +249,22 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
       return;
     }
     try {
-      final product = await MobileApi.instance.qolipProductByQr(qr);
+      final scanned = await MobileApi.instance.qolipScanQr(qr);
+      final product = scanned.product;
+      final location = scanned.location;
+      if (product == null ||
+          (location != null &&
+              location.rowLetter.trim().isNotEmpty &&
+              location.columnNumber != null)) {
+        throw const MobileApiException(
+          code: 'qolip_code_not_found', message: 'qolip_code_not_found');
+      }
+      final warehouse = product.warehouse.trim().toLowerCase();
+      if (warehouse.isNotEmpty &&
+          warehouse != _block?.warehouse.trim().toLowerCase()) {
+        throw const MobileApiException(
+          code: 'qolip_warehouse_mismatch', message: 'qolip_warehouse_mismatch');
+      }
       if (!mounted) {
         return;
       }
@@ -226,12 +279,13 @@ extension __QolipAttachSheetStateAstPart06 on _QolipAttachSheetState {
                 : <String>[product.qolipColor.trim().toUpperCase()],
           );
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.qolipText('home.qr_not_found'))),
+        SnackBar(content: Text(qolipErrorMessage(error, l10n: context.l10n,
+            fallback: context.l10n.qolipText('home.qr_not_found')))),
       );
     }
   }

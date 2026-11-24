@@ -53,6 +53,14 @@ String qolipErrorMessage(
   if (l10n != null && code == 'qolip_in_rework') {
     return l10n.qolipReworkText('already_away');
   }
+  if (l10n != null &&
+      const {'qolip_archived', 'qolip_in_paddon', 'qolip_in_transfer'}
+          .contains(code)) {
+    return l10n.qolipAvailabilityText(code);
+  }
+  if (l10n != null && code == 'qolip_warehouse_mismatch') {
+    return l10n.qolipStorageText('wrong_warehouse');
+  }
   if (l10n != null && code == 'session_scope_changed') {
     return l10n.qolipReworkText('session_changed');
   }

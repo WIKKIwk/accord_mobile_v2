@@ -259,6 +259,7 @@ class QolipProduct {
     this.hasQolipSpec = false,
     this.isInUse = false,
     this.isInRework = false,
+    this.unavailableReason = '',
     this.orderImageOrderId = '',
   });
 
@@ -282,7 +283,15 @@ class QolipProduct {
   final bool hasQolipSpec;
   final bool isInUse;
   final bool isInRework;
+  final String unavailableReason;
   final String orderImageOrderId;
+
+  String get availabilityError {
+    if (unavailableReason.isNotEmpty) return unavailableReason;
+    if (isInRework) return 'qolip_in_rework';
+    if (isInUse) return 'qolip_in_use';
+    return '';
+  }
 
   factory QolipProduct.fromJson(Map<String, dynamic> json) {
     return QolipProduct(
@@ -303,6 +312,7 @@ class QolipProduct {
       hasQolipSpec: json['has_qolip_spec'] == true,
       isInUse: json['is_in_use'] == true,
       isInRework: json['is_in_rework'] == true,
+      unavailableReason: json['unavailable_reason']?.toString() ?? '',
       orderImageOrderId: json['order_image_order_id']?.toString() ?? '',
     );
   }
