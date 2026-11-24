@@ -56,7 +56,7 @@ class _SequenceStreamSyncHarness extends _PageStreamRaceHarness {
     }
     events.add(AdminProductionMapPageWindowMessage.fromJson({
       'type': 'page_window_delta',
-      'window': 'w1',
+      'window': sequenceWindowId,
       'epoch': 'scan-server',
       'rev': revision,
       'base_version': baseVersion,

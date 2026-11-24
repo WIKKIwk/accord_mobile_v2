@@ -93,6 +93,7 @@ class _AdminPageCacheNavigationHarness extends _SequenceStreamSyncHarness {
     )));
     if (settle) {
       await tester.pumpAndSettle();
+      sequenceWindowId = activeOrderSequenceWindowId(tester);
     } else {
       await tester.pump();
     }

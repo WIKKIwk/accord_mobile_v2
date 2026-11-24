@@ -4,6 +4,7 @@ import 'order_image_test_data.dart';
 import 'production_snapshot_test_backend.dart';
 import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
 import 'order_scan_bootstrap_fixtures.dart';
+import 'support/admin_order_page_window.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
 

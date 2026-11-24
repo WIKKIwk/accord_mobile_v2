@@ -11,6 +11,7 @@ class _PageStreamRaceHarness {
   final List<String> ids;
   final events = StreamController<Object>.broadcast();
   final reads = <AdminProductionOrderPageRequest>[];
+  late String sequenceWindowId;
   int revision = 7;
   int sequenceRevision = 5;
   String sequenceVersion = '0' * 64;
@@ -79,7 +80,7 @@ class _PageStreamRaceHarness {
   AdminProductionMapPageWindowMessage delta({required String order}) =>
       AdminProductionMapPageWindowMessage.fromJson({
         'type': 'page_window_delta',
-        'window': 'w1',
+        'window': sequenceWindowId,
         'epoch': 'scan-server',
         'rev': 8,
         'base_version': 'v7',
@@ -140,9 +141,10 @@ class _PageStreamRaceHarness {
       ),
     ));
     await tester.pumpAndSettle();
+    sequenceWindowId = activeOrderSequenceWindowId(tester);
     events.add(AdminProductionMapPageWindowMessage.fromJson({
       'type': 'page_window_ready',
-      'window': 'w1',
+      'window': sequenceWindowId,
       'epoch': 'scan-server',
       'rev': 7,
       'version': 'v7',
@@ -276,7 +278,9 @@ void _registerPageStreamRaceTests() {
         ..sequenceVersion = '1' * 64;
       final next = harness.payload();
       harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
-        'type': 'page_window_delta', 'window': 'w1', 'epoch': 'scan-server',
+        'type': 'page_window_delta',
+        'window': harness.sequenceWindowId,
+        'epoch': 'scan-server',
         'rev': 9, 'base_version': 'v8', 'version': 'v9', 'page_count': 1,
         'changes': [{
           'index': 0,

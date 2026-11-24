@@ -26,6 +26,7 @@ import 'package:http/testing.dart';
 
 import 'production_snapshot_test_backend.dart';
 import 'order_scan_bootstrap_fixtures.dart';
+import 'support/admin_order_page_window.dart';
 import 'order_image_test_data.dart';
 
 const _apparatus = 'apparatus:default:bosma_7';
@@ -203,6 +204,8 @@ class _SummaryHarness {
         },
       );
 
+  late String windowId;
+
   Future<void> mount(WidgetTester tester) async {
     await AdminProductionOrderPage.fromJson(payload(
         const AdminProductionOrderPageRequest(
@@ -234,9 +237,10 @@ class _SummaryHarness {
       ),
     ));
     await tester.pumpAndSettle();
+    windowId = activeOrderSequenceWindowId(tester);
     events.add(AdminProductionMapPageWindowMessage.fromJson({
       'type': 'page_window_ready',
-      'window': 'w1',
+      'window': windowId,
       'epoch': _epoch,
       'rev': 7,
       'version': 'v7-',
@@ -257,11 +261,11 @@ class _SummaryHarness {
   void patch(List<Map<String, dynamic>> ops,
           {String baseVersion = 'v7-',
           String version = 'v8',
-          String window = 'w1',
+          String? window,
           int revision = 8}) =>
       events.add(AdminProductionMapPageWindowMessage.fromJson({
         'type': 'page_window_delta',
-        'window': window,
+        'window': window ?? windowId,
         'epoch': _epoch,
         'rev': revision,
         'base_version': baseVersion,
@@ -1473,7 +1477,7 @@ void main() {
     final reads = harness.reads.length;
     harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
       'type': 'page_window_delta',
-      'window': 'w1',
+      'window': harness.windowId,
       'epoch': _epoch,
       'rev': 8,
       'base_version': 'v7-',
@@ -1565,7 +1569,7 @@ void main() {
       version = 'v$revision';
       harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
         'type': 'page_window_delta',
-        'window': 'w1',
+        'window': harness.windowId,
         'epoch': _epoch,
         'rev': revision,
         'base_version': baseVersion,
@@ -1626,7 +1630,7 @@ void main() {
     final reads = harness.reads.length;
     harness.events.add(AdminProductionMapPageWindowMessage.fromJson({
       'type': 'page_window_delta',
-      'window': 'w1',
+      'window': harness.windowId,
       'epoch': _epoch,
       'rev': 8,
       'base_version': 'v7-',

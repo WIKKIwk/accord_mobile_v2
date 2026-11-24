@@ -180,24 +180,18 @@ void _registerAdminPagingTests() {
   }
 
   testWidgets(
-      'admin paging preloads first windows and only scroll loads another twenty',
+      'admin paging reads the active window and only scroll loads another twenty',
       (tester) async {
     final harness = await prepare();
     await harness.mount(tester);
-    expect(harness.calls.map((r) => r.view).toList(),
-        ['sequence', 'orders', 'move', 'move', 'closed', 'audit']);
+    expect(harness.calls.map((r) => r.view), ['sequence']);
     expect(harness.calls.every((r) => r.cursor == null), isTrue);
     expect(_adminSequenceRowCount(tester), 20);
     expect(find.textContaining('Yana 20 ta'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
-    expect(harness.calls, hasLength(6), reason: 'No periodic admin page reads');
+    expect(harness.calls, hasLength(1), reason: 'No periodic admin page reads');
     expect(harness.calls.where((r) => r.cursor != null), isEmpty);
-    expect(
-        harness.calls
-            .skip(6)
-            .every((r) => r.view == 'sequence' && r.ifVersion != null),
-        isTrue);
     final vertical = find
         .byWidgetPredicate(
             (w) => w is Scrollable && w.axisDirection == AxisDirection.down)
@@ -223,7 +217,9 @@ void _registerAdminPagingTests() {
     expect(_adminSequenceRowCount(tester), 40);
     expect(tester.state<ScrollableState>(vertical).position.pixels,
         closeTo(savedOffset, 0.01));
-    expect(harness.calls.length, readsBeforeTabs);
+    expect(harness.calls.length, readsBeforeTabs + 1,
+        reason: 'Only the newly selected order window is read');
+    expect(harness.calls.last.view, 'orders');
     await _scrollAdminPage(tester);
     await tester.pumpAndSettle();
     await _scrollAdminPage(tester);
@@ -245,21 +241,22 @@ void _registerAdminPagingTests() {
   ) async {
     final harness = await prepare();
     await harness.mount(tester);
-    final reads = harness.calls.length;
+    var reads = harness.calls.length;
     for (var round = 0; round < 2; round++) {
-      for (final label in [
-        'Buyurtmalar',
-        'Ko‘chirish',
-        'Yopilgan',
-        'Tekshiruv',
-        'Ketma-ketlik',
+      for (final (label, firstReads) in [
+        ('Buyurtmalar', 1),
+        ('Ko‘chirish', 2),
+        ('Yopilgan', 1),
+        ('Tekshiruv', 1),
+        ('Ketma-ketlik', 0),
       ]) {
         await tester.tap(find.text(label).hitTestable());
         await tester.pumpAndSettle();
+        if (round == 0) reads += firstReads;
         expect(
           harness.calls.length,
           reads,
-          reason: 'Cached $label must be reused',
+          reason: 'Read $label on first selection and reuse its clean window',
         );
         expect(find.byKey(_recoveryProgressKey), findsNothing);
         expect(
@@ -334,6 +331,10 @@ void _registerAdminPagingTests() {
     addTearDown(events.close);
     await TestModeController.instance.setEnabled(false);
     await harness.mount(tester, liveEventsLoader: () => events.stream);
+    await tester.tap(find.text('Buyurtmalar').hitTestable());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ketma-ketlik').hitTestable());
+    await tester.pumpAndSettle();
     harness.revision = 2;
     final fresh = await harness.read(
       const AdminProductionOrderPageRequest(view: 'orders'),
@@ -476,11 +477,11 @@ void _registerAdminPagingTests() {
       return events.stream;
     });
     expect(connections, 1);
-    expect(harness.calls, hasLength(6));
+    expect(harness.calls, hasLength(1));
     events.add(const AdminProductionMapPageChange(
         epoch: 'page-server', revision: 1, ready: true));
     await tester.pumpAndSettle();
-    expect(harness.calls, hasLength(6));
+    expect(harness.calls, hasLength(1));
     final ids = harness.orders.map((order) => order.map.id).toList();
     harness.orders.insert(1, harness.orders.removeAt(0));
     harness.revision = 2;
@@ -508,7 +509,7 @@ void _registerAdminPagingTests() {
     await tester.pump(const Duration(seconds: 12));
     await tester.pumpAndSettle();
     expect(connections, 1);
-    expect(harness.calls, hasLength(7),
+    expect(harness.calls, hasLength(2),
         reason: 'Socket events must not start periodic HTTP reads');
     expect(_adminSequenceRowCount(tester), 20);
     expect(tester.takeException(), isNull);
@@ -538,7 +539,7 @@ void _registerAdminPagingTests() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
     expect(_adminSequenceRowCount(tester), 20);
-    expect(harness.calls.skip(6).map((r) => r.view), ['sequence']);
+    expect(harness.calls.skip(1).map((r) => r.view), ['sequence']);
     expect(harness.calls.every((r) => r.cursor == null), isTrue);
     await tester.tap(find.text('Buyurtmalar').hitTestable());
     await tester.pumpAndSettle();
@@ -601,7 +602,7 @@ void _registerAdminPagingTests() {
         ops: [AdminProductionMapDeltaOp(type: 'move',
             id: harness.orders.last.map.id, beforeId: harness.orders.first.map.id)]));
     await tester.pumpAndSettle();
-    expect(harness.calls, hasLength(7));
+    expect(harness.calls, hasLength(2));
     expect(harness.calls.every((r) => r.cursor == null), isTrue);
     expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
     events.add(AdminProductionMapLiveDelta(
@@ -609,7 +610,7 @@ void _registerAdminPagingTests() {
         baseRevision: 1, revision: 2, snapshotRevision: 2,
         baseVersion: '0' * 64, version: '1' * 64, ops: const []));
     await tester.pumpAndSettle();
-    expect(harness.calls, hasLength(7));
+    expect(harness.calls, hasLength(2));
     expect(find.textContaining('Page product 0064').hitTestable(), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

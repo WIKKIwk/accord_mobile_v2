@@ -74,7 +74,7 @@ void _registerStreamEfficiencyTests() {
     });
   }
 
-  testWidgets('stream efficiency: old global ready retains full snapshot fallback',
+  testWidgets('stream efficiency: old global ready reconnects for canonical state',
       (tester) async {
     final fixture = await _prepareScanBootstrapFixture(tester);
     final events = StreamController<Object>.broadcast();
@@ -109,11 +109,11 @@ void _registerStreamEfficiencyTests() {
         reason: 'An old global cursor cannot certify omitted request/history sections');
     events.add(snapshot);
     await tester.pumpAndSettle();
-    final beforePoll = reads;
+    final canonicalReads = reads;
     await tester.pump(const Duration(seconds: 2));
     await tester.pump();
-    expect(reads, greaterThan(beforePoll),
-        reason: 'Legacy snapshots retain compatibility polling');
+    expect(reads, canonicalReads,
+        reason: 'The matching state stream supplies the missing actor sections');
     await disposeStream(tester);
   });
 
@@ -275,8 +275,9 @@ void _registerStreamEfficiencyTests() {
       ),
     ));
     await tester.pumpAndSettle();
+    final window = activeOrderSequenceWindowId(tester);
     events.add(AdminProductionMapPageWindowMessage.fromJson({
-      'type': 'page_window_ready', 'window': 'w1', 'epoch': 'scan-server',
+      'type': 'page_window_ready', 'window': window, 'epoch': 'scan-server',
       'rev': 7, 'version': 'v7', 'resync': false,
     }));
     await tester.pumpAndSettle();
@@ -289,7 +290,7 @@ void _registerStreamEfficiencyTests() {
     revision = 8;
     state = 'in_progress';
     events.add(AdminProductionMapPageWindowMessage.fromJson({
-      'type': 'page_window_delta', 'window': 'w1', 'epoch': 'scan-server',
+      'type': 'page_window_delta', 'window': window, 'epoch': 'scan-server',
       'rev': 8, 'base_version': 'v7', 'version': 'v8', 'page_count': 1,
       'changes': [{'index': 0, 'ops': [
         {'op': 'set', 'path': ['version'], 'value': 'v8'},
@@ -305,7 +306,7 @@ void _registerStreamEfficiencyTests() {
     expect(identical(material(scanOrder), changed), isFalse);
     final after = material(scanOrder);
     events.add(AdminProductionMapPageWindowMessage.fromJson({
-      'type': 'page_window_checkpoint', 'window': 'w1', 'epoch': 'scan-server',
+      'type': 'page_window_checkpoint', 'window': window, 'epoch': 'scan-server',
       'rev': 9, 'base_version': 'v8', 'version': 'v9', 'next_cursors': [null],
     }));
     await tester.pumpAndSettle();
@@ -314,7 +315,7 @@ void _registerStreamEfficiencyTests() {
     // A gap disables controls and repairs only the affected prefix.
     revision = 10;
     events.add(AdminProductionMapPageWindowMessage.fromJson({
-      'type': 'page_window_checkpoint', 'window': 'w1', 'epoch': 'scan-server',
+      'type': 'page_window_checkpoint', 'window': window, 'epoch': 'scan-server',
       'rev': 10, 'base_version': 'missing', 'version': 'v10', 'next_cursors': [null],
     }));
     await tester.pumpAndSettle();
