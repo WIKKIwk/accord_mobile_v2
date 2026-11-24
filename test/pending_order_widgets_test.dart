@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
+import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -18,12 +19,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'order_image_test_data.dart';
+import 'production_snapshot_test_backend.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() async {
     OrderImageCache.debugOverride =
         OrderImageCache(disk: createOrderImageDiskStore());
+    ProductionSnapshotStore.debugOverride =
+        ProductionSnapshotStore(backend: MemoryProductionSnapshotBackend());
     PaintingBinding.instance.imageCache
       ..clear()
       ..clearLiveImages();
@@ -34,6 +38,7 @@ void main() {
   tearDown(() async {
     await OrderImageCache.instance.clear();
     OrderImageCache.debugOverride = null;
+    ProductionSnapshotStore.debugOverride = null;
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -108,8 +113,9 @@ void main() {
               queueSnapshotLoader: () async => snapshot,
               closedOrdersLoader: () async => [],
               completionRequestsLoader: () async => [],
-              liveEventsLoader: () => const Stream.empty()),
+              liveEventsLoader: () => Stream<Object>.multi((_) {})),
         ));
+        await tester.pump(const Duration(milliseconds: 550));
         await tester.pumpAndSettle();
         if (worker) {
           await tester.pump(const Duration(seconds: 11));
@@ -117,7 +123,7 @@ void main() {
           expect(find.byType(PendingOrderCard), findsNothing);
         } else {
           expect(pendingReads, 1);
-          await tester.tap(find.text('Buyurtmalar').last);
+          await tester.tap(find.widgetWithText(Tab, 'Buyurtmalar'));
           await tester.pumpAndSettle();
           await tester.runAsync(
               () => Future<void>.delayed(const Duration(milliseconds: 100)));
