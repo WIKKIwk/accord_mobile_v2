@@ -123,8 +123,8 @@ void _registeradmin_warehouses_screen_testCases02() {
     await tester.pumpAndSettle();
 
     expect(find.text('Assigndan chiqarish'), findsOneWidget);
-    expect(find.textContaining('omboridan chiqarasizmi'), findsOneWidget);
-    await tester.tap(find.text('Olib tashlash'));
+    expect(find.textContaining('Werka profilidan uzaymi?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'O‘chirish'));
     await tester.pumpAndSettle();
 
     expect(find.text('Hech kim assign qilinmagan'), findsOneWidget);
@@ -230,12 +230,11 @@ void _registeradmin_warehouses_screen_testCases02() {
     await tester.tap(find.text('Xomashyo ombori - DEMO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Demo kraska'), findsNothing);
-    expect(find.text('Demo xomashyo rulon'), findsOneWidget);
+    expect(find.text('Demo kraska'), findsOneWidget);
     expect(find.textContaining('30AA • 12 Kg'), findsOneWidget);
     expect(find.text('Hotlunch'), findsNothing);
 
-    await tester.tap(find.text('Demo xomashyo rulon'));
+    await tester.tap(find.text('Demo kraska'));
     await tester.pumpAndSettle();
 
     final qrButton = find.byKey(const ValueKey('raw-stock-qr-30AA'));

@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:accord_mobile_v2/src/features/admin/state/admin_warehouse_filter_store.dart';
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,6 +29,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    AdminWarehouseFilterStore.instance.clearCache();
     resetMobileApiTestModeData();
     InventoryViewStore.debugOverride = InventoryViewStore(liveEnabled: () => false);
     await TestModeController.instance.setEnabled(true);

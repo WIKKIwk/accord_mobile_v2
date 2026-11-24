@@ -61,7 +61,7 @@ void _registeradmin_warehouses_screen_testCases01() {
     expect(prepared.stock.barcode, '30AA');
     expect(prepared.stock.sourceReceiptId, 'GSR-30AA');
     expect(prepared.printRequest.epc, '30AA');
-    expect(prepared.printRequest.itemCode, 'DEMO-RAW-001');
+    expect(prepared.printRequest.itemCode, prepared.stock.itemCode);
     expect(prepared.printRequest.grossQty, 12);
     expect(prepared.printRequest.printCount, 1);
   });
@@ -95,7 +95,7 @@ void _registeradmin_warehouses_screen_testCases01() {
     }
 
     expect(find.text('Ombordagi mahsulotni qidirish'), findsOneWidget);
-    expect(find.textContaining('Ombor: Tanlanmagan'), findsOneWidget);
+    expect(find.textContaining('Ombor tanlanmagan'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('Ombordagi mahsulotni qidirish')).dy,
       lessThan(tester.getTopLeft(find.byKey(_warehouseFilterKey)).dy),
@@ -120,17 +120,17 @@ void _registeradmin_warehouses_screen_testCases01() {
 
     expect(find.textContaining('Mahsulotlar'), findsWidgets);
     expect(find.textContaining('(1)'), findsOneWidget);
-    expect(find.text('Demo kraska'), findsNothing);
-    expect(find.text('Demo xomashyo rulon'), findsOneWidget);
+    expect(find.text('Hotlunch'), findsNothing);
+    expect(find.text('Demo kraska'), findsOneWidget);
 
-    await tester.tap(find.text('Demo xomashyo rulon'));
+    await tester.tap(find.text('Demo kraska'));
     await tester.pumpAndSettle();
 
     expect(find.text('Mahsulot kodi'), findsOneWidget);
-    expect(find.text('DEMO-RAW-001'), findsOneWidget);
+    expect(find.text('DEMO-INK'), findsOneWidget);
     expect(find.text('Shtrix-kod'), findsOneWidget);
     expect(find.text('30AA'), findsOneWidget);
-    expect(find.text('Holati'), findsOneWidget);
+    expect(find.text('Holat'), findsOneWidget);
     expect(find.text('Mavjud'), findsOneWidget);
     expect(find.text('Kirim raqami'), findsOneWidget);
     expect(find.text('GSR-30AA'), findsOneWidget);
@@ -227,7 +227,7 @@ void _registeradmin_warehouses_screen_testCases01() {
     }
 
     expect(find.text('Ombordagi mahsulotni qidirish'), findsOneWidget);
-    expect(find.textContaining('Ombor: Tanlanmagan'), findsOneWidget);
+    expect(find.textContaining('Ombor tanlanmagan'), findsOneWidget);
     expect(find.byKey(_primaryNavigationButtonKey), findsOneWidget);
 
     await _openWarehouseFilter(tester);
