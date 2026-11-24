@@ -83,7 +83,8 @@ void _registeradmin_production_map_test_screen_testCases02() {
     await tester.pumpAndSettle();
 
     expect(find.text('Start'), findsOneWidget);
-    expect(find.text('Zenit order'), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppBar),
+        matching: find.text('Zenit order')), findsOneWidget);
     expect(find.text('zenit frutto ninja 70gr'), findsOneWidget);
     expect(find.text('CPP hisob'), findsNothing);
     expect(find.text('Katta partiyami?'), findsNothing);

@@ -102,7 +102,9 @@ void _registeradmin_production_map_test_screen_testCases10() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+    await tester.tap(find.text('Buyurtmalar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('opened-order-$orderId')));
     await tester.pumpAndSettle();
     expect(find.text('Ish boshlash uchun homashyolar'), findsNothing);
     expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
@@ -119,7 +121,7 @@ void _registeradmin_production_map_test_screen_testCases10() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ketma-ketlik'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+    await tester.tap(find.byKey(const ValueKey('sequence-row-$apparatus-$orderId')));
     await tester.pumpAndSettle();
     expect(find.text('Ish boshlash uchun homashyolar'), findsOneWidget);
     expect(find.text('Biriktirilgan homashyolar'), findsOneWidget);
