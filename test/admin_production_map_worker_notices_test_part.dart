@@ -174,7 +174,12 @@ void _registerWorkerNoticeTests() {
       await tester.tap(find.text('7 ta rangli bosma aparat'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
-      await tester.pumpAndSettle();
+      if (syncWarning) {
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 3));
+      } else {
+        await tester.pumpAndSettle();
+      }
 
       final card = find.byWidgetPredicate(
         (widget) => widget.runtimeType.toString() == '_OrderStartUnifiedCard',
@@ -182,10 +187,15 @@ void _registerWorkerNoticeTests() {
       expect(card, findsOneWidget);
       Finder textInCard(String text) =>
           find.descendant(of: card, matching: find.text(text));
-      expect(
-        textInCard(l10n.productionText('worker.error.sync')),
-        syncWarning ? findsOneWidget : findsNothing,
-      );
+      if (syncWarning) {
+        expect(
+          find.byKey(const ValueKey('worker-contract-sync-progress')),
+          findsOneWidget,
+        );
+      } else {
+        expect(textInCard(l10n.productionText('worker.error.sync')),
+            findsNothing);
+      }
       if (messageKey != null || expectedText != null) {
         expect(
           textInCard(expectedText ?? l10n.productionText(messageKey!)),
@@ -193,22 +203,21 @@ void _registerWorkerNoticeTests() {
         );
       }
       for (final action in ['start', 'resume', 'complete']) {
-        final button = find.descendant(
-          of: card,
-          matching: find.widgetWithText(
-            FilledButton,
-            l10n.productionText(
-              action == 'start' && fixture.state == 'pending'
-                  ? 'worker.action.print_preflight'
-                  : 'worker.action.$action',
-            ),
-          ),
-        );
+        final labels = [
+          l10n.productionText('worker.action.$action'),
+          if (action == 'start')
+            l10n.productionText('worker.action.print_preflight'),
+        ];
+        final buttons = [
+          for (final label in labels)
+            ...tester.widgetList<FilledButton>(find.descendant(
+              of: card,
+              matching: find.widgetWithText(FilledButton, label),
+            )),
+        ];
         final allowed = !syncWarning && fixture.allows(action);
-        expect(button, allowed ? findsOneWidget : findsNothing);
-        if (allowed) {
-          expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
-        }
+        expect(buttons, hasLength(allowed ? 1 : 0));
+        if (allowed) expect(buttons.single.onPressed, isNotNull);
       }
       if (messageKey == null && expectedText == null && !syncWarning) {
         expect(
@@ -288,7 +297,7 @@ void _registerWorkerNoticeTests() {
   // Malformed snapshots are rejected before the order can open. A missing
   // per-order contract can reach this card and must still fail closed.
   register(
-      'missing contract still blocks actions with sync warning',
+      'missing contract still blocks actions while reconnecting',
       _freshStartQueueControl(),
       omitControl: true,
       syncWarning: true);

@@ -89,16 +89,34 @@ void _registeradmin_production_map_test_screen_testCases17() {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapOrdersScreen(
+        home: AdminProductionMapOrdersScreen(
           readOnly: true,
           workerMode: true,
+          queueSnapshotLoader: () async {
+            final source = await MobileApi.instance.adminProductionMapQueueSnapshot();
+            return AdminApparatusQueueSnapshot(
+              maps: source.maps,
+              sequences: source.sequences,
+              visibleOrderIds: source.visibleOrderIds,
+              queueStates: source.queueStates,
+              queuePolicies: source.queuePolicies,
+              queueActionControls: source.queueActionControls,
+              orderControls: source.orderControls,
+              stageStates: source.stageStates,
+              orderStatuses: source.orderStatuses,
+              frozenOrdersByApparatus: source.frozenOrdersByApparatus,
+              revision: source.revision,
+              epoch: source.epoch,
+              stageFreezeSupported: true,
+            );
+          },
         ),
       ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Godex aparat - DEMO'));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Worker freeze safe stop').first);
+    await tester.tap(find.byKey(const ValueKey('worker-order-$orderId')));
     await tester.pumpAndSettle();
 
     expect(find.text('Rulonni yechib muzlatish'), findsOneWidget);
