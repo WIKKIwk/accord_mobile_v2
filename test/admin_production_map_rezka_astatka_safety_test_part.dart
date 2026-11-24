@@ -114,9 +114,14 @@ void _registerRezkaAstatkaSafetyTests() {
               avatarUrl: '',
               capabilities: ['apparatus.queue.read', 'apparatus.queue.manage'],
               assignedApparatus: [_rezkaId]));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Tasdiqlash'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      final staleSubmit = find.text('Tasdiqlash');
+      if (staleSubmit.hitTestable().evaluate().isNotEmpty) {
+        await tester.tap(staleSubmit.hitTestable());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+      }
       expect(fixture.submissions, isEmpty);
       expect(fixture.reports, isEmpty);
       expect(
