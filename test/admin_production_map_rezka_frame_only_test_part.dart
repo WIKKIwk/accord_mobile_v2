@@ -67,15 +67,11 @@ void _registerRezkaFrameOnlyTests() {
           .upsertCalculateOrderTemplate(CalculateOrderTemplate.fromJson({
         'id': 'template-frame-only',
         'code': '0004',
-        'order_number': '0004',
+        'order_number': scenario == 'template-linked' ? '0099' : '0004',
         'name': 'Frame-only order',
         'item_code': 'FRAME-ONLY',
         'product': 'Frame-only order',
-        'source_map_id': scenario == 'unlinked'
-            ? 'different-order'
-            : scenario == 'template-linked'
-                ? 'template-$mapId'
-                : mapId,
+        'source_map_id': scenario == 'unlinked' ? 'different-order' : mapId,
         'frame_count': scenario == 'missing'
             ? 0
             : scenario == 'fractional'
