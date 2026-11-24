@@ -9,6 +9,7 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/admin_calculate
 import 'package:accord_mobile_v2/src/features/admin/presentation/admin_home_screen.dart';
 import 'package:accord_mobile_v2/src/features/admin/state/calculate_order_store.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/presentation/widgets/order_image_viewer.dart';
 import 'package:accord_mobile_v2/src/features/shared/presentation/widgets/profile_avatar_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -224,10 +225,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
-    final viewer = tester.widget<InteractiveViewer>(
-      find.byType(InteractiveViewer),
-    );
-    expect(viewer.maxScale, 8);
+    final viewer = tester.widget<OrderImageViewer>(find.byType(OrderImageViewer));
+    expect(viewer.image, isNotNull);
+    expect(viewer.maxScale, 64);
   });
 }
 

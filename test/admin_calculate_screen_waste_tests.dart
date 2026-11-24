@@ -19,15 +19,15 @@ void _registerWasteTests() {
         await _pumpCalculateScreen(tester, template: template);
         tester.view.physicalSize = const Size(430, 3000);
         await tester.pumpAndSettle();
-        await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '500');
+        await _enterOrderWeight(tester, '500');
         await tester.ensureVisible(find.text('Hisoblash'));
         await tester.tap(find.text('Hisoblash'));
         await tester.pumpAndSettle();
         await tester.pump(const Duration(seconds: 6));
         await tester.pumpAndSettle();
         expect(find.text(expectedMeters.toInt().toString()), findsOneWidget);
-        await tester.ensureVisible(find.text('Zakaz ochish'));
-        await tester.tap(find.text('Zakaz ochish'));
+        await tester.ensureVisible(find.text('Buyurtma ochish'));
+        await tester.tap(find.text('Buyurtma ochish'));
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey('production-map-order-confirm')),
@@ -59,7 +59,9 @@ void _registerWasteTests() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Buyurtma ma’lumotlari').first);
+        await tester.tap(find.text('Buyurtmalar'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('opened-order-${opened.map.id}')));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Kutilayotgan buyurtma ko‘rsatkichlari'));
         await tester.pumpAndSettle();

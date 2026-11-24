@@ -118,19 +118,19 @@ void _registeradmin_calculate_screen_testCases01() {
     await tester.drag(find.byType(ListView), const Offset(0, -900));
     await tester.pumpAndSettle();
 
-    expect(find.text('Production mapga ulash'), findsNothing);
+    expect(find.text('Mapni ulash'), findsNothing);
 
     await tester.enterText(find.byType(TextFormField).first, '100');
     await tester.tap(find.text('Hisoblash'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Production mapga ulash'), findsNothing);
+    expect(find.text('Mapni ulash'), findsNothing);
     expect(find.text('Map ko‘rish'), findsNothing);
 
     await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
     await tester.pumpAndSettle();
 
-    expect(find.text('Production mapga ulash'), findsNothing);
+    expect(find.text('Mapni ulash'), findsNothing);
   });
 
   testWidgets('order form and printing method have separate selectable fields', (tester) async {
@@ -216,7 +216,7 @@ void _registeradmin_calculate_screen_testCases01() {
     await tester.tap(find.text('Hotlunch').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Bu tezkor zakazlar ro‘yxatida bor'), findsOneWidget);
+    expect(find.text('Bu tezkor buyurtmalar ro‘yxatida bor'), findsOneWidget);
     expect(find.text('Qaytadan yaratmoqchimisiz?'), findsOneWidget);
     expect(find.text('Shu tayyor shablonni ishlatasizmi?'), findsOneWidget);
     expect(find.text('Ishlatish'), findsOneWidget);
@@ -274,16 +274,13 @@ void _registeradmin_calculate_screen_testCases01() {
     await TestModeController.instance.setEnabled(true);
     await _pumpCalculateScreen(tester, template: _template(itemCode: 'ITEM-1'));
 
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-    await tester.tap(find.text('Hisoblash'));
-    await tester.pumpAndSettle();
+    await _enterOrderWeight(tester, '120');
+    await _submitCalculation(tester);
 
     expect(find.text('63 sm'), findsNothing);
     expect(find.text('630 mm'), findsWidgets);
     expect(find.text('Tayyor mahsulot GSM'), findsOneWidget);
-    expect(find.text('46.9 g/m²'), findsOneWidget);
+    expect(find.text('46.90 g/m²'), findsOneWidget);
   });
 
   testWidgets('saved quick order opens zakaz from stored source map', (
@@ -308,26 +305,23 @@ void _registeradmin_calculate_screen_testCases01() {
       template: editedTemplate,
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-    await tester.tap(find.text('Hisoblash'));
-    await tester.pumpAndSettle();
+    await _enterOrderWeight(tester, '120');
+    await _submitCalculation(tester);
 
     await tester.scrollUntilVisible(
-      find.text('Zakaz ochish'),
+      find.text('Buyurtma ochish'),
       240,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Zakaz ochish'), findsOneWidget);
+    expect(find.text('Buyurtma ochish'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Zakaz ochish'));
+    await tester.ensureVisible(find.text('Buyurtma ochish'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Zakaz ochish'));
+    await tester.tap(find.text('Buyurtma ochish'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Zakaz ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.'),
+      find.text('Buyurtma ochilsinmi? Raqam tizim tomonidan avtomatik beriladi.'),
       findsOneWidget,
     );
     await tester.tap(
@@ -351,9 +345,12 @@ void _registeradmin_calculate_screen_testCases01() {
     final quickTemplate = templates.firstWhere(
       (template) => template.code == 'Z-1234',
     );
-    expect(quickTemplate.frameProductSizeMm, 250);
-    expect(quickTemplate.frameCount, 3);
-    expect(quickTemplate.widthMm, 765);
+    expect(opened.map.widthMm, 765);
+    expect(opened.map.orderKg, 120);
+    expect(quickTemplate.frameProductSizeMm, 615);
+    expect(quickTemplate.frameCount, 1);
+    expect(quickTemplate.widthMm, 630);
+    expect(quickTemplate.sourceMapId, sourceMapId);
     await tester.pump(const Duration(seconds: 6));
   });
 
@@ -369,19 +366,16 @@ void _registeradmin_calculate_screen_testCases01() {
       template: template,
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-    await tester.tap(find.text('Hisoblash'));
-    await tester.pumpAndSettle();
+    await _enterOrderWeight(tester, '120');
+    await _submitCalculation(tester);
 
     await tester.scrollUntilVisible(
-      find.text('Zakaz ochish'),
+      find.text('Buyurtma ochish'),
       240,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Zakaz ochish'));
+    await tester.tap(find.text('Buyurtma ochish'));
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('production-map-order-confirm')),
@@ -390,7 +384,7 @@ void _registeradmin_calculate_screen_testCases01() {
 
     expect(find.text('Zakaz topilmadi'), findsNothing);
     expect(
-        find.text('Tezkor zakaz mapi topilmadi. Qayta ulang'), findsOneWidget);
+        find.text('Tezkor buyurtma mapi topilmadi. Qayta ulang'), findsOneWidget);
     final attachMapText = tester
         .element(find.byType(AdminCalculateScreen))
         .l10n.adminText('calculate.map_attach');
@@ -401,7 +395,7 @@ void _registeradmin_calculate_screen_testCases01() {
     );
     await tester.pumpAndSettle();
     expect(find.text(attachMapText), findsOneWidget);
-    expect(find.text('Zakaz ochish'), findsNothing);
+    expect(find.text('Buyurtma ochish'), findsNothing);
     final templates = await MobileApi.instance.calculateOrderTemplates();
     expect(
       templates.singleWhere((saved) => saved.id == template.id).sourceMapId,
@@ -443,13 +437,10 @@ void _registeradmin_calculate_screen_testCases01() {
       },
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-    await tester.tap(find.text('Hisoblash'));
-    await tester.pumpAndSettle();
+    await _enterOrderWeight(tester, '120');
+    await _submitCalculation(tester);
 
-    expect(find.text('Production mapga ulash'), findsNothing);
+    expect(find.text('Mapni ulash'), findsNothing);
     expect(find.text('Map ko‘rish'), findsOneWidget);
 
     await tester.tap(find.text('Map ko‘rish'));
@@ -491,19 +482,16 @@ void _registeradmin_calculate_screen_testCases01() {
 
     await tester.tap(find.byIcon(Icons.edit_outlined));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-    await tester.tap(find.text('Hisoblash'));
-    await tester.pumpAndSettle();
+    await _enterOrderWeight(tester, '120');
+    await _submitCalculation(tester);
     await tester.scrollUntilVisible(
-      find.text('Production mapga ulash'),
+      find.text('Mapni ulash'),
       240,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Production mapga ulash'));
+    await tester.tap(find.text('Mapni ulash'));
     await tester.pumpAndSettle();
 
     expect(openedArgs, isNotNull);

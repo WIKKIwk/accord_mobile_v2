@@ -19,19 +19,16 @@ void _registeradmin_calculate_screen_testCases02() {
 
     await tester.tap(find.byIcon(Icons.edit_outlined));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-    await tester.tap(find.text('Hisoblash'));
-    await tester.pumpAndSettle();
+    await _enterOrderWeight(tester, '120');
+    await _submitCalculation(tester);
     await tester.scrollUntilVisible(
-      find.text('Production mapga ulash'),
+      find.text('Mapni ulash'),
       240,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Production mapga ulash'));
+    await tester.tap(find.text('Mapni ulash'));
     await tester.pumpAndSettle();
 
     expect(openedArgs, isA<ProductionMapTestArgs>());
@@ -53,13 +50,19 @@ void _registeradmin_calculate_screen_testCases02() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('7-qavat'), findsOneWidget);
-    expect(find.byTooltip('Qavatni olib tashlash'), findsNWidgets(6));
-
-    await tester.tap(find.byTooltip('Qavatni olib tashlash').last);
+    final seventhLayer = find.byKey(const ValueKey('calculate-layer-micron-6'));
+    expect(seventhLayer, findsOneWidget);
+    final removeSeventh = find.descendant(
+      of: find.ancestor(of: seventhLayer, matching: find.byType(Row)).first,
+      matching: find.byTooltip('Qavatni olib tashlash'),
+    );
+    await tester.ensureVisible(removeSeventh);
+    await tester.pumpAndSettle();
+    await tester.tap(removeSeventh);
     await tester.pumpAndSettle();
 
-    expect(find.text('7-qavat'), findsNothing);
+    expect(seventhLayer, findsNothing);
+    expect(find.byKey(const ValueKey('calculate-layer-micron-5')), findsOneWidget);
   });
 
   test('template layers serialize without a fixed upper limit', () {

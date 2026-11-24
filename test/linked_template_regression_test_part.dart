@@ -73,11 +73,8 @@ void _registerLinkedTemplateRegressionTests() {
           findsOneWidget);
       await tester.tap(find.text(l10n.adminText('calculate.$choice')));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(ListView), const Offset(0, -900));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-      await tester.tap(find.text('Hisoblash'));
-      await tester.pumpAndSettle();
+      await _enterOrderWeight(tester, '120');
+      await _submitCalculation(tester);
       final attach = l10n.adminText('calculate.map_attach');
       await tester.scrollUntilVisible(find.text(attach), 240,
           scrollable: find.byType(Scrollable).first);
@@ -192,11 +189,8 @@ void _registerLinkedTemplateRegressionTests() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hotlunch').last);
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-    await tester.tap(find.text('Hisoblash'));
-    await tester.pumpAndSettle();
+    await _enterOrderWeight(tester, '120');
+    await _submitCalculation(tester);
     await tester.drag(find.byType(ListView), const Offset(0, -2000));
     await tester.pumpAndSettle();
     final attach =

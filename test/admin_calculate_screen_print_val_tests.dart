@@ -181,18 +181,14 @@ void _registerPrintValTests() {
           onProductionMapArguments: (arguments) => openedArgs = arguments);
       await tester.tap(find.byIcon(Icons.edit_outlined));
       await tester.pumpAndSettle();
+      await _enterOrderWeight(tester, '120');
       final toggle = find.byKey(const ValueKey('calculate-by-val'));
-      await tester.scrollUntilVisible(toggle, 200,
-          scrollable: find.byType(Scrollable).first);
       if (!byVal) {
+        await tester.ensureVisible(toggle);
         await tester.tap(toggle);
         await tester.pumpAndSettle();
       }
-      await tester.enterText(find.widgetWithText(TextFormField, 'KG'), '120');
-      await tester.scrollUntilVisible(find.text('Hisoblash'), 240,
-          scrollable: find.byType(Scrollable).first);
-      await tester.tap(find.text('Hisoblash'));
-      await tester.pumpAndSettle();
+      await _submitCalculation(tester);
       await tester.scrollUntilVisible(find.text('Mapni ulash'), 240,
           scrollable: find.byType(Scrollable).first);
       await tester.tap(find.text('Mapni ulash'));

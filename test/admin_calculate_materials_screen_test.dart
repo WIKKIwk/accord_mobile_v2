@@ -26,6 +26,7 @@ void main() {
       ref: 'ADMIN-001',
       phone: '',
       avatarUrl: '',
+      capabilities: ['admin.access', 'production.map.manage'],
     );
   });
 
@@ -70,7 +71,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Xomashyo qo‘shish'), findsNothing);
     await tester.scrollUntilVisible(find.text('PET'), 200);
-    expect(find.textContaining('1.4 g/cm³'), findsOneWidget);
 
     await tester.tap(find.text('PET'));
     await tester.pumpAndSettle();
@@ -79,6 +79,8 @@ void main() {
     expect(find.text('Boshqa nomlari'), findsNothing);
     expect(find.widgetWithText(TextFormField, 'Mikron'), findsWidgets);
     final density = find.widgetWithText(TextFormField, 'Zichlik');
+    expect(tester.widget<TextFormField>(density).controller!.text, '1.4');
+    expect(find.text('g/cm³'), findsOneWidget);
     await tester.enterText(density, '1.38');
     final save = find.widgetWithText(FilledButton, 'Saqlash');
     tester.testTextInput.hide();

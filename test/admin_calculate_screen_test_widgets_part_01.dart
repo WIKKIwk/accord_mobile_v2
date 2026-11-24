@@ -42,6 +42,27 @@ Future<void> _pumpCalculateScreen(
   await tester.pumpAndSettle();
 }
 
+Future<void> _enterOrderWeight(WidgetTester tester, String weight) async {
+  final field = find.widgetWithText(TextFormField, 'KG');
+  await tester.scrollUntilVisible(
+    field,
+    150,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.enterText(field, weight);
+}
+
+Future<void> _submitCalculation(WidgetTester tester) async {
+  final calculate = find.text('Hisoblash');
+  await tester.scrollUntilVisible(
+    calculate,
+    160,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(calculate);
+  await tester.pumpAndSettle();
+}
+
 CalculateOrderTemplate _template({
   required String itemCode,
   String sourceMapId = '',

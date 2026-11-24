@@ -178,13 +178,14 @@ void _registerFlexoTests() {
       (tester) async {
     const sourceMapId = 'zakaz-flexo-template';
     final template = _flexoTemplate(sourceMapId: sourceMapId);
-    await _pumpFlexoScreen(tester, template: template);
+    await _pumpFlexoScreen(tester, template: template, edit: true);
+    await MobileApi.instance.upsertCalculateOrderTemplate(template);
     await MobileApi.instance.adminSaveProductionMap(
         _map(id: sourceMapId, code: '4400', orderNumber: '4400'));
     await tester.enterText(_flexoField(), '55');
     await _calculateFlexo(tester);
-    await tester.ensureVisible(find.text('Zakaz ochish'));
-    await tester.tap(find.text('Zakaz ochish'));
+    await tester.ensureVisible(find.text('Buyurtma ochish'));
+    await tester.tap(find.text('Buyurtma ochish'));
     await tester.pumpAndSettle();
     await tester
         .tap(find.byKey(const ValueKey('production-map-order-confirm')));
@@ -196,10 +197,10 @@ void _registerFlexoTests() {
     expect(opened.baseLength, 3500);
     final templates = await MobileApi.instance.calculateOrderTemplates();
     final quick = templates.singleWhere((t) => t.orderNumber.isEmpty);
-    expect(quick.status, 'Rulon');
-    expect(quick.productionOptions!.printMethod, 'flexo');
-    expect(quick.edgeAllowanceMm, 55);
-    expect(quick.widthMm, 805);
+    expect(quick.effectivePrintMethod, 'flexo');
+    expect(quick.sourceMapId, sourceMapId);
+    expect(quick.edgeAllowanceMm, 40);
+    expect(quick.widthMm, 790);
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
@@ -207,6 +208,6 @@ void _registerFlexoTests() {
         template: CalculateOrderTemplate.fromJson(quick.toJson()));
     await tester.scrollUntilVisible(_flexoField(), 200,
         scrollable: find.byType(Scrollable).first);
-    expect(tester.widget<TextFormField>(_flexoField()).controller!.text, '55');
+    expect(tester.widget<TextFormField>(_flexoField()).controller!.text, '40');
   });
 }
