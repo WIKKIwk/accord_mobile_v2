@@ -1,13 +1,16 @@
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
+import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/aparatchi_work_instructions_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  tearDown(() {
+  tearDown(() async {
+    await TestModeController.instance.setEnabled(false);
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -15,6 +18,8 @@ void main() {
   testWidgets('shows instructions only for the worker assigned apparatus', (
     tester,
   ) async {
+    SharedPreferences.setMockInitialValues({});
+    await TestModeController.instance.setEnabled(true);
     AppSession.instance.token = 'worker-token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.aparatchi,
@@ -25,9 +30,9 @@ void main() {
       avatarUrl: '',
       capabilities: ['apparatus.queue.read'],
       assignedApparatus: [
-        '7 ta rangli bosma aparat',
-        'Laminatsiya 1',
-        'Rezka 1',
+        'apparatus:default:bosma_7',
+        'apparatus:default:asset-007',
+        'apparatus:default:asset-010',
       ],
     );
 
@@ -89,8 +94,8 @@ void main() {
     expect(find.textContaining('order bo‘yicha jami atxot miqdorini'),
         findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Rezka 1'), 300);
-    expect(find.text('Rezka 1'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Rezka'), 300);
+    expect(find.text('Rezka'), findsOneWidget);
     expect(
       find.textContaining('Tayyor mahsulot chetidan chiqqan chiqindi'),
       findsWidgets,
