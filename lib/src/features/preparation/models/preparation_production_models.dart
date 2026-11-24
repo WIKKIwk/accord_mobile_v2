@@ -191,58 +191,97 @@ class PreparationMaterialPaddon extends PreparationProductionRow {
 
 class PreparationPaddonContent {
   PreparationPaddonContent.fromJson(Map<String, dynamic> json)
-    : itemName = _identity(json, 'item_name'),
-      lotNumber = _text(json, 'lot_number'),
-      lineNo = json['line_no'] == null ? null : _count(json, 'line_no'),
-      remainingKg = _amount(json, 'remaining_kg'),
-      unitKg = json['unit_kg'] == null ? null : _amount(json, 'unit_kg'),
-      remainingCount = json['remaining_count'] == null
-          ? null
-          : _count(json, 'remaining_count'),
-      unweighedCount = json['unweighed_count'] == null
-          ? 0
-          : _count(json, 'unweighed_count'),
-      kind = _text(json, 'kind');
+      : itemName = _identity(json, 'item_name'),
+        lotNumber = _text(json, 'lot_number'),
+        lineNo = json['line_no'] == null ? null : _count(json, 'line_no'),
+        openUnitNo =
+            json['open_unit_no'] == null ? null : _count(json, 'open_unit_no'),
+        issuableCount = json['issuable_count'] == null
+            ? null
+            : _count(json, 'issuable_count'),
+        widthMm = json['width_mm'] == null ? null : _amount(json, 'width_mm'),
+        micron = json['micron'] == null ? null : _amount(json, 'micron'),
+        remainingKg = _amount(json, 'remaining_kg'),
+        unitKg = json['unit_kg'] == null ? null : _amount(json, 'unit_kg'),
+        remainingCount = json['remaining_count'] == null
+            ? null
+            : _count(json, 'remaining_count'),
+        unweighedCount = json['unweighed_count'] == null
+            ? 0
+            : _count(json, 'unweighed_count'),
+        kind = _text(json, 'kind');
 
   final String itemName, lotNumber, remainingKg, kind;
-  final String? unitKg;
-  final int? lineNo, remainingCount;
+  final String? unitKg, widthMm, micron;
+  final int? lineNo, remainingCount, openUnitNo, issuableCount;
+  int get availableCount => issuableCount ?? remainingCount ?? 0;
   final int unweighedCount;
   String get unit => switch (kind) {
-    'bag' => 'qop',
-    'roll' => 'rulon',
-    _ => 'birlik',
-  };
+        'bag' => 'qop',
+        'roll' => 'rulon',
+        _ => 'birlik',
+      };
 }
 
 class PreparationPaddonIssue {
   PreparationPaddonIssue.fromJson(Map<String, dynamic> json)
-    : id = _identity(json, 'issue_id'),
-      paddonCode = _identity(json, 'paddon_code'),
-      destination = _identity(json, 'destination'),
-      labelWarehouse = _identity(json, 'label_warehouse'),
-      awaitsTransfer = json['transfer_status'] == 'requested',
-      labels = _items(json, 'labels', PreparationPaddonLabel.fromJson) {
+      : id = _identity(json, 'issue_id'),
+        paddonCode = _identity(json, 'paddon_code'),
+        destination = _identity(json, 'destination'),
+        destinationKind = _text(json, 'destination_kind'),
+        labelWarehouse = _identity(json, 'label_warehouse'),
+        awaitsTransfer = json['transfer_status'] == 'requested',
+        tracksPrint = json['print_tracking'] == true,
+        legacyPrint = json['legacy_print'] == true,
+        printStates = {
+          for (final entry
+              in (json['print_states'] as Map? ?? const {}).entries)
+            entry.key as String: PreparationPaddonPrintState.fromJson(
+                Map<String, dynamic>.from(entry.value as Map)),
+        },
+        remainderKg =
+            json['remainder_kg'] == null ? null : _amount(json, 'remainder_kg'),
+        labels = _items(json, 'labels', PreparationPaddonLabel.fromJson) {
     if (labels.isEmpty ||
         labels.map((label) => label.barcode).toSet().length != labels.length) {
       throw const FormatException('Xomashyo yorliqlari noto‘g‘ri');
     }
   }
 
-  final String id, paddonCode, destination, labelWarehouse;
-  final bool awaitsTransfer;
+  final String id, paddonCode, destination, destinationKind, labelWarehouse;
+  String get destinationTitle => switch (destinationKind) {
+        'warehouse' => '$destination • Ombor',
+        'state' => '$destination • State',
+        _ => destination,
+      };
+  final bool awaitsTransfer, tracksPrint, legacyPrint;
+  final String? remainderKg;
+  final Map<String, PreparationPaddonPrintState> printStates;
   final List<PreparationPaddonLabel> labels;
+}
+
+class PreparationPaddonPrintState {
+  PreparationPaddonPrintState.fromJson(Map<String, dynamic> json)
+      : attempt = _identity(json, 'attempt'),
+        printed = json['printed'] as bool;
+  final String attempt;
+  final bool printed;
 }
 
 class PreparationPaddonLabel {
   PreparationPaddonLabel.fromJson(Map<String, dynamic> json)
-    : barcode = _identity(json, 'barcode'),
-      itemCode = _identity(json, 'item_code'),
-      itemName = _identity(json, 'item_name'),
-      lotNumber = _text(json, 'lot_number'),
-      kg = _amount(json, 'kg');
+      : barcode = _identity(json, 'barcode'),
+        itemCode = _identity(json, 'item_code'),
+        unitNo = json['unit_no'] == null ? null : _count(json, 'unit_no'),
+        itemName = _identity(json, 'item_name'),
+        lotNumber = _text(json, 'lot_number'),
+        widthMm = json['width_mm'] == null ? null : _amount(json, 'width_mm'),
+        micron = json['micron'] == null ? null : _amount(json, 'micron'),
+        kg = _amount(json, 'kg');
 
   final String barcode, itemCode, itemName, lotNumber, kg;
+  final String? widthMm, micron;
+  final int? unitNo;
 }
 
 abstract class PreparationProductionPage {

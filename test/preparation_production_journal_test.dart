@@ -15,6 +15,9 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_c
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
+import 'package:accord_mobile_v2/src/features/preparation/models/preparation_production_models.dart';
+import 'package:accord_mobile_v2/src/features/preparation/presentation/material_paddon_details_sheet.dart';
+import 'package:accord_mobile_v2/src/features/preparation/presentation/material_paddon_issue_dialog.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_production_screen.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -318,8 +321,8 @@ void main() {
     });
   });
 
-  for (final materialRole in [false, true]) {
-    testWidgets('paddon FAB receives stock for the active role ($materialRole)',
+  for (final (materialRole, plainRoll) in [(false, false), (true, false), (true, true)]) {
+    testWidgets('paddon FAB receives stock for the active role ($materialRole, plain roll $plainRoll)',
         (tester) async {
       if (materialRole) {
         AppSession.instance.profile = _profile(
@@ -358,6 +361,14 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Granula'));
         await tester.pumpAndSettle();
+        if (plainRoll) {
+          await tester.tap(find.byKey(const ValueKey('paddon-kind-0-G1')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Rulon').last);
+          await tester.pumpAndSettle();
+          expect(find.text('Rulon o‘lchamlari'), findsOneWidget);
+          expect(find.text('Qalinligi'), findsNothing);
+        }
         await tester.enterText(find.byKey(const ValueKey('paddon-count-0')), '3');
         final kg = find.byKey(const ValueKey('paddon-unit-kg-0'));
         await tester.ensureVisible(kg);
@@ -388,7 +399,7 @@ void main() {
                 {
                   'item_code': 'G1',
                   'lot_number': '',
-                  'kind': 'bag',
+                  'kind': plainRoll ? 'roll' : 'bag',
                   'count': 3,
                   if (!materialRole) 'unit_kg': '25',
                 }
@@ -445,6 +456,233 @@ void main() {
       });
     });
   }
+
+  testWidgets(
+      'paddon partial checkout keeps bag balance and identifies different rolls',
+      (tester) async {
+    const code = 'XP-ABCDEF0123456789';
+    final entries = [
+      {
+        'kind': 'bag',
+        'issuable_count': 1,
+        'remaining_count': 1,
+        'line_no': 1,
+        'unit_kg': '25',
+        'remaining_kg': '25'
+      },
+      {
+        'kind': 'roll',
+        'issuable_count': 1,
+        'remaining_count': 1,
+        'line_no': 2,
+        'remaining_kg': '0'
+      },
+      {
+        'kind': 'roll',
+        'issuable_count': 1,
+        'remaining_count': 1,
+        'line_no': 3,
+        'remaining_kg': '0',
+        'width_mm': '500',
+        'micron': '40'
+      },
+      {
+        'kind': 'bag',
+        'issuable_count': 1,
+        'remaining_count': 1,
+        'line_no': 4,
+        'remaining_kg': '15',
+        'open_unit_no': 2
+      },
+    ];
+    final pallet = PreparationMaterialPaddon.fromJson({
+      'paddon_id': 'p1',
+      'paddon_code': code,
+      'warehouse': 'Own W',
+      'remaining_kg': '40',
+      'contents': [
+        for (final e in entries)
+          {...e, 'item_name': 'Material', 'lot_number': 'LOT'}
+      ]
+    });
+    final submits = <Map>[];
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(Builder(
+          builder: (context) => Scaffold(
+              body: TextButton(
+                  onPressed: () =>
+                      showMaterialPaddonIssue(context, pallet, null),
+                  child: const Text('Open'))))));
+      Future<void> open() async {
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> tapKey(String key) async {
+        final button = find.byKey(ValueKey(key));
+        await tester.ensureVisible(button);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+      }
+
+      await open();
+      await tapKey('paddon-issue-line');
+      expect(find.text('Material • rulon • LOT'), findsOneWidget);
+      expect(find.text('Material • rulon • LOT • 500 mm • 40 mkm'),
+          findsOneWidget);
+      await tester.tap(find.text('Material • qop • LOT • 25 kg dan').last);
+      await tester.pumpAndSettle();
+      await tapKey('paddon-partial');
+      await tester.enterText(
+          find.byKey(const ValueKey('paddon-issue-weight-1-0')), '10');
+      await tapKey('paddon-issue-save');
+      expect(submits, isEmpty);
+      await tester.enterText(
+          find.byKey(const ValueKey('paddon-remainder-kg')), '15');
+      await tapKey('paddon-issue-save');
+      expect(submits.single['remainder_kg'], '15');
+      expect(submits.single['weights'], ['10']);
+      expect(submits.single.containsKey('destination'), isFalse);
+      await open();
+      await tapKey('paddon-issue-line');
+      await tester.tap(find.textContaining('Ochilgan №2').last);
+      await tester.pumpAndSettle();
+      await tapKey('paddon-partial');
+      await tester.enterText(
+          find.byKey(const ValueKey('paddon-issue-weight-4-0')), '5');
+      await tester.pumpAndSettle();
+      expect(find.text('Paddonda qoladi: 10 kg'), findsOneWidget);
+      await tapKey('paddon-issue-save');
+      expect(submits.last['open_unit_no'], 2);
+      expect(submits.last['expected_open_kg'], '15');
+      expect(submits.last['remainder_kg'], '10.000000');
+    }, (request) {
+      if (request.url.path.endsWith('/locations')) return _json([]);
+      final payload = jsonDecode(request.body) as Map;
+      submits.add(payload);
+      return _json({
+        'issue_id': 'i${submits.length}',
+        'paddon_code': code,
+        'destination': 'Own W',
+        'label_warehouse': 'Own W',
+        'labels': [
+          {
+            'barcode': _epc,
+            'item_code': 'M',
+            'item_name': 'Material',
+            'kg': payload['weights'][0]
+          }
+        ]
+      });
+    });
+  });
+
+  testWidgets(
+      'paddon print history resumes only untouched labels after a printer interruption',
+      (tester) async {
+    const code = 'XP-ABCDEF0123456789';
+    final pallet = PreparationMaterialPaddon.fromJson({
+      'paddon_id': 'p1',
+      'paddon_code': code,
+      'warehouse': 'Own W',
+      'remaining_kg': '0',
+      'contents': []
+    });
+    final jobs = <String>[];
+    final states = <String, Map<String, Object?>>{};
+    const channel = MethodChannel('accord/bluetooth_printer');
+    const printer =
+        BluetoothPrinterProfile(name: 'XP-P323B', address: '00:11:22:33:44:55');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    SessionBluetoothPrinter.remember(printer);
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'pairedPrinters') {
+        return [
+          {'name': printer.name, 'address': printer.address}
+        ];
+      }
+      if (call.method == 'printLabel') {
+        final code = (call.arguments as Map)['epc'] as String;
+        jobs.add(code);
+        if (jobs.length == 2) throw PlatformException(code: 'disconnect');
+        return {'ok': true, 'bytes': 1};
+      }
+      return null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(channel, null);
+      SessionBluetoothPrinter.forget();
+    });
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(Builder(
+          builder: (context) => Scaffold(
+              body: TextButton(
+                  onPressed: () => showMaterialPaddonDetails(context, pallet,
+                      onChanged: () {}),
+                  child: const Text('Open'))))));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('paddon-issue-history')));
+      await tester.pumpAndSettle();
+      Future<void> history() async {
+        await tester.tap(find.textContaining('3 ta birlik').last);
+        await tester.pumpAndSettle();
+      }
+
+      await history();
+      await tester.tap(find.text('3 ta yorliq chiqarish'));
+      await tester.pumpAndSettle();
+      expect(jobs, ['UNIT-1', 'UNIT-2']);
+      Navigator.of(tester.element(find.text('Chiqim yorliqlari'))).pop();
+      await tester.pumpAndSettle();
+      await history();
+      expect(find.textContaining('Chop etilgan'), findsOneWidget);
+      expect(find.textContaining('Chop holatini tekshiring'), findsOneWidget);
+      SessionBluetoothPrinter.remember(printer);
+      await tester.tap(find.text('1 ta yorliq chiqarish'));
+      await tester.pumpAndSettle();
+      expect(jobs, ['UNIT-1', 'UNIT-2', 'UNIT-3']);
+      await tester.tap(find.byTooltip('Yorliq chiqqanini tasdiqlash'));
+      await tester.pumpAndSettle();
+      expect(states.values.every((s) => s['printed'] == true), isTrue);
+      expect(jobs, hasLength(3));
+    }, (request) {
+      if (request.url.path.endsWith('/print')) {
+        final data = jsonDecode(request.body) as Map;
+        final key = data['barcode'] as String;
+        if (data['action'] == 'start') {
+          expect(states[key]?['attempt'], data['previous_attempt']);
+        }
+        final state = {
+          'attempt': data['attempt'] as String,
+          'printed': data['action'] == 'confirm'
+        };
+        states[key] = state;
+        return _json(state);
+      }
+      return _json({
+        'issues': [
+          {
+            'issue_id': 'i1',
+            'paddon_code': code,
+            'destination': 'Own W',
+            'label_warehouse': 'Own W',
+            'print_tracking': true,
+            'print_states': states,
+            'labels': [
+              for (var i = 1; i <= 3; i++)
+                {
+                  'barcode': 'UNIT-$i',
+                  'item_code': 'M',
+                  'item_name': 'Material',
+                  'kg': '10'
+                }
+            ]
+          }
+        ]
+      });
+    });
+  });
 
   for (final viaScan in [true, false]) {
     testWidgets(
@@ -569,8 +807,11 @@ void main() {
             await tester.ensureVisible(destination);
             await tester.tap(destination);
             await tester.pumpAndSettle();
+            if (!viaScan) {
+              expect(find.text('Sex • State'), findsNothing);
+            }
             await tester.tap(
-              find.text(viaScan ? 'Sex • State' : 'Own Next').last,
+              find.text(viaScan ? 'Sex • State' : 'Own Next • Ombor').last,
             );
             await tester.pumpAndSettle();
             await tester.tap(save);
@@ -584,6 +825,10 @@ void main() {
             expect(submits.first, submits.last);
             expect(find.text('Chiqim yorliqlari'), findsOneWidget);
             expect(find.textContaining('50.7 kg'), findsOneWidget);
+            expect(
+              find.textContaining(viaScan ? 'Sex • State' : 'Own Next • Ombor'),
+              findsOneWidget,
+            );
             expect(labels.map((label) => label['epc']), [
               _epc,
               'PREP-PADDON-LEGACY',
@@ -638,15 +883,13 @@ void main() {
                 });
               case '/v1/mobile/admin/inventory/locations':
                 return _json([
-                  if (viaScan)
-                    {'id': 'state-sex', 'name': 'Sex', 'kind': 'state'}
-                  else
-                    {
-                      'id': 'warehouse-next',
-                      'name': 'Own Next',
-                      'kind': 'warehouse',
-                      'warehouse_id': 'next',
-                    },
+                  {'id': 'state-sex', 'name': 'Sex', 'kind': 'state'},
+                  {
+                    'id': 'warehouse-next',
+                    'name': 'Own Next',
+                    'kind': 'warehouse',
+                    'warehouse_id': 'next',
+                  },
                 ]);
               case '/v1/mobile/raw-material-paddons/issues':
                 final body = jsonDecode(request.body) as Map;
@@ -667,6 +910,7 @@ void main() {
                   'issue_id': 'issue1',
                   'paddon_code': code,
                   'destination': viaScan ? 'Sex' : 'Own Next',
+                  'destination_kind': viaScan ? 'state' : 'warehouse',
                   'label_warehouse': viaScan ? 'Own W' : 'Own Next',
                   'labels': [
                     for (final (barcode, weight) in [

@@ -5,8 +5,23 @@ import '../../../core/localization/urdu_aware_text.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../shared/models/app_models.dart' show UserRole;
 import '../../shared/models/inventory_movement_models.dart';
 import '../models/preparation_models.dart';
+
+extension PaddonLineDisplay on PreparationPaddonContent {
+  String get selectionName => [
+        itemName,
+        unit,
+        if (lotNumber.isNotEmpty) lotNumber,
+        if (widthMm != null) '${preparationDisplay(widthMm!)} mm',
+        if (micron != null) '${preparationDisplay(micron!)} mkm',
+        if (openUnitNo == null && unitKg != null)
+          '${preparationDisplay(unitKg!)} kg dan',
+        if (openUnitNo != null)
+          'Ochilgan №$openUnitNo · ${preparationDisplay(remainingKg)} kg',
+      ].join(' • ');
+}
 
 Future<PreparationPaddonIssue?> showMaterialPaddonIssue(
   BuildContext context,
@@ -36,9 +51,11 @@ class _MaterialPaddonIssueDialogState
   final _scope = currentSessionReadScope();
   final _form = GlobalKey<FormState>();
   final _count = TextEditingController(text: '1');
+  final _remainder = TextEditingController();
+  bool _partial = false;
   final _weights = List.filled(200, '');
   late final _lines = widget.paddon.contents
-      .where((line) => line.lineNo != null && (line.remainingCount ?? 0) > 0)
+      .where((line) => line.lineNo != null && line.availableCount > 0)
       .toList(growable: false);
   late var _line = _lines.firstOrNull;
   late var _pending = widget.pending;
@@ -49,8 +66,13 @@ class _MaterialPaddonIssueDialogState
 
   Future<List<InventoryLocation>> _loadDestinations() async {
     final session = AppSession.instance;
-    if (!session.can('preparation.access') &&
-        !session.can('inventory.movement.manage')) {
+    final canMoveToState =
+        session.profile?.role == UserRole.materialTaminotchi &&
+            session.can('inventory.movement.manage');
+    final masterCanTransfer =
+        session.profile?.role == UserRole.tayyorlovMasteri &&
+            session.can('preparation.access');
+    if (!masterCanTransfer && !canMoveToState) {
       return [];
     }
     final locations = await _api.inventoryLocations();
@@ -59,7 +81,7 @@ class _MaterialPaddonIssueDialogState
     return [
       for (final location in locations)
         if (location.active &&
-            (location.isState ||
+            ((canMoveToState && location.isState) ||
                 (location.isWarehouse &&
                     location.name.trim().toLowerCase() != own)))
           location,
@@ -69,12 +91,13 @@ class _MaterialPaddonIssueDialogState
   @override
   void dispose() {
     _count.dispose();
+    _remainder.dispose();
     super.dispose();
   }
 
   String? _validateCount(String? text) {
     final count = int.tryParse(text?.trim() ?? '');
-    final available = _line?.remainingCount ?? 0;
+    final available = _line?.availableCount ?? 0;
     if (count == null || count < 1 || count > available || count > 200) {
       return '1–${available.clamp(1, 200)} ta kiriting';
     }
@@ -90,6 +113,26 @@ class _MaterialPaddonIssueDialogState
     }
   }
 
+  String? _validateTaken(String? text) {
+    final invalid = _validateWeight(text);
+    if (invalid != null || _line?.openUnitNo == null) return invalid;
+    final kg = preparationDecimal(text!);
+    final balance = preparationDecimal(_line!.remainingKg);
+    if (_partial && kg >= balance) return 'Qoldiqdan kamroq vazn kiriting';
+    if (!_partial && kg != balance) {
+      return 'Ochilgan birlik qoldig‘i ${preparationDisplay(_line!.remainingKg)} kg';
+    }
+    return null;
+  }
+
+  String? get _openRemainder {
+    if (_line?.openUnitNo == null || _validateTaken(_weights.first) != null) {
+      return null;
+    }
+    return preparationDecimalText(preparationDecimal(_line!.remainingKg) -
+        preparationDecimal(_weights.first));
+  }
+
   Future<void> _save() async {
     if (_saving || _scope != currentSessionReadScope()) return;
     final pending = _pending;
@@ -102,6 +145,13 @@ class _MaterialPaddonIssueDialogState
         {
           'code': widget.paddon.code,
           'line_no': _line!.lineNo,
+          if (_line!.openUnitNo != null) ...{
+            'open_unit_no': _line!.openUnitNo,
+            'expected_open_kg': _line!.remainingKg,
+          },
+          if (_partial)
+            'remainder_kg':
+                _openRemainder ?? _remainder.text.trim().replaceAll(',', '.'),
           'weights': [
             for (final weight in _weights.take(int.parse(_count.text.trim())))
               weight.trim().replaceAll(',', '.'),
@@ -178,7 +228,7 @@ class _MaterialPaddonIssueDialogState
                   child: UrduAwareText(
                     location.isState
                         ? '${location.name} • State'
-                        : location.name,
+                        : '${location.name} • Ombor',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -228,45 +278,61 @@ class _MaterialPaddonIssueDialogState
                     decoration:
                         const InputDecoration(labelText: 'Xomashyo va partiya'),
                     initialValue: line,
+                    itemHeight: null,
                     isExpanded: true,
                     items: [
                       for (final item in _lines)
                         DropdownMenuItem(
                           value: item,
-                          child: UrduAwareText(
-                              [
-                                item.itemName,
-                                if (item.lotNumber.isNotEmpty) item.lotNumber,
-                              ].join(' • '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
+                          child: UrduAwareText(item.selectionName,
+                              maxLines: 3, overflow: TextOverflow.ellipsis),
                         ),
                     ],
                     onChanged: _saving
                         ? null
                         : (value) => setState(() {
                               _line = value;
+                              _partial = false;
+                              _remainder.clear();
                               _count.text = '1';
                               _weights.fillRange(0, _weights.length, '');
                             }),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    key: const ValueKey('paddon-issue-count'),
-                    controller: _count,
-                    enabled: !_saving,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Olinadigan ${line.unit} soni',
-                      helperText:
-                          'Qoldiq ${line.remainingCount} ta ${line.unit}',
+                  if (line.issuableCount != null)
+                    SwitchListTile(
+                      key: const ValueKey('paddon-partial'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const UrduAwareText('Qisman olish'),
+                      value: _partial,
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() {
+                                _partial = value;
+                                _count.text = '1';
+                                _weights.fillRange(0, _weights.length, '');
+                                _remainder.clear();
+                              }),
                     ),
-                    validator: _validateCount,
-                    onChanged: (_) => setState(() {}),
-                  ),
+                  if (!_partial && line.openUnitNo == null)
+                    TextFormField(
+                      key: const ValueKey('paddon-issue-count'),
+                      controller: _count,
+                      enabled: !_saving,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Olinadigan ${line.unit} soni',
+                        helperText:
+                            'Olish mumkin: ${line.availableCount} ta ${line.unit}',
+                      ),
+                      validator: _validateCount,
+                      onChanged: (_) => setState(() {}),
+                    ),
                   for (var index = 0; index < count; index++)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
+                      key: ValueKey(
+                          (line.lineNo, line.openUnitNo, _partial, index)),
                       child: TextFormField(
                         key: ValueKey(
                             'paddon-issue-weight-${line.lineNo}-$index'),
@@ -275,14 +341,33 @@ class _MaterialPaddonIssueDialogState
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         decoration: InputDecoration(
-                          labelText: '${index + 1}-${line.unit} vazni',
+                          labelText: _partial
+                              ? 'Olingan qism vazni'
+                              : '${index + 1}-${line.unit} vazni',
                           suffixText: 'kg',
                         ),
-                        validator: _validateWeight,
-                        onChanged: (value) => _weights[index] = value,
+                        validator: _validateTaken,
+                        onChanged: (value) =>
+                            setState(() => _weights[index] = value),
                       ),
                     ),
                   const SizedBox(height: 16),
+                  if (_partial && line.openUnitNo == null)
+                    TextFormField(
+                      key: const ValueKey('paddon-remainder-kg'),
+                      controller: _remainder,
+                      enabled: !_saving,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                          labelText: 'Paddonda qolgan qism vazni',
+                          suffixText: 'kg',
+                          helperText: 'Qolgan qismini ham torting'),
+                      validator: _validateWeight,
+                    ),
+                  if (_partial && _openRemainder != null)
+                    UrduAwareText(
+                        'Paddonda qoladi: ${preparationDisplay(_openRemainder!)} kg'),
                   _destinationPicker(),
                 ],
                 if (_failure case final failure?)

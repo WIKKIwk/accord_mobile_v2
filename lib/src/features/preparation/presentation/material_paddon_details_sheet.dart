@@ -194,8 +194,8 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
                 builder: (context, snapshot) {
                   final recover =
                       snapshot.data?.payload['code'] == _paddon.code;
-                  final hasUnits = _paddon.contents.any((item) =>
-                      item.lineNo != null && (item.remainingCount ?? 0) > 0);
+                  final hasUnits = _paddon.contents.any(
+                      (item) => item.lineNo != null && item.availableCount > 0);
                   if (!hasUnits && !recover) return const SizedBox.shrink();
                   return FilledButton.icon(
                     key: const ValueKey('paddon-open-issue'),
@@ -213,10 +213,19 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
                 title: UrduAwareText(item.itemName),
                 subtitle: UrduAwareText([
                   if (item.lotNumber.isNotEmpty) 'Partiya: ${item.lotNumber}',
+                  if (item.openUnitNo != null)
+                    'Ochilgan ${item.unit} №${item.openUnitNo}',
+                  if (item.widthMm != null)
+                    '${preparationDisplay(item.widthMm!)} mm',
+                  if (item.micron != null)
+                    '${preparationDisplay(item.micron!)} mkm',
                   if (item.remainingCount case final count?)
                     '$count ta ${item.unit}',
-                  if (item.unitKg case final kg?)
-                    '${preparationDisplay(kg)} kg dan',
+                  if (item.openUnitNo == null && item.unitKg != null)
+                    '${preparationDisplay(item.unitKg!)} kg dan',
+                  if (item.remainingCount != null &&
+                      item.availableCount < item.remainingCount!)
+                    'Band: ${item.remainingCount! - item.availableCount} ta',
                   if (item.unweighedCount > 0)
                     'Vazni tortilmagan'
                   else
@@ -285,14 +294,21 @@ class _MaterialPaddonIssueHistoryState
                 for (final issue in snapshot.data!)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: UrduAwareText(issue.destination),
+                    title: UrduAwareText(issue.destinationTitle),
                     subtitle: UrduAwareText(
                         '${issue.labels.first.itemName} • ${_issueQuantity(issue)}'),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      if (_scope == currentSessionReadScope()) {
-                        _showIssueLabels(context, issue);
+                    onTap: () async {
+                      if (_scope != currentSessionReadScope()) return;
+                      await _showIssueLabels(context, issue);
+                      if (!mounted || _scope != currentSessionReadScope()) {
+                        return;
                       }
+                      final next =
+                          MobileApi.instance.materialPaddonIssues(widget.code);
+                      setState(() {
+                        _history = next;
+                      });
                     },
                   ),
             ],
@@ -335,54 +351,114 @@ String _issueQuantity(PreparationPaddonIssue issue) {
 
 class _PaddonIssueLabelsState extends State<_PaddonIssueLabels> {
   final _scope = currentSessionReadScope();
-  final _printed = <String>{};
+  final _api = MobileApi.instance;
+  late Map<String, PreparationPaddonPrintState> _states;
   bool _busy = false;
+  bool _ready = false;
   String? _failure;
+  bool get _current => mounted && _scope == currentSessionReadScope();
+  List<PreparationPaddonLabel> get _pending => widget.issue.labels
+      .where((label) =>
+          !widget.issue.legacyPrint && !_states.containsKey(label.barcode))
+      .toList();
 
   @override
   void initState() {
     super.initState();
-    if (widget.printOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_print(widget.issue.labels));
+    _states = Map.of(widget.issue.printStates);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load({bool refresh = false}) async {
+    if (!_current) return;
+    try {
+      var states = widget.issue.printStates;
+      if (!widget.issue.tracksPrint) {
+        states = await _api.localPaddonPrintStates(widget.issue.id);
+      } else if (refresh) {
+        final issues = await _api.materialPaddonIssues(widget.issue.paddonCode);
+        states = issues.firstWhere((i) => i.id == widget.issue.id).printStates;
+      }
+      if (!_current) return;
+      setState(() {
+        _states = Map.of(states);
+        _ready = true;
       });
+      if (!refresh && widget.printOnOpen && _pending.isNotEmpty) {
+        await _print(_pending);
+      }
+    } catch (_) {
+      if (_current) {
+        setState(() {
+          _ready = false;
+          _failure = 'Yorliqlar holatini yangilang';
+        });
+      }
+    }
+  }
+
+  Future<void> _confirm(PreparationPaddonLabel label) async {
+    if (!_current || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final state = await _api.trackPaddonLabel(widget.issue, label.barcode,
+          attempt: _states[label.barcode]!.attempt, confirm: true);
+      if (_current) {
+        setState(() {
+          _states[label.barcode] = state;
+          _failure = null;
+        });
+      }
+    } catch (_) {
+      if (_current) setState(() => _failure = 'Chop tasdig‘ini yangilang');
+      await _load(refresh: true);
+    } finally {
+      if (_current) setState(() => _busy = false);
     }
   }
 
   Future<void> _print(List<PreparationPaddonLabel> labels) async {
-    if (_busy || _scope != currentSessionReadScope()) return;
+    if (_busy || !_ready || !_current) return;
     setState(() {
       _busy = true;
       _failure = null;
     });
     try {
       final printer = await pickProgressPrinter(context);
-      if (printer == null) return;
+      if (printer == null || !_current) return;
       for (final label in labels) {
-        if (!mounted || _scope != currentSessionReadScope()) return;
-        final job =
-            materialPaddonUnitPrintRequest(widget.issue, label, printer);
-        await printMaterialPaddonQr(printer, job);
-        if (mounted && _scope == currentSessionReadScope()) {
-          setState(() => _printed.add(label.barcode));
-        }
+        if (!_current) return;
+        final barcode = label.barcode;
+        final attempt = newPreparationRequestId();
+        final started = await _api.trackPaddonLabel(widget.issue, barcode,
+            attempt: attempt,
+            previous: _states[barcode]?.attempt,
+            confirm: false);
+        if (!_current) return;
+        setState(() => _states[barcode] = started);
+        if (started.printed) continue;
+        await printMaterialPaddonQr(printer,
+            materialPaddonUnitPrintRequest(widget.issue, label, printer));
+        // A user may close the sheet while the hardware is replying.
+        if (_scope != currentSessionReadScope()) return;
+        final done = await _api.trackPaddonLabel(widget.issue, barcode,
+            attempt: attempt, confirm: true);
+        if (_current) setState(() => _states[barcode] = done);
       }
     } catch (_) {
-      if (mounted && _scope == currentSessionReadScope()) {
-        setState(
-            () => _failure = 'Yorliq chop etilmadi. Qayta urinib ko‘ring.');
+      if (_current) {
+        setState(() => _failure = 'Chop uzildi. Chiqqan yorliqni tekshiring.');
       }
+      await _load(refresh: true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (_current) setState(() => _busy = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final issue = widget.issue;
-    final remaining = issue.labels
-        .where((label) => !_printed.contains(label.barcode))
-        .toList(growable: false);
+    final remaining = _pending;
     return SafeArea(
       top: false,
       child: ListView(
@@ -394,18 +470,24 @@ class _PaddonIssueLabelsState extends State<_PaddonIssueLabels> {
             title: UrduAwareText('Chiqim yorliqlari',
                 style: Theme.of(context).textTheme.titleLarge),
             subtitle: UrduAwareText([
-              issue.destination,
+              issue.destinationTitle,
               _issueQuantity(issue),
+              if (issue.remainderKg != null)
+                'Paddonda qoldi: ${preparationDisplay(issue.remainderKg!)} kg${issue.labels.first.unitNo == null ? '' : ' (№${issue.labels.first.unitNo})'}',
               if (issue.awaitsTransfer) 'Transfer so‘rovi yuborildi',
             ].join(' • ')),
           ),
           if (_failure case final failure?)
             UrduAwareText(failure,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          if (!_ready && !_busy && _failure != null)
+            TextButton(
+                onPressed: () => _load(refresh: true),
+                child: const UrduAwareText('Holatni yangilash')),
           for (final label in issue.labels)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(_printed.contains(label.barcode)
+              leading: Icon(_states[label.barcode]?.printed == true
                   ? Icons.check_circle_outline_rounded
                   : Icons.qr_code_rounded),
               title: UrduAwareText(
@@ -413,16 +495,32 @@ class _PaddonIssueLabelsState extends State<_PaddonIssueLabels> {
               subtitle: UrduAwareText([
                 if (label.lotNumber.isNotEmpty) 'Partiya: ${label.lotNumber}',
                 label.barcode,
+                if (_states[label.barcode]?.printed == true)
+                  'Chop etilgan'
+                else if (_states.containsKey(label.barcode) ||
+                    issue.legacyPrint)
+                  'Chop holatini tekshiring',
               ].join(' • ')),
-              trailing: IconButton(
-                key: ValueKey('paddon-print-unit:${label.barcode}'),
-                onPressed: _busy ? null : () => _print([label]),
-                tooltip: 'Yorliq chiqarish',
-                icon: const Icon(Icons.print_outlined),
-              ),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (_states[label.barcode]?.printed == false)
+                  IconButton(
+                      tooltip: 'Yorliq chiqqanini tasdiqlash',
+                      icon: const Icon(Icons.check_rounded),
+                      onPressed:
+                          _busy || !_ready ? null : () => _confirm(label)),
+                IconButton(
+                  key: ValueKey('paddon-print-unit:${label.barcode}'),
+                  onPressed: _busy || !_ready ? null : () => _print([label]),
+                  tooltip:
+                      _states.containsKey(label.barcode) || issue.legacyPrint
+                          ? 'Yorliqni qayta chiqarish'
+                          : 'Yorliq chiqarish',
+                  icon: const Icon(Icons.print_outlined),
+                ),
+              ]),
             ),
           if (_busy) const LinearProgressIndicator(),
-          if (remaining.isNotEmpty)
+          if (_ready && remaining.isNotEmpty)
             FilledButton.icon(
               onPressed: _busy ? null : () => _print(remaining),
               icon: const Icon(Icons.print_outlined),

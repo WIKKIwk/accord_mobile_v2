@@ -32,7 +32,11 @@ UsbRpsPrintRequest materialPaddonUnitPrintRequest(
       warehouse: issue.labelWarehouse,
       lines: [
         '${preparationDisplay(unit.kg)} kg',
-        unit.itemName,
+        [
+          unit.itemName,
+          if (unit.widthMm != null) '${preparationDisplay(unit.widthMm!)} mm',
+          if (unit.micron != null) '${preparationDisplay(unit.micron!)} mkm'
+        ].join(' • '),
         if (unit.lotNumber.isNotEmpty) 'Partiya: ${unit.lotNumber}',
       ],
       kg: double.parse(unit.kg),

@@ -19,6 +19,7 @@ Future<String?> showMaterialPaddonReceipt(BuildContext context) =>
 class _PaddonLine {
   SupplierItem? item;
   String kind = 'bag';
+  bool showDimensions = false;
   final lot = TextEditingController();
   final count = TextEditingController(text: '1');
   final kg = TextEditingController();
@@ -31,8 +32,10 @@ class _PaddonLine {
         'kind': kind,
         'count': int.parse(count.text.trim()),
         if (kg.text.trim().isNotEmpty) 'unit_kg': _normalizedNumber(kg.text),
-        if (kind == 'roll') 'width_mm': _normalizedNumber(width.text),
-        if (kind == 'roll') 'micron': _normalizedNumber(micron.text),
+        if (kind == 'roll' && showDimensions && width.text.trim().isNotEmpty)
+          'width_mm': _normalizedNumber(width.text),
+        if (kind == 'roll' && showDimensions && micron.text.trim().isNotEmpty)
+          'micron': _normalizedNumber(micron.text),
       };
 
   void dispose() {
@@ -143,6 +146,9 @@ class _MaterialPaddonReceiptDialogState
     setState(() {
       line.item = item;
       line.kind = item.requiresDimensions ? 'roll' : 'bag';
+      line.showDimensions = item.requiresDimensions;
+      line.width.clear();
+      line.micron.clear();
     });
   }
 
@@ -239,13 +245,12 @@ class _MaterialPaddonReceiptDialogState
 
   Widget _fields(_PaddonLine line, int index) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-        key: ObjectKey(line),
+    return Material(
+      key: ObjectKey(line),
+      color: scheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(18),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -304,7 +309,7 @@ class _MaterialPaddonReceiptDialogState
                   DropdownMenuItem(
                       value: 'roll', child: UrduAwareText('Rulon')),
                 ],
-                onChanged: _saving || line.item?.requiresDimensions == true
+                onChanged: _saving
                     ? null
                     : (value) => setState(() => line.kind = value!),
               ),
@@ -333,15 +338,27 @@ class _MaterialPaddonReceiptDialogState
                   optional: true,
                   key: ValueKey('paddon-unit-kg-$index')),
             ),
-            if (line.kind == 'roll') ...[
+            if (line.kind == 'roll')
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const UrduAwareText('Rulon o‘lchamlari'),
+                value: line.showDimensions,
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => line.showDimensions = value),
+              ),
+            if (line.kind == 'roll' && line.showDimensions) ...[
               const SizedBox(height: 12),
               _fieldPair(
-                _number(line.width, 'Eni', suffix: 'mm'),
-                _number(line.micron, 'Mikron'),
+                _number(line.width, 'Eni', suffix: 'mm', optional: true),
+                _number(line.micron, 'Qalinligi',
+                    suffix: 'mkm', optional: true),
               ),
             ],
           ],
-        ));
+        ),
+      ),
+    );
   }
 
   Widget _number(TextEditingController field, String label,
