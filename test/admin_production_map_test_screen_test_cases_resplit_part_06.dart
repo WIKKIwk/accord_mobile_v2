@@ -262,7 +262,7 @@ void _registeradmin_production_map_test_screen_testCases06() {
     expect(find.text('Qayta urinish'), findsNothing);
     expect(find.byIcon(Icons.refresh_rounded), findsNothing);
     setMobileApiTestModeForceProductionMapMenuLoadFailure(false);
-    await tester.pump(const Duration(seconds: 2));
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     expect(progress, findsNothing);
   });
@@ -308,7 +308,7 @@ void _registeradmin_production_map_test_screen_testCases06() {
       findsNothing,
     );
     setMobileApiTestModeForceProductionMapQueueSnapshotLoadFailure(false);
-    await tester.pump(const Duration(seconds: 2));
+    _resumeOrdersFromBackground(tester);
     await _pumpRecoveryFrames(tester);
     await tester.tap(find.text('Buyurtmalar'));
     await _pumpRecoveryFrames(tester);

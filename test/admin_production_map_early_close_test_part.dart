@@ -75,19 +75,24 @@ void _registerEarlyCloseMenuTests() {
       await tester.pump();
       await TestModeController.instance.setEnabled(false);
       await tester.tap(find.text('Yopish'));
-      await tester.pumpAndSettle();
+      if (archiveReadFails) {
+        await tester.pump();
+        await _pumpRecoveryFrames(tester);
+      } else {
+        await tester.pumpAndSettle();
+      }
       expect(posts, hasLength(1));
       expect(jsonDecode(posts.single.body), {'order_id': id, 'action': 'close_early', 'comment': 'Mijoz rad etdi'});
       expect(find.text('Buyurtma yopilmadi'), findsNothing);
       expect(find.text('Buyurtma erta yopildi. Tarix Yopilganlar bo‘limida saqlandi.'), findsOneWidget);
       if (archiveReadFails) {
-        expect(find.text('Yopilgan orderlar yuklanmadi'), findsOneWidget);
+        expect(find.byKey(_recoveryProgressKey), findsOneWidget);
         archiveReadFails = false;
       }
       expect(order, findsNothing);
       expect(find.textContaining('muzlatib bo‘lmaydi'), findsNothing);
       await tester.tap(find.text('Ketma-ketlik'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.byKey(const ValueKey('sequence-row-$_print8Id-$id')), findsNothing);
       await tester.tap(find.text('Yopilgan'));
       await tester.pumpAndSettle();

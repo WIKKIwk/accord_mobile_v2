@@ -93,7 +93,9 @@ void _registerOrderDeleteTests() {
           await tester.ensureVisible(order);
           await tester.longPress(order);
           await tester.pumpAndSettle();
-          await tester.tap(find.text('O‘chirish'));
+          await tester.tap(find.text(
+            tab == 'Ketma-ketlik' ? 'Butun buyurtmani o‘chirish' : 'O‘chirish',
+          ));
           await tester.pumpAndSettle();
           expect(find.byType(AlertDialog), findsOneWidget);
           expect(posts, isEmpty, reason: 'Deletion needs confirmation');
@@ -108,8 +110,11 @@ void _registerOrderDeleteTests() {
           final accepted = outcome == 'success' || outcome == 'pending refresh';
           expect(posts, hasLength(outcome == 'cancelled' ? 0 : 1));
           if (posts.isNotEmpty) {
-            expect(jsonDecode(posts.single.body),
-                {'order_id': id, 'action': 'delete'});
+            expect(jsonDecode(posts.single.body), {
+              'order_id': id,
+              'action': 'delete',
+              'scope': 'order',
+            });
           }
           expect(find.text('Buyurtma amali bajarilmadi'), findsNothing);
           expect(find.text('Buyurtma o‘chirildi'),
