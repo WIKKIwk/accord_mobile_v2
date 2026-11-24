@@ -466,7 +466,7 @@ void _registerLaminationLabelPolicyTests() {
       cancel: false,
       zero: false,
       fail: false,
-      recovered: false
+      recovery: ''
     ),
     (
       wip: true,
@@ -474,7 +474,7 @@ void _registerLaminationLabelPolicyTests() {
       cancel: false,
       zero: false,
       fail: false,
-      recovered: false
+      recovery: ''
     ),
     (
       wip: false,
@@ -482,7 +482,7 @@ void _registerLaminationLabelPolicyTests() {
       cancel: false,
       zero: false,
       fail: false,
-      recovered: false
+      recovery: ''
     ),
     (
       wip: true,
@@ -490,7 +490,7 @@ void _registerLaminationLabelPolicyTests() {
       cancel: false,
       zero: false,
       fail: false,
-      recovered: false
+      recovery: ''
     ),
     (
       wip: true,
@@ -498,7 +498,7 @@ void _registerLaminationLabelPolicyTests() {
       cancel: true,
       zero: false,
       fail: false,
-      recovered: false
+      recovery: ''
     ),
     (
       wip: true,
@@ -506,7 +506,7 @@ void _registerLaminationLabelPolicyTests() {
       cancel: false,
       zero: true,
       fail: false,
-      recovered: false
+      recovery: ''
     ),
     (
       wip: true,
@@ -514,7 +514,7 @@ void _registerLaminationLabelPolicyTests() {
       cancel: false,
       zero: false,
       fail: true,
-      recovered: false
+      recovery: ''
     ),
     (
       wip: true,
@@ -522,7 +522,15 @@ void _registerLaminationLabelPolicyTests() {
       cancel: false,
       zero: false,
       fail: false,
-      recovered: true
+      recovery: 'committed'
+    ),
+    (
+      wip: false,
+      film: false,
+      cancel: false,
+      zero: false,
+      fail: false,
+      recovery: 'retry'
     ),
   ]) {
     testWidgets('lamination label policy saves before printing: $scenario',
@@ -630,13 +638,35 @@ void _registerLaminationLabelPolicyTests() {
         final preferences = await SharedPreferences.getInstance();
         final pendingKey =
             'lamination_complete_pending:lamination-label-worker:$_lamination1Id:$orderId';
-        if (scenario.recovered) {
-          await preferences.setString(
-              pendingKey, jsonEncode({'request_id': 'lost-response'}));
+        final pendingCommand = {
+          'action': 'complete',
+          'apparatus': _lamination1Id,
+          'order_id': orderId,
+          'session_id': 'label-policy-session',
+          'request_id': 'lost-response',
+          'print_transport': 'offline',
+          'print_count': 1,
+          'layer_remainder_weights': {
+            'wip_net_kg': 20.125,
+            'film_net_kg': 20.125,
+            'wip_source_id': 'original-progress_batch',
+            'film_source_id': 'original-raw_material',
+            'expected_sources': [
+              for (final kind in ['progress_batch', 'raw_material'])
+                {
+                  'source_kind': kind,
+                  'source_id': 'original-$kind',
+                  'expected_revision': 7,
+                },
+            ],
+          },
+        };
+        if (scenario.recovery.isNotEmpty) {
+          await preferences.setString(pendingKey, jsonEncode(pendingCommand));
         }
         await tester.ensureVisible(find.text('Tugatish'));
         await tester.tap(find.text('Tugatish'));
-        if (scenario.recovered) {
+        if (scenario.recovery == 'committed') {
           for (var i = 0;
               i < 20 &&
                   find.byType(LaminationLayerRemainderSheet).evaluate().isEmpty;
@@ -651,6 +681,25 @@ void _registerLaminationLabelPolicyTests() {
           expect(reprints, isEmpty);
           expect(printerPicks, 0);
           expect(preferences.containsKey(pendingKey), isFalse);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await pumpUi();
+          expect(tester.takeException(), isNull);
+          return;
+        }
+        if (scenario.recovery == 'retry') {
+          final retry = find.widgetWithText(FilledButton, 'Qayta urinish');
+          for (var i = 0; i < 20 && retry.evaluate().isEmpty; i++) {
+            await pumpUi();
+          }
+          expect(submissions, isEmpty);
+          await tester.tap(retry);
+          for (var i = 0; i < 20 && submissions.isEmpty; i++) {
+            await pumpUi();
+          }
+          await pumpUi();
+          expect(submissions.single, pendingCommand);
+          expect(preferences.containsKey(pendingKey), isFalse);
+          expect(printerPicks, 0);
           await tester.pumpWidget(const SizedBox.shrink());
           await pumpUi();
           expect(tester.takeException(), isNull);
@@ -730,9 +779,11 @@ void _registerLaminationLabelPolicyTests() {
           () => MockClient((request) async {
                 if (request.url.path.endsWith('/laminatsiya-astatka')) {
                   if (request.method == 'GET') {
-                    if (scenario.recovered) {
+                    if (scenario.recovery.isNotEmpty) {
                       expect(request.url.queryParameters['request_id'],
                           'lost-response');
+                    }
+                    if (scenario.recovery == 'committed') {
                       return http.Response(
                           jsonEncode({
                             'remainder_weights_supported': true,
