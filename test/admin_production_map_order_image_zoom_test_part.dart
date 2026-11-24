@@ -99,14 +99,12 @@ void _registerOrderImageZoomTests() {
                 .any((image) => image.image?.width == 256),
             isTrue);
         await tester.longPress(cover);
-        await tester.pump();
-        await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 100)));
-        await tester.pumpAndSettle();
+        final viewport = find.byKey(const ValueKey('order-image-viewport'));
+        await _pumpOrderImagePixels(tester, viewport, 1200);
         expect(
             tester
                 .widgetList<RawImage>(find.descendant(
-                    of: find.byKey(const ValueKey('order-image-viewport')),
+                    of: viewport,
                     matching: find.byType(RawImage)))
                 .any((image) => image.image?.width == 1200),
             isTrue);
@@ -148,14 +146,14 @@ void _registerOrderImageZoomTests() {
             expect(fades, hasLength(1));
             expect(fades.single.opacity.value, 1,
                 reason: 'sheet actions must not restart the image fade');
-            await tester.pumpAndSettle();
+            await tester.pump(const Duration(milliseconds: 250));
           }
           await tester.tap(photo);
-          await tester.pumpAndSettle();
+          await _pumpOrderImagePixels(tester, viewport, 1200);
           expect(
               tester
                   .widgetList<RawImage>(find.descendant(
-                      of: find.byKey(const ValueKey('order-image-viewport')),
+                      of: viewport,
                       matching: find.byType(RawImage)))
                   .any((image) => image.image?.width == 1200),
               isTrue);
@@ -255,10 +253,8 @@ void _registerOrderImageZoomTests() {
       expect(thumbnail, findsOneWidget);
       await TestModeController.instance.setEnabled(false);
       await tester.tap(thumbnail);
-      await tester.pump();
-      await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await tester.pumpAndSettle();
+      await _pumpOrderImagePixels(
+          tester, find.byKey(const ValueKey('order-image-viewport')), 1200);
       final imageRequests = requests
           .where((request) => request.url.path.endsWith('/order-image/view'))
           .toList();
