@@ -522,7 +522,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
 
   for (final receiptScenario in [
     'sequential',
-    'parallel failure',
+    'overlapping scanner callback',
     'refresh failure',
   ]) {
     testWidgets(
@@ -666,77 +666,98 @@ void _registeradmin_production_map_test_screen_testCases16() {
               )
               .onCodeDetected;
           final requests = <http.Request>[];
-          final receipt = Completer<http.Response>();
-          final failedReceipt = Completer<http.Response>();
+          final receiptReady = Completer<void>();
           await TestModeController.instance.setEnabled(false);
           await http.runWithClient(
             () async {
               final accepted = scan(candidateBarcode);
-              final rejected = receiptScenario == 'parallel failure'
+              final overlapping = receiptScenario == 'overlapping scanner callback'
                   ? scan('ROLL-WORKER-UNASSIGNED')
                   : Future<void>.value();
               await tester.pump();
               expect(
                 requests.where((r) => r.method == 'POST'),
-                hasLength(receiptScenario == 'parallel failure' ? 2 : 1),
+                hasLength(1),
+                reason: 'A second scanner callback cannot write during receipt',
               );
-              receipt.complete(
-                http.Response(
-                  jsonEncode({
-                    'order_id': orderId,
-                    'apparatus': apparatus,
-                    'barcode': candidateBarcode,
-                    'stock_status': 'in_use',
-                    'received_qty': 100,
-                    'stock_uom': 'kg',
-                  }),
-                  200,
-                ),
-              );
-              await tester.pumpAndSettle();
+              final write = requests.singleWhere((r) => r.method == 'POST');
+              expect(jsonDecode(write.body), {
+                'order_id': orderId,
+                'apparatus': apparatus,
+                'barcode': candidateBarcode,
+              });
+              receiptReady.complete();
+              // Material refresh may still be reconnecting after the server
+              // has acknowledged this receipt.
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 400));
               await accepted;
+              await overlapping;
+              await tester.pump(const Duration(milliseconds: 2300));
+              await tester.pump(const Duration(milliseconds: 350));
+              final scanner = find.byType(ProductionQuickScannerPanel);
+              final scannerStatus = tester
+                  .widgetList<ProductionQuickScannerPanel>(scanner)
+                  .map((panel) => panel.statusText)
+                  .join(', ');
+              final requestsMade = requests
+                  .map((request) => '${request.method} ${request.url.path}')
+                  .join(', ');
               expect(
-                find.byType(ProductionQuickScannerPanel),
-                findsNothing,
-                reason: 'camera closes when no scan task remains',
+                requests.map((request) => request.url.path),
+                contains(endsWith('/raw-material-assignments')),
+                reason: 'Receipt should refresh its assignments. '
+                    'Scanner: $scannerStatus. Requests: $requestsMade',
               );
-              if (receiptScenario == 'parallel failure') {
-                failedReceipt.complete(
-                  http.Response(
-                    '{"error":"raw_material_assignment_not_found"}',
-                    400,
-                  ),
-                );
-                await tester.pumpAndSettle();
-                await rejected;
-              }
-              await _waitForQuickScannerFeedback(tester);
-              expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+              expect(
+                scanner,
+                findsNothing,
+                reason: 'Camera closes after the receipt feedback finishes. '
+                    'Scanner: $scannerStatus. Requests: $requestsMade',
+              );
               final requestCount = requests.length;
-              await scan('LATE-CAMERA-FRAME');
-              await tester.pumpAndSettle();
+              final lateScan = scan('LATE-CAMERA-FRAME');
+              await tester.pump();
               expect(
                 requests,
                 hasLength(requestCount),
                 reason: 'a stale callback must not send a lookup or receipt',
               );
+              await lateScan;
               await tester.pumpWidget(const SizedBox.shrink());
               await tester.pumpAndSettle();
             },
-            () => MockClient((request) {
+            () => MockClient((request) async {
               requests.add(request);
+              final path = request.url.path;
               if (request.method == 'POST' &&
-                  request.url.path.endsWith('/raw-material-intake')) {
-                return jsonDecode(request.body)['barcode'] == candidateBarcode
-                    ? receipt.future
-                    : failedReceipt.future;
-              }
-              if (receiptScenario == 'refresh failure') {
-                return Future.value(
-                  http.Response('{"error":"store_failed"}', 503),
+                  path.endsWith('/raw-material-intake')) {
+                await receiptReady.future;
+                return http.Response(
+                  jsonEncode({
+                    'order_id': orderId,
+                    'apparatus': apparatus,
+                    'barcode': candidateBarcode,
+                    'item_code': 'ROLL-WORKER',
+                    'item_name': 'Worker assigned material',
+                    'stock_status': 'in_use',
+                    'reserved_order_id': orderId,
+                    'stock_qty': 100,
+                    'stock_uom': 'kg',
+                    'received_qty': 100,
+                    'remaining_qty': 100,
+                  }),
+                  200,
+                  headers: {'content-type': 'application/json'},
                 );
               }
-              return Future.value(http.Response('[]', 200));
+              if (path.endsWith('/raw-material-assignments') ||
+                  path.endsWith('/raw-material-intake-candidates')) {
+                return receiptScenario == 'refresh failure'
+                    ? http.Response('{"error":"store_failed"}', 503)
+                    : http.Response('[]', 200);
+              }
+              return http.Response('{"error":"not_found"}', 404);
             }),
           );
           return;
@@ -792,7 +813,7 @@ void _registeradmin_production_map_test_screen_testCases16() {
         expect(find.byType(ProductionQuickScannerPanel), findsNothing);
         expect(
           find.byKey(const ValueKey('receive-additional-raw-material')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(
           find.descendant(

@@ -1206,7 +1206,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       _intakeCandidateAssignments = snapshot.intakeCandidateAssignments;
       _materialStartRequirements = snapshot.requirements;
       if (_intakeCandidateAssignments.isEmpty) {
-        _materialIntakeMode = false;
+        _closeMaterialIntakeScanner();
       }
       if (eligibleBarcodes != null) {
         _scannedMaterialBarcodes.removeWhere(
@@ -1268,7 +1268,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         _materialAssignments = const [];
         _startAssignments = const [];
         _intakeCandidateAssignments = const [];
-        _materialIntakeMode = false;
+        _closeMaterialIntakeScanner();
         _materialStartRequirements = null;
         _materialsLoading = false;
         _materialsError = error is MobileApiException ||
@@ -3441,8 +3441,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
     if (!mounted) return;
     if (_materialIntakeMode) {
       setState(() {
-        _materialIntakeMode = false;
-        _ignoreClosedQuickScanCallbacks = true;
+        _closeMaterialIntakeScanner();
         _quickScanStatus = context.l10n.productionText(
           'worker.scanner.prompt',
         );
@@ -3475,6 +3474,12 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         'worker.scanner.additional_material_prompt',
       );
     });
+  }
+
+  void _closeMaterialIntakeScanner() {
+    if (!_materialIntakeMode) return;
+    _materialIntakeMode = false;
+    _ignoreClosedQuickScanCallbacks = true;
   }
 
   Future<bool> _receiveAdditionalMaterialFromQuickScan(String barcode) async {
@@ -3539,7 +3544,7 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
       setState(() {
         _intakeCandidatesExpanded = true;
         // Finishing an in-flight receipt must never reopen a closed scanner.
-        if (!hasRemainingCandidates) _materialIntakeMode = false;
+        if (!hasRemainingCandidates) _closeMaterialIntakeScanner();
         _quickScanStatus = hasRemainingCandidates
             ? context.l10n.productionText(
                 'worker.notice.material_received',
