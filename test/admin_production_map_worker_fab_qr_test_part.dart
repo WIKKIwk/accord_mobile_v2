@@ -238,182 +238,245 @@ void _registerWorkerFabQrTests() {
             orderId: targetId,
             control: _inProgressQueueControl());
       }
-      await _usePhoneViewport(tester);
-      var scannerRoutes = 0;
-      await tester.pumpWidget(MaterialApp(
-        locale: const Locale('uz'),
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        onGenerateRoute: (settings) {
-          expect(settings.name, AppRoutes.adminProgressQrScan);
-          scannerRoutes++;
-          return MaterialPageRoute<String>(
-              builder: (context) => Scaffold(
-                    body: TextButton(
-                      key: const ValueKey('return-fab-qr'),
-                      onPressed: () => Navigator.of(context).pop(qr),
-                      child: const Text('Scan WIP'),
-                    ),
-                  ));
-        },
-        home: AdminProductionMapOrdersScreen(
-            readOnly: true,
-            workerMode: true,
-            liveEventsLoader: _idleProductionLiveLoader()),
-      ));
-      await tester.pumpAndSettle();
-      if (scenario == 'upstream-requeued') {
-        await tester.tap(find.text(_fixtureApparatusName(_lamination1Id)));
+      final live = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+      addTearDown(live.close);
+      Future<void> runScenario() async {
+        await _usePhoneViewport(tester);
+        var scannerRoutes = 0;
+        await tester.pumpWidget(MaterialApp(
+          locale: const Locale('uz'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          onGenerateRoute: (settings) {
+            expect(settings.name, AppRoutes.adminProgressQrScan);
+            scannerRoutes++;
+            return MaterialPageRoute<String>(
+                builder: (context) => Scaffold(
+                      body: TextButton(
+                        key: const ValueKey('return-fab-qr'),
+                        onPressed: () => Navigator.of(context).pop(qr),
+                        child: const Text('Scan WIP'),
+                      ),
+                    ));
+          },
+          home: AdminProductionMapOrdersScreen(
+              readOnly: true,
+              workerMode: true,
+              liveEventsLoader: () => live.stream),
+        ));
         await tester.pumpAndSettle();
-        expect(find.text('WIP tayyor · skanerlang'), findsNothing);
-        final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
-        expect(snapshot.queueStates[_print9Id]?[targetId], 'pending');
-      }
-      if (scenario == 'report-required') {
-        await tester
-            .tap(find.text(l10n.productionText('worker.stage.astatka.later')));
-        await tester.pumpAndSettle();
-      }
-      final scanFuture = tester
-          .widget<AparatchiDock>(find.byType(AparatchiDock))
-          .onQrScanRequested!();
-      if (scenario == 'duplicate-scan') {
-        await tester
-            .widget<AparatchiDock>(find.byType(AparatchiDock))
-            .onQrScanRequested!();
-      }
-      await tester.pumpAndSettle();
-      expect(scannerRoutes, 1);
-      await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
-      await tester.pump();
-      if (scenario == 'idle') {
-        expect(
-            find.byWidgetPredicate((widget) =>
-                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet'),
-            findsOneWidget);
-        expect(find.byType(ProductionQuickScannerPanel), findsNothing,
-            reason: 'FAB QR validation must not briefly mount the camera');
-        final pendingStart = find.widgetWithText(FilledButton, 'Boshlash');
-        expect(pendingStart, findsOneWidget);
-        expect(tester.widget<FilledButton>(pendingStart).onPressed, isNull,
-            reason: 'start must wait for the FAB QR validation');
-      }
-      await tester.pumpAndSettle();
-      await scanFuture;
-
-      expect(
-          find.text(l10n.productionText('worker.error.current_order_missing')),
-          findsNothing);
-      if (scenario == 'report-required') {
-        await tester
-            .tap(find.byKey(const ValueKey('production-switch-order-confirm')));
-        await tester.pumpAndSettle();
-        for (final field in [
-          'worker.daily.field.print_leftover',
-          'worker.daily.field.film_leftover',
-          'worker.daily.field.total_waste'
-        ]) {
-          final input =
-              find.widgetWithText(TextFormField, l10n.productionText(field));
-          await tester.ensureVisible(input);
-          await tester.enterText(input, '1');
-        }
-        await tester.ensureVisible(find.text('Tasdiqlash'));
-        await tester.tap(find.text('Tasdiqlash'));
-        await tester.pumpAndSettle();
-      }
-      if (scenario == 'idle' ||
-          scenario == 'upstream-requeued' ||
-          scenario == 'mixed-input' ||
-          scenario == 'duplicate-scan' ||
-          scenario == 'reported-handoff' ||
-          scenario == 'paused-reported' ||
-          scenario == 'report-required') {
-        expect(find.text('0003'), findsWidgets);
-        expect(
-            find.text(
-                l10n.productionText('worker.progress.previous.confirmed')),
-            findsOneWidget);
-        expect(find.byType(ProductionQuickScannerPanel), findsNothing);
-        final start = find.widgetWithText(FilledButton, 'Boshlash');
-        expect(start, findsOneWidget);
-        expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
         if (scenario == 'upstream-requeued') {
-          final summary = find.byWidgetPredicate((widget) =>
-              widget.runtimeType.toString() == '_OrderSummaryCard');
-          final toggle = find.descendant(of: summary, matching: find.byType(InkWell)).first;
-          await tester.ensureVisible(toggle);
-          await tester.tap(toggle);
+          await tester.tap(find.text(_fixtureApparatusName(_lamination1Id)));
           await tester.pumpAndSettle();
-          expect(find.text('Qayta navbatda · davom ettirish mumkin'), findsOneWidget);
-          expect(find.text('WIP tayyor · skanerlang'), findsWidgets);
+          expect(find.text('WIP tayyor · skanerlang'), findsNothing);
+          final snapshot = await MobileApi.instance.adminProductionMapQueueSnapshot();
+          expect(snapshot.queueStates[_print9Id]?[targetId], 'pending');
         }
-      } else if (hasCurrent) {
-        expect(find.byKey(const ValueKey('production-switch-order-confirm')),
-            findsOneWidget);
-        await tester.tap(find.text(l10n.productionText('worker.action.no')));
+        if (scenario == 'report-required') {
+          await tester
+              .tap(find.text(l10n.productionText('worker.stage.astatka.later')));
+          await tester.pumpAndSettle();
+        }
+        final scanFuture = tester
+            .widget<AparatchiDock>(find.byType(AparatchiDock))
+            .onQrScanRequested!();
+        if (scenario == 'duplicate-scan') {
+          await tester
+              .widget<AparatchiDock>(find.byType(AparatchiDock))
+              .onQrScanRequested!();
+        }
         await tester.pumpAndSettle();
+        expect(scannerRoutes, 1);
+        await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
+        await tester.pump();
+        if (scenario == 'idle') {
+          expect(
+              find.byWidgetPredicate((widget) =>
+                  widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet'),
+              findsOneWidget);
+          expect(find.byType(ProductionQuickScannerPanel), findsNothing,
+              reason: 'FAB QR validation must not briefly mount the camera');
+          final pendingStart = find.widgetWithText(FilledButton, 'Boshlash');
+          expect(pendingStart, findsOneWidget);
+          expect(tester.widget<FilledButton>(pendingStart).onPressed, isNull,
+              reason: 'start must wait for the FAB QR validation');
+        }
+        await tester.pumpAndSettle();
+        await scanFuture;
+
         expect(
-            find.text(
-                l10n.productionText('worker.progress.previous.confirmed')),
+            find.text(l10n.productionText('worker.error.current_order_missing')),
             findsNothing);
+        if (scenario == 'report-required') {
+          await tester
+              .tap(find.byKey(const ValueKey('production-switch-order-confirm')));
+          await tester.pumpAndSettle();
+          for (final field in [
+            'worker.daily.field.print_leftover',
+            'worker.daily.field.film_leftover',
+            'worker.daily.field.total_waste'
+          ]) {
+            final input =
+                find.widgetWithText(TextFormField, l10n.productionText(field));
+            await tester.ensureVisible(input);
+            await tester.enterText(
+                input, field == 'worker.daily.field.total_waste' ? '1' : '0');
+          }
+          final confirm = find.widgetWithText(FilledButton, 'Tasdiqlash');
+          await tester.ensureVisible(confirm);
+          await tester.tap(confirm);
+          await tester.pumpAndSettle();
+          await _closeSavedLaminationAstatka(tester);
+        }
+        if (scenario == 'idle' ||
+            scenario == 'upstream-requeued' ||
+            scenario == 'mixed-input' ||
+            scenario == 'duplicate-scan' ||
+            scenario == 'reported-handoff' ||
+            scenario == 'paused-reported' ||
+            scenario == 'report-required') {
+          expect(find.text('0003'), findsWidgets);
+          expect(
+              find.text(
+                  l10n.productionText('worker.progress.previous.confirmed')),
+              findsOneWidget);
+          expect(find.byType(ProductionQuickScannerPanel), findsNothing);
+          final start = find.widgetWithText(FilledButton, 'Boshlash');
+          expect(start, findsOneWidget);
+          expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+          if (scenario == 'upstream-requeued') {
+            final summary = find.byWidgetPredicate((widget) =>
+                widget.runtimeType.toString() == '_OrderSummaryCard');
+            final toggle = find.descendant(of: summary, matching: find.byType(InkWell)).first;
+            await tester.ensureVisible(toggle);
+            await tester.tap(toggle);
+            await tester.pumpAndSettle();
+            expect(find.text('Qayta navbatda · davom ettirish mumkin'), findsOneWidget);
+            expect(find.text('WIP tayyor · skanerlang'), findsWidgets);
+          }
+        } else if (hasCurrent) {
+          expect(find.byKey(const ValueKey('production-switch-order-confirm')),
+              findsOneWidget);
+          await tester.tap(find.text(l10n.productionText('worker.action.no')));
+          await tester.pumpAndSettle();
+          expect(
+              find.text(
+                  l10n.productionText('worker.progress.previous.confirmed')),
+              findsNothing);
+        } else {
+          expect(
+              find.byWidgetPredicate((widget) =>
+                  widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet'),
+              findsNothing);
+        }
+        if (scenario == 'reported-handoff' || scenario == 'paused-reported') {
+          expect(find.byKey(const ValueKey('production-switch-order-confirm')),
+              findsNothing);
+          Navigator.of(
+                  tester.element(find.widgetWithText(FilledButton, 'Boshlash')))
+              .pop(false);
+          await tester.pumpAndSettle();
+          final retry = tester
+              .widget<AparatchiDock>(find.byType(AparatchiDock))
+              .onQrScanRequested!();
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
+          await tester.pumpAndSettle();
+          await retry;
+          expect(find.byKey(const ValueKey('production-switch-order-confirm')),
+              findsNothing);
+          expect(
+              find.text(
+                  l10n.productionText('worker.progress.previous.confirmed')),
+              findsOneWidget);
+        }
+        if (scenario == 'unknown-retry') {
+          await _closeInlineWipGuidance(tester);
+          qr = input.qrPayload;
+          final retry = tester
+              .widget<AparatchiDock>(find.byType(AparatchiDock))
+              .onQrScanRequested!();
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
+          await tester.pumpAndSettle();
+          await retry;
+          expect(scannerRoutes, 2);
+          expect(
+              find.text(
+                  l10n.productionText('worker.progress.previous.confirmed')),
+              findsOneWidget);
+        }
+        final after =
+            await MobileApi.instance.adminProgressQrLookup(input.qrPayload);
+        expect(after.wipStatus, scenario == 'used-roll' ? 'in_use' : 'waiting',
+            reason: 'Routing and scan acceptance must not start or consume work');
+        dismissAdminTopNotice();
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+
+      if (scenario == 'report-required') {
+        await _withEmptyLaminationAstatkaSources(
+          runScenario,
+          orderId: currentId,
+          apparatus: _lamination1Id,
+          sessionId: 'previous-session',
+          sessionStatus: 'completed',
+          waste: 1,
+          onReportSaved: () async {
+            setMobileApiTestModeQueueActionControlFixture(
+              apparatus: _lamination1Id,
+              orderId: currentId,
+              control: const AdminApparatusQueueOrderActionControl(
+                state: 'completed',
+                hasOnlyKnownActions: true,
+                stageWork: AdminStageWorkControl(
+                  upstreamClosed: true,
+                  astatkaAvailable: true,
+                  reportSessionId: 'previous-session',
+                ),
+                interaction: AdminQueueWorkerInteraction(
+                  mode: AdminQueueInteractionMode.completed,
+                  startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+                  materialScanRequired: false,
+                  assignedMaterialsDisplayOnly: true,
+                  materialIntakeAllowed: false,
+                  previousWipMode: AdminQueuePreviousWipMode.notRequired,
+                  qolipMode: AdminQueueQolipMode.notRequired,
+                ),
+              ),
+            );
+            final snapshot =
+                await MobileApi.instance.adminProductionMapQueueSnapshot();
+            final completed =
+                await MobileApi.instance.adminCompletedProductionMapOrders();
+            live.add(AdminProductionMapLiveSnapshot(
+              maps: snapshot.maps,
+              sequenceVersions: snapshot.sequenceVersions,
+              sequences: snapshot.sequences,
+              visibleOrderIds: snapshot.visibleOrderIds,
+              queueStates: snapshot.queueStates,
+              queuePolicies: snapshot.queuePolicies,
+              queueActionControls: snapshot.queueActionControls,
+              stageStates: snapshot.stageStates,
+              orderControls: snapshot.orderControls,
+              orderStatuses: snapshot.orderStatuses,
+              completedOrders: completed,
+              completionRequests: const [],
+              completionRequestDecisions: const [],
+            ));
+          },
+        );
       } else {
-        expect(
-            find.byWidgetPredicate((widget) =>
-                widget.runtimeType.toString() == '_ReadOnlyOrderDetailSheet'),
-            findsNothing);
+        await runScenario();
       }
-      if (scenario == 'reported-handoff' || scenario == 'paused-reported') {
-        expect(find.byKey(const ValueKey('production-switch-order-confirm')),
-            findsNothing);
-        Navigator.of(
-                tester.element(find.widgetWithText(FilledButton, 'Boshlash')))
-            .pop(false);
-        await tester.pumpAndSettle();
-        final retry = tester
-            .widget<AparatchiDock>(find.byType(AparatchiDock))
-            .onQrScanRequested!();
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
-        await tester.pumpAndSettle();
-        await retry;
-        expect(find.byKey(const ValueKey('production-switch-order-confirm')),
-            findsNothing);
-        expect(
-            find.text(
-                l10n.productionText('worker.progress.previous.confirmed')),
-            findsOneWidget);
-      }
-      if (scenario == 'unknown-retry') {
-        await _closeInlineWipGuidance(tester);
-        qr = input.qrPayload;
-        final retry = tester
-            .widget<AparatchiDock>(find.byType(AparatchiDock))
-            .onQrScanRequested!();
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('return-fab-qr')));
-        await tester.pumpAndSettle();
-        await retry;
-        expect(scannerRoutes, 2);
-        expect(
-            find.text(
-                l10n.productionText('worker.progress.previous.confirmed')),
-            findsOneWidget);
-      }
-      final after =
-          await MobileApi.instance.adminProgressQrLookup(input.qrPayload);
-      expect(after.wipStatus, scenario == 'used-roll' ? 'in_use' : 'waiting',
-          reason: 'Routing and scan acceptance must not start or consume work');
-      dismissAdminTopNotice();
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
     });
   }
 }

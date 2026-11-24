@@ -1,5 +1,81 @@
 part of 'admin_production_map_test_screen_test.dart';
 
+Future<void> _withEmptyLaminationAstatkaSources(
+  Future<void> Function() run, {
+  required String orderId,
+  required String apparatus,
+  required String sessionStatus,
+  required double waste,
+  String sessionId = 'lamination-report-session',
+  Future<void> Function()? onReportSaved,
+}) async {
+  var submissions = 0;
+  await http.runWithClient(run, () => MockClient((request) async {
+        if (request.url.path.endsWith('/layer-remainders')) {
+          return http.Response('{"sources":[],"remainders":[]}', 200);
+        }
+        if (!request.url.path.endsWith('/laminatsiya-astatka')) {
+          return http.Response('{"error":"not_found"}', 404);
+        }
+        if (request.method == 'GET') {
+          expect(request.url.queryParameters, containsPair('order_id', orderId));
+          expect(request.url.queryParameters, containsPair('apparatus', apparatus));
+          return http.Response(jsonEncode({
+            'session': {'session_id': sessionId, 'status': sessionStatus},
+            'sources': [],
+            'allow_empty_sources': true,
+            'remainder_weights_supported': true,
+          }), 200);
+        }
+
+        submissions++;
+        final command = jsonDecode(request.body) as Map;
+        expect(request.method, 'POST');
+        expect(command['order_id'], orderId);
+        expect(command['apparatus'], apparatus);
+        expect(command['session_id'], sessionId);
+        expect(command['request_id'], isNotEmpty);
+        expect(command['total_waste'], waste);
+        expect(command['finished_goods_meter'], sessionStatus == 'active' ? 0 : null);
+        expect(command['finished_goods_kg'], sessionStatus == 'active' ? 0 : null);
+        expect(command.containsKey('action'), isFalse,
+            reason: 'An Astatka report must not close the stage');
+        expect(command['layer_remainder_weights'], {
+          'wip_net_kg': 0.0,
+          'film_net_kg': 0.0,
+          'expected_sources': [],
+        });
+        await onReportSaved?.call();
+        return http.Response(jsonEncode({
+          'ok': true,
+          'action': 'pause',
+          'report': {'report_id': 'lamination-report-for-$orderId'},
+          'session': {
+            'session_id': sessionId,
+            'status': sessionStatus == 'active' ? 'paused' : sessionStatus,
+          },
+          'progress_batches': [],
+          'remainders': [],
+          'prints': [],
+        }), 200);
+      }));
+  expect(submissions, 1, reason: 'The report must be acknowledged exactly once');
+}
+
+Future<void> _closeSavedLaminationAstatka(WidgetTester tester) async {
+  final l10n = AppLocalizations(const Locale('uz'));
+  final receipt = find.byType(LaminationLayerRemainderSheet);
+  expect(receipt, findsOneWidget);
+  final close = find.descendant(
+    of: receipt,
+    matching: find.widgetWithText(
+        TextButton, l10n.productionText('worker.layer_remainder.close')),
+  );
+  await tester.tap(close);
+  await tester.pumpAndSettle();
+  expect(receipt, findsNothing);
+}
+
 void _registerLaminationAstatkaScopeTests() {
   _registerLaminationLabelPolicyTests();
   Future<void> pumpUi(WidgetTester tester) async {

@@ -370,7 +370,9 @@ void _registeradmin_production_map_test_screen_testCases16() {
   }
   for (final coldGlue in [false, true]) {
     testWidgets(
-      'worker ${coldGlue ? "cold glue" : "laminatsiya"} long press records astatka without changing queue state',
+      coldGlue
+          ? 'worker cold glue long press records astatka without changing queue state'
+          : 'worker laminatsiya long press records active astatka without completing the stage',
       (tester) async {
         await TestModeController.instance.setEnabled(true);
         final logicalApparatus = coldGlue ? _coldGlueId : _lamination1Id;
@@ -458,54 +460,62 @@ void _registeradmin_production_map_test_screen_testCases16() {
         expect(find.text('Metraj'), findsNothing);
         expect(find.text('Og‘irlik'), findsNothing);
 
-        await tester.tap(
-          find.widgetWithText(FilledButton, 'Astatka hisobotini topshirish'),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
-        expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
-        expect(find.text('Jami chiqindi'), findsOneWidget);
-        expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
-        for (final label in ['Babina', 'Metraj', 'Og‘irlik', 'Diametr']) {
-          expect(find.widgetWithText(TextFormField, label), findsNothing);
+        Future<void> submitReport() async {
+          await tester.tap(
+            find.widgetWithText(FilledButton, 'Astatka hisobotini topshirish'),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Bosmadan ortgan rulon'), findsOneWidget);
+          expect(find.text('Plyonkadan ortgan rulon'), findsOneWidget);
+          expect(find.text('Jami chiqindi'), findsOneWidget);
+          expect(find.text('Astatka hisobotini topshirish'), findsOneWidget);
+          const outputFields = ['Babina', 'Metraj', 'Og‘irlik'];
+          for (final label in outputFields) {
+            expect(find.widgetWithText(TextFormField, label),
+                coldGlue ? findsNothing : findsOneWidget);
+          }
+          expect(find.widgetWithText(TextFormField, 'Diametr'), findsNothing);
+          final confirm = find.widgetWithText(FilledButton, 'Tasdiqlash');
+          await tester.tap(confirm);
+          await tester.pumpAndSettle();
+          expect(find.widgetWithText(TextFormField, 'Jami chiqindi'),
+              findsOneWidget);
+          for (final label in [
+            if (!coldGlue) ...outputFields,
+            'Bosmadan ortgan rulon',
+            'Plyonkadan ortgan rulon',
+            'Jami chiqindi',
+          ]) {
+            final input = find.widgetWithText(TextFormField, label);
+            await tester.ensureVisible(input);
+            await tester.enterText(input, '0');
+          }
+          await tester.ensureVisible(confirm);
+          await tester.tap(confirm);
+          await tester.pumpAndSettle();
+          if (!coldGlue) await _closeSavedLaminationAstatka(tester);
+          expect(find.byType(BottomSheet), findsNothing);
         }
-        expect(find.byType(TextFormField), findsNWidgets(3));
-        await tester.tap(find.text('Tasdiqlash'));
-        await tester.pumpAndSettle();
-        expect(
-          find.widgetWithText(TextFormField, 'Jami chiqindi'),
-          findsOneWidget,
-        );
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Bosmadan ortgan rulon'),
-          '0',
-        );
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Plyonkadan ortgan rulon'),
-          '0',
-        );
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Jami chiqindi'),
-          '0',
-        );
-        await tester.tap(find.text('Tasdiqlash'));
-        await tester.pumpAndSettle();
-        expect(find.byType(BottomSheet), findsNothing);
+        if (coldGlue) {
+          await submitReport();
+        } else {
+          await _withEmptyLaminationAstatkaSources(
+            submitReport,
+            orderId: orderId,
+            apparatus: logicalApparatus,
+            sessionStatus: 'active',
+            waste: 0,
+          );
+        }
 
-        final afterAstatka = await MobileApi.instance
-            .adminProductionMapQueueSnapshot();
-        expect(
-          beforeAstatka.queueStates.values.any(
-            (states) => states[orderId] == 'in_progress',
-          ),
-          isTrue,
-        );
-        expect(
-          afterAstatka.queueStates.values.any(
-            (states) => states[orderId] == 'in_progress',
-          ),
-          isTrue,
-        );
+        expect(beforeAstatka.queueStates[logicalApparatus]?[orderId],
+            'in_progress');
+        if (coldGlue) {
+          final afterAstatka =
+              await MobileApi.instance.adminProductionMapQueueSnapshot();
+          expect(afterAstatka.queueStates[logicalApparatus]?[orderId],
+              'in_progress');
+        }
       },
     );
   }
