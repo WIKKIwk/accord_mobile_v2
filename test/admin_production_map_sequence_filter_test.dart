@@ -299,7 +299,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Alpha sequence order'), findsNothing);
       expect(find.text('Beta sequence order'), findsOneWidget);
-      expect(find.text('Miray • 1 ta aparat'), findsOneWidget);
+      expect(
+        find.descendant(of: filteredRow('beta'), matching: find.text('Miray')),
+        findsOneWidget,
+      );
       expect(
         find.descendant(of: filteredRow('beta'), matching: find.text('6')),
         findsOneWidget,

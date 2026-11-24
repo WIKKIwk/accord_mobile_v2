@@ -169,6 +169,7 @@ void main() {
     OrderImageCache.debugOverride = OrderImageCache(disk: createOrderImageDiskStore());
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     resetMobileApiTestModeData();
+    AdminSequenceApparatusStore.instance.clearCache();
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.admin,

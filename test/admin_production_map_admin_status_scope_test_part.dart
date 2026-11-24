@@ -94,7 +94,9 @@ void _registerAdminStatusScopeTests() {
             epoch: 'waiting-stage',
             revision: revision,
           );
-      var current = snapshot(1, scenario != 'local-only');
+      final initial = snapshot(1, scenario != 'local-only');
+      final live = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+      addTearDown(live.close);
       await _usePhoneViewport(tester);
       await tester.pumpWidget(MaterialApp(
         locale: const Locale('uz'),
@@ -107,8 +109,8 @@ void _registerAdminStatusScopeTests() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => apparatus,
-          queueSnapshotLoader: () async => current,
-          liveEventsLoader: _idleProductionLiveLoader(),
+          queueSnapshotLoader: () async => initial,
+          liveEventsLoader: () => live.stream,
         ),
       ));
       await tester.pumpAndSettle();
@@ -132,8 +134,7 @@ void _registerAdminStatusScopeTests() {
       if (scenario == 'local-only') {
         // A participant's local report does not close the shared operation.
         // Only the later server-confirmed stage closure advances the watermark.
-        current = snapshot(2, true);
-        await tester.pump(const Duration(seconds: 2));
+        live.add(snapshot(2, true));
         await tester.pumpAndSettle();
         expectWaiting('Rezka');
       }
@@ -207,7 +208,9 @@ void _registerAdminStatusScopeTests() {
             epoch: 'scoped-color',
             revision: revision,
           );
-      var current = snapshot(1, localState);
+      final initial = snapshot(1, localState);
+      final live = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+      addTearDown(live.close);
       await _usePhoneViewport(tester);
       final theme = ThemeData(useMaterial3: true);
       await tester.pumpWidget(MaterialApp(
@@ -222,14 +225,16 @@ void _registerAdminStatusScopeTests() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: AdminProductionMapOrdersScreen(
           apparatusLoader: () async => apparatus,
-          queueSnapshotLoader: () async => current,
-          liveEventsLoader: _idleProductionLiveLoader(),
+          queueSnapshotLoader: () async => initial,
+          liveEventsLoader: () => live.stream,
         ),
       ));
       await tester.pumpAndSettle();
       if (localState == 'frozen') {
-        // A frozen row remains an order, but is not a draggable queue member.
-        expect(find.byKey(const ValueKey('sequence-row-$_print7Id-$orderId')), findsNothing);
+        final frozen = find.byKey(const ValueKey('sequence-row-$_print7Id-$orderId'));
+        expect(frozen, findsOneWidget);
+        expect(find.descendant(of: frozen,
+            matching: find.byIcon(Icons.drag_handle_rounded)), findsNothing);
         await tester.tap(find.text('Buyurtmalar'));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('opened-order-$orderId')), findsOneWidget);
@@ -282,8 +287,7 @@ void _registerAdminStatusScopeTests() {
         await tester.tap(find.text('7 ta rangli bosma aparat').last);
         await tester.pumpAndSettle();
         expect(rowColor(_print7Id), actual);
-        current = snapshot(2, 'in_progress');
-        await tester.pump(const Duration(seconds: 2));
+        live.add(snapshot(2, 'in_progress'));
         await tester.pumpAndSettle();
         expect(rowColor(_print7Id), tint(const Color(0xFF2E7D32)));
         // The unfiltered Orders tab must retain its global status.
