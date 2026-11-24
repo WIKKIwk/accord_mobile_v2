@@ -187,7 +187,7 @@ void main() {
 
   for (final timeout in [false, true]) {
     testWidgets(
-        'worker cold-load ${timeout ? 'timeout' : '503'} exits loading and exposes retry',
+        'worker cold-load ${timeout ? 'timeout' : '503'} shows delayed reconnection progress',
         (tester) async {
       // Queue futures must belong to the widget's FakeAsync clock, just like
       // the HTTP timeout; a store created in setUp uses the outer test zone.
@@ -223,14 +223,16 @@ void main() {
         if (!timeout) {
           pending.complete(http.Response('{"error":"store_failed"}', 503));
         }
-        // Inspect the first failure before the new automatic retry fires.
-        // Test mode then supplies a healthy snapshot on that retry.
+        // Inspect the first failure before live recovery starts.
         if (timeout) await tester.pump(const Duration(seconds: 10));
         await tester.pump();
         await tester.pump();
         expect(find.byType(AppLoadingIndicator), findsNothing);
-        expect(find.text('Aloqa vaqtincha uzildi. Avtomatik qayta ulanmoqda…'),
-            findsOneWidget);
+        final progress =
+            find.byKey(const ValueKey('production-orders-connection-progress'));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(progress, findsOneWidget);
+        expect(tester.widget<LinearProgressIndicator>(progress).value, isNull);
         expect(tester.takeException(), isNull);
         if (!pending.isCompleted) pending.complete(http.Response('{}', 503));
         await tester.pumpWidget(const SizedBox.shrink());
