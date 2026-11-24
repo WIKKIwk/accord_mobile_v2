@@ -69,6 +69,30 @@ void _registerWorkerActivityTests() {
                   _print7Id: {
                     orderId: AdminApparatusQueueOrderActionControl(
                       state: state,
+                      hasOnlyKnownActions: true,
+                      allowedActions: switch ((state, trialStatus)) {
+                        ('in_progress', _) => const {'pause'},
+                        (_, 'running') => const <String>{},
+                        _ => const {'start'},
+                      },
+                      interaction: AdminQueueWorkerInteraction(
+                        mode: switch ((state, trialStatus)) {
+                          ('in_progress', _) =>
+                            AdminQueueInteractionMode.inProgress,
+                          (_, 'running') =>
+                            AdminQueueInteractionMode.freshStartBlocked,
+                          _ => AdminQueueInteractionMode.freshStart,
+                        },
+                        startMaterialsMode: AdminQueueStartMaterialsMode.hidden,
+                        materialScanRequired: false,
+                        assignedMaterialsDisplayOnly: true,
+                        materialIntakeAllowed: false,
+                        previousWipMode: AdminQueuePreviousWipMode.notRequired,
+                        qolipMode: AdminQueueQolipMode.notRequired,
+                        blockingReasonCode: trialStatus == 'running'
+                            ? 'print_preflight_in_progress'
+                            : '',
+                      ),
                       stageNodeId: saved.map.nodes
                           .firstWhere((node) => node.kind == 'apparatus')
                           .id,
@@ -122,6 +146,7 @@ void _registerWorkerActivityTests() {
                   ),
                 ),
               );
+              await tester.pump(const Duration(milliseconds: 550));
               await tester.pumpAndSettle();
               if (view == 'orders') {
                 await tester.tap(find.text('Buyurtmalar'));
@@ -218,8 +243,7 @@ void _registerWorkerActivityTests() {
             expectPassed();
             // Historical/foreign successes must not paint this queue green.
             if (view == 'orders') {
-              await tester.tap(find.descendant(
-                  of: row, matching: find.byTooltip('Buyurtma ma’lumotlari')));
+              await tester.tap(row);
               await tester.pumpAndSettle();
               await tester.ensureVisible(find.text('Mahsulot ishlab chiqarish xaritasi'));
               await tester.tap(find.text('Mahsulot ishlab chiqarish xaritasi'));
@@ -227,7 +251,8 @@ void _registerWorkerActivityTests() {
               expect(
                   find.descendant(
                       of: find.byType(BottomSheet),
-                      matching: find.text('Rang chiqarildi')),
+                      matching: find.text(
+                          'Rang chiqarib bo‘lingan — ish boshlanishi kutilmoqda')),
                   findsOneWidget);
               expect(
                   find.descendant(
@@ -270,13 +295,19 @@ void _registerWorkerActivityTests() {
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
           },
-          () => MockClient(
-            (request) async => http.Response(
-              '{}',
+          () => MockClient((request) async {
+            final payload = switch (request.url.path.split('/').last) {
+              'raw-material-assignments' => '[]',
+              'wip-batches' => '{"batches":[]}',
+              'opening-wip' => '{"records":[]}',
+              _ => '{}',
+            };
+            return http.Response(
+              payload,
               200,
               headers: {'content-type': 'application/json'},
-            ),
-          ),
+            );
+          }),
         );
       },
     );
