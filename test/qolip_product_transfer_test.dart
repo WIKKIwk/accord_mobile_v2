@@ -171,7 +171,9 @@ void main() {
         find.byKey(const ValueKey('qolip-transfer-transfer-1')), zones.last);
     expect(find.textContaining('Hotlunch (DEMO-HOTLUNCH)'), findsOneWidget);
     expect(find.textContaining('Salat set (DEMO-SALAD)'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish').hitTestable());
     await tester.pumpAndSettle();
     for (final code in ['transfer-1', 'transfer-2']) {
       final movedRow = find.byKey(ValueKey('qolip-transfer-$code'));
@@ -191,7 +193,8 @@ void main() {
       expect(mold.qolipColor, 'Qizil');
       final location = (await MobileApi.instance.qolipLocations('A'))
           .singleWhere((l) => l.qolipCode == code);
-      expect(location.itemCode, target.code);
+      expect(location.itemCode, source.code,
+          reason: 'product links change while the physical stock stays put');
       expect(location.quantity, 1);
       expect(location.locationLabel, 'B3');
     }
@@ -255,7 +258,9 @@ void main() {
       await dragMoldTo(tester, row, destination);
       expect(find.textContaining('Salat set (DEMO-SALAD)'), findsOneWidget);
       expect(find.textContaining('Hotlunch (DEMO-HOTLUNCH)'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+      await tester.ensureVisible(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish').hitTestable());
       await tester.pumpAndSettle();
       expect(find.descendant(of: destination, matching: row).hitTestable(),
           findsOneWidget);
@@ -322,7 +327,9 @@ void main() {
       final readsBeforeMove = productReads;
 
       await dragMoldTo(tester, row, zones.last);
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Bekor qilish'));
+      await tester.ensureVisible(find.widgetWithText(OutlinedButton, 'Bekor qilish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Bekor qilish').hitTestable());
       await tester.pumpAndSettle();
       expect(transferWrites, 0);
       expect(find.descendant(of: zones.first, matching: row).hitTestable(),
@@ -330,7 +337,9 @@ void main() {
       expect(find.descendant(of: zones.last, matching: row), findsNothing);
 
       await dragMoldTo(tester, row, zones.last);
-      await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+      await tester.ensureVisible(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish').hitTestable());
       await tester.pumpAndSettle();
       expect(transferWrites, 1);
       expect(find.descendant(of: zones.first, matching: row).hitTestable(),
@@ -339,7 +348,9 @@ void main() {
 
       failTransfer = false;
       await dragMoldTo(tester, row, zones.last);
-      await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+      await tester.ensureVisible(find.widgetWithText(FilledButton, 'Ko‘chirish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Ko‘chirish').hitTestable());
       await tester.pump(const Duration(milliseconds: 300));
       expect(transferWrites, 2);
       expect(find.descendant(of: zones.first, matching: row), findsOneWidget);

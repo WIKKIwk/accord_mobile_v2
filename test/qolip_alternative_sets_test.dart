@@ -157,7 +157,7 @@ void main() {
           catalog.every((mold) => mold.warehouse == custom.warehouse), isTrue);
     });
 
-    testWidgets('long press exposes alternative FAB and locks product',
+    testWidgets('long press opens add mold for the selected product',
         (tester) async {
       await MobileApi.instance.qolipSaveProductSpecsBatch(
         product: product,
@@ -184,12 +184,17 @@ void main() {
       await tester
           .tap(find.byKey(const ValueKey('app-primary-navigation-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Muqobil qo‘shish'), findsOneWidget);
-      await tester.tap(find.text('Muqobil qo‘shish'));
+      final dialogAction = find.text('Qolip qo‘shish');
+      expect(dialogAction, findsOneWidget);
+      await tester.tap(dialogAction);
       await tester.pumpAndSettle();
-      expect(find.text('Qolipni omborga biriktirish'), findsOneWidget);
+      final dialog = find.byType(AlertDialog);
+      expect(dialog, findsOneWidget);
+      expect(
+        find.descendant(of: dialog, matching: find.textContaining('Hotlunch')),
+        findsOneWidget,
+      );
       expect(find.text('Mahsulot nomi bilan qidirish'), findsNothing);
-      expect(find.text('Hotlunch'), findsWidgets);
     });
   });
 }
