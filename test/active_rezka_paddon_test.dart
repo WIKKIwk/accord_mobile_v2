@@ -5,6 +5,7 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/network/server_endpoint_store.dart';
 import 'package:accord_mobile_v2/src/core/production/active_rezka_paddon_store.dart';
+import 'package:accord_mobile_v2/src/core/production/production_data_revision.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/features/aparatchi/presentation/widgets/active_rezka_paddon_action.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -408,7 +409,7 @@ void main() {
               .trailing,
           isNotNull);
       server.code = '00002';
-      await tester.pump(const Duration(seconds: 5));
+      ProductionDataRevision.notify(epoch: 'picker-test', revision: 1);
       await tester.pumpAndSettle();
       expect(
           tester
@@ -423,14 +424,14 @@ void main() {
               .trailing,
           isNotNull);
       server.offline = true;
-      await tester.pump(const Duration(seconds: 5));
+      ProductionDataRevision.notify(epoch: 'picker-test', revision: 2);
       await tester.pumpAndSettle();
       expect(find.text('Paddonlar yuklanmadi. Oynani qayta oching.'),
           findsOneWidget);
       expect(find.byKey(const ValueKey('rezka-paddon-none')), findsNothing);
       server.offline = false;
       server.code = null;
-      await tester.pump(const Duration(seconds: 5));
+      ProductionDataRevision.notify(epoch: 'picker-test', revision: 3);
       await tester.pumpAndSettle();
       expect(
           tester
