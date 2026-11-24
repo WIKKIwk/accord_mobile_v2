@@ -322,9 +322,9 @@ void _registeradmin_production_map_test_screen_testCases11() {
     );
     await tester.pumpAndSettle();
 
-    await tester.longPress(
-      find.textContaining('Selected map action order').first,
-    );
+    await tester.tap(find.widgetWithText(Tab, 'Buyurtmalar'));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(const ValueKey('opened-order-$orderId')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mapni o‘zgartirish'));
     await tester.pumpAndSettle();

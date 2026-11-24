@@ -585,7 +585,9 @@ void _registerWorkerQueueOrderingTests() {
                 (widget.key! as ValueKey<String>).value.startsWith(prefix),
           ),
         );
-        final expected = workerMode ? [...ids.take(4), ids.last] : ids;
+        final expected = workerMode
+            ? ids.where((id) => id != 'zakaz-frozen')
+            : ids;
         expect(
           rows.map(
             (row) =>

@@ -379,6 +379,8 @@ void _registeradmin_production_map_test_screen_testCases17() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, 'Buyurtmalar'));
+      await tester.pumpAndSettle();
     }
 
     Color cardColor() {

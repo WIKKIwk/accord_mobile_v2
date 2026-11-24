@@ -28,6 +28,8 @@ void _registeradmin_production_map_test_screen_testCases18() {
     );
     await _usePhoneViewport(tester);
     final theme = ThemeData(useMaterial3: true);
+    final live = StreamController<AdminProductionMapLiveSnapshot>.broadcast();
+    addTearDown(live.close);
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
@@ -39,9 +41,15 @@ void _registeradmin_production_map_test_screen_testCases18() {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdminProductionMapOrdersScreen(),
+        home: AdminProductionMapOrdersScreen(
+          queueSnapshotLoader: MobileApi.instance.adminProductionMapQueueSnapshot,
+          liveEventsLoader: () => live.stream,
+        ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, 'Buyurtmalar'));
     await tester.pumpAndSettle();
 
     Color cardColor() {
@@ -69,7 +77,23 @@ void _registeradmin_production_map_test_screen_testCases18() {
       action: 'pause',
       producedQty: 1,
     );
-    await tester.pump(const Duration(seconds: 2));
+    final paused = await MobileApi.instance.adminProductionMapQueueSnapshot();
+    live.add(AdminProductionMapLiveSnapshot(
+      maps: paused.maps,
+      sequences: paused.sequences,
+      visibleOrderIds: paused.visibleOrderIds,
+      queueStates: paused.queueStates,
+      stageStates: paused.stageStates,
+      queuePolicies: paused.queuePolicies,
+      queueActionControls: paused.queueActionControls,
+      orderControls: paused.orderControls,
+      orderStatuses: paused.orderStatuses,
+      completedOrders: const [],
+      completionRequests: const [],
+      completionRequestDecisions: const [],
+      epoch: paused.epoch,
+      revision: paused.revision,
+    ));
     await tester.pumpAndSettle();
 
     expect(cardColor(), expectedTint(const Color(0xFFF9A825)));
@@ -118,6 +142,8 @@ void _registeradmin_production_map_test_screen_testCases18() {
           home: const AdminProductionMapOrdersScreen(),
         ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, 'Buyurtmalar'));
       await tester.pumpAndSettle();
     }
 
