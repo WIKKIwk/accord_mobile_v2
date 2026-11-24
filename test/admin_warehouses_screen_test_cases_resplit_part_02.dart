@@ -372,11 +372,11 @@ void _registeradmin_warehouses_screen_testCases02() {
     );
   });
 
-  test('admin warehouse live url uses websocket scheme and session token', () {
+  test('admin warehouse live route never contains session credentials', () {
     final uri = MobileApi.instance.adminWarehouseLiveUri();
 
     expect(uri.scheme, 'wss');
     expect(uri.path, '/v1/mobile/admin/warehouses/live');
-    expect(uri.queryParameters['token'], 'token');
+    expect(uri.hasQuery, isFalse);
   });
 }

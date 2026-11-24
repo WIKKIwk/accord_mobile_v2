@@ -6,6 +6,8 @@ import 'dart:html' as html;
 
 import 'package:flutter/foundation.dart';
 
+import 'live_upgrade_failure.dart';
+
 import '../network/mobile_http_client.dart' show devApiProxyTarget;
 
 // The Flutter HTTP preview proxy cannot upgrade WebSockets. An explicit local
@@ -28,11 +30,14 @@ Uri _developmentLiveUri(Uri uri) {
   return proxy.replace(path: uri.path, query: uri.hasQuery ? uri.query : null);
 }
 
-Stream<Map<String, dynamic>> connectWarehouseLivePlatform(Uri uri) {
+Stream<Map<String, dynamic>> connectWarehouseLivePlatform(Uri uri, {Future<Uri> Function()? refreshTicket}) {
   final controller = StreamController<Map<String, dynamic>>();
+  var opened = false;
+  var reported = false;
   final socket = html.WebSocket(_developmentLiveUri(uri).toString());
 
   socket.onOpen.listen((_) {
+    opened = true;
     if (kDebugMode) debugPrint('LIVE opened path=${uri.path} protocol=${uri.queryParameters['protocol']}');
   });
   socket.onMessage.listen((event) {
@@ -49,12 +54,16 @@ Stream<Map<String, dynamic>> connectWarehouseLivePlatform(Uri uri) {
   socket.onError.listen((event) {
     if (kDebugMode) debugPrint('LIVE socket error path=${uri.path}');
     if (!controller.isClosed) {
-      controller.addError(event);
+      reported = true;
+      controller.addError(!opened && refreshTicket != null ? const LiveUpgradeFailure(null) : event);
     }
   });
   socket.onClose.listen((event) {
     if (kDebugMode) debugPrint('LIVE closed path=${uri.path} code=${event.code} reason=${event.reason}');
     if (!controller.isClosed) {
+      if (!opened && !reported && refreshTicket != null) {
+        controller.addError(const LiveUpgradeFailure(null));
+      }
       controller.close();
     }
   });
@@ -64,8 +73,10 @@ Stream<Map<String, dynamic>> connectWarehouseLivePlatform(Uri uri) {
   return controller.stream;
 }
 
-Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri) {
+Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri, {Future<Uri> Function()? refreshTicket}) {
   final controller = StreamController<Map<String, dynamic>>();
+  var opened = false;
+  var reported = false;
   final socket = html.WebSocket(_developmentLiveUri(uri).toString());
   Timer? timer;
   var pingId = 0;
@@ -82,6 +93,7 @@ Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri) {
   }
 
   socket.onOpen.listen((event) {
+    opened = true;
     sendPing();
     timer = Timer.periodic(const Duration(seconds: 2), (_) => sendPing());
   });
@@ -97,12 +109,16 @@ Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri) {
   });
   socket.onError.listen((event) {
     if (!controller.isClosed) {
-      controller.addError(event);
+      reported = true;
+      controller.addError(!opened && refreshTicket != null ? const LiveUpgradeFailure(null) : event);
     }
   });
   socket.onClose.listen((event) {
     timer?.cancel();
     if (!controller.isClosed) {
+      if (!opened && !reported && refreshTicket != null) {
+        controller.addError(const LiveUpgradeFailure(null));
+      }
       controller.close();
     }
   });

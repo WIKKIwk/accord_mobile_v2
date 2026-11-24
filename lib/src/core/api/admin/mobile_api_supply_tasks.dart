@@ -487,16 +487,11 @@ extension MobileApiSupplyTasks on MobileApi {
         final query = _supplyTaskQuery(baseline.kind, baseline.apparatusId,
             baseline.limit, baseline.search)
           ..addAll({
-            'token': requireToken(),
             'epoch': baseline.epoch,
             'rev': '${baseline.revision}',
             'scope': baseline.scope
           });
-        final uri =
-            Uri.parse('${MobileApi.baseUrl}/v1/mobile/production-tasks/live');
-        return uri.replace(
-            scheme: uri.scheme == 'https' ? 'wss' : 'ws',
-            queryParameters: query);
+        return privateLiveUri('/v1/mobile/production-tasks/live', query);
       }, SupplyTaskMessage.fromJson));
 }
 

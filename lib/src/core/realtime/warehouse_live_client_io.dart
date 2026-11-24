@@ -4,20 +4,23 @@ import 'dart:io';
 
 import '../native_iroh_transport.dart';
 import '../api/json_payload_decoder.dart';
+import 'live_upgrade_failure.dart';
 
 Stream<Map<String, dynamic>> connectWarehouseLivePlatform(
   Uri uri, {
+  Future<Uri> Function()? refreshTicket,
   Duration connectTimeout = const Duration(seconds: 10),
   Duration pingInterval = const Duration(seconds: 25),
 }) =>
     _connectLive(uri,
-        connectTimeout: connectTimeout, pingInterval: pingInterval);
+        refreshTicket: refreshTicket, connectTimeout: connectTimeout, pingInterval: pingInterval);
 
-Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri) =>
-    _connectLive(uri, sendPings: true);
+Stream<Map<String, dynamic>> connectSystemMonitorLivePlatform(Uri uri, {Future<Uri> Function()? refreshTicket}) =>
+    _connectLive(uri, sendPings: true, refreshTicket: refreshTicket);
 
 Stream<Map<String, dynamic>> _connectLive(
   Uri uri, {
+  Future<Uri> Function()? refreshTicket,
   bool sendPings = false,
   Duration connectTimeout = const Duration(seconds: 10),
   Duration pingInterval = const Duration(seconds: 25),
@@ -55,14 +58,16 @@ Stream<Map<String, dynamic>> _connectLive(
     }));
   }
 
-  Future<void> connectHttp() async {
+  Future<void> connectHttp({bool fallback = false}) async {
     if (cancelled || connectingHttp) return;
     connectingHttp = true;
     var expired = false;
     final connectingClient = HttpClient()..connectionTimeout = connectTimeout;
     client = connectingClient;
     try {
-      final connected = await WebSocket.connect(uri.toString(),
+      final target = fallback && refreshTicket != null ? await refreshTicket() : uri;
+      if (cancelled) return;
+      final connected = await WebSocket.connect(target.toString(),
               customClient: connectingClient)
           .then((connected) {
         // Future.timeout does not cancel the underlying handshake. Dispose a
@@ -89,7 +94,11 @@ Stream<Map<String, dynamic>> _connectLive(
     } catch (error, stackTrace) {
       expired = true;
       connectingClient.close(force: true);
-      fail(error, stackTrace);
+      if (refreshTicket != null && error is WebSocketException && error.httpStatusCode != null) {
+        fail(LiveUpgradeFailure(error.httpStatusCode), stackTrace);
+      } else {
+        fail(error, stackTrace);
+      }
     }
   }
 
@@ -103,7 +112,11 @@ Stream<Map<String, dynamic>> _connectLive(
         }
       }, onError: (Object error, StackTrace stackTrace) {
         unawaited(nativeSubscription?.cancel());
-        unawaited(connectHttp());
+        if (refreshTicket != null && error is LiveUpgradeFailure && error.status == 401) {
+          fail(error, stackTrace);
+        } else {
+          unawaited(connectHttp(fallback: true));
+        }
       }, onDone: () {
         if (!connectingHttp) finish();
       });

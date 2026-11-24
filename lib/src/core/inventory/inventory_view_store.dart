@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/shared/models/inventory_movement_models.dart';
 import '../api/mobile_api.dart';
-import '../realtime/warehouse_live_client.dart';
 import '../session/session_read_scope.dart';
 import '../session/state/app_session.dart';
 import 'inventory_view_query.dart';
@@ -210,16 +209,9 @@ class InventoryViewStore {
 
   static Stream<Map<String, dynamic>> _openLive(
       InventoryViewQuery query, String? version) {
-    final base = Uri.parse(MobileApi.baseUrl);
-    final uri = base.replace(
-      scheme: base.scheme == 'https' ? 'wss' : 'ws',
-      path: '/v1/mobile/admin/inventory/live',
-      queryParameters: {
-        'token': MobileApi.instance.requireToken(),
-        'subscriptions': jsonEncode([query.subscription(version: version)]),
-      },
-    );
-    return connectWarehouseLive(uri);
+    return MobileApi.instance.connectPrivateLive(privateLiveUri('/v1/mobile/admin/inventory/live', {
+      'subscriptions': jsonEncode([query.subscription(version: version)]),
+    }));
   }
 
   static Future<List<Object>> _loadSnapshot(InventoryViewQuery query) async {

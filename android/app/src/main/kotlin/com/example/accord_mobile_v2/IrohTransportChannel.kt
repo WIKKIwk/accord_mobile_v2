@@ -126,7 +126,7 @@ class IrohTransportChannel(
                 runLiveRequest(id, ticket, path, reuseConnection, sendPings)
                 emitLiveClosed(id)
             } catch (error: Throwable) {
-                emitLiveError(id, error.message ?: error.toString())
+                emitLiveError(id, error.message ?: error.toString(), (error as? LiveUpgradeException)?.status)
             } finally {
                 liveJobs.remove(id)
             }
@@ -286,11 +286,7 @@ class IrohTransportChannel(
             val response = readWebSocketResponseHead(recv)
             val parsed = parseHttpResponse(response.first)
             if (parsed.statusCode != 101) {
-                throw IllegalStateException(
-                    "unexpected WebSocket status ${parsed.statusCode}: ${
-                        String(parsed.body, StandardCharsets.UTF_8)
-                    }",
-                )
+                throw LiveUpgradeException(parsed.statusCode)
             }
 
             val pingJob = if (sendPings) {
@@ -382,9 +378,11 @@ class IrohTransportChannel(
         }
     }
 
-    private fun emitLiveError(id: Int, message: String) {
+    private class LiveUpgradeException(val status: Int) : Exception("WebSocket upgrade failed ($status)")
+
+    private fun emitLiveError(id: Int, message: String, httpStatus: Int?) {
         mainHandler.post {
-            channel.invokeMethod("liveError", mapOf("id" to id, "message" to message))
+            channel.invokeMethod("liveError", mapOf("id" to id, "message" to message, "httpStatus" to httpStatus))
         }
     }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'support/live_ticket_server.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -248,14 +249,14 @@ void main() {
 
   test('real socket sends scoped cursor and decodes ready/delta/snapshot',
       () async {
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/production-tasks/live', 'supply-test-token').listen((request) async {
       expect(request.uri.path, '/v1/mobile/production-tasks/live');
       expect(request.uri.queryParameters, {
         'kind': 'material',
         'apparatus': _station,
         'limit': '10',
         'search': '',
-        'token': 'supply-test-token',
+        'ticket': 'ticket-1',
         'epoch': 'server',
         'rev': '7',
         'scope': 'scope'
@@ -286,7 +287,7 @@ void main() {
 
   test('socket refuses unknown or incomplete payload instead of empty state',
       () async {
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/production-tasks/live', 'supply-test-token').listen((request) async {
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
       socket.listen((_) {});

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'realtime/live_upgrade_failure.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -363,14 +364,13 @@ class NativeIrohTransport {
         break;
       case 'liveError':
         _liveWatchdogs.remove(id)?.cancel();
-        _liveRoutes.remove(id)?.nativeFailed();
+        final status = arguments['httpStatus'] as int?;
+        final route = _liveRoutes.remove(id);
+        if (status == null) route?.nativeFailed();
         _liveControllers.remove(id);
         if (!controller.isClosed) {
-          controller.addError(
-            Exception(
-              arguments['message']?.toString() ?? 'Iroh live stream failed',
-            ),
-          );
+          final message = arguments['message']?.toString() ?? 'Iroh live stream failed';
+          controller.addError(status == null ? Exception(message) : LiveUpgradeFailure(status));
           await controller.close();
         }
         break;

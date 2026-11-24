@@ -91,9 +91,9 @@ Future<void> _handle(HttpRequest request) async {
     if (browser == null) {
       await _reject(
         request,
-        error is TimeoutException
-            ? HttpStatus.gatewayTimeout
-            : HttpStatus.badGateway,
+        error is WebSocketException && error.httpStatusCode == HttpStatus.unauthorized
+            ? HttpStatus.unauthorized
+            : error is TimeoutException ? HttpStatus.gatewayTimeout : HttpStatus.badGateway,
       );
     }
   } finally {

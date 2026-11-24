@@ -29,7 +29,7 @@ Stream<T> _productionMapDecodedLive<T>(Uri Function() uri,
               message: 'Ulanish hisob doirasi o‘zgardi.'), StackTrace.current);
           return;
         }
-        subscription = connectWarehouseLive(uri()).asyncMap(decode).listen((value) {
+        subscription = MobileApi.instance.connectPrivateLive(uri()).asyncMap(decode).listen((value) {
           if (identity != _productionMapLiveIdentity()) {
             fail(const MobileApiException(code: 'session_changed',
                 message: 'Ulanish hisob doirasi o‘zgardi.'), StackTrace.current);
@@ -427,9 +427,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
     bool notificationsOnly = false,
     String epoch = '', int? revision, String scope = '',
     int? queueLimit, String queueSearch = ''}) {
-    final Uri base = Uri.parse(MobileApi.baseUrl);
-    final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
-    final query = <String, String>{'token': requireToken()};
+    final query = <String, String>{};
     if (notificationsOnly) {
       query['protocol'] = 'notifications_v1';
     } else if (pageWindows.isNotEmpty) {
@@ -453,11 +451,7 @@ extension MobileApiAdminProductionMapAstPart02 on MobileApi {
       query['protocol'] = 'delta';
       if (paged) query['paged'] = 'true';
     }
-    return base.replace(
-      scheme: scheme,
-      path: '/v1/mobile/admin/production-maps/live',
-      queryParameters: query,
-    );
+    return privateLiveUri('/v1/mobile/admin/production-maps/live', query);
   }
 
   Stream<AdminProductionMapLiveSnapshot> adminProductionMapLiveEvents() =>

@@ -127,7 +127,7 @@ final class IrohTransportChannelBridge: NSObject {
           )
           emitLiveClosed(id: id, channel: channel)
         } catch {
-          emitLiveError(id: id, message: "\(error)", channel: channel)
+          emitLiveError(id: id, message: "\(error)", httpStatus: (error as? LiveUpgradeError)?.status, channel: channel)
         }
       }
       result(nil)
@@ -192,8 +192,7 @@ private func runLiveRequest(
   let (responseHead, remainingBytes) = try await readWebSocketResponseHead(recv: recv)
   let parsed = parseHttpResponse(responseHead)
   guard parsed.statusCode == 101 else {
-    let body = String(data: parsed.body, encoding: .utf8) ?? ""
-    throw IrohRequestError(message: "unexpected WebSocket status \(parsed.statusCode): \(body)")
+    throw LiveUpgradeError(status: parsed.statusCode)
   }
 
   let pingTask: Task<Void, Never>? = sendPings ? Task {
@@ -382,9 +381,13 @@ private func emitLiveMessage(id: Int, text: String, channel: FlutterMethodChanne
   }
 }
 
-private func emitLiveError(id: Int, message: String, channel: FlutterMethodChannel) {
+private struct LiveUpgradeError: Error { let status: Int }
+
+private func emitLiveError(id: Int, message: String, httpStatus: Int?, channel: FlutterMethodChannel) {
   DispatchQueue.main.async {
-    channel.invokeMethod("liveError", arguments: ["id": id, "message": message])
+    var args: [String: Any] = ["id": id, "message": message]
+    if let httpStatus { args["httpStatus"] = httpStatus }
+    channel.invokeMethod("liveError", arguments: args)
   }
 }
 

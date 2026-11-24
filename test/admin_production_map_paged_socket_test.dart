@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'support/live_ticket_server.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
@@ -32,7 +33,7 @@ void main() {
   test(
       'paged admin uses the original delta socket with bounded cursor messages',
       () async {
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       expect(request.uri.path, '/v1/mobile/admin/production-maps/live');
       expect(request.uri.queryParameters['protocol'], 'delta');
       expect(request.uri.queryParameters['paged'], 'true');
@@ -74,7 +75,7 @@ void main() {
   });
 
   test('paged admin refuses an incompatible full snapshot', () async {
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
       socket.listen((_) {});
@@ -90,7 +91,7 @@ void main() {
   test('page-window protocol carries only local subscription descriptors', () async {
     final descriptor = <String, Object?>{'id': 'w1', 'view': 'sequence',
       'apparatus': 'press', 'target': '', 'search': 'label', 'length': 40, 'version': 'v1'};
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       expect(request.uri.queryParameters['protocol'], 'page_delta_v1');
       expect(jsonDecode(request.uri.queryParameters['pages']!), [descriptor]);
       expect(request.uri.queryParameters['pages'], isNot(contains('socket-test-token')));
@@ -106,7 +107,7 @@ void main() {
   });
 
   test('nonworker state protocol retains global scope and recovery cursor', () async {
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       expect(request.uri.queryParameters['protocol'], 'state_delta_v2');
       expect(request.uri.queryParameters['worker_scope'], 'false');
       expect(request.uri.queryParameters['scope'], '');
@@ -127,7 +128,7 @@ void main() {
 
   test('older backend v2 response falls back to v1 before publishing a snapshot', () async {
     final protocols = <String>[];
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       final protocol = request.uri.queryParameters['protocol']!;
       protocols.add(protocol);
       expect(request.uri.queryParameters['worker_scope'], 'true');
@@ -156,7 +157,7 @@ void main() {
   });
 
   test('explicit legacy state stream preserves the original v1 contract', () async {
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       expect(request.uri.queryParameters['protocol'], 'state_delta_v1');
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
@@ -173,7 +174,7 @@ void main() {
 
   test('retained compact stream never opens for a different account', () async {
     var connections = 0;
-    server.listen((request) async { connections++; });
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async { connections++; });
     final retained = MobileApi.instance.adminProductionMapLiveStream(stateDelta: true);
     AppSession.instance.token = 'other-account';
     await expectLater(retained, emitsError(isA<MobileApiException>()
@@ -183,7 +184,7 @@ void main() {
 
   test('account change during compact negotiation cannot reopen a legacy socket', () async {
     var connections = 0;
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       connections++;
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
@@ -200,7 +201,7 @@ void main() {
   test('cancelling a quiet compact socket closes transport without a new event', () async {
     final ready = Completer<void>();
     final closed = Completer<void>();
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
       socket.listen((_) {}, onDone: () { if (!closed.isCompleted) closed.complete(); });
@@ -219,7 +220,7 @@ void main() {
   });
 
   test('notification protocol decodes only request list', () async {
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       expect(request.uri.queryParameters['protocol'], 'notifications_v1');
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
@@ -236,7 +237,7 @@ void main() {
   test('concurrent notification consumers share socket and replay latest list', () async {
     var connections = 0;
     final closed = Completer<void>();
-    server.listen((request) async {
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
       connections++;
       final socket = await WebSocketTransformer.upgrade(request);
       sockets.add(socket);
@@ -272,7 +273,7 @@ void main() {
   for (final started in [false, true]) {
     test('retained notification stream refuses changed account (started=$started)', () async {
       var connections = 0;
-      server.listen((request) async {
+      liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async {
         connections++;
         final socket = await WebSocketTransformer.upgrade(request);
         sockets.add(socket);
@@ -292,7 +293,7 @@ void main() {
 
   test('notification account change during setup opens no cross-account socket', () async {
     var connections = 0;
-    server.listen((request) async { connections++; await request.response.close(); });
+    liveUpgrades(server, '/v1/mobile/admin/production-maps/live', 'socket-test-token').listen((request) async { connections++; await request.response.close(); });
     final first = MobileApi.instance.adminProductionMapNotificationEvents().first;
     AppSession.instance.token = 'account-changed-before-connect';
     await expectLater(first, throwsA(isA<MobileApiException>()

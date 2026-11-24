@@ -395,22 +395,14 @@ extension MobileApiAdminSettingsMonitor on MobileApi {
     };
   }
 
-  Uri adminServerMonitorLiveUri() {
-    final Uri base = Uri.parse(MobileApi.baseUrl);
-    final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
-    return base.replace(
-      scheme: scheme,
-      path: '/v1/mobile/admin/system/monitor/live',
-      queryParameters: {'token': requireToken()},
-    );
-  }
+  Uri adminServerMonitorLiveUri() => privateLiveUri('/v1/mobile/admin/system/monitor/live');
 
   Stream<AdminServerMonitorLiveEvent> adminServerMonitorLiveEvents() async* {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
     await for (final event in withLiveStreamSilenceTimeout(
-      connectSystemMonitorLive(adminServerMonitorLiveUri()),
+      connectPrivateLive(adminServerMonitorLiveUri(), monitor: true),
     )) {
       final liveEvent = AdminServerMonitorLiveEvent.fromJson(event);
       if (liveEvent.report != null || liveEvent.latencyMs != null) {

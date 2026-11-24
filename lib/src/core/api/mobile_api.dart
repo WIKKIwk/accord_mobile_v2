@@ -31,6 +31,7 @@ import '../native_usb_printer.dart';
 import '../print_transport.dart';
 import '../localization/app_localizations.dart';
 import '../realtime/warehouse_live_client.dart';
+import '../realtime/live_upgrade_failure.dart';
 import '../search/search_activity_store.dart';
 import '../search/search_normalizer.dart';
 import '../network/server_endpoint_store.dart';
@@ -53,6 +54,7 @@ import 'json_payload_decoder.dart';
 import 'admin/apparatus_transfer_command_store.dart';
 import '../cache/order_image_cache.dart';
 
+part 'mobile_api_private_live.dart';
 part 'admin/mobile_api_admin.dart';
 part 'admin/mobile_api_admin_combos.dart';
 part 'admin/mobile_api_material_link.dart';
@@ -477,21 +479,13 @@ class MobileApi {
     return normalizedToken;
   }
 
-  Uri adminWarehouseLiveUri() {
-    final Uri base = Uri.parse(baseUrl);
-    final String scheme = base.scheme == 'https' ? 'wss' : 'ws';
-    return base.replace(
-      scheme: scheme,
-      path: '/v1/mobile/admin/warehouses/live',
-      queryParameters: {'token': requireToken()},
-    );
-  }
+  Uri adminWarehouseLiveUri() => privateLiveUri('/v1/mobile/admin/warehouses/live');
 
   Stream<Map<String, dynamic>> adminWarehouseLiveEvents() async* {
     if (await TestModeController.instance.isEnabled()) {
       return;
     }
-    yield* connectWarehouseLive(adminWarehouseLiveUri());
+    yield* connectPrivateLive(adminWarehouseLiveUri());
   }
 
   Future<http.Response> _sendAuthorized(

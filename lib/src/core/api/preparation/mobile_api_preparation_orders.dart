@@ -360,12 +360,7 @@ extension MobileApiPreparationOrders on MobileApi {
           {String search = '',
           int? length}) =>
       _productionMapDecodedLive(() {
-        final base = Uri.parse(MobileApi.baseUrl);
-        return base.replace(
-          scheme: base.scheme == 'https' ? 'wss' : 'ws',
-          path: '/v1/mobile/preparation/orders/live',
-          queryParameters: {
-            'token': requireToken(),
+        return privateLiveUri('/v1/mobile/preparation/orders/live', {
             'all_apparatus': 'true',
             'search': search,
             'limit': '30',
@@ -374,7 +369,6 @@ extension MobileApiPreparationOrders on MobileApi {
             'scope': window.scope,
             'version': window.version,
             'length': '${length ?? window.rows.length}',
-          },
-        );
+        });
       }, (event) => event);
 }
