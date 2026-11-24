@@ -9,6 +9,15 @@ LOCAL_FLUTTER_HOME ?= $(LOCAL_TOOLS_ROOT)/flutter-sdk/flutter
 FLUTTER_BIN ?= $(shell if command -v flutter >/dev/null 2>&1; then command -v flutter; elif [ -x "$(LOCAL_FLUTTER_HOME)/bin/flutter" ]; then printf '%s\n' "$(LOCAL_FLUTTER_HOME)/bin/flutter"; elif [ -x "$$HOME/.local/flutter/bin/flutter" ]; then printf '%s\n' "$$HOME/.local/flutter/bin/flutter"; fi)
 DART_BIN ?= $(shell if command -v dart >/dev/null 2>&1; then command -v dart; elif [ -x "$(LOCAL_FLUTTER_HOME)/bin/dart" ]; then printf '%s\n' "$(LOCAL_FLUTTER_HOME)/bin/dart"; fi)
 export PUB_CACHE ?= $(LOCAL_TOOLS_ROOT)/pub-cache
+# Keep Flutter compiler files on the workspace drive when it has a scratch directory.
+ifneq ($(wildcard $(LOCAL_TOOLS_ROOT)/flutter-tmp/.),)
+export TMPDIR := $(abspath $(LOCAL_TOOLS_ROOT)/flutter-tmp)
+endif
+# Flutter reads its SDK preferences from the settings file in this directory.
+ifneq ($(wildcard $(LOCAL_TOOLS_ROOT)/home/.config/flutter/settings),)
+deps run web run-remote run-domain android-sdk-setup apk apk-remote apk-domain \
+  ios-release-install analyze test test-production-endpoint: export XDG_CONFIG_HOME := $(abspath $(LOCAL_TOOLS_ROOT)/home/.config/flutter)
+endif
 CHROME_EXECUTABLE ?= $(shell if command -v chromium-browser >/dev/null 2>&1; then command -v chromium-browser; elif command -v chromium >/dev/null 2>&1; then command -v chromium; elif command -v google-chrome >/dev/null 2>&1; then command -v google-chrome; fi)
 ifeq ($(HOST_OS),Darwin)
 JDK_HOME ?= $(LOCAL_TOOLS_ROOT)/jdk-17/Contents/Home
