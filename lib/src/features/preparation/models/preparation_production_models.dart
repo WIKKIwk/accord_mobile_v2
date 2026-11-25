@@ -189,6 +189,41 @@ class PreparationMaterialPaddon extends PreparationProductionRow {
   String get journalKey => id;
 }
 
+class PreparationBatchPaddonSelection {
+  PreparationBatchPaddonSelection.fromJson(Map<String, dynamic> json)
+      : batchId = _identity(json, 'batch_id'),
+        totalRolls = _count(json, 'total_rolls'),
+        receiptNamesByWarehouse = Map.unmodifiable(
+          _object(json, 'receipt_names_by_warehouse').map(
+            (warehouse, names) => MapEntry(
+              warehouse,
+              List<String>.unmodifiable(names as List),
+            ),
+          ),
+        ),
+        skipped = Map<String, int>.unmodifiable(_object(json, 'skipped')) {
+    final receipts = receiptNamesByWarehouse.values.expand((names) => names);
+    final skippedCount = skipped.values.fold(0, (sum, count) => sum + count);
+    if (receipts.toSet().length != eligibleCount ||
+        receipts.any((name) => name.trim().isEmpty) ||
+        skipped.values.any((count) => count <= 0) ||
+        totalRolls != eligibleCount + skippedCount) {
+      throw const FormatException('Batch rulonlari tanlovi noto‘g‘ri');
+    }
+  }
+
+  final String batchId;
+  final int totalRolls;
+  final Map<String, List<String>> receiptNamesByWarehouse;
+  final Map<String, int> skipped;
+
+  int get eligibleCount =>
+      receiptNamesByWarehouse.values.fold(0, (sum, names) => sum + names.length);
+
+  List<String> receiptsFor(String? warehouse) =>
+      receiptNamesByWarehouse[warehouse] ?? const [];
+}
+
 class PreparationPaddonContent {
   PreparationPaddonContent.fromJson(Map<String, dynamic> json)
       : itemName = _identity(json, 'item_name'),

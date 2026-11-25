@@ -1193,6 +1193,208 @@ void main() {
     });
   });
 
+  testWidgets('batch list FAB edits the selected batch note in place',
+      (tester) async {
+    const batchId = 'batch:lg';
+    const otherId = 'batch:other';
+    const audience = {'mode': 'roles', 'roles': ['rezka_master']};
+    var note = {
+      'text': 'Oldingi eslatma',
+      'revision': 1,
+      'audience': audience,
+    };
+    final batchRow = find.byKey(const ValueKey('production-batch:$batchId'));
+    final otherRow = find.byKey(const ValueKey('production-batch:$otherId'));
+    final fab = find.byIcon(Icons.add_rounded);
+    final input = find.byKey(const ValueKey('production-note-input'));
+
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      final fabPosition = tester.getCenter(fab);
+
+      await tester.longPress(otherRow);
+      await tester.pumpAndSettle();
+      await tester.longPress(batchRow);
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(
+        find.descendant(
+          of: batchRow,
+          matching: find.byIcon(Icons.check_circle_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.getCenter(fab), fabPosition);
+      expect(find.byType(PreparationProductionBatchScreen), findsNothing);
+
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      expect(find.text('Paddonga biriktirish'), findsOneWidget);
+      await tester.tap(find.text('Batchga eslatma'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(input).controller!.text, 'Oldingi eslatma');
+      expect(find.text('Rezka master'), findsOneWidget);
+      await tester.enterText(input, 'Enini 120 mm qilib kesish');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('production-note-save')));
+      await tester.pumpAndSettle();
+      expect(note['revision'], 2);
+      expect(find.widgetWithText(MaterialBanner, 'Eslatma saqlandi'),
+          findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+
+      await tester.tap(batchRow);
+      await tester.pumpAndSettle();
+      expect(find.byType(PreparationProductionBatchScreen), findsOneWidget);
+      expect(find.textContaining('Enini 120 mm qilib kesish'), findsOneWidget);
+    }, (request) {
+      final batch = {..._batch(recipe: null), 'batch_id': batchId, 'batch_note': note};
+      switch (request.url.path.split('/').last) {
+        case 'batches':
+          return _json({
+            'batches': [
+              batch,
+              {..._batch(), 'batch_id': otherId},
+            ],
+            'has_more': false,
+          });
+        case 'batch':
+          expect(request.url.queryParameters['batch_id'], batchId);
+          expect(note['revision'], 2, reason: 'The note is edited in the list');
+          return _json({'batch': batch, 'rolls': [], 'has_more': false});
+        case 'notes':
+          expect(request.method, 'PATCH');
+          expect(jsonDecode(request.body), {
+            'scope': 'batch',
+            'batch_id': batchId,
+            'expected_revision': 1,
+            'text': 'Enini 120 mm qilib kesish',
+          });
+          note = {
+            'text': 'Enini 120 mm qilib kesish',
+            'revision': 2,
+            'audience': audience,
+          };
+          return _json({'notes': {batchId: note}});
+        default:
+          return _route(request);
+      }
+    });
+  });
+
+  testWidgets('batch packing previews eligible rolls and retries the confirmed selection',
+      (tester) async {
+    const batchId = 'batch:lg';
+    const code = 'XP-ABCDEF0123456789';
+    final writes = <Map<String, dynamic>>[];
+    var previewReads = 0;
+    final row = find.byKey(const ValueKey('production-batch:$batchId'));
+    final target = find.byKey(const ValueKey('production-attach-paddon-$code'));
+    final confirm = find.byKey(const ValueKey('production-attach-paddon-save'));
+
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.longPress(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('5 ta rulondan 3 tasi biriktirishga yaroqli'), findsOneWidget);
+      expect(find.text('1 ta rulon allaqachon paddonda'), findsOneWidget);
+      expect(find.text('1 ta rulon kesilgan yoki sarflangan'), findsOneWidget);
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+      expect(find.text('5 ta rulondan 2 tasi biriktiriladi'), findsOneWidget);
+      expect(find.text('1 ta rulon boshqa omborda'), findsOneWidget);
+      expect(writes, isEmpty);
+
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('Batchdagi rulonlar holati o‘zgargan'), findsOneWidget);
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.tap(find.text('Qayta urinish'));
+      await tester.pumpAndSettle();
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+      expect(find.text('5 ta rulondan 1 tasi biriktiriladi'), findsOneWidget);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('Natijani tekshirish'), findsOneWidget);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 ta rulon $code paddoniga biriktirildi'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+      expect(writes, hasLength(3));
+      expect(writes[0]['receipt_names'], ['MAT-A', 'MAT-B']);
+      expect(writes[1]['receipt_names'], ['MAT-A']);
+      expect(writes[1], writes[2]);
+      expect(previewReads, 2);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'batches':
+          return _json({
+            'batches': [{..._batch(), 'batch_id': batchId, 'roll_count': 5}],
+            'has_more': false,
+          });
+        case 'batch':
+          fail('Batch rolls are resolved on the server without opening details');
+        case 'paddon-options':
+          expect(request.method, 'POST');
+          expect(jsonDecode(request.body), {'batch_id': batchId, 'offset': 0});
+          previewReads++;
+          return _json({
+            'paddons': [
+              {
+                'paddon_id': 'p1',
+                'paddon_code': code,
+                'warehouse': 'Own W',
+                'remaining_kg': '0',
+                'contents': [],
+              },
+            ],
+            'has_more': false,
+            'batch_selection': {
+              'batch_id': batchId,
+              'total_rolls': 5,
+              'receipt_names_by_warehouse': {
+                'Own W': ['MAT-A', if (previewReads == 1) 'MAT-B'],
+                'Other W': ['MAT-C'],
+              },
+              'skipped': {
+                'packed': 1,
+                'consumed': 1,
+                if (previewReads > 1) 'unavailable': 1,
+              },
+            },
+          });
+        case 'paddon-attach':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['batch_id'], batchId);
+          expect(body['code'], code);
+          expect(body['request_id'], isNotEmpty);
+          writes.add(body);
+          if (writes.length == 1) {
+            return _json({
+              'code': 'preparation_conflict',
+              'error': 'Batchdagi rulonlar holati o‘zgargan',
+            }, status: 409);
+          }
+          if (writes.length == 2) {
+            return _json({'error': 'Javob olinmadi'}, status: 503);
+          }
+          return _json({'paddon_code': code, 'receipt_names': ['MAT-A']});
+        default:
+          return _route(request);
+      }
+    });
+  });
+
   testWidgets('an unassigned batch note keeps its text when audience changes', (tester) async {
     const batchId = 'batch:lg';
     const noteText = 'Ushbu batch tekshirilsin';

@@ -357,6 +357,7 @@ class _ProductionOrdersState
   Timer? _searchDebounce;
   String _query = '', _status = 'all';
   String _paddonStatus = 'all';
+  String? _selectedBatchId;
   bool _statusExpanded = false;
   late _ProductionView _view = widget.materialPaddonsOnly
       ? _ProductionView.paddons
@@ -401,6 +402,7 @@ class _ProductionOrdersState
   void clearSummary() {
     super.clearSummary();
     clearRollNotes();
+    _selectedBatchId = null;
   }
 
   void _searchChanged(String value) {
@@ -435,6 +437,7 @@ class _ProductionOrdersState
       _query = query;
       _statusExpanded = false;
       _selectedRolls.clear();
+      _selectedBatchId = null;
       _restoreJournal(_cachedJournal);
     });
     if (_cachedJournal == null) {
@@ -469,6 +472,78 @@ class _ProductionOrdersState
     if (mounted && currentAccount && _showPaddons) {
       unawaited(load(silent: true));
     }
+  }
+
+  bool _canSelectBatch(PreparationProductionBatch batch) =>
+      _view == _ProductionView.batches &&
+      currentAccount &&
+      AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
+      AppSession.instance.can('preparation.access') &&
+      batch.canAttachNote;
+
+  void _toggleBatch(PreparationProductionBatch batch) {
+    if (!_canSelectBatch(batch)) return;
+    setState(() {
+      _selectedBatchId = _selectedBatchId == batch.id ? null : batch.id;
+    });
+  }
+
+  bool _isCurrentBatch(String id) =>
+      mounted && currentAccount && _selectedBatchId == id;
+
+  Future<void> _editSelectedBatchNote(PreparationProductionBatch batch) async {
+    if (!_isCurrentBatch(batch.id)) return;
+    final saved = await _editProductionBatchNote(
+      context,
+      batchId: batch.id,
+      note: batch.note,
+      currentAccount: () => _isCurrentBatch(batch.id),
+      refresh: () => unawaited(load()),
+    );
+    if (saved == null || !_isCurrentBatch(batch.id)) return;
+    setState(() => _selectedBatchId = null);
+    unawaited(load(silent: true));
+  }
+
+  Future<void> _attachSelectedBatch(PreparationProductionBatch batch) async {
+    if (!_isCurrentBatch(batch.id)) return;
+    final result = await _pickProductionPaddon(
+      context,
+      batchId: batch.id,
+      currentAccount: () => _isCurrentBatch(batch.id),
+    );
+    if (result?.batchId == batch.id && _isCurrentBatch(batch.id)) {
+      setState(() => _selectedBatchId = null);
+    }
+  }
+
+  List<AdminFabMenuAction> get _journalFabActions {
+    final batch = items
+        .whereType<PreparationProductionBatch>()
+        .where((batch) => batch.id == _selectedBatchId && _canSelectBatch(batch))
+        .firstOrNull;
+    if (batch == null) {
+      return _selectedRolls.isEmpty ? _paddonActions : _rollFabActions;
+    }
+    return [
+      AdminFabMenuAction(
+        title: 'Batchga eslatma',
+        icon: Icons.edit_note_rounded,
+        onTap: () => _editSelectedBatchNote(batch),
+      ),
+      AdminFabMenuAction(
+        title: 'Paddonga biriktirish',
+        icon: Icons.inventory_2_outlined,
+        onTap: () => _attachSelectedBatch(batch),
+      ),
+      AdminFabMenuAction(
+        title: 'Tanlovni bekor qilish',
+        icon: Icons.close_rounded,
+        onTap: () {
+          if (_isCurrentBatch(batch.id)) _toggleBatch(batch);
+        },
+      ),
+    ];
   }
 
   List<AdminFabMenuAction> get _paddonActions => [
@@ -551,10 +626,7 @@ class _ProductionOrdersState
                 selectedRouteName: AppRoutes.preparationProduction),
         bottom: widget.materialPaddonsOnly
             ? const MaterialTaminotchiDock()
-            : PreparationDock(
-                primaryFabActions:
-                    _selectedRolls.isEmpty ? _paddonActions : _rollFabActions,
-              ),
+            : PreparationDock(primaryFabActions: _journalFabActions),
         child: Stack(children: [
           Column(children: [
             if (!widget.materialPaddonsOnly)
@@ -643,8 +715,15 @@ class _ProductionOrdersState
                         PreparationProductionOrder() =>
                           _productionOrderRow(context, item, slot),
                         PreparationProductionBatch() => _productionBatchRow(
-                            context, item, slot,
-                            showOrder: true),
+                            context,
+                            item,
+                            slot,
+                            showOrder: true,
+                            selected: item.id == _selectedBatchId,
+                            onLongPress: _canSelectBatch(item)
+                                ? () => _toggleBatch(item)
+                                : null,
+                          ),
                         PreparationProductionRoll() =>
                           rollRow(item, slot, showMaterial: true),
                         PreparationMaterialPaddon() =>
@@ -799,15 +878,11 @@ class _ProductionBatchState extends _JournalState<
     }
     final note = _batchNote;
     bool currentBatch() => mounted && currentAccount && _batch?.id == batch.id;
-    final saved = await _editProductionNote<PreparationOutputNote>(
+    final saved = await _editProductionBatchNote(
       context,
-      title: 'Batch eslatmasi',
-      description: 'Eslatma shu batchdagi har bir asl rulon kesilguncha amal qiladi.',
-      existing: [note],
+      batchId: batch.id,
+      note: note,
       currentAccount: currentBatch,
-      save: (text, audience) => MobileApi.instance.savePreparationBatchNote(
-        batch.id, text, note?.revision ?? 0, audience: audience,
-      ),
       refresh: () => unawaited(load()),
     );
     if (saved == null || !currentBatch()) return;
@@ -931,11 +1006,14 @@ Widget _productionBatchRow(
   PreparationProductionBatch batch,
   M3SegmentVerticalSlot slot, {
   bool showOrder = false,
+  bool selected = false,
+  VoidCallback? onLongPress,
 }) =>
     _JournalListRow(
       key: ValueKey('production-batch:${batch.id}'),
       slot: slot,
-      icon: Icons.inventory_2_outlined,
+      icon: selected ? Icons.check_circle_rounded : Icons.inventory_2_outlined,
+      onLongPress: onLongPress,
       title: batch.displayItem,
       subtitle: [
         if (showOrder && batch.orderId.isNotEmpty)

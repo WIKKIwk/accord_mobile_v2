@@ -1,14 +1,47 @@
 part of 'preparation_production_screen.dart';
 
-typedef _AttachedRolls = ({String code, List<String> receiptNames});
+typedef _AttachedRolls = ({
+  String code,
+  List<String> receiptNames,
+  String? batchId,
+});
+
+Future<_AttachedRolls?> _pickProductionPaddon(
+  BuildContext context, {
+  required bool Function() currentAccount,
+  List<String> receiptNames = const [],
+  String? batchId,
+}) async {
+  final result = await showDialog<_AttachedRolls>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _ProductionPaddonPicker(
+      receiptNames: receiptNames,
+      batchId: batchId,
+      currentAccount: currentAccount,
+    ),
+  );
+  if (result != null && context.mounted && currentAccount()) {
+    showAdminTopNotice(
+      context,
+      AppLocalizations.of(context).uiText(
+        '${result.receiptNames.length} ta rulon ${result.code} paddoniga biriktirildi',
+      ),
+      tone: AdminTopNoticeTone.success,
+    );
+  }
+  return result;
+}
 
 class _ProductionPaddonPicker extends StatefulWidget {
   const _ProductionPaddonPicker({
     required this.receiptNames,
+    required this.batchId,
     required this.currentAccount,
   });
 
   final List<String> receiptNames;
+  final String? batchId;
   final bool Function() currentAccount;
 
   @override
@@ -20,11 +53,17 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   final _api = MobileApi.instance;
   final _paddons = <PreparationMaterialPaddon>[];
   PreparationPendingCommand? _pending;
+  PreparationBatchPaddonSelection? _batchSelection;
   String? _selectedCode, _error;
   int? _nextOffset;
   bool _loading = false, _saving = false;
 
   bool get _current => mounted && widget.currentAccount();
+  PreparationMaterialPaddon? get _selectedPaddon =>
+      _paddons.where((paddon) => paddon.code == _selectedCode).firstOrNull;
+  List<String> get _selectedReceipts => widget.batchId == null
+      ? widget.receiptNames
+      : _batchSelection?.receiptsFor(_selectedPaddon?.warehouse) ?? const [];
 
   @override
   void initState() {
@@ -60,15 +99,28 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
           return;
         }
       }
-      final page = await _api.preparationPaddonOptions(
-        widget.receiptNames,
-        offset: offset,
-      );
+      final batchId = widget.batchId;
+      final (page, selection) = batchId == null
+          ? (
+              await _api.preparationPaddonOptions(
+                widget.receiptNames,
+                offset: offset,
+              ),
+              null,
+            )
+          : await _api.preparationBatchPaddonOptions(batchId, offset: offset);
       if (!_current) return;
       setState(() {
+        _batchSelection = selection;
         if (offset == 0) _paddons.clear();
         final known = _paddons.map((paddon) => paddon.code).toSet();
         _paddons.addAll(page.paddons.where((paddon) => known.add(paddon.code)));
+        if (selection != null) {
+          _paddons.removeWhere(
+            (paddon) => selection.receiptsFor(paddon.warehouse).isEmpty,
+          );
+          if (_selectedPaddon == null) _selectedCode = null;
+        }
         _nextOffset = page.nextOffset;
       });
     } catch (error) {
@@ -91,15 +143,21 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     if (code == null) return;
     final names =
         (pending?.payload['receipt_names'] as List?)?.cast<String>() ??
-            widget.receiptNames;
+            _selectedReceipts;
+    if (names.isEmpty) return;
+    final batchId = pending == null
+        ? widget.batchId
+        : pending.payload['batch_id'] as String?;
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      await _api.attachPreparationRollsToPaddon(code, names);
+      await _api.attachPreparationRollsToPaddon(code, names, batchId: batchId);
       if (_current) {
-        Navigator.of(context).pop((code: code, receiptNames: names));
+        Navigator.of(context).pop(
+          (code: code, receiptNames: names, batchId: batchId),
+        );
       }
     } catch (error) {
       if (!_current) return;
@@ -109,6 +167,12 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
       if (_current) {
         setState(() {
           _pending = retry;
+          if (widget.batchId != null && retry == null) {
+            _batchSelection = null;
+            _paddons.clear();
+            _selectedCode = null;
+            _nextOffset = null;
+          }
           _error = error is MobileApiException
               ? error.message
               : 'Biriktirish natijasini qayta tekshiring';
@@ -119,9 +183,39 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     }
   }
 
+  Widget _batchSummary(PreparationBatchPaddonSelection selection) {
+    if (selection.totalRolls == 0) {
+      return const UrduAwareText('Hali rulon kirim qilinmagan.');
+    }
+    final selected = _selectedPaddon;
+    final count = selected == null
+        ? selection.eligibleCount
+        : selection.receiptsFor(selected.warehouse).length;
+    final elsewhere = selection.eligibleCount - count;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        UrduAwareText(
+          '${selection.totalRolls} ta rulondan $count tasi '
+          '${selected == null ? 'biriktirishga yaroqli' : 'biriktiriladi'}',
+        ),
+        for (final entry in selection.skipped.entries)
+          UrduAwareText('${entry.value} ta ${switch (entry.key) {
+            'missing' => 'rulon omborda topilmadi',
+            'packed' => 'rulon allaqachon paddonda',
+            'consumed' => 'rulon kesilgan yoki sarflangan',
+            'outside_warehouse' => 'rulon ko‘chirilmoqda yoki boshqa joyda',
+            _ => 'rulon band yoki biriktirib bo‘lmaydi',
+          }}'),
+        if (elsewhere > 0) UrduAwareText('$elsewhere ta rulon boshqa omborda'),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pending = _pending;
+    final batch = _batchSelection;
     final nextOffset = _nextOffset;
     return PopScope(
       canPop: !_saving,
@@ -140,8 +234,12 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   '${pending.payload['code']} paddoniga biriktirish natijasini tekshiring.',
                 )
               else ...[
-                UrduAwareText(
-                    '${widget.receiptNames.length} ta tanlangan rulon'),
+                if (batch != null)
+                  _batchSummary(batch)
+                else if (widget.batchId == null)
+                  UrduAwareText(
+                    '${widget.receiptNames.length} ta tanlangan rulon',
+                  ),
                 const SizedBox(height: 8),
                 for (final paddon in _paddons)
                   ListTile(
@@ -165,12 +263,18 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   ),
                 if (_loading)
                   const Center(child: AppLoadingIndicator())
-                else if (_error == null && _paddons.isEmpty)
-                  const UrduAwareText('Shu omborda paddon topilmadi.')
                 else if (nextOffset != null)
                   TextButton(
                     onPressed: _saving ? null : () => _load(offset: nextOffset),
                     child: const UrduAwareText('Yana yuklash'),
+                  )
+                else if (_error == null &&
+                    _paddons.isEmpty &&
+                    batch?.eligibleCount != 0)
+                  UrduAwareText(
+                    batch == null
+                        ? 'Shu omborda paddon topilmadi.'
+                        : 'Mos paddon topilmadi.',
                   ),
               ],
               if (_error case final error?) ...[
@@ -196,7 +300,8 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
             key: const ValueKey('production-attach-paddon-save'),
             onPressed: _loading ||
                     _saving ||
-                    (pending == null && _selectedCode == null)
+                    (pending == null &&
+                        (_selectedCode == null || _selectedReceipts.isEmpty))
                 ? null
                 : _save,
             child: UrduAwareText(

@@ -99,14 +99,10 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
 
   Future<void> _attachRollsToPaddon() async {
     if (!mounted || !currentAccount || _selectedRolls.isEmpty) return;
-    final names = _selectedRolls.keys.toList(growable: false);
-    final result = await showDialog<_AttachedRolls>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _ProductionPaddonPicker(
-        receiptNames: names,
-        currentAccount: () => mounted && currentAccount,
-      ),
+    final result = await _pickProductionPaddon(
+      context,
+      receiptNames: _selectedRolls.keys.toList(growable: false),
+      currentAccount: () => mounted && currentAccount,
     );
     if (!mounted || !currentAccount || result == null) return;
     setState(() {
@@ -114,13 +110,6 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
         _selectedRolls.remove(name);
       }
     });
-    showAdminTopNotice(
-      context,
-      AppLocalizations.of(context).uiText(
-        '${result.receiptNames.length} ta rulon ${result.code} paddoniga biriktirildi',
-      ),
-      tone: AdminTopNoticeTone.success,
-    );
   }
 
   Widget rollRow(
@@ -169,6 +158,26 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
     );
   }
 }
+
+Future<PreparationOutputNote?> _editProductionBatchNote(
+  BuildContext context, {
+  required String batchId,
+  required PreparationOutputNote? note,
+  required bool Function() currentAccount,
+  required VoidCallback refresh,
+}) =>
+    _editProductionNote<PreparationOutputNote>(
+      context,
+      title: 'Batch eslatmasi',
+      description:
+          'Eslatma shu batchdagi har bir asl rulon kesilguncha amal qiladi.',
+      existing: [note],
+      currentAccount: currentAccount,
+      save: (text, audience) => MobileApi.instance.savePreparationBatchNote(
+        batchId, text, note?.revision ?? 0, audience: audience,
+      ),
+      refresh: refresh,
+    );
 
 Future<T?> _editProductionNote<T>(
   BuildContext context, {

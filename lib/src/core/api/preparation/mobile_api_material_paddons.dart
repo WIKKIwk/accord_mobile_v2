@@ -111,6 +111,31 @@ extension MobileApiMaterialPaddons on MobileApi {
     List<String> receiptNames, {
     int offset = 0,
   }) async {
+    final data = await _preparationPaddonOptions({
+      'receipt_names': receiptNames,
+      'offset': offset,
+    });
+    return PreparationMaterialPaddonsPage.fromJson(data);
+  }
+
+  Future<(PreparationMaterialPaddonsPage, PreparationBatchPaddonSelection)>
+      preparationBatchPaddonOptions(String batchId, {int offset = 0}) async {
+    final data = await _preparationPaddonOptions({
+      'batch_id': batchId,
+      'offset': offset,
+    });
+    final selection = PreparationBatchPaddonSelection.fromJson(
+      (data['batch_selection'] as Map).cast<String, dynamic>(),
+    );
+    if (selection.batchId != batchId) {
+      throw const FormatException('Rulonlar boshqa batchga tegishli');
+    }
+    return (PreparationMaterialPaddonsPage.fromJson(data), selection);
+  }
+
+  Future<Map<String, dynamic>> _preparationPaddonOptions(
+    Map<String, Object> payload,
+  ) async {
     final key = _paddonAttachmentKey();
     final scope = currentSessionReadScope();
     void checkAccess() {
@@ -126,27 +151,34 @@ extension MobileApiMaterialPaddons on MobileApi {
           '${MobileApi.baseUrl}/v1/mobile/preparation/production/paddon-options',
         ),
         headers: _headers(requireToken())..['Content-Type'] = 'application/json',
-        body: jsonEncode({'receipt_names': receiptNames, 'offset': offset}),
+        body: jsonEncode(payload),
       );
     });
     checkAccess();
-    return PreparationMaterialPaddonsPage.fromJson(_preparationResponse(response));
+    return _preparationResponse(response);
   }
 
   Future<void> attachPreparationRollsToPaddon(
     String code,
-    List<String> receiptNames,
-  ) async {
+    List<String> receiptNames, {
+    String? batchId,
+  }) async {
     final receipts = receiptNames.toList()..sort();
     await _submitPreparationCommand(
       kind: 'preparation_paddon_attach',
       path: 'preparation/production/paddon-attach',
-      payload: {'code': code, 'receipt_names': receipts},
+      payload: {
+        'code': code,
+        'receipt_names': receipts,
+        if (batchId != null) 'batch_id': batchId,
+      },
       storageKey: _paddonAttachmentKey,
       validateResult: (result) {
         final saved = result['receipt_names'];
-        if (result['paddon_code'] != code || saved is! List ||
-            saved.length != receipts.length || !receipts.every(saved.contains)) {
+        if (result['paddon_code'] != code ||
+            saved is! List ||
+            saved.length != receipts.length ||
+            !setEquals(receipts.toSet(), saved.toSet())) {
           throw const FormatException('Rulonlar biriktirilgani tasdiqlanmadi');
         }
       },
