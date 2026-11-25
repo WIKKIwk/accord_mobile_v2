@@ -676,11 +676,18 @@ typedef AdminProductionOrderPageLoader = Future<AdminProductionOrderPage?>
 extension MobileApiAdminOrderPage on MobileApi {
   /// Null means that a conditional first-page read is unchanged.
   Future<AdminProductionOrderPage?> adminProductionOrderPage(
-      AdminProductionOrderPageRequest request) async {
+    AdminProductionOrderPageRequest request,
+  ) => _readProductionOrderPage(
+      request, '/v1/mobile/admin/production-maps/order-page');
+
+  Future<AdminProductionOrderPage?> rezkaMasterOrderPage(
+          AdminProductionOrderPageRequest request) =>
+      _readProductionOrderPage(request, '/v1/mobile/rezka-master/orders');
+
+  Future<AdminProductionOrderPage?> _readProductionOrderPage(
+      AdminProductionOrderPageRequest request, String path) async {
     final response = await _sendAuthorized(() => _get(
-          Uri.parse(
-                  '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/order-page')
-              .replace(queryParameters: {
+          Uri.parse('${MobileApi.baseUrl}$path').replace(queryParameters: {
             'view': request.view,
             'limit': '20',
             if (request.view == 'sequence')

@@ -76,7 +76,7 @@ extension _ProductionOrdersSnapshotCache
     // continuity before its action guards become available.
     _canonicalCacheAwaitingValidation = true;
     _rememberSnapshotVersion(snapshot);
-    if (_workerWatchTabCount(_workerVisibleApparatusFor(value.apparatus)) !=
+    if (_workerTabCountFor(value.apparatus) !=
         _tabController.length) {
       _recreateWorkerTabController(value.apparatus);
     }

@@ -8,6 +8,12 @@ const _admin_localization_adminTranslations_resplitPart10 = {
     'ru': 'Настройки резки',
     'ur': 'کٹائی کی ترتیبات',
   },
+  'admin.rezka_master.order_settings_unavailable': {
+    'uz': 'Bu buyurtma uchun Rezka sozlamalari mavjud emas.',
+    'en': 'Cutting settings are unavailable for this order.',
+    'ru': 'Для этого заказа настройки резки недоступны.',
+    'ur': 'اس آرڈر کے لیے کٹنگ کی ترتیبات دستیاب نہیں ہیں۔',
+  },
   'admin.rezka_master.confirm_enable': {
     'uz': 'Bu buyurtmada «{setting}» sozlamasini yoqmoqchimisiz?',
     'en': 'Enable “{setting}” for this order?',

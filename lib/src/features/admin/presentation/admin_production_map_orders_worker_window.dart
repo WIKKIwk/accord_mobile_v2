@@ -23,7 +23,12 @@ extension _WorkerQueueWindowState on _AdminProductionMapOrdersScreenState {
       return;
     }
     if (!widget.workerMode) return;
+    _scheduleWorkerQueueSearch(value);
+  }
+
+  void _scheduleWorkerQueueSearch(String value) {
     _workerQueueSearchDebounce?.cancel();
+    if (_showingRezkaOrders) return;
     _workerQueueSearchDebounce = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
       final query = String.fromCharCodes(value.trim().runes.take(120));

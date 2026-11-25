@@ -46,7 +46,7 @@ class _OpenedOrderList extends StatelessWidget {
       queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
   final String selectedOrderId;
-  final ValueChanged<ProductionMapSaved> onInfoOrder;
+  final ValueChanged<ProductionMapSaved>? onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
@@ -124,7 +124,7 @@ class _OpenedOrderList extends StatelessWidget {
           ),
           tone: tone,
           selected: orderId == selectedOrderId,
-          onInfo: () => onInfoOrder(order),
+          onInfo: onInfoOrder == null ? null : () => onInfoOrder!(order),
           onLongPress: () => onLongPressOrder(order),
         );
     }
@@ -168,7 +168,7 @@ class _OpenedOrderRow extends StatelessWidget {
   final _OrderCardTone tone;
   final bool selected;
   final bool includeApparatusCount;
-  final VoidCallback onInfo;
+  final VoidCallback? onInfo;
   final VoidCallback onLongPress;
 
   @override

@@ -96,10 +96,6 @@ AdminApparatus? _completedOrderApparatus({
   return null;
 }
 
-int _workerWatchTabCount(List<AdminApparatus> apparatus) {
-  return apparatus.isEmpty ? 1 : apparatus.length + 1;
-}
-
 List<AdminApparatus> _workerWatchApparatusOrder({
   required List<AdminApparatus> apparatus,
   required Iterable<String> assignedApparatus,
@@ -119,16 +115,15 @@ List<AdminApparatus> _workerWatchApparatusOrder({
 List<_WorkerWatchTab> _workerWatchTabs({
   required List<AdminApparatus> apparatus,
   required Iterable<String> assignedApparatus,
+  required bool includeOrders,
 }) {
   final ordered = _workerWatchApparatusOrder(
     apparatus: apparatus,
     assignedApparatus: assignedApparatus,
   );
-  if (ordered.isEmpty) {
-    return const [_WorkerWatchTab.completed()];
-  }
   return [
-    _WorkerWatchTab.apparatus(ordered.first),
+    if (includeOrders) const _WorkerWatchTab.orders(),
+    if (ordered.isNotEmpty) _WorkerWatchTab.apparatus(ordered.first),
     const _WorkerWatchTab.completed(),
     for (final item in ordered.skip(1)) _WorkerWatchTab.apparatus(item),
   ];

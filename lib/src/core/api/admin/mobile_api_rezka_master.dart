@@ -83,6 +83,31 @@ extension MobileApiRezkaMaster on MobileApi {
         'previous_include_bobina_in_net': previousIncludeBobina,
       });
 
+  Future<({
+    bool standardPrintSide,
+    bool duplicateLabels,
+    bool includeBobina,
+    bool canEditWorkOptions,
+  })> rezkaMasterOrderSettings(String orderId) async {
+    final response = await _sendAuthorized(() => _get(
+          Uri.parse('${MobileApi.baseUrl}/v1/mobile/rezka-master/order-settings')
+              .replace(queryParameters: {'order_id': orderId}),
+          headers: _headers(requireToken()),
+        ));
+    if (response.statusCode != 200) {
+      throw _adminApiException(response,
+          fallbackCode: 'rezka_settings_load_failed',
+          fallbackMessage: 'Rezka sozlamalari yuklanmadi');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (
+      standardPrintSide: data['standard_print_side'] as bool,
+      duplicateLabels: data['duplicate_rezka_labels'] as bool,
+      includeBobina: data['include_bobina_in_net'] as bool,
+      canEditWorkOptions: data['can_edit_work_options'] as bool,
+    );
+  }
+
   Future<void> _saveRezkaMasterSettings(
       String path, Map<String, Object> input) async {
     final response = await _sendAuthorized(() => _put(

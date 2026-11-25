@@ -9,12 +9,14 @@ class RezkaOrderOptionSwitches extends StatelessWidget {
     required this.includeBobina,
     required this.onDuplicateLabelsChanged,
     required this.onIncludeBobinaChanged,
+    this.showBobina = true,
   });
 
   final bool duplicateLabels;
   final bool includeBobina;
   final ValueChanged<bool>? onDuplicateLabelsChanged;
   final ValueChanged<bool>? onIncludeBobinaChanged;
+  final bool showBobina;
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +35,16 @@ class RezkaOrderOptionSwitches extends StatelessWidget {
             value: duplicateLabels,
             onChanged: onDuplicateLabelsChanged,
           ),
-          SwitchListTile.adaptive(
-            key: const ValueKey('calculate-include-bobina-in-net'),
-            contentPadding: EdgeInsets.zero,
-            title: Text(l10n.adminText('calculate.include_bobina_in_net')),
-            subtitle:
-                Text(l10n.adminText('calculate.include_bobina_in_net_hint')),
-            value: includeBobina,
-            onChanged: onIncludeBobinaChanged,
-          ),
+          if (showBobina)
+            SwitchListTile.adaptive(
+              key: const ValueKey('calculate-include-bobina-in-net'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(l10n.adminText('calculate.include_bobina_in_net')),
+              subtitle:
+                  Text(l10n.adminText('calculate.include_bobina_in_net_hint')),
+              value: includeBobina,
+              onChanged: onIncludeBobinaChanged,
+            ),
         ],
       ),
     );

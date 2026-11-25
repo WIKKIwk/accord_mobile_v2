@@ -150,12 +150,10 @@ void _registerOrderSummaryTests() {
           ),
         ));
         await _pumpCompletedWorkFrames(tester);
-        if (closed) {
-          final tab = find.text('Tugallangan');
-          await tester.ensureVisible(tab);
-          await tester.tap(tab);
-          await _pumpCompletedWorkFrames(tester);
-        }
+        final tab = find.text(closed ? 'Tugallangan' : 'Rezka');
+        await tester.ensureVisible(tab);
+        await tester.tap(tab);
+        await _pumpCompletedWorkFrames(tester);
         final row = find.byKey(closed
             ? const ValueKey(('worker-completed-order', id, _rezkaId))
             : const ValueKey('worker-order-$id'));

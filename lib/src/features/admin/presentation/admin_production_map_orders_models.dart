@@ -93,12 +93,21 @@ class _ReadOnlyQueueActionRequest {
 }
 
 class _WorkerWatchTab {
-  const _WorkerWatchTab.apparatus(this.apparatus) : isCompleted = false;
+  const _WorkerWatchTab.orders()
+      : apparatus = null,
+        isOrders = true,
+        isCompleted = false;
+
+  const _WorkerWatchTab.apparatus(this.apparatus)
+      : isOrders = false,
+        isCompleted = false;
 
   const _WorkerWatchTab.completed()
       : apparatus = null,
+        isOrders = false,
         isCompleted = true;
   final AdminApparatus? apparatus;
+  final bool isOrders;
   final bool isCompleted;
 }
 

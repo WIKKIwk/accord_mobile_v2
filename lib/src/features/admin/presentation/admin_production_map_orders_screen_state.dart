@@ -254,7 +254,10 @@ class _AdminProductionMapOrdersScreenState
       _module = _OpenedOrderModule.sequence;
     }
     if (widget.workerMode) {
-      _tabController = TabController(length: 1, vsync: this);
+      _tabController = TabController(
+        length: _workerTabCountFor(const []),
+        vsync: this,
+      );
       _tabController.addListener(_syncWorkerTab);
     } else {
       _tabController = TabController(
@@ -278,6 +281,9 @@ class _AdminProductionMapOrdersScreenState
     if (!mounted) return;
     await _startWorkerLive();
     if (!mounted || widget.initialWorkerQrPayload.trim().isEmpty) return;
+    if (_showingRezkaOrders && _tabController.length > 2) {
+      _tabController.index = 1;
+    }
     final apparatus = _workerSelectedApparatus;
     if (apparatus == null) return;
     _workerQrScanInFlight = true;
@@ -562,14 +568,15 @@ class _AdminProductionMapOrdersScreenState
                 ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: (_loading && !_adminPaging) ||
+      child: !_hasRezkaOrdersTab &&
+              ((_loading && !_adminPaging) ||
               (_loadError != null &&
-                  _reconnectingOrderReads.contains(_OrdersReadSection.initial))
+                  _reconnectingOrderReads.contains(_OrdersReadSection.initial)))
           ? const Align(
               alignment: Alignment.topCenter,
               child: _OrdersConnectionProgress(),
             )
-          : _loadError != null
+          : !_hasRezkaOrdersTab && _loadError != null
               ? _OpenedOrdersLoadErrorBody(
                   message: _loadError!,
                   bottomPadding: bottomPadding,
@@ -577,9 +584,18 @@ class _AdminProductionMapOrdersScreenState
                 )
               : Column(
                   children: [
-                    if (_reconnectingOrderReads.isNotEmpty)
+                    if (_hasRezkaOrdersTab &&
+                        !_showingRezkaOrders &&
+                        _loadError != null)
+                      _QueueSnapshotWarningBanner(
+                        message: _loadError!,
+                        onRetry: _load,
+                      ),
+                    if (!_showingRezkaOrders &&
+                        _reconnectingOrderReads.isNotEmpty)
                       const _OrdersConnectionProgress(),
-                    if (_queueSnapshotContractError &&
+                    if (!_showingRezkaOrders &&
+                        _queueSnapshotContractError &&
                         !_reconnectingOrderReads.contains(_OrdersReadSection.queue))
                       _QueueSnapshotWarningBanner(
                         message: _queueSnapshotErrorMessage ??
@@ -631,7 +647,7 @@ class _AdminProductionMapOrdersScreenState
                         message: _closedOrdersErrorMessage!,
                         onRetry: _refreshClosedOrders,
                       ),
-                    if (widget.workerMode)
+                    if (widget.workerMode && !_showingRezkaOrders)
                       WorkerQueueLimitFilter(
                         limit: _workerQueueLimit,
                         onChanged: (limit) => unawaited(_changeWorkerQueueWindow(limit: limit)),
@@ -639,6 +655,23 @@ class _AdminProductionMapOrdersScreenState
                     Expanded(
                       child: widget.workerMode
                           ? _WorkerWatchBody(
+                              ordersPage: _hasRezkaOrdersTab
+                                  ? _RezkaMasterOrdersPage(
+                                      key: ValueKey(currentSessionReadScope()),
+                                      active: _showingRezkaOrders,
+                                      searchQuery: _searchQuery,
+                                      apparatusCatalog: _apparatus,
+                                      bottomPadding: bottomPadding,
+                                      loadPage: widget.orderPageLoader ??
+                                          MobileApi.instance.rezkaMasterOrderPage,
+                                      onOpenSettings: (map, canEditWorkOptions) =>
+                                          _showRezkaOrderSettingsSheet(
+                                        map,
+                                        showWorkOptions: canEditWorkOptions,
+                                        showBobina: false,
+                                      ),
+                                    )
+                                  : null,
                               compactList: _canonicalQueueSnapshot?.isWorkerList ?? false,
                               displayStatesByApparatus: _canonicalQueueSnapshot?.workerDisplayStates ?? const {},
                               queueLimit: _workerQueueLimit,
@@ -902,8 +935,22 @@ class _AdminProductionMapOrdersScreenState
         .toList(growable: false);
   }
 
+  bool get _hasRezkaOrdersTab {
+    final profile = AppSession.instance.profile;
+    return widget.workerMode &&
+        profile != null &&
+        profile.role == UserRole.rezkaMaster &&
+        profile.hasCapability('rezka.master.access');
+  }
+
+  bool get _showingRezkaOrders => _hasRezkaOrdersTab && _workerTabIndex == 0;
+
+  int _workerTabCountFor(List<AdminApparatus> apparatus) =>
+      _workerVisibleApparatusFor(apparatus).length +
+      (_hasRezkaOrdersTab ? 2 : 1);
+
   void _recreateWorkerTabController(List<AdminApparatus> apparatus) {
-    final length = _workerWatchTabCount(_workerVisibleApparatusFor(apparatus));
+    final length = _workerTabCountFor(apparatus);
     if (_tabController.length == length) {
       return;
     }
@@ -923,7 +970,11 @@ class _AdminProductionMapOrdersScreenState
     final index = _tabController.index;
     if (!mounted || _workerTabIndex == index) return;
     _workerQrTabRevision++;
+    final wasShowingOrders = _showingRezkaOrders;
     setState(() => _workerTabIndex = index);
+    if (wasShowingOrders != _showingRezkaOrders) {
+      _scheduleWorkerQueueSearch(_searchQuery);
+    }
   }
 
   AdminApparatus? get _workerSelectedApparatus {
@@ -933,6 +984,7 @@ class _AdminProductionMapOrdersScreenState
     final tabs = _workerWatchTabs(
       apparatus: _workerVisibleApparatusFor(_apparatus),
       assignedApparatus: assigned,
+      includeOrders: _hasRezkaOrdersTab,
     );
     final index = _tabController.index;
     if (index < 0 || index >= tabs.length) return null;
@@ -2230,7 +2282,7 @@ class _AdminProductionMapOrdersScreenState
     }
     final showPrintSide = isRezka && _canEditRezkaPrintSide(order.map);
     if (_isWorkerOrderFrozen(order.map.id)) {
-      if (showPrintSide) await _showRezkaPrintSideSheet(order.map);
+      if (showPrintSide) await _showRezkaOrderSettingsSheet(order.map);
       return;
     }
     final showRezkaSettings = showPrintSide &&

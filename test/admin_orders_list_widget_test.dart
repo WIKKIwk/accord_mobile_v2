@@ -408,6 +408,130 @@ void main() {
     await TestModeController.instance.setEnabled(false);
   });
 
+  testWidgets('Rezka master starts on all orders and long press saves existing settings',
+      (tester) async {
+    const cutOne = 'apparatus:default:asset-010';
+    const cutTwo = 'apparatus:default:asset-011';
+    AppSession.instance.profile = const SessionProfile(
+      role: UserRole.rezkaMaster,
+      displayName: 'Rezka master',
+      legalName: '',
+      ref: 'orders-widget-master',
+      phone: '',
+      avatarUrl: '',
+      capabilities: ['rezka.master.access', 'apparatus.queue.read'],
+      assignedApparatus: [cutOne, cutTwo],
+    );
+    final harness = _OrdersHarness()..includePending = true;
+    final writes = <Map<String, dynamic>>[];
+    final settingsReads = <String>[];
+    var listReads = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: AdminProductionMapOrdersScreen(
+          workerMode: true,
+          readOnly: true,
+          apparatusLoader: () async => const [
+            AdminApparatus(id: cutOne, name: 'Rezka 1', operation: 'cut'),
+            AdminApparatus(id: cutTwo, name: 'Rezka 2', operation: 'cut'),
+          ],
+          queueSnapshotLoader: () async => AdminApparatusQueueSnapshot(
+            maps: const [],
+            sequences: const {},
+            queueStates: const {},
+            visibleOrderIds: const {},
+            queuePolicies: const {},
+            orderControls: const {},
+            revision: 7,
+            epoch: _epoch,
+          ),
+          liveEventsLoader: () => harness.events.stream,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(tabBar.tabs.cast<Tab>().map((tab) => tab.text),
+          ['Buyurtmalar', 'Rezka 1', 'Tugallangan', 'Rezka 2']);
+      expect(tabBar.controller!.index, 0);
+      expect(listReads, 1);
+      expect(find.byKey(const ValueKey('pending-order-pending-a')), findsOneWidget);
+      expect(_rowOrder(tester), ['order-a', 'order-b']);
+      expect(settingsReads, isEmpty);
+
+      await tester.longPress(_row('order-a'));
+      await tester.pumpAndSettle();
+      expect(settingsReads, ['order-a']);
+      const duplicate = ValueKey('calculate-duplicate-rezka-labels');
+      const side = ValueKey('rezka-master-print-side');
+      expect(find.byKey(const ValueKey('calculate-include-bobina-in-net')), findsNothing);
+      final confirm = AppLocalizations(const Locale('uz'))
+          .productionText('worker.action.confirm');
+      for (final key in [duplicate, side]) {
+        await tester.ensureVisible(find.byKey(key));
+        await tester.tap(find.byKey(key));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(confirm).last);
+        await tester.pumpAndSettle();
+      }
+      expect(writes, [
+        {
+          'order_id': 'order-a',
+          'duplicate_rezka_labels': true,
+          'include_bobina_in_net': true,
+          'previous_duplicate_rezka_labels': false,
+          'previous_include_bobina_in_net': true,
+        },
+        {
+          'order_id': 'order-a',
+          'standard_print_side': false,
+          'previous_standard_print_side': true,
+        },
+      ]);
+      Navigator.of(tester.element(find.byKey(side))).pop();
+      await tester.pumpAndSettle();
+      await tester.longPress(_row('order-b'));
+      await tester.pumpAndSettle();
+      expect(settingsReads, ['order-a', 'order-b']);
+      expect(find.byKey(side), findsNothing);
+      await harness.dispose(tester);
+    }, () => MockClient((request) async {
+      switch ((request.method, request.url.path)) {
+        case ('GET', '/v1/mobile/rezka-master/orders'):
+          listReads++;
+          expect(request.url.queryParameters['projection'], adminOrdersListProjection);
+          return http.Response(jsonEncode(harness.payload(
+            const AdminProductionOrderPageRequest(view: 'orders'),
+          )), 200);
+        case ('GET', '/v1/mobile/rezka-master/order-settings'):
+          final id = request.url.queryParameters['order_id']!;
+          settingsReads.add(id);
+          if (id != 'order-a') return http.Response('{"error":"map_not_found"}', 404);
+          return http.Response(jsonEncode({
+            'standard_print_side': true,
+            'duplicate_rezka_labels': false,
+            'include_bobina_in_net': true,
+            'can_edit_work_options': true,
+          }), 200);
+        case ('PUT', '/v1/mobile/rezka-master/order-settings'):
+        case ('PUT', '/v1/mobile/rezka-master/print-side'):
+          writes.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return http.Response('{}', 200);
+        case ('GET', '/v1/mobile/admin/production-maps/completed-orders'):
+          return http.Response('{"completed_orders":[]}', 200);
+        default:
+          return http.Response('{}', 404);
+      }
+    }));
+  });
+
   testWidgets('orders tab renders compact rows without maps or eager detail',
       (tester) async {
     final harness = _OrdersHarness();

@@ -1478,7 +1478,7 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       if (widget.workerMode &&
-          _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+          _workerTabCountFor(apparatus) !=
               _tabController.length) {
         _recreateWorkerTabController(apparatus);
       }
@@ -1559,7 +1559,7 @@ extension _AdminProductionMapOrdersLiveState
         // A same-revision reply still proves recovery. Do not leave a resume
         // error covering valid rows, including a genuinely empty queue.
         if (widget.workerMode &&
-            _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+            _workerTabCountFor(apparatus) !=
                 _tabController.length) {
           _recreateWorkerTabController(apparatus);
         }
@@ -1575,7 +1575,7 @@ extension _AdminProductionMapOrdersLiveState
       }
       _liveReconnectAttempt = 0;
       if (widget.workerMode &&
-          _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+          _workerTabCountFor(apparatus) !=
               _tabController.length) {
         _recreateWorkerTabController(apparatus);
       }
@@ -1630,7 +1630,7 @@ extension _AdminProductionMapOrdersLiveState
         return;
       }
       if (widget.workerMode &&
-          _workerWatchTabCount(_workerVisibleApparatusFor(apparatus)) !=
+          _workerTabCountFor(apparatus) !=
               _tabController.length) {
         _recreateWorkerTabController(apparatus);
       }

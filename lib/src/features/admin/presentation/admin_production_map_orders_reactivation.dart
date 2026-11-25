@@ -10,13 +10,17 @@ extension _AdminProductionMapOrdersReactivation
     }
     if (entry.apparatus?.operation.trim() == 'cut' &&
         _canEditRezkaPrintSide(entry.order.map)) {
-      await _showRezkaPrintSideSheet(entry.order.map);
+      await _showRezkaOrderSettingsSheet(entry.order.map);
       return;
     }
     await _showCompletedOrderReactivation(entry);
   }
 
-  Future<void> _showRezkaPrintSideSheet(ProductionMapDefinition map) {
+  Future<void> _showRezkaOrderSettingsSheet(
+    ProductionMapDefinition map, {
+    bool showWorkOptions = false,
+    bool showBobina = true,
+  }) {
     final scope = currentSessionReadScope();
     return showModalBottomSheet<void>(
       context: context,
@@ -27,7 +31,8 @@ extension _AdminProductionMapOrdersReactivation
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
           child: _RezkaOrderQuickSettings(
             map: map,
-            showWorkOptions: false,
+            showWorkOptions: showWorkOptions,
+            showBobina: showBobina,
             onSaved: () {
               if (mounted && scope == currentSessionReadScope()) {
                 unawaited(_refreshLive());

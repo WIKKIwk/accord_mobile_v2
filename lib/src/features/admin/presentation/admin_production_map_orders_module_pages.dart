@@ -9,6 +9,7 @@ class _OrdersModulePage extends StatelessWidget {
     this.pendingOrdersError,
     this.onPendingOrder,
     this.onRetryPendingOrders,
+    this.physics,
     required this.bottomPadding,
     required this.orders,
     required this.apparatusCatalog,
@@ -24,6 +25,7 @@ class _OrdersModulePage extends StatelessWidget {
     required this.onLongPressOrder,
   });
   final double bottomPadding;
+  final ScrollPhysics? physics;
   final List<PendingOrder> pendingOrders;
   final Map<String, AdminOrderListRow> orderRows;
   final List<AdminPendingOrderListRow> pendingRows;
@@ -42,13 +44,14 @@ class _OrdersModulePage extends StatelessWidget {
   final Map<String, Map<String, AdminApparatusQueueOrderActionControl>>
       queueActionControlsByApparatus;
   final Map<String, List<String>> visibleOrderIdsByApparatus;
-  final ValueChanged<ProductionMapSaved> onInfoOrder;
+  final ValueChanged<ProductionMapSaved>? onInfoOrder;
   final ValueChanged<ProductionMapSaved> onLongPressOrder;
 
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
       key: const PageStorageKey('admin-opened-orders'),
+      physics: physics,
       slivers: [SliverPadding(
       padding: EdgeInsets.fromLTRB(
         _openedOrderPanelCardGap,
@@ -735,6 +738,7 @@ class _AuditCountChip extends StatelessWidget {
 
 class _WorkerWatchBody extends StatelessWidget {
   const _WorkerWatchBody({
+    this.ordersPage,
     this.compactList = false,
     this.displayStatesByApparatus = const {},
     this.sequencePositionsByApparatus = const {},
@@ -767,6 +771,7 @@ class _WorkerWatchBody extends StatelessWidget {
   final Map<String, AdminApparatusQueuePolicy> queuePoliciesByApparatus;
   final String workerRole;
   final String workerRef;
+  final Widget? ordersPage;
   final List<AdminApparatus> apparatus;
   final List<String> assignedApparatus;
   final List<ProductionMapSaved> orders;
@@ -800,6 +805,7 @@ class _WorkerWatchBody extends StatelessWidget {
   final Map<String, Map<String, String>> displayStatesByApparatus;
 
   String _tabLabel(BuildContext context, _WorkerWatchTab tab) {
+    if (tab.isOrders) return context.l10n.adminText('production.orders');
     if (tab.isCompleted) {
       return context.l10n.productionText('worker.queue.tab.completed');
     }
@@ -855,6 +861,7 @@ class _WorkerWatchBody extends StatelessWidget {
     final tabs = _workerWatchTabs(
       apparatus: apparatus,
       assignedApparatus: assignedApparatus,
+      includeOrders: ordersPage != null,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -876,7 +883,8 @@ class _WorkerWatchBody extends StatelessWidget {
           child: TabBarView(
             controller: tabController,
             children: [
-              for (final tab in tabs)
+              if (ordersPage != null) ordersPage!,
+              for (final tab in tabs.where((tab) => !tab.isOrders))
                 Builder(
                   builder: (context) => tab.isCompleted
                       ? _AparatchiCompletedOrdersPage(
@@ -1313,11 +1321,13 @@ class _RezkaOrderQuickSettings extends StatefulWidget {
     required this.map,
     required this.onSaved,
     this.showWorkOptions = true,
+    this.showBobina = true,
   });
 
   final ProductionMapDefinition map;
   final VoidCallback onSaved;
   final bool showWorkOptions;
+  final bool showBobina;
 
   @override
   State<_RezkaOrderQuickSettings> createState() =>
@@ -1427,6 +1437,7 @@ class _RezkaOrderQuickSettingsState extends State<_RezkaOrderQuickSettings> {
         ),
         if (widget.showWorkOptions)
           RezkaOrderOptionSwitches(
+            showBobina: widget.showBobina,
             duplicateLabels: _map.duplicateRezkaLabels == true,
             includeBobina: _map.includeBobinaInNet == true,
             onDuplicateLabelsChanged: enabled
