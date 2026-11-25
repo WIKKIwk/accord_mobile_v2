@@ -119,19 +119,25 @@ extension MobileApiMaterialPaddons on MobileApi {
   }
 
   Future<(PreparationMaterialPaddonsPage, PreparationBatchPaddonSelection)>
-      preparationBatchPaddonOptions(String batchId, {int offset = 0}) async {
+      preparationBatchPaddonOptions(List<String> batchIds, {int offset = 0}) async {
     final data = await _preparationPaddonOptions({
-      'batch_id': batchId,
+      ..._paddonBatchTargets(batchIds),
       'offset': offset,
     });
     final selection = PreparationBatchPaddonSelection.fromJson(
       (data['batch_selection'] as Map).cast<String, dynamic>(),
     );
-    if (selection.batchId != batchId) {
-      throw const FormatException('Rulonlar boshqa batchga tegishli');
+    if (selection.batchIds.length != batchIds.length ||
+        !setEquals(selection.batchIds.toSet(), batchIds.toSet())) {
+      throw const FormatException('Batchlar tanlovi mos kelmadi');
     }
     return (PreparationMaterialPaddonsPage.fromJson(data), selection);
   }
+
+  Map<String, Object> _paddonBatchTargets(List<String> batchIds) => {
+        if (batchIds.length == 1) 'batch_id': batchIds.single,
+        if (batchIds.length > 1) 'batch_ids': batchIds.toList()..sort(),
+      };
 
   Future<Map<String, dynamic>> _preparationPaddonOptions(
     Map<String, Object> payload,
@@ -161,7 +167,7 @@ extension MobileApiMaterialPaddons on MobileApi {
   Future<void> attachPreparationRollsToPaddon(
     String code,
     List<String> receiptNames, {
-    String? batchId,
+    List<String> batchIds = const [],
   }) async {
     final receipts = receiptNames.toList()..sort();
     await _submitPreparationCommand(
@@ -170,7 +176,7 @@ extension MobileApiMaterialPaddons on MobileApi {
       payload: {
         'code': code,
         'receipt_names': receipts,
-        if (batchId != null) 'batch_id': batchId,
+        ..._paddonBatchTargets(batchIds),
       },
       storageKey: _paddonAttachmentKey,
       validateResult: (result) {

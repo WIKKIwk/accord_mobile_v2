@@ -191,7 +191,9 @@ class PreparationMaterialPaddon extends PreparationProductionRow {
 
 class PreparationBatchPaddonSelection {
   PreparationBatchPaddonSelection.fromJson(Map<String, dynamic> json)
-      : batchId = _identity(json, 'batch_id'),
+      : batchIds = List<String>.unmodifiable(
+          json['batch_ids'] as List? ?? [_identity(json, 'batch_id')],
+        ),
         totalRolls = _count(json, 'total_rolls'),
         receiptNamesByWarehouse = Map.unmodifiable(
           _object(json, 'receipt_names_by_warehouse').map(
@@ -212,7 +214,7 @@ class PreparationBatchPaddonSelection {
     }
   }
 
-  final String batchId;
+  final List<String> batchIds;
   final int totalRolls;
   final Map<String, List<String>> receiptNamesByWarehouse;
   final Map<String, int> skipped;

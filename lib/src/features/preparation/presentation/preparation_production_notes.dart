@@ -159,22 +159,25 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
   }
 }
 
-Future<PreparationOutputNote?> _editProductionBatchNote(
+Future<Map<String, PreparationOutputNote>?> _editProductionBatchNotes(
   BuildContext context, {
-  required String batchId,
-  required PreparationOutputNote? note,
+  required Map<String, PreparationOutputNote?> notes,
   required bool Function() currentAccount,
   required VoidCallback refresh,
 }) =>
-    _editProductionNote<PreparationOutputNote>(
+    _editProductionNote<Map<String, PreparationOutputNote>>(
       context,
       title: 'Batch eslatmasi',
-      description:
-          'Eslatma shu batchdagi har bir asl rulon kesilguncha amal qiladi.',
-      existing: [note],
+      description: notes.length == 1
+          ? 'Eslatma shu batchdagi har bir asl rulon kesilguncha amal qiladi.'
+          : 'Eslatma tanlangan ${notes.length} ta batchga saqlanadi. '
+              'Asl rulonlar kesilguncha amal qiladi.',
+      existing: notes.values.toList(growable: false),
       currentAccount: currentAccount,
-      save: (text, audience) => MobileApi.instance.savePreparationBatchNote(
-        batchId, text, note?.revision ?? 0, audience: audience,
+      save: (text, audience) => MobileApi.instance.savePreparationBatchNotes(
+        notes.map((id, note) => MapEntry(id, note?.revision ?? 0)),
+        text,
+        audience: audience,
       ),
       refresh: refresh,
     );

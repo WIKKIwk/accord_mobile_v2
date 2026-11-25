@@ -357,7 +357,7 @@ class _ProductionOrdersState
   Timer? _searchDebounce;
   String _query = '', _status = 'all';
   String _paddonStatus = 'all';
-  String? _selectedBatchId;
+  final _selectedBatches = <String, PreparationOutputNote?>{};
   bool _statusExpanded = false;
   late _ProductionView _view = widget.materialPaddonsOnly
       ? _ProductionView.paddons
@@ -402,7 +402,7 @@ class _ProductionOrdersState
   void clearSummary() {
     super.clearSummary();
     clearRollNotes();
-    _selectedBatchId = null;
+    _selectedBatches.clear();
   }
 
   void _searchChanged(String value) {
@@ -437,7 +437,7 @@ class _ProductionOrdersState
       _query = query;
       _statusExpanded = false;
       _selectedRolls.clear();
-      _selectedBatchId = null;
+      _selectedBatches.clear();
       _restoreJournal(_cachedJournal);
     });
     if (_cachedJournal == null) {
@@ -484,63 +484,77 @@ class _ProductionOrdersState
   void _toggleBatch(PreparationProductionBatch batch) {
     if (!_canSelectBatch(batch)) return;
     setState(() {
-      _selectedBatchId = _selectedBatchId == batch.id ? null : batch.id;
+      if (_selectedBatches.containsKey(batch.id)) {
+        _selectedBatches.remove(batch.id);
+      } else if (_selectedBatches.length < preparationNoteSelectionLimit) {
+        _selectedBatches[batch.id] = batch.note;
+      }
     });
   }
 
-  bool _isCurrentBatch(String id) =>
-      mounted && currentAccount && _selectedBatchId == id;
+  bool _isCurrentBatchSelection(Iterable<String> ids) =>
+      mounted &&
+      currentAccount &&
+      _view == _ProductionView.batches &&
+      ids.length == _selectedBatches.length &&
+      ids.every(_selectedBatches.containsKey);
 
-  Future<void> _editSelectedBatchNote(PreparationProductionBatch batch) async {
-    if (!_isCurrentBatch(batch.id)) return;
-    final saved = await _editProductionBatchNote(
+  Future<void> _editSelectedBatchNotes() async {
+    if (!currentAccount || _selectedBatches.isEmpty) return;
+    final notes = Map<String, PreparationOutputNote?>.of(_selectedBatches);
+    for (final batch in items.whereType<PreparationProductionBatch>()) {
+      if (notes.containsKey(batch.id)) {
+        notes[batch.id] = _latestNote(batch.note, notes[batch.id]);
+      }
+    }
+    bool currentSelection() => _isCurrentBatchSelection(notes.keys);
+    final saved = await _editProductionBatchNotes(
       context,
-      batchId: batch.id,
-      note: batch.note,
-      currentAccount: () => _isCurrentBatch(batch.id),
+      notes: notes,
+      currentAccount: currentSelection,
       refresh: () => unawaited(load()),
     );
-    if (saved == null || !_isCurrentBatch(batch.id)) return;
-    setState(() => _selectedBatchId = null);
+    if (saved == null || !currentSelection()) return;
+    setState(_selectedBatches.clear);
     unawaited(load(silent: true));
   }
 
-  Future<void> _attachSelectedBatch(PreparationProductionBatch batch) async {
-    if (!_isCurrentBatch(batch.id)) return;
+  Future<void> _attachSelectedBatches() async {
+    if (!currentAccount || _selectedBatches.isEmpty) return;
+    final ids = _selectedBatches.keys.toList(growable: false);
     final result = await _pickProductionPaddon(
       context,
-      batchId: batch.id,
-      currentAccount: () => _isCurrentBatch(batch.id),
+      batchIds: ids,
+      currentAccount: () => _isCurrentBatchSelection(ids),
     );
-    if (result?.batchId == batch.id && _isCurrentBatch(batch.id)) {
-      setState(() => _selectedBatchId = null);
+    if (result != null && _isCurrentBatchSelection(result.batchIds)) {
+      setState(_selectedBatches.clear);
     }
   }
 
   List<AdminFabMenuAction> get _journalFabActions {
-    final batch = items
-        .whereType<PreparationProductionBatch>()
-        .where((batch) => batch.id == _selectedBatchId && _canSelectBatch(batch))
-        .firstOrNull;
-    if (batch == null) {
+    final selectedCount = _selectedBatches.length;
+    if (selectedCount == 0) {
       return _selectedRolls.isEmpty ? _paddonActions : _rollFabActions;
     }
     return [
       AdminFabMenuAction(
-        title: 'Batchga eslatma',
+        title: selectedCount == 1
+            ? 'Batchga eslatma'
+            : '$selectedCount ta batchga eslatma',
         icon: Icons.edit_note_rounded,
-        onTap: () => _editSelectedBatchNote(batch),
+        onTap: _editSelectedBatchNotes,
       ),
       AdminFabMenuAction(
         title: 'Paddonga biriktirish',
         icon: Icons.inventory_2_outlined,
-        onTap: () => _attachSelectedBatch(batch),
+        onTap: _attachSelectedBatches,
       ),
       AdminFabMenuAction(
         title: 'Tanlovni bekor qilish',
         icon: Icons.close_rounded,
         onTap: () {
-          if (_isCurrentBatch(batch.id)) _toggleBatch(batch);
+          if (mounted && currentAccount) setState(_selectedBatches.clear);
         },
       ),
     ];
@@ -719,7 +733,8 @@ class _ProductionOrdersState
                             item,
                             slot,
                             showOrder: true,
-                            selected: item.id == _selectedBatchId,
+                            selecting: _selectedBatches.isNotEmpty,
+                            selected: _selectedBatches.containsKey(item.id),
                             onLongPress: _canSelectBatch(item)
                                 ? () => _toggleBatch(item)
                                 : null,
@@ -876,17 +891,15 @@ class _ProductionBatchState extends _JournalState<
     if (!currentAccount || !batch.canAttachNote || _batch?.id != batch.id) {
       return;
     }
-    final note = _batchNote;
     bool currentBatch() => mounted && currentAccount && _batch?.id == batch.id;
-    final saved = await _editProductionBatchNote(
+    final saved = await _editProductionBatchNotes(
       context,
-      batchId: batch.id,
-      note: note,
+      notes: {batch.id: _batchNote},
       currentAccount: currentBatch,
       refresh: () => unawaited(load()),
     );
     if (saved == null || !currentBatch()) return;
-    setState(() => _savedBatchNote = saved);
+    setState(() => _savedBatchNote = saved[batch.id]);
     unawaited(load(silent: true));
   }
 
@@ -1006,13 +1019,18 @@ Widget _productionBatchRow(
   PreparationProductionBatch batch,
   M3SegmentVerticalSlot slot, {
   bool showOrder = false,
+  bool selecting = false,
   bool selected = false,
   VoidCallback? onLongPress,
 }) =>
     _JournalListRow(
       key: ValueKey('production-batch:${batch.id}'),
       slot: slot,
-      icon: selected ? Icons.check_circle_rounded : Icons.inventory_2_outlined,
+      icon: selected
+          ? Icons.check_circle_rounded
+          : selecting
+              ? Icons.radio_button_unchecked_rounded
+              : Icons.inventory_2_outlined,
       onLongPress: onLongPress,
       title: batch.displayItem,
       subtitle: [
@@ -1023,9 +1041,11 @@ Widget _productionBatchRow(
       ].join('\n'),
       metrics:
           '${batch.rollCount} ta rulon • ${preparationDisplay(batch.netKg)} kg • ${preparationDisplay(batch.lengthM)} m',
-      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => PreparationProductionBatchScreen(batchId: batch.id),
-      )),
+      onTap: selecting
+          ? onLongPress
+          : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => PreparationProductionBatchScreen(batchId: batch.id),
+              )),
     );
 
 Widget _materialPaddonRow(

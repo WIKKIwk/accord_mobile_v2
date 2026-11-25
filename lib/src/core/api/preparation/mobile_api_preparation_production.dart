@@ -165,22 +165,29 @@ extension MobileApiPreparationProduction on MobileApi {
     return _preparationResponse(response);
   }
 
-  Future<PreparationOutputNote> savePreparationBatchNote(
-    String batchId,
-    String? text,
-    int revision, {
+  Future<Map<String, PreparationOutputNote>> savePreparationBatchNotes(
+    Map<String, int> revisions,
+    String? text, {
     PreparationNoteAudience? audience,
-  }) async {
-    if (!batchId.startsWith('batch:') || batchId.length <= 6) {
+  }) {
+    if (revisions.keys.any((id) => !id.startsWith('batch:') || id.length <= 6)) {
       throw ArgumentError('Batch tanlanmagan');
     }
-    final result = await _savePreparationOutputNotes(
-      {'scope': 'batch', 'batch_id': batchId, 'expected_revision': revision},
-      {batchId: revision},
-      text,
-      audience,
-    );
-    return result[batchId]!;
+    final input = switch (revisions.entries.toList(growable: false)) {
+      [final batch] => {
+          'scope': 'batch',
+          'batch_id': batch.key,
+          'expected_revision': batch.value,
+        },
+      final batches => {
+          'scope': 'batches',
+          'batches': [
+            for (final batch in batches)
+              {'batch_id': batch.key, 'expected_revision': batch.value},
+          ],
+        },
+    };
+    return _savePreparationOutputNotes(input, revisions, text, audience);
   }
 
   Future<Map<String, PreparationOutputNote>> savePreparationRollNotes(
