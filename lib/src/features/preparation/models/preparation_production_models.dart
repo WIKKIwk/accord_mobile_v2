@@ -198,25 +198,34 @@ class PreparationPaddonSelection {
               [if (json['batch_id'] != null) _identity(json, 'batch_id')],
         ),
         totalRolls = _count(json, 'total_rolls'),
-        receiptNamesByWarehouse = Map.unmodifiable(
-          _object(json, 'receipt_names_by_warehouse').map(
-            (warehouse, names) => MapEntry(
-              warehouse,
-              List<String>.unmodifiable(names as List),
-            ),
-          ),
+        receiptNamesByWarehouse = _warehouseReceipts(
+          _object(json, 'receipt_names_by_warehouse'),
         ),
         skipped = Map<String, int>.unmodifiable(_object(json, 'skipped')),
         transferWarehouses = Set<String>.unmodifiable(
           (json['transfer_warehouses'] as List? ?? const []).cast<String>(),
         ),
+        transferReceiptNamesByWarehouse = _warehouseReceipts(
+          json['transfer_receipt_names_by_warehouse'] == null
+              ? const {}
+              : _object(json, 'transfer_receipt_names_by_warehouse'),
+        ),
         packedRolls = json['packed_rolls'] == null
             ? const []
             : _items(json, 'packed_rolls', PreparationPackedRoll.fromJson) {
-    final receipts = receiptNamesByWarehouse.values.expand((names) => names);
+    final sources = {
+      for (final entry in receiptNamesByWarehouse.entries)
+        for (final name in entry.value) name: entry.key,
+    };
     final skippedCount = skipped.values.fold(0, (sum, count) => sum + count);
-    if (receipts.toSet().length != eligibleCount ||
-        receipts.any((name) => name.trim().isEmpty) ||
+    if (sources.length != eligibleCount ||
+        sources.keys.any((name) => name.trim().isEmpty) ||
+        transferReceiptNamesByWarehouse.entries.any((entry) =>
+            entry.key.trim().isEmpty ||
+            entry.value.isEmpty ||
+            entry.value.toSet().length != entry.value.length ||
+            entry.value.any((name) =>
+                !sources.containsKey(name) || sources[name] == entry.key)) ||
         skipped.values.any((count) => count <= 0) ||
         totalRolls != eligibleCount + skippedCount ||
         (json['packed_rolls'] != null &&
@@ -230,15 +239,27 @@ class PreparationPaddonSelection {
   final Map<String, List<String>> receiptNamesByWarehouse;
   final Map<String, int> skipped;
   final Set<String> transferWarehouses;
+  final Map<String, List<String>> transferReceiptNamesByWarehouse;
   final List<PreparationPackedRoll> packedRolls;
+
+  static Map<String, List<String>> _warehouseReceipts(
+    Map<String, dynamic> data,
+  ) =>
+      Map.unmodifiable(data.map((warehouse, names) =>
+          MapEntry(warehouse, List<String>.unmodifiable(names as List))));
 
   int get eligibleCount =>
       receiptNamesByWarehouse.values.fold(0, (sum, names) => sum + names.length);
 
-  List<String> receiptsFor(String? warehouse) =>
-      transferWarehouses.contains(warehouse)
-          ? receiptNamesByWarehouse.values.expand((names) => names).toList()
-          : receiptNamesByWarehouse[warehouse] ?? const [];
+  List<String> receiptsFor(String? warehouse) {
+    final local = receiptNamesByWarehouse[warehouse] ?? const <String>[];
+    if (transferReceiptNamesByWarehouse[warehouse] case final transfers?) {
+      return [...local, ...transfers];
+    }
+    return transferWarehouses.contains(warehouse)
+        ? receiptNamesByWarehouse.values.expand((names) => names).toList()
+        : local;
+  }
 }
 
 class PreparationPackedRoll {

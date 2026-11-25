@@ -62,9 +62,13 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   bool get _fromBatches => widget.batchIds.isNotEmpty;
   PreparationMaterialPaddon? get _selectedPaddon =>
       _paddons.where((paddon) => paddon.code == _selectedCode).firstOrNull;
-  bool get _transfersToSelected =>
-      _selection?.transferWarehouses.contains(_selectedPaddon?.warehouse) ??
-      false;
+  bool get _transfersToSelected {
+    final selection = _selection;
+    final warehouse = _selectedPaddon?.warehouse;
+    return selection != null &&
+        (selection.transferReceiptNamesByWarehouse.containsKey(warehouse) ||
+            selection.transferWarehouses.contains(warehouse));
+  }
   List<String> get _selectedReceipts {
     if (_selection case final selection?) {
       return selection.receiptsFor(_selectedPaddon?.warehouse);
@@ -326,9 +330,8 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
       return const UrduAwareText('Hali rulon kirim qilinmagan.');
     }
     final selected = _selectedPaddon;
-    final count = selected == null
-        ? selection.eligibleCount
-        : selection.receiptsFor(selected.warehouse).length;
+    final receipts = _selectedReceipts.toSet();
+    final count = selected == null ? selection.eligibleCount : receipts.length;
     final elsewhere = selection.eligibleCount - count;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,14 +353,17 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
               'outside_warehouse' => 'rulon ko‘chirilmoqda yoki boshqa joyda',
               _ => 'rulon band yoki biriktirib bo‘lmaydi',
             }}'),
-        if (elsewhere > 0) UrduAwareText('$elsewhere ta rulon boshqa omborda'),
+        if (elsewhere > 0)
+          UrduAwareText('$elsewhere ta rulon boshqa omborda qoladi'),
         if (selected != null && _transfersToSelected)
           for (final entry in selection.receiptNamesByWarehouse.entries)
             if (entry.key != selected.warehouse)
-              UrduAwareText(
-                '${entry.key} → ${selected.warehouse} • '
-                '${entry.value.length} ta rulon ko‘chiriladi',
-              ),
+              if (entry.value.where(receipts.contains).length
+                  case final moving when moving > 0)
+                UrduAwareText(
+                  '${entry.key} → ${selected.warehouse} • '
+                  '$moving ta rulon ko‘chiriladi',
+                ),
       ],
     );
   }
@@ -440,20 +446,24 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   ),
                 if (!_loading && _error == null && nextOffset == null &&
                     selection != null)
-                  for (final entry in selection.receiptNamesByWarehouse.entries)
-                    if (entry.value.isNotEmpty &&
-                        !_paddons.any((paddon) => paddon.warehouse == entry.key))
+                  for (final warehouse in {
+                    ...selection.receiptNamesByWarehouse.keys,
+                    ...selection.transferWarehouses,
+                    ...selection.transferReceiptNamesByWarehouse.keys,
+                  })
+                    if (selection.receiptsFor(warehouse).isNotEmpty &&
+                        !_paddons.any((paddon) => paddon.warehouse == warehouse))
                       ListTile(
-                        key: ValueKey('production-open-paddon-${entry.key}'),
+                        key: ValueKey('production-open-paddon-$warehouse'),
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.add_rounded),
                         title: const UrduAwareText('Bo‘sh paddon ochish'),
                         subtitle: UrduAwareText(
-                          '${entry.key} • ${entry.value.length} ta rulon',
+                          '$warehouse • ${selection.receiptsFor(warehouse).length} ta rulon',
                         ),
                         onTap: _saving || _paddonDialogOpen
                             ? null
-                            : () => _openEmptyPaddon(entry.key),
+                            : () => _openEmptyPaddon(warehouse),
                       ),
               ],
               if (_error case final error?) ...[

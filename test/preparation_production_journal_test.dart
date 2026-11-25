@@ -635,11 +635,12 @@ void main() {
     });
   });
 
-  testWidgets('batch packing can open an empty paddon in the rolls warehouse',
+  testWidgets('batch packing opens an empty paddon for the compatible rolls',
       (tester) async {
     const batchId = 'batch:lg';
     const otherId = 'batch:other';
-    const warehouse = 'Ibrohim W';
+    const warehouse = 'Packing W';
+    const sourceWarehouse = 'Ibrohim W';
     const otherWarehouse = 'Ulug‘bek W';
     const code = 'XP-ABCDEF0123456789';
     const title = 'Tayyor rulonlar';
@@ -663,6 +664,7 @@ void main() {
       expect(find.text('Mos paddon topilmadi.'), findsOneWidget);
       expect(find.text('Mavjud paddonni topish'), findsOneWidget);
       expect(find.text('$warehouse • 2 ta rulon'), findsOneWidget);
+      expect(find.text('$sourceWarehouse • 2 ta rulon'), findsOneWidget);
       expect(find.text('$otherWarehouse • 1 ta rulon'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('production-open-paddon-$warehouse')));
       await tester.pumpAndSettle();
@@ -679,7 +681,11 @@ void main() {
       final target = find.byKey(const ValueKey('production-attach-paddon-$code'));
       expect(tester.widget<ListTile>(target).selected, isTrue);
       expect(find.text('3 ta rulondan 2 tasi biriktiriladi'), findsOneWidget);
-      expect(find.text('$otherWarehouse • 1 ta rulon'), findsOneWidget);
+      expect(find.text('1 ta rulon boshqa omborda qoladi'), findsOneWidget);
+      expect(find.text('$sourceWarehouse → $warehouse • 1 ta rulon ko‘chiriladi'),
+          findsOneWidget);
+      expect(find.text('$otherWarehouse → $warehouse • 1 ta rulon ko‘chiriladi'),
+          findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('production-attach-paddon-save')));
       await tester.pumpAndSettle();
       expect(attached, isTrue);
@@ -713,16 +719,19 @@ void main() {
               'batch_ids': [batchId, otherId],
               'total_rolls': 3,
               'receipt_names_by_warehouse': {
-                warehouse: ['MAT-A', 'MAT-B'],
+                sourceWarehouse: ['MAT-A', 'MAT-B'],
                 otherWarehouse: ['MAT-C'],
+              },
+              'transfer_receipt_names_by_warehouse': {
+                warehouse: ['MAT-A', 'MAT-C'],
               },
               'skipped': {},
             },
           });
         case 'snapshot':
           return _json({
-            'warehouses': [warehouse, otherWarehouse],
-            'assigned_warehouses': [warehouse, otherWarehouse],
+            'warehouses': [warehouse, sourceWarehouse, otherWarehouse],
+            'assigned_warehouses': [warehouse, sourceWarehouse, otherWarehouse],
             'material_warehouses': [],
             'materials': [],
             'orders': [],
@@ -741,12 +750,78 @@ void main() {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['batch_ids'], [batchId, otherId]);
           expect(body['code'], code);
-          expect(body['receipt_names'], ['MAT-A', 'MAT-B']);
+          expect(body['receipt_names'], ['MAT-A', 'MAT-C']);
+          expect(body['transfer_between_warehouses'], isTrue);
           attached = true;
           return _json({
             'paddon_code': code,
-            'receipt_names': ['MAT-A', 'MAT-B'],
+            'receipt_names': ['MAT-A', 'MAT-C'],
           });
+        default:
+          return _route(request);
+      }
+    });
+  });
+
+  testWidgets('batch detail packs the entire batch across receipt pages',
+      (tester) async {
+    const batchId = 'batch:lg';
+    const code = 'XP-ABCDEF0123456789';
+    const warehouse = 'Own W';
+    const receipts = ['MAT-TRACE-1', 'MAT-TRACE-2'];
+    var attached = false;
+
+    await _withApp(tester, () async {
+      await tester.pumpWidget(
+        _app(const PreparationProductionBatchScreen(batchId: batchId)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 ta rulondan 2 tasi biriktirishga yaroqli'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-$code')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-save')));
+      await tester.pumpAndSettle();
+      expect(attached, isTrue);
+      expect(find.text('2 ta rulon $code paddoniga biriktirildi'), findsOneWidget);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'batch':
+          return _json({
+            'batch': {..._batch(), 'batch_id': batchId, 'roll_count': 2},
+            'rolls': [_roll()],
+            'has_more': true,
+            'next_offset': 1,
+          });
+        case 'paddon-options':
+          expect(jsonDecode(request.body), {'batch_id': batchId, 'offset': 0});
+          return _json({
+            'paddons': [
+              {
+                'paddon_id': 'p1',
+                'paddon_code': code,
+                'warehouse': warehouse,
+                'remaining_kg': '0',
+                'contents': [],
+              },
+            ],
+            'has_more': false,
+            'batch_selection': {
+              'batch_ids': [batchId],
+              'total_rolls': 2,
+              'receipt_names_by_warehouse': {warehouse: receipts},
+              'skipped': {},
+            },
+          });
+        case 'paddon-attach':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['batch_id'], batchId);
+          expect(body['receipt_names'], receipts);
+          attached = true;
+          return _json({'paddon_code': code, 'receipt_names': receipts});
         default:
           return _route(request);
       }
@@ -1954,7 +2029,7 @@ void main() {
       await tester.tap(target);
       await tester.pumpAndSettle();
       expect(find.text('5 ta rulondan 2 tasi biriktiriladi'), findsOneWidget);
-      expect(find.text('1 ta rulon boshqa omborda'), findsOneWidget);
+      expect(find.text('1 ta rulon boshqa omborda qoladi'), findsOneWidget);
       expect(writes, isEmpty);
 
       await tester.tap(confirm);

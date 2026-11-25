@@ -974,8 +974,26 @@ class _ProductionBatchState extends _JournalState<
       nativeTopBar: true,
       contentPadding: EdgeInsets.zero,
       bottom: PreparationDock(
-        primaryFabActions:
-            _selectedRolls.isEmpty ? _ordinaryJournalActions : _rollFabActions,
+        primaryFabActions: _selectedRolls.isNotEmpty
+            ? _rollFabActions
+            : [
+                if (batch != null &&
+                    batch.canAttachNote &&
+                    batch.rollCount > 0 &&
+                    currentAccount &&
+                    AppSession.instance.can('preparation.access'))
+                  AdminFabMenuAction(
+                    title: 'Paddonga biriktirish',
+                    icon: Icons.inventory_2_outlined,
+                    onTap: () => _pickProductionPaddon(
+                      context,
+                      batchIds: [batch.id],
+                      currentAccount: () =>
+                          mounted && currentAccount && _batch?.id == batch.id,
+                    ),
+                  ),
+                ..._ordinaryJournalActions,
+              ],
       ),
       child: journal(
         empty: 'Hali rulon kirim qilinmagan.',
