@@ -1431,7 +1431,7 @@ void main() {
         tester.element(find.byKey(const ValueKey(summary))),
       ).colorScheme;
       final headerColor = Color.alphaBlend(
-        scheme.tertiaryContainer.withValues(alpha: 0.7),
+        scheme.primaryContainer.withValues(alpha: 0.6),
         scheme.surfaceContainerLowest,
       );
       expect(row(summary).backgroundColor, headerColor);
@@ -1496,7 +1496,7 @@ void main() {
       expect(
         surface.backgroundColor,
         Color.alphaBlend(
-          scheme.tertiaryContainer.withValues(alpha: 0.7),
+          scheme.primaryContainer.withValues(alpha: 0.6),
           scheme.surfaceContainerLowest,
         ),
       );

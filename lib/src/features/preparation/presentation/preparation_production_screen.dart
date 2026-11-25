@@ -812,7 +812,7 @@ class _ProductionBatchState extends _JournalState<
     final note = _batchNote;
     final scheme = Theme.of(context).colorScheme;
     final headerColor = Color.alphaBlend(
-      scheme.tertiaryContainer.withValues(alpha: 0.7),
+      scheme.primaryContainer.withValues(alpha: 0.6),
       scheme.surfaceContainerLowest,
     );
     final showNote = batch?.canAttachNote == true;
