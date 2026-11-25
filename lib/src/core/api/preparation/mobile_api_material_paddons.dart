@@ -107,24 +107,37 @@ extension MobileApiMaterialPaddons on MobileApi {
   Future<PreparationPendingCommand?> pendingPreparationPaddonAttachment() =>
       _readPaddonCommand(_paddonAttachmentKey);
 
-  Future<PreparationMaterialPaddonsPage> preparationPaddonOptions(
-    List<String> receiptNames, {
-    int offset = 0,
-  }) async {
+  Future<(PreparationMaterialPaddonsPage, PreparationPaddonSelection?)>
+      preparationPaddonOptions(List<String> receiptNames, {int offset = 0}) async {
     final data = await _preparationPaddonOptions({
       'receipt_names': receiptNames,
       'offset': offset,
-    });
-    return PreparationMaterialPaddonsPage.fromJson(data);
+    }, previewPartial: true);
+    final rawSelection = data['roll_selection'];
+    final selection = rawSelection == null
+        ? null
+        : PreparationPaddonSelection.fromJson(
+            (rawSelection as Map).cast<String, dynamic>(),
+          );
+    if (selection != null) {
+      final requested = receiptNames.toSet();
+      final eligible = selection.receiptNamesByWarehouse.values.expand((names) => names);
+      if (selection.batchIds.isNotEmpty ||
+          selection.totalRolls != requested.length ||
+          !eligible.every(requested.contains)) {
+        throw const FormatException('Rulonlar tanlovi mos kelmadi');
+      }
+    }
+    return (PreparationMaterialPaddonsPage.fromJson(data), selection);
   }
 
-  Future<(PreparationMaterialPaddonsPage, PreparationBatchPaddonSelection)>
+  Future<(PreparationMaterialPaddonsPage, PreparationPaddonSelection)>
       preparationBatchPaddonOptions(List<String> batchIds, {int offset = 0}) async {
     final data = await _preparationPaddonOptions({
       ..._paddonBatchTargets(batchIds),
       'offset': offset,
     });
-    final selection = PreparationBatchPaddonSelection.fromJson(
+    final selection = PreparationPaddonSelection.fromJson(
       (data['batch_selection'] as Map).cast<String, dynamic>(),
     );
     if (selection.batchIds.length != batchIds.length ||
@@ -140,8 +153,9 @@ extension MobileApiMaterialPaddons on MobileApi {
       };
 
   Future<Map<String, dynamic>> _preparationPaddonOptions(
-    Map<String, Object> payload,
-  ) async {
+    Map<String, Object> payload, {
+    bool previewPartial = false,
+  }) async {
     final key = _paddonAttachmentKey();
     final scope = currentSessionReadScope();
     void checkAccess() {
@@ -152,10 +166,13 @@ extension MobileApiMaterialPaddons on MobileApi {
 
     final response = await _sendAuthorized(() {
       checkAccess();
+      final uri = Uri.parse(
+        '${MobileApi.baseUrl}/v1/mobile/preparation/production/paddon-options',
+      );
       return _post(
-        Uri.parse(
-          '${MobileApi.baseUrl}/v1/mobile/preparation/production/paddon-options',
-        ),
+        previewPartial
+            ? uri.replace(queryParameters: {'preview_partial': 'true'})
+            : uri,
         headers: _headers(requireToken())..['Content-Type'] = 'application/json',
         body: jsonEncode(payload),
       );

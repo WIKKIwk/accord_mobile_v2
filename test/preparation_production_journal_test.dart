@@ -1286,6 +1286,114 @@ void main() {
     });
   });
 
+  testWidgets('manual packing displays the current paddon and attaches eligible rolls',
+      (tester) async {
+    const packedCode = 'XP-ABCDEF0123456789';
+    const targetCode = 'XP-ABCDEF012345678A';
+    const freeEpc = '303132333435363738394143';
+    const packedReceipt = 'MAT-TRACE-1';
+    const freeReceipt = 'MAT-TRACE-2';
+    var reads = 0;
+    var writes = 0;
+    final action = find.text('Paddonga biriktirish');
+    final confirm = find.byKey(const ValueKey('production-attach-paddon-save'));
+
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-view-rolls')));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('production-roll:$_epc')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-roll:$freeEpc')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 ta rulondan 1 tasi biriktirishga yaroqli'), findsOneWidget);
+      final packed = find.byKey(const ValueKey('production-attach-packed-rolls'));
+      await tester.tap(packed);
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: packed, matching: find.text(_epc)), findsOneWidget);
+      expect(find.text('Oq zaxira • $packedCode'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-$targetCode')));
+      await tester.pumpAndSettle();
+      expect(find.text('2 ta rulondan 1 tasi biriktiriladi'), findsOneWidget);
+      expect(writes, 0);
+      await tester.tap(find.text('Yaroqli rulonlarni biriktirish'));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(find.text('1 ta rulon $targetCode paddoniga biriktirildi'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      expect(find.text('1 ta rulondan 0 tasi biriktirishga yaroqli'), findsOneWidget);
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      expect(writes, 1);
+      expect(reads, 2);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'rolls':
+          return _json({
+            'rolls': [
+              _roll(),
+              {..._roll(), 'epc': freeEpc, 'receipt_name': freeReceipt},
+            ],
+            'has_more': false,
+          });
+        case 'paddon-options':
+          reads++;
+          expect(request.method, 'POST');
+          expect(request.url.queryParameters['preview_partial'], 'true');
+          expect(jsonDecode(request.body), {
+            'receipt_names': [packedReceipt, if (writes == 0) freeReceipt],
+            'offset': 0,
+          });
+          return _json({
+            'paddons': [
+              if (writes == 0)
+                {
+                  'paddon_id': 'target',
+                  'paddon_code': targetCode,
+                  'warehouse': 'Own W',
+                  'remaining_kg': '0',
+                  'contents': [],
+                },
+            ],
+            'has_more': false,
+            'roll_selection': {
+              'batch_ids': [],
+              'total_rolls': writes == 0 ? 2 : 1,
+              'receipt_names_by_warehouse': {
+                if (writes == 0) 'Own W': [freeReceipt],
+              },
+              'skipped': {'packed': 1},
+              'packed_rolls': [
+                {
+                  'barcode': _epc,
+                  'paddon_name': 'Oq zaxira',
+                  'paddon_code': packedCode,
+                },
+              ],
+            },
+          });
+        case 'paddon-attach':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['code'], targetCode);
+          expect(body['receipt_names'], [freeReceipt]);
+          expect(body['request_id'], isNotEmpty);
+          writes++;
+          return _json({'paddon_code': targetCode, 'receipt_names': [freeReceipt]});
+        default:
+          return _route(request);
+      }
+    });
+  });
+
   testWidgets('batch list applies one note to the selected batches in place',
       (tester) async {
     const batchId = 'batch:lg';
@@ -1415,6 +1523,7 @@ void main() {
     const otherId = 'batch:other';
     const batchIds = [batchId, otherId];
     const code = 'XP-ABCDEF0123456789';
+    const packedCode = 'XP-ABCDEF012345678A';
     final writes = <Map<String, dynamic>>[];
     var previewReads = 0;
     final row = find.byKey(const ValueKey('production-batch:$batchId'));
@@ -1437,7 +1546,10 @@ void main() {
       expect(find.text('2 ta batch tanlandi'), findsOneWidget);
       expect(find.text('5 ta rulondan 3 tasi biriktirishga yaroqli'),
           findsOneWidget);
-      expect(find.text('1 ta rulon allaqachon paddonda'), findsOneWidget);
+      await tester.tap(find.text('1 ta rulon allaqachon paddonda'));
+      await tester.pumpAndSettle();
+      expect(find.text(_epc), findsOneWidget);
+      expect(find.text('Oq zaxira • $packedCode'), findsOneWidget);
       expect(find.text('1 ta rulon kesilgan yoki sarflangan'), findsOneWidget);
       expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
       await tester.tap(target);
@@ -1507,6 +1619,13 @@ void main() {
                 'consumed': 1,
                 if (previewReads > 1) 'unavailable': 1,
               },
+              'packed_rolls': [
+                {
+                  'barcode': _epc,
+                  'paddon_name': 'Oq zaxira',
+                  'paddon_code': packedCode,
+                },
+              ],
             },
           });
         case 'paddon-attach':

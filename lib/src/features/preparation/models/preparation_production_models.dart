@@ -191,10 +191,11 @@ class PreparationMaterialPaddon extends PreparationProductionRow {
   String get journalKey => id;
 }
 
-class PreparationBatchPaddonSelection {
-  PreparationBatchPaddonSelection.fromJson(Map<String, dynamic> json)
+class PreparationPaddonSelection {
+  PreparationPaddonSelection.fromJson(Map<String, dynamic> json)
       : batchIds = List<String>.unmodifiable(
-          json['batch_ids'] as List? ?? [_identity(json, 'batch_id')],
+          json['batch_ids'] as List? ??
+              [if (json['batch_id'] != null) _identity(json, 'batch_id')],
         ),
         totalRolls = _count(json, 'total_rolls'),
         receiptNamesByWarehouse = Map.unmodifiable(
@@ -205,14 +206,19 @@ class PreparationBatchPaddonSelection {
             ),
           ),
         ),
-        skipped = Map<String, int>.unmodifiable(_object(json, 'skipped')) {
+        skipped = Map<String, int>.unmodifiable(_object(json, 'skipped')),
+        packedRolls = json['packed_rolls'] == null
+            ? const []
+            : _items(json, 'packed_rolls', PreparationPackedRoll.fromJson) {
     final receipts = receiptNamesByWarehouse.values.expand((names) => names);
     final skippedCount = skipped.values.fold(0, (sum, count) => sum + count);
     if (receipts.toSet().length != eligibleCount ||
         receipts.any((name) => name.trim().isEmpty) ||
         skipped.values.any((count) => count <= 0) ||
-        totalRolls != eligibleCount + skippedCount) {
-      throw const FormatException('Batch rulonlari tanlovi noto‘g‘ri');
+        totalRolls != eligibleCount + skippedCount ||
+        (json['packed_rolls'] != null &&
+            packedRolls.length != (skipped['packed'] ?? 0))) {
+      throw const FormatException('Rulonlar tanlovi noto‘g‘ri');
     }
   }
 
@@ -220,12 +226,22 @@ class PreparationBatchPaddonSelection {
   final int totalRolls;
   final Map<String, List<String>> receiptNamesByWarehouse;
   final Map<String, int> skipped;
+  final List<PreparationPackedRoll> packedRolls;
 
   int get eligibleCount =>
       receiptNamesByWarehouse.values.fold(0, (sum, names) => sum + names.length);
 
   List<String> receiptsFor(String? warehouse) =>
       receiptNamesByWarehouse[warehouse] ?? const [];
+}
+
+class PreparationPackedRoll {
+  PreparationPackedRoll.fromJson(Map<String, dynamic> json)
+      : barcode = _identity(json, 'barcode'),
+        paddonName = _text(json, 'paddon_name'),
+        paddonCode = _text(json, 'paddon_code');
+
+  final String barcode, paddonName, paddonCode;
 }
 
 class PreparationPaddonContent {

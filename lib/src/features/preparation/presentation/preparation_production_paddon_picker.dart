@@ -53,7 +53,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   final _api = MobileApi.instance;
   final _paddons = <PreparationMaterialPaddon>[];
   PreparationPendingCommand? _pending;
-  PreparationBatchPaddonSelection? _batchSelection;
+  PreparationPaddonSelection? _selection;
   String? _selectedCode, _error;
   int? _nextOffset;
   bool _loading = false, _saving = false;
@@ -62,9 +62,12 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   bool get _fromBatches => widget.batchIds.isNotEmpty;
   PreparationMaterialPaddon? get _selectedPaddon =>
       _paddons.where((paddon) => paddon.code == _selectedCode).firstOrNull;
-  List<String> get _selectedReceipts => _fromBatches
-      ? _batchSelection?.receiptsFor(_selectedPaddon?.warehouse) ?? const []
-      : widget.receiptNames;
+  List<String> get _selectedReceipts {
+    if (_selection case final selection?) {
+      return selection.receiptsFor(_selectedPaddon?.warehouse);
+    }
+    return _fromBatches ? const [] : widget.receiptNames;
+  }
 
   @override
   void initState() {
@@ -100,20 +103,12 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
           return;
         }
       }
-      final (page, selection) = !_fromBatches
-          ? (
-              await _api.preparationPaddonOptions(
-                widget.receiptNames,
-                offset: offset,
-              ),
-              null,
-            )
-          : await _api.preparationBatchPaddonOptions(
-              widget.batchIds, offset: offset,
-            );
+      final (page, selection) = _fromBatches
+          ? await _api.preparationBatchPaddonOptions(widget.batchIds, offset: offset)
+          : await _api.preparationPaddonOptions(widget.receiptNames, offset: offset);
       if (!_current) return;
       setState(() {
-        _batchSelection = selection;
+        _selection = selection;
         if (offset == 0) _paddons.clear();
         final known = _paddons.map((paddon) => paddon.code).toSet();
         _paddons.addAll(page.paddons.where((paddon) => known.add(paddon.code)));
@@ -172,8 +167,8 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
       if (_current) {
         setState(() {
           _pending = retry;
-          if (_fromBatches && retry == null) {
-            _batchSelection = null;
+          if (retry == null) {
+            _selection = null;
             _paddons.clear();
             _selectedCode = null;
             _nextOffset = null;
@@ -188,7 +183,26 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     }
   }
 
-  Widget _batchSummary(PreparationBatchPaddonSelection selection) {
+  Widget _packedRolls(int count, List<PreparationPackedRoll> rolls) =>
+      ExpansionTile(
+        key: const ValueKey('production-attach-packed-rolls'),
+        tilePadding: EdgeInsets.zero,
+        title: UrduAwareText('$count ta rulon allaqachon paddonda'),
+        children: [
+          for (final roll in rolls)
+            ListTile(
+              title: UrduAwareText(roll.barcode),
+              subtitle: (roll.paddonName.isNotEmpty || roll.paddonCode.isNotEmpty)
+                  ? UrduAwareText([
+                      roll.paddonName,
+                      roll.paddonCode,
+                    ].where((part) => part.isNotEmpty).join(' • '))
+                  : null,
+            ),
+        ],
+      );
+
+  Widget _selectionSummary(PreparationPaddonSelection selection) {
     if (selection.totalRolls == 0) {
       return const UrduAwareText('Hali rulon kirim qilinmagan.');
     }
@@ -207,13 +221,16 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
           '${selected == null ? 'biriktirishga yaroqli' : 'biriktiriladi'}',
         ),
         for (final entry in selection.skipped.entries)
-          UrduAwareText('${entry.value} ta ${switch (entry.key) {
-            'missing' => 'rulon omborda topilmadi',
-            'packed' => 'rulon allaqachon paddonda',
-            'consumed' => 'rulon kesilgan yoki sarflangan',
-            'outside_warehouse' => 'rulon ko‘chirilmoqda yoki boshqa joyda',
-            _ => 'rulon band yoki biriktirib bo‘lmaydi',
-          }}'),
+          if (entry.key == 'packed' && selection.packedRolls.isNotEmpty)
+            _packedRolls(entry.value, selection.packedRolls)
+          else
+            UrduAwareText('${entry.value} ta ${switch (entry.key) {
+              'missing' => 'rulon omborda topilmadi',
+              'packed' => 'rulon allaqachon paddonda',
+              'consumed' => 'rulon kesilgan yoki sarflangan',
+              'outside_warehouse' => 'rulon ko‘chirilmoqda yoki boshqa joyda',
+              _ => 'rulon band yoki biriktirib bo‘lmaydi',
+            }}'),
         if (elsewhere > 0) UrduAwareText('$elsewhere ta rulon boshqa omborda'),
       ],
     );
@@ -222,8 +239,11 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   @override
   Widget build(BuildContext context) {
     final pending = _pending;
-    final batch = _batchSelection;
+    final selection = _selection;
     final nextOffset = _nextOffset;
+    final partial = selection != null &&
+        _selectedPaddon != null &&
+        _selectedReceipts.length < selection.totalRolls;
     return PopScope(
       canPop: !_saving,
       child: AlertDialog(
@@ -241,8 +261,8 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   '${pending.payload['code']} paddoniga biriktirish natijasini tekshiring.',
                 )
               else ...[
-                if (batch != null)
-                  _batchSummary(batch)
+                if (selection != null)
+                  _selectionSummary(selection)
                 else if (!_fromBatches)
                   UrduAwareText(
                     '${widget.receiptNames.length} ta tanlangan rulon',
@@ -277,9 +297,9 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   )
                 else if (_error == null &&
                     _paddons.isEmpty &&
-                    batch?.eligibleCount != 0)
+                    selection?.eligibleCount != 0)
                   UrduAwareText(
-                    batch == null
+                    selection == null
                         ? 'Shu omborda paddon topilmadi.'
                         : 'Mos paddon topilmadi.',
                   ),
@@ -314,9 +334,11 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
             child: UrduAwareText(
               _saving
                   ? 'Biriktirilmoqda…'
-                  : pending == null
-                      ? 'Biriktirish'
-                      : 'Natijani tekshirish',
+                  : pending != null
+                      ? 'Natijani tekshirish'
+                      : partial
+                          ? 'Yaroqli rulonlarni biriktirish'
+                          : 'Biriktirish',
             ),
           ),
         ],
