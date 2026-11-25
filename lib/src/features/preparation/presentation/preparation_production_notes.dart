@@ -77,26 +77,51 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
     unawaited(load(silent: true));
   }
 
-  Widget rollSelectionActions() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          children: [
-            FilledButton.tonalIcon(
-              key: const ValueKey('production-selected-rolls-note'),
-              onPressed: _editRollNotes,
-              icon: const Icon(Icons.edit_note_rounded),
-              label:
-                  UrduAwareText('${_selectedRolls.length} ta rulonga eslatma'),
-            ),
-            TextButton(
-              onPressed: () => setState(_selectedRolls.clear),
-              child: const UrduAwareText('Bekor qilish'),
-            ),
-          ],
-        ),
-      );
+  List<AdminFabMenuAction> get _rollFabActions => [
+    AdminFabMenuAction(
+      title: 'Eslatma qo‘shish',
+      icon: Icons.edit_note_rounded,
+      onTap: _editRollNotes,
+    ),
+    AdminFabMenuAction(
+      title: 'Paddonga biriktirish',
+      icon: Icons.inventory_2_outlined,
+      onTap: _attachRollsToPaddon,
+    ),
+    AdminFabMenuAction(
+      title: 'Tanlovni bekor qilish',
+      icon: Icons.close_rounded,
+      onTap: () {
+        if (mounted && currentAccount) setState(_selectedRolls.clear);
+      },
+    ),
+  ];
+
+  Future<void> _attachRollsToPaddon() async {
+    if (!mounted || !currentAccount || _selectedRolls.isEmpty) return;
+    final names = _selectedRolls.keys.toList(growable: false);
+    final result = await showDialog<_AttachedRolls>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ProductionPaddonPicker(
+        receiptNames: names,
+        currentAccount: () => mounted && currentAccount,
+      ),
+    );
+    if (!mounted || !currentAccount || result == null) return;
+    setState(() {
+      for (final name in result.receiptNames) {
+        _selectedRolls.remove(name);
+      }
+    });
+    showAdminTopNotice(
+      context,
+      AppLocalizations.of(context).uiText(
+        '${result.receiptNames.length} ta rulon ${result.code} paddoniga biriktirildi',
+      ),
+      tone: AdminTopNoticeTone.success,
+    );
+  }
 
   Widget rollRow(
     PreparationProductionRoll roll,

@@ -196,6 +196,7 @@ class PreparationPaddonContent {
         lineNo = json['line_no'] == null ? null : _count(json, 'line_no'),
         openUnitNo =
             json['open_unit_no'] == null ? null : _count(json, 'open_unit_no'),
+        preparedBarcode = json['prepared_barcode'] as String?,
         issuableCount = json['issuable_count'] == null
             ? null
             : _count(json, 'issuable_count'),
@@ -212,7 +213,7 @@ class PreparationPaddonContent {
         kind = _text(json, 'kind');
 
   final String itemName, lotNumber, remainingKg, kind;
-  final String? unitKg, widthMm, micron;
+  final String? unitKg, widthMm, micron, preparedBarcode;
   final int? lineNo, remainingCount, openUnitNo, issuableCount;
   int get availableCount => issuableCount ?? remainingCount ?? 0;
   final int unweighedCount;
@@ -231,6 +232,7 @@ class PreparationPaddonIssue {
         destinationKind = _text(json, 'destination_kind'),
         labelWarehouse = _identity(json, 'label_warehouse'),
         awaitsTransfer = json['transfer_status'] == 'requested',
+        existingQr = json['existing_qr'] == true,
         tracksPrint = json['print_tracking'] == true,
         legacyPrint = json['legacy_print'] == true,
         printStates = {
@@ -254,7 +256,7 @@ class PreparationPaddonIssue {
         'state' => '$destination • State',
         _ => destination,
       };
-  final bool awaitsTransfer, tracksPrint, legacyPrint;
+  final bool awaitsTransfer, tracksPrint, legacyPrint, existingQr;
   final String? remainderKg;
   final Map<String, PreparationPaddonPrintState> printStates;
   final List<PreparationPaddonLabel> labels;

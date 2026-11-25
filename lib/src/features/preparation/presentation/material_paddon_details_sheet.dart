@@ -132,7 +132,11 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
       }
       widget.onChanged();
       unawaited(_refresh());
-      await _showIssueLabels(context, issue, printOnOpen: true);
+      if (issue.existingQr) {
+        _message('Rulon paddondan yechildi');
+      } else {
+        await _showIssueLabels(context, issue, printOnOpen: true);
+      }
     } catch (error) {
       if (!mounted || _scope != currentSessionReadScope()) return;
       _message(error is MobileApiException
@@ -307,6 +311,7 @@ class _PaddonContentRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final specifications = [
+      if (item.preparedBarcode case final barcode?) barcode,
       if (item.lotNumber.isNotEmpty) 'Partiya: ${item.lotNumber}',
       if (item.widthMm case final width?) '${preparationDisplay(width)} mm',
       if (item.micron case final micron?) '${preparationDisplay(micron)} mkm',

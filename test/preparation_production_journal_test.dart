@@ -358,7 +358,7 @@ void main() {
             : const PreparationProductionScreen()));
         await tester.pumpAndSettle();
         if (!materialRole) {
-          expect(find.byIcon(Icons.add_rounded), findsNothing);
+          expect(find.byIcon(Icons.add_rounded), findsOneWidget);
           final paddons = find.byKey(const ValueKey('production-view-paddons'));
           await tester.ensureVisible(paddons);
           await tester.pumpAndSettle();
@@ -980,9 +980,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(second);
       await tester.pumpAndSettle();
-      expect(find.text('2 ta rulonga eslatma'), findsOneWidget);
-      await tester
-          .tap(find.byKey(const ValueKey('production-selected-rolls-note')));
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Eslatma qo‘shish'));
       await tester.pumpAndSettle();
       await tester.enterText(
           find.byKey(const ValueKey('production-note-input')),
@@ -1017,7 +1017,7 @@ void main() {
       expect(notice, findsOneWidget);
       expect(tester.getTopLeft(notice).dy,
           tester.getBottomLeft(find.byType(AppBar)).dy);
-      expect(find.text('2 ta rulonga eslatma'), findsNothing);
+      expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
       await tester.tap(first);
       await tester.pumpAndSettle();
       expect(find.byType(RpsQrReprintSheet), findsOneWidget);
@@ -1054,6 +1054,142 @@ void main() {
         });
       }
       return _route(request);
+    });
+  });
+
+  testWidgets('journal FAB attaches selected order rolls and releases their original QR',
+      (tester) async {
+    const code = 'XP-ABCDEF0123456789';
+    const otherEpc = '303132333435363738394143';
+    const selected = ['MAT-TRACE-1', 'MAT-TRACE-2'];
+    final attachRequests = <Object?>[];
+    var packed = false;
+    var released = false;
+    final paddon = () => {
+      'paddon_id': 'p1',
+      'paddon_code': code,
+      'name': 'PE zaxirasi',
+      'warehouse': 'Own W',
+      'remaining_kg': !packed ? '0' : released ? '23' : '46',
+      'contents': [
+        if (packed)
+          for (final (line, barcode) in [(1, _epc), (2, otherEpc)])
+            if (!released || line != 1)
+              {
+                'line_no': line,
+                'kind': 'roll',
+                'item_name': 'PE',
+                'remaining_kg': '23',
+                'remaining_count': 1,
+                'issuable_count': 1,
+                'prepared_barcode': barcode,
+              },
+      ],
+    };
+    final fab = find.byIcon(Icons.add_rounded);
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await _openOrders(tester);
+      await tester.tap(find.byKey(const ValueKey('production-order:zakaz-0317')));
+      await tester.pumpAndSettle();
+      expect(fab, findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-batch:batch-lg')));
+      await tester.pumpAndSettle();
+      final fabPosition = tester.getCenter(fab);
+      final first = find.byKey(const ValueKey('production-roll:$_epc'));
+      await tester.ensureVisible(first);
+      await tester.longPress(first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-roll:$otherEpc')));
+      await tester.pumpAndSettle();
+      expect(tester.getCenter(fab), fabPosition);
+      expect(find.byIcon(Icons.check_circle_rounded), findsNWidgets(2));
+
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      expect(find.text('Eslatma qo‘shish'), findsOneWidget);
+      expect(find.text('Tanlovni bekor qilish'), findsOneWidget);
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 ta tanlangan rulon'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-$code')));
+      await tester.pumpAndSettle();
+      final confirm = find.byKey(const ValueKey('production-attach-paddon-save'));
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('Natijani tekshirish'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('2 ta rulon $code paddoniga biriktirildi'), findsOneWidget);
+      expect(attachRequests, hasLength(2));
+      expect(attachRequests[0], attachRequests[1]);
+      expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+
+      Navigator.of(tester.element(first)).pop();
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byType(PreparationProductionOrderScreen))).pop();
+      await tester.pumpAndSettle();
+      final paddons = find.byKey(const ValueKey('production-view-paddons'));
+      await tester.ensureVisible(paddons);
+      await tester.tap(paddons);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('preparation-paddon:p1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('paddon-open-issue')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('paddon-issue-weight-1-0')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('paddon-issue-save')));
+      await tester.pumpAndSettle();
+      expect(released, isTrue);
+      expect(find.text('Chiqim yorliqlari'), findsNothing);
+      expect(find.text(otherEpc), findsOneWidget);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'batch':
+          return _json({
+            'batch': _batch(recipe: null),
+            'rolls': [
+              _roll(recipe: null),
+              {..._roll(recipe: null), 'epc': otherEpc, 'receipt_name': selected.last},
+            ],
+            'has_more': false,
+          });
+        case 'paddon-options':
+          expect(request.method, 'POST');
+          expect(jsonDecode(request.body), {'receipt_names': selected, 'offset': 0});
+          return _json({'paddons': [paddon()], 'has_more': false});
+        case 'paddon-attach':
+          final body = jsonDecode(request.body) as Map;
+          expect(body['code'], code);
+          expect(body['receipt_names'], selected);
+          expect(body['request_id'], isNotEmpty);
+          attachRequests.add(body);
+          if (attachRequests.length == 1) {
+            return _json({'error': 'Javob olinmadi'}, status: 503);
+          }
+          packed = true;
+          return _json({'paddon_code': code, 'receipt_names': selected});
+        case 'raw-material-paddons':
+          return _json({'paddons': [paddon()], 'has_more': false});
+        case 'issues':
+          final body = jsonDecode(request.body) as Map;
+          expect(body['code'], code);
+          expect(body['line_no'], 1);
+          expect(body['weights'], ['23']);
+          expect(body, isNot(contains('destination')));
+          released = true;
+          return _json({
+            'issue_id': 'release-1',
+            'paddon_code': code,
+            'destination': 'Own W',
+            'label_warehouse': 'Own W',
+            'existing_qr': true,
+            'labels': [{'barcode': _epc, 'item_code': 'PE', 'item_name': 'PE', 'kg': '23'}],
+          });
+        default:
+          return _route(request);
+      }
     });
   });
 

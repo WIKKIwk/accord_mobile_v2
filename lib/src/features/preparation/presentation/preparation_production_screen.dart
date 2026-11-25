@@ -28,12 +28,14 @@ import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../admin/presentation/widgets/admin_top_notice.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
+import '../../shared/models/app_models.dart' show UserRole;
 import '../models/preparation_models.dart';
 import 'material_paddon_details_sheet.dart';
 import 'material_paddon_receipt_dialog.dart';
 import 'preparation_navigation.dart';
 
 part 'preparation_production_notes.dart';
+part 'preparation_production_paddon_picker.dart';
 part 'preparation_production_sync.dart';
 
 class PreparationProductionScreen extends StatefulWidget {
@@ -81,6 +83,67 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
   String? error;
   List<T> items = [];
   AppLifecycleState? _lifecycle;
+
+  bool _scanningPaddon = false;
+
+  AdminFabMenuAction _paddonScanAction({VoidCallback? onChanged}) =>
+      AdminFabMenuAction(
+        title: 'Paddon QR skaneri',
+        icon: Icons.qr_code_scanner_rounded,
+        onTap: () => _scanPaddon(onChanged: onChanged),
+      );
+
+  List<AdminFabMenuAction> get _ordinaryJournalActions => [
+    if (currentAccount &&
+        AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
+        AppSession.instance.can('preparation.access'))
+      _paddonScanAction(),
+  ];
+
+  Future<void> _scanPaddon({VoidCallback? onChanged}) async {
+    if (_scanningPaddon || !currentAccount) return;
+    _scanningPaddon = true;
+    try {
+      final scanned = await showRawMaterialScanDialog(
+        context,
+        title: 'Paddon QR skaneri',
+        manualLabel: 'Paddon kodi',
+      );
+      if (!mounted || !currentAccount || scanned == null) {
+        return;
+      }
+      final code = materialPaddonCodeFromQr(scanned);
+      if (code == null) {
+        throw const FormatException(
+          'Xomashyo paddonining QR kodini skanerlang',
+        );
+      }
+      final paddon = await MobileApi.instance.materialPaddonByCode(code);
+      if (!mounted || !currentAccount) return;
+      if (paddon == null) {
+        throw const FormatException(
+          'Paddon topilmadi yoki sizga biriktirilmagan',
+        );
+      }
+      if (ModalRoute.isCurrentOf(context) == false) return;
+      await showMaterialPaddonDetails(
+        context,
+        paddon,
+        onChanged: onChanged ?? () {},
+      );
+    } catch (error) {
+      if (!mounted || !currentAccount) return;
+      final message = switch (error) {
+        MobileApiException() => error.message,
+        FormatException() => error.message,
+        _ => 'Paddonni yuklab bo‘lmadi',
+      };
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: UrduAwareText(message)));
+    } finally {
+      _scanningPaddon = false;
+    }
+  }
 
   Future<_JournalPage<T>> request(int offset);
   String identity(T item);
@@ -295,7 +358,6 @@ class _ProductionOrdersState
   String _query = '', _status = 'all';
   String _paddonStatus = 'all';
   bool _statusExpanded = false;
-  bool _scanningPaddon = false;
   late _ProductionView _view = widget.materialPaddonsOnly
       ? _ProductionView.paddons
       : _ProductionView.batches;
@@ -400,50 +462,12 @@ class _ProductionOrdersState
       showMaterialPaddonDetails(
         context,
         paddon,
-        onChanged: () {
-          if (mounted && currentAccount && _showPaddons) {
-            unawaited(load(silent: true));
-          }
-        },
+        onChanged: _refreshPaddons,
       );
 
-  Future<void> _scanPaddon() async {
-    if (_scanningPaddon || !currentAccount) return;
-    _scanningPaddon = true;
-    try {
-      final scanned = await showRawMaterialScanDialog(
-        context,
-        title: 'Paddon QR skaneri',
-        manualLabel: 'Paddon kodi',
-      );
-      if (!mounted || !currentAccount || !_showPaddons || scanned == null) {
-        return;
-      }
-      final code = materialPaddonCodeFromQr(scanned);
-      if (code == null) {
-        throw const FormatException(
-          'Xomashyo paddonining QR kodini skanerlang',
-        );
-      }
-      final paddon = await MobileApi.instance.materialPaddonByCode(code);
-      if (!mounted || !currentAccount || !_showPaddons) return;
-      if (paddon == null) {
-        throw const FormatException(
-          'Paddon topilmadi yoki sizga biriktirilmagan',
-        );
-      }
-      await _openPaddon(paddon);
-    } catch (error) {
-      if (!mounted || !currentAccount) return;
-      final message = switch (error) {
-        MobileApiException() => error.message,
-        FormatException() => error.message,
-        _ => 'Paddonni yuklab bo‘lmadi',
-      };
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: UrduAwareText(message)));
-    } finally {
-      _scanningPaddon = false;
+  void _refreshPaddons() {
+    if (mounted && currentAccount && _showPaddons) {
+      unawaited(load(silent: true));
     }
   }
 
@@ -460,18 +484,13 @@ class _ProductionOrdersState
         icon: Icons.inventory_2_outlined,
         onTap: _receivePaddon,
       ),
-    if (_showPaddons &&
-        currentAccount &&
+    if (currentAccount &&
         AppSession.instance.can(
           widget.materialPaddonsOnly
               ? 'gscale.catalog.read'
               : 'preparation.access',
         ))
-      AdminFabMenuAction(
-        title: 'Paddon QR skaneri',
-        icon: Icons.qr_code_scanner_rounded,
-        onTap: _scanPaddon,
-      ),
+      _paddonScanAction(onChanged: _refreshPaddons),
   ];
 
   @override
@@ -532,7 +551,10 @@ class _ProductionOrdersState
                 selectedRouteName: AppRoutes.preparationProduction),
         bottom: widget.materialPaddonsOnly
             ? const MaterialTaminotchiDock()
-            : PreparationDock(primaryFabActions: _paddonActions),
+            : PreparationDock(
+                primaryFabActions:
+                    _selectedRolls.isEmpty ? _paddonActions : _rollFabActions,
+              ),
         child: Stack(children: [
           Column(children: [
             if (!widget.materialPaddonsOnly)
@@ -606,7 +628,6 @@ class _ProductionOrdersState
                 },
               ),
             ),
-            if (_selectedRolls.isNotEmpty) rollSelectionActions(),
             Expanded(
                 child: journal(
                     empty: _showPaddons
@@ -688,7 +709,7 @@ class _ProductionOrderState extends _JournalState<
         subtitle: '',
         nativeTopBar: true,
         contentPadding: EdgeInsets.zero,
-        bottom: const PreparationDock(showPrimaryFab: false),
+        bottom: PreparationDock(primaryFabActions: _ordinaryJournalActions),
         child: journal(
             empty: 'Bu buyurtma bo‘yicha ishlab chiqarish yozuvi yo‘q.',
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
@@ -803,57 +824,56 @@ class _ProductionBatchState extends _JournalState<
       subtitle: '',
       nativeTopBar: true,
       contentPadding: EdgeInsets.zero,
-      bottom: const PreparationDock(showPrimaryFab: false),
-      child: Column(children: [
-        if (_selectedRolls.isNotEmpty) rollSelectionActions(),
-        Expanded(
-            child: journal(
-          empty: 'Hali rulon kirim qilinmagan.',
-          padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
-          children: [
-            M3SegmentSpacedColumn(children: [
-              if (batch != null) ...[
+      bottom: PreparationDock(
+        primaryFabActions:
+            _selectedRolls.isEmpty ? _ordinaryJournalActions : _rollFabActions,
+      ),
+      child: journal(
+        empty: 'Hali rulon kirim qilinmagan.',
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
+        children: [
+          M3SegmentSpacedColumn(children: [
+            if (batch != null) ...[
+              _JournalListRow(
+                key: const ValueKey('production-batch-summary'),
+                slot: slot(0),
+                icon: Icons.inventory_2_outlined,
+                title: batch.active ? 'Davom etmoqda' : 'Yakunlangan',
+                subtitle:
+                    '${batch.warehouse}\nBoshlangan: ${_date(batch.startedAt)}${batch.endedAt.isEmpty ? '' : '\nTugagan: ${_date(batch.endedAt)}'}',
+                metrics:
+                    '${batch.rollCount} ta rulon • ${preparationDisplay(batch.netKg)} kg • ${preparationDisplay(batch.lengthM)} m',
+              ),
+              _ProductionRecipe(
+                key: const ValueKey('production-batch-recipe'),
+                formula: batch.formula,
+                slot: slot(1),
+              ),
+              if (showNote)
                 _JournalListRow(
-                  key: const ValueKey('production-batch-summary'),
-                  slot: slot(0),
-                  icon: Icons.inventory_2_outlined,
-                  title: batch.active ? 'Davom etmoqda' : 'Yakunlangan',
-                  subtitle:
-                      '${batch.warehouse}\nBoshlangan: ${_date(batch.startedAt)}${batch.endedAt.isEmpty ? '' : '\nTugagan: ${_date(batch.endedAt)}'}',
-                  metrics:
-                      '${batch.rollCount} ta rulon • ${preparationDisplay(batch.netKg)} kg • ${preparationDisplay(batch.lengthM)} m',
+                  key: const ValueKey('production-batch-note'),
+                  slot: slot(2),
+                  icon: Icons.edit_note_rounded,
+                  title: note?.text.isNotEmpty == true
+                      ? 'Batch eslatmasi'
+                      : 'Batchga eslatma',
+                  subtitle: note?.text ?? '',
+                  metrics: note != null && note.text.isNotEmpty
+                      ? _noteAudienceLabel(context, note.audience)
+                      : '',
+                  onTap: currentAccount ? () => _editBatchNote(batch) : null,
                 ),
-                _ProductionRecipe(
-                  key: const ValueKey('production-batch-recipe'),
-                  formula: batch.formula,
-                  slot: slot(1),
-                ),
-                if (showNote)
-                  _JournalListRow(
-                    key: const ValueKey('production-batch-note'),
-                    slot: slot(2),
-                    icon: Icons.edit_note_rounded,
-                    title: note?.text.isNotEmpty == true
-                        ? 'Batch eslatmasi'
-                        : 'Batchga eslatma',
-                    subtitle: note?.text ?? '',
-                    metrics: note != null && note.text.isNotEmpty
-                        ? _noteAudienceLabel(context, note.audience)
-                        : '',
-                    onTap: currentAccount ? () => _editBatchNote(batch) : null,
-                  ),
-              ],
-              for (final (index, roll) in items.indexed)
-                rollRow(
-                  roll,
-                  slot(index + headerCount),
-                  batchOrderId: batch?.orderId ?? '',
-                  batchNote: note,
-                ),
-            ]),
-          ],
-        )),
-      ]),
+            ],
+            for (final (index, roll) in items.indexed)
+              rollRow(
+                roll,
+                slot(index + headerCount),
+                batchOrderId: batch?.orderId ?? '',
+                batchNote: note,
+              ),
+          ]),
+        ],
+      ),
     );
   }
 }

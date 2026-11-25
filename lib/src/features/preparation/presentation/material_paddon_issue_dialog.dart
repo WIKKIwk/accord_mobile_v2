@@ -14,6 +14,7 @@ extension PaddonLineDisplay on PreparationPaddonContent {
         itemName,
         unit,
         if (lotNumber.isNotEmpty) lotNumber,
+        if (preparedBarcode case final barcode?) barcode,
         if (widthMm != null) '${preparationDisplay(widthMm!)} mm',
         if (micron != null) '${preparationDisplay(micron!)} mkm',
         if (openUnitNo == null && unitKg != null)
@@ -140,7 +141,8 @@ class _MaterialPaddonIssueDialogState
       return;
     }
     if (pending == null && !(_form.currentState?.validate() ?? false)) return;
-    final destination = _destination;
+    final prepared = _line?.preparedBarcode != null;
+    final destination = prepared ? null : _destination;
     final payload = pending?.payload ??
         {
           'code': widget.paddon.code,
@@ -153,8 +155,11 @@ class _MaterialPaddonIssueDialogState
             'remainder_kg':
                 _openRemainder ?? _remainder.text.trim().replaceAll(',', '.'),
           'weights': [
-            for (final weight in _weights.take(int.parse(_count.text.trim())))
-              weight.trim().replaceAll(',', '.'),
+            if (prepared)
+              _line!.remainingKg
+            else
+              for (final weight in _weights.take(int.parse(_count.text.trim())))
+                weight.trim().replaceAll(',', '.'),
           ],
           if (destination != null)
             'destination': {
@@ -299,76 +304,82 @@ class _MaterialPaddonIssueDialogState
                             }),
                   ),
                   const SizedBox(height: 12),
-                  if (line.issuableCount != null)
-                    SwitchListTile(
-                      key: const ValueKey('paddon-partial'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const UrduAwareText('Qisman olish'),
-                      value: _partial,
-                      onChanged: _saving
-                          ? null
-                          : (value) => setState(() {
-                                _partial = value;
-                                _count.text = '1';
-                                _weights.fillRange(0, _weights.length, '');
-                                _remainder.clear();
-                              }),
-                    ),
-                  if (!_partial && line.openUnitNo == null)
-                    TextFormField(
-                      key: const ValueKey('paddon-issue-count'),
-                      controller: _count,
-                      enabled: !_saving,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Olinadigan ${line.unit} soni',
-                        helperText:
-                            'Olish mumkin: ${line.availableCount} ta ${line.unit}',
-                      ),
-                      validator: _validateCount,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  for (var index = 0; index < count; index++)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      key: ValueKey(
-                          (line.lineNo, line.openUnitNo, _partial, index)),
-                      child: TextFormField(
-                        key: ValueKey(
-                            'paddon-issue-weight-${line.lineNo}-$index'),
-                        initialValue: _weights[index],
-                        enabled: !_saving,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: InputDecoration(
-                          labelText: _partial
-                              ? 'Olingan qism vazni'
-                              : '${index + 1}-${line.unit} vazni',
-                          suffixText: 'kg',
-                        ),
-                        validator: _validateTaken,
-                        onChanged: (value) =>
-                            setState(() => _weights[index] = value),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  if (_partial && line.openUnitNo == null)
-                    TextFormField(
-                      key: const ValueKey('paddon-remainder-kg'),
-                      controller: _remainder,
-                      enabled: !_saving,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                          labelText: 'Paddonda qolgan qism vazni',
-                          suffixText: 'kg',
-                          helperText: 'Qolgan qismini ham torting'),
-                      validator: _validateWeight,
-                    ),
-                  if (_partial && _openRemainder != null)
+                  if (line.preparedBarcode != null)
                     UrduAwareText(
-                        'Paddonda qoladi: ${preparationDisplay(_openRemainder!)} kg'),
-                  _destinationPicker(),
+                      '${line.preparedBarcode} • ${preparationDisplay(line.remainingKg)} kg',
+                    )
+                  else ...[
+                    if (line.issuableCount != null)
+                      SwitchListTile(
+                        key: const ValueKey('paddon-partial'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const UrduAwareText('Qisman olish'),
+                        value: _partial,
+                        onChanged: _saving
+                            ? null
+                            : (value) => setState(() {
+                                  _partial = value;
+                                  _count.text = '1';
+                                  _weights.fillRange(0, _weights.length, '');
+                                  _remainder.clear();
+                                }),
+                      ),
+                    if (!_partial && line.openUnitNo == null)
+                      TextFormField(
+                        key: const ValueKey('paddon-issue-count'),
+                        controller: _count,
+                        enabled: !_saving,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Olinadigan ${line.unit} soni',
+                          helperText:
+                              'Olish mumkin: ${line.availableCount} ta ${line.unit}',
+                        ),
+                        validator: _validateCount,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    for (var index = 0; index < count; index++)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        key: ValueKey(
+                            (line.lineNo, line.openUnitNo, _partial, index)),
+                        child: TextFormField(
+                          key: ValueKey(
+                              'paddon-issue-weight-${line.lineNo}-$index'),
+                          initialValue: _weights[index],
+                          enabled: !_saving,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: InputDecoration(
+                            labelText: _partial
+                                ? 'Olingan qism vazni'
+                                : '${index + 1}-${line.unit} vazni',
+                            suffixText: 'kg',
+                          ),
+                          validator: _validateTaken,
+                          onChanged: (value) =>
+                              setState(() => _weights[index] = value),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    if (_partial && line.openUnitNo == null)
+                      TextFormField(
+                        key: const ValueKey('paddon-remainder-kg'),
+                        controller: _remainder,
+                        enabled: !_saving,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                            labelText: 'Paddonda qolgan qism vazni',
+                            suffixText: 'kg',
+                            helperText: 'Qolgan qismini ham torting'),
+                        validator: _validateWeight,
+                      ),
+                    if (_partial && _openRemainder != null)
+                      UrduAwareText(
+                          'Paddonda qoladi: ${preparationDisplay(_openRemainder!)} kg'),
+                    _destinationPicker(),
+                  ],
                 ],
                 if (_failure case final failure?)
                   Padding(

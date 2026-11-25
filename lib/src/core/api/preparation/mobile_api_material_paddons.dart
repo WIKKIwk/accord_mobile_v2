@@ -102,6 +102,57 @@ extension MobileApiMaterialPaddons on MobileApi {
         .firstOrNull;
   }
 
+  String _paddonAttachmentKey() => '${_paddonStorageKey(write: true)}:attach';
+
+  Future<PreparationPendingCommand?> pendingPreparationPaddonAttachment() =>
+      _readPaddonCommand(_paddonAttachmentKey);
+
+  Future<PreparationMaterialPaddonsPage> preparationPaddonOptions(
+    List<String> receiptNames, {
+    int offset = 0,
+  }) async {
+    final key = _paddonAttachmentKey();
+    final scope = currentSessionReadScope();
+    void checkAccess() {
+      if (scope != currentSessionReadScope() || _paddonAttachmentKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+    }
+
+    final response = await _sendAuthorized(() {
+      checkAccess();
+      return _post(
+        Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/preparation/production/paddon-options',
+        ),
+        headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+        body: jsonEncode({'receipt_names': receiptNames, 'offset': offset}),
+      );
+    });
+    checkAccess();
+    return PreparationMaterialPaddonsPage.fromJson(_preparationResponse(response));
+  }
+
+  Future<void> attachPreparationRollsToPaddon(
+    String code,
+    List<String> receiptNames,
+  ) async {
+    final receipts = receiptNames.toList()..sort();
+    await _submitPreparationCommand(
+      kind: 'preparation_paddon_attach',
+      path: 'preparation/production/paddon-attach',
+      payload: {'code': code, 'receipt_names': receipts},
+      storageKey: _paddonAttachmentKey,
+      validateResult: (result) {
+        final saved = result['receipt_names'];
+        if (result['paddon_code'] != code || saved is! List ||
+            saved.length != receipts.length || !receipts.every(saved.contains)) {
+          throw const FormatException('Rulonlar biriktirilgani tasdiqlanmadi');
+        }
+      },
+    );
+  }
+
   String _paddonIssueKey() => '${_paddonStorageKey(write: true)}:issue';
 
   Future<PreparationPendingCommand?> pendingMaterialPaddonIssue() =>
