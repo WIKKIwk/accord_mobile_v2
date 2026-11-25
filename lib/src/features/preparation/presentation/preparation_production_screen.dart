@@ -810,6 +810,7 @@ class _ProductionBatchState extends _JournalState<
   Widget build(BuildContext context) {
     final batch = _batch;
     final note = _batchNote;
+    final headerColor = Theme.of(context).colorScheme.surfaceContainer;
     final showNote = batch?.canAttachNote == true;
     final headerCount = batch == null
         ? 0
@@ -838,6 +839,7 @@ class _ProductionBatchState extends _JournalState<
                 key: const ValueKey('production-batch-summary'),
                 slot: slot(0),
                 icon: Icons.inventory_2_outlined,
+                backgroundColor: headerColor,
                 title: batch.active ? 'Davom etmoqda' : 'Yakunlangan',
                 subtitle:
                     '${batch.warehouse}\nBoshlangan: ${_date(batch.startedAt)}${batch.endedAt.isEmpty ? '' : '\nTugagan: ${_date(batch.endedAt)}'}',
@@ -848,6 +850,7 @@ class _ProductionBatchState extends _JournalState<
                 key: const ValueKey('production-batch-recipe'),
                 formula: batch.formula,
                 slot: slot(1),
+                backgroundColor: headerColor,
               ),
               if (showNote)
                 _JournalListRow(
@@ -963,6 +966,7 @@ class _JournalListRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.metrics,
+    this.backgroundColor,
     this.titleMaxLines = 1,
     this.onTap,
     this.onLongPress,
@@ -971,6 +975,7 @@ class _JournalListRow extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final IconData icon;
   final String title, subtitle, metrics;
+  final Color? backgroundColor;
   final int titleMaxLines;
   final VoidCallback? onTap, onLongPress;
 
@@ -987,6 +992,7 @@ class _JournalListRow extends StatelessWidget {
         if (metrics.isNotEmpty) l10n.uiText(metrics),
       ].join('\n'),
       subtitleMaxLines: 8,
+      backgroundColor: backgroundColor,
       onTap: onTap,
       onLongPress: onLongPress,
     );
@@ -994,9 +1000,15 @@ class _JournalListRow extends StatelessWidget {
 }
 
 class _ProductionRecipe extends StatelessWidget {
-  const _ProductionRecipe({super.key, required this.formula, this.slot});
+  const _ProductionRecipe({
+    super.key,
+    required this.formula,
+    this.slot,
+    this.backgroundColor,
+  });
   final Map<String, dynamic>? formula;
   final M3SegmentVerticalSlot? slot;
+  final Color? backgroundColor;
   @override
   Widget build(BuildContext context) {
     final recipe = formula;
@@ -1007,10 +1019,12 @@ class _ProductionRecipe extends StatelessWidget {
           icon: Icons.functions_rounded,
           title: AppLocalizations.of(context).uiText('Formula qayd etilmagan'),
           subtitle: '',
+          backgroundColor: backgroundColor,
         );
       }
-      return const Card.filled(
-          child: Padding(
+      return Card.filled(
+          color: backgroundColor,
+          child: const Padding(
               padding: EdgeInsets.all(16),
               child: UrduAwareText('Formula qayd etilmagan')));
     }
@@ -1046,10 +1060,11 @@ class _ProductionRecipe extends StatelessWidget {
       return M3SegmentFilledSurface(
         slot: slot!,
         cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot!),
+        backgroundColor: backgroundColor,
         child: content,
       );
     }
-    return Card.filled(child: content);
+    return Card.filled(color: backgroundColor, child: content);
   }
 }
 

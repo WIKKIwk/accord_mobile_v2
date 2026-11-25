@@ -11,6 +11,7 @@ class AdminCatalogListRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.backgroundColor,
     this.onTap,
     this.onLongPress,
     this.value = '',
@@ -22,6 +23,7 @@ class AdminCatalogListRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final Color? backgroundColor;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final String value;
@@ -37,7 +39,7 @@ class AdminCatalogListRow extends StatelessWidget {
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
       onLongPress: onLongPress,
-      backgroundColor: scheme.surfaceContainerLowest,
+      backgroundColor: backgroundColor ?? scheme.surfaceContainerLowest,
       fixedHeight: titleMaxLines == 1 && subtitleMaxLines == 1 ? 61 : null,
       minHeight: 61,
       padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),

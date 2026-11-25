@@ -1427,6 +1427,11 @@ void main() {
       const recipe = 'production-batch-recipe';
       const firstRoll = 'production-roll:$_epc';
       const secondRoll = 'production-roll:$secondEpc';
+      final scheme = Theme.of(
+        tester.element(find.byKey(const ValueKey(summary))),
+      ).colorScheme;
+      expect(row(summary).backgroundColor, scheme.surfaceContainer);
+      expect(row(recipe).backgroundColor, scheme.surfaceContainer);
       expect(row(summary).slot, M3SegmentVerticalSlot.top);
       expect(row(summary).title, 'Davom etmoqda');
       expect(row(summary).subtitle, contains('Own W'));
@@ -1443,6 +1448,7 @@ void main() {
         of: find.byKey(const ValueKey(firstRoll)),
         matching: find.byType(AdminSummaryCard),
       ));
+      expect(card.backgroundColor, scheme.surfaceContainerLowest);
       expect(card.showChevron, isFalse);
       expect(card.titleMaxLines, 2);
       expect(
@@ -1482,6 +1488,10 @@ void main() {
         matching: find.byType(M3SegmentFilledSurface),
       ));
       expect(surface.slot, M3SegmentVerticalSlot.middle);
+      expect(
+        surface.backgroundColor,
+        Theme.of(tester.element(recipe)).colorScheme.surfaceContainer,
+      );
       expect(find.text('Shnek formulasi: LG'), findsOneWidget);
       expect(find.text('Shnek A • 30%'), findsOneWidget);
       expect(find.text('Shnek B • 70%'), findsOneWidget);
