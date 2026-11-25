@@ -357,7 +357,7 @@ class _ProductionOrdersState
   Timer? _searchDebounce;
   String _query = '', _status = 'all';
   String _paddonStatus = 'all';
-  final _selectedBatches = <String, PreparationOutputNote?>{};
+  final _selectedBatches = <String, _ProductionNoteTarget>{};
   bool _statusExpanded = false;
   late _ProductionView _view = widget.materialPaddonsOnly
       ? _ProductionView.paddons
@@ -487,7 +487,7 @@ class _ProductionOrdersState
       if (_selectedBatches.containsKey(batch.id)) {
         _selectedBatches.remove(batch.id);
       } else if (_selectedBatches.length < preparationNoteSelectionLimit) {
-        _selectedBatches[batch.id] = batch.note;
+        _selectedBatches[batch.id] = _batchNoteTarget(batch, batch.note);
       }
     });
   }
@@ -501,16 +501,17 @@ class _ProductionOrdersState
 
   Future<void> _editSelectedBatchNotes() async {
     if (!currentAccount || _selectedBatches.isEmpty) return;
-    final notes = Map<String, PreparationOutputNote?>.of(_selectedBatches);
+    final targets = Map<String, _ProductionNoteTarget>.of(_selectedBatches);
     for (final batch in items.whereType<PreparationProductionBatch>()) {
-      if (notes.containsKey(batch.id)) {
-        notes[batch.id] = _latestNote(batch.note, notes[batch.id]);
+      if (targets[batch.id] case final target?) {
+        targets[batch.id] =
+            _batchNoteTarget(batch, _latestNote(batch.note, target.note));
       }
     }
-    bool currentSelection() => _isCurrentBatchSelection(notes.keys);
+    bool currentSelection() => _isCurrentBatchSelection(targets.keys);
     final saved = await _editProductionBatchNotes(
       context,
-      notes: notes,
+      targets: targets,
       currentAccount: currentSelection,
       refresh: () => unawaited(load()),
     );
@@ -894,7 +895,7 @@ class _ProductionBatchState extends _JournalState<
     bool currentBatch() => mounted && currentAccount && _batch?.id == batch.id;
     final saved = await _editProductionBatchNotes(
       context,
-      notes: {batch.id: _batchNote},
+      targets: {batch.id: _batchNoteTarget(batch, _batchNote)},
       currentAccount: currentBatch,
       refresh: () => unawaited(load()),
     );

@@ -25,8 +25,15 @@ String _noteAudienceLabel(BuildContext context, PreparationNoteAudience? audienc
       .join(', ');
 }
 
+typedef _ProductionNoteTarget = ({String label, PreparationOutputNote? note});
+
+typedef _SaveProductionNotes = Future<Map<String, PreparationOutputNote>>
+    Function(Map<String, int> revisions, String? text, {
+  PreparationNoteAudience? audience,
+});
+
 mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
-  final _selectedRolls = <String, PreparationOutputNote?>{};
+  final _selectedRolls = <String, _ProductionNoteTarget>{};
   final _savedRollNotes = <String, PreparationOutputNote>{};
 
   void clearRollNotes() {
@@ -37,36 +44,41 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
   PreparationOutputNote? _rollNote(PreparationProductionRoll roll) =>
       _latestNote(roll.rollNote, _savedRollNotes[roll.receiptName]);
 
+  _ProductionNoteTarget _rollNoteTarget(PreparationProductionRoll roll) => (
+        label: [
+          _nonEmpty(roll.itemName, roll.itemCode, ''),
+          roll.epc,
+        ].where((part) => part.isNotEmpty).join(' • '),
+        note: _rollNote(roll),
+      );
+
   void _toggleRoll(PreparationProductionRoll roll) {
     if (!currentAccount || roll.receiptName.isEmpty) return;
     setState(() {
       if (_selectedRolls.containsKey(roll.receiptName)) {
         _selectedRolls.remove(roll.receiptName);
       } else if (_selectedRolls.length < preparationNoteSelectionLimit) {
-        _selectedRolls[roll.receiptName] = _rollNote(roll);
+        _selectedRolls[roll.receiptName] = _rollNoteTarget(roll);
       }
     });
   }
 
   Future<void> _editRollNotes() async {
     if (!currentAccount || _selectedRolls.isEmpty) return;
-    final selected = Map<String, PreparationOutputNote?>.of(_selectedRolls);
+    final targets = Map<String, _ProductionNoteTarget>.of(_selectedRolls);
     for (final roll in items.whereType<PreparationProductionRoll>()) {
-      if (selected.containsKey(roll.receiptName)) {
-        selected[roll.receiptName] = _rollNote(roll);
+      if (targets.containsKey(roll.receiptName)) {
+        targets[roll.receiptName] = _rollNoteTarget(roll);
       }
     }
-    final revisions =
-        selected.map((id, note) => MapEntry(id, note?.revision ?? 0));
-    final saved = await _editProductionNote<Map<String, PreparationOutputNote>>(
+    final saved = await _editProductionNote(
       context,
       title: 'Rulon eslatmasi',
-      description: '${selected.length} ta tanlangan rulonga eslatma qo‘yiladi.',
-      existing: selected.values.toList(growable: false),
+      description: '${targets.length} ta rulon tanlandi.',
+      targetName: 'rulon',
+      targets: targets,
       currentAccount: () => mounted && currentAccount,
-      save: (text, audience) => MobileApi.instance.savePreparationRollNotes(
-        revisions, text, audience: audience,
-      ),
+      save: MobileApi.instance.savePreparationRollNotes,
       refresh: () => unawaited(load()),
     );
     if (!mounted || !currentAccount || saved == null) return;
@@ -159,45 +171,57 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
   }
 }
 
+_ProductionNoteTarget _batchNoteTarget(
+  PreparationProductionBatch batch,
+  PreparationOutputNote? note,
+) =>
+    (
+      label: [
+        batch.displayItem,
+        _date(batch.startedAt),
+        batch.batchCode.isNotEmpty ? batch.batchCode : batch.id,
+      ].where((part) => part.isNotEmpty).join(' • '),
+      note: note,
+    );
+
 Future<Map<String, PreparationOutputNote>?> _editProductionBatchNotes(
   BuildContext context, {
-  required Map<String, PreparationOutputNote?> notes,
+  required Map<String, _ProductionNoteTarget> targets,
   required bool Function() currentAccount,
   required VoidCallback refresh,
 }) =>
-    _editProductionNote<Map<String, PreparationOutputNote>>(
+    _editProductionNote(
       context,
       title: 'Batch eslatmasi',
-      description: notes.length == 1
+      description: targets.length == 1
           ? 'Eslatma shu batchdagi har bir asl rulon kesilguncha amal qiladi.'
-          : 'Eslatma tanlangan ${notes.length} ta batchga saqlanadi. '
-              'Asl rulonlar kesilguncha amal qiladi.',
-      existing: notes.values.toList(growable: false),
+          : '${targets.length} ta batch tanlandi. '
+              'Eslatma asl rulonlar kesilguncha amal qiladi.',
+      targetName: 'batch',
+      targets: targets,
       currentAccount: currentAccount,
-      save: (text, audience) => MobileApi.instance.savePreparationBatchNotes(
-        notes.map((id, note) => MapEntry(id, note?.revision ?? 0)),
-        text,
-        audience: audience,
-      ),
+      save: MobileApi.instance.savePreparationBatchNotes,
       refresh: refresh,
     );
 
-Future<T?> _editProductionNote<T>(
+Future<Map<String, PreparationOutputNote>?> _editProductionNote(
   BuildContext context, {
   required String title,
   required String description,
-  required List<PreparationOutputNote?> existing,
+  required String targetName,
+  required Map<String, _ProductionNoteTarget> targets,
   required bool Function() currentAccount,
-  required Future<T> Function(String?, PreparationNoteAudience?) save,
+  required _SaveProductionNotes save,
   required VoidCallback refresh,
 }) async {
-  final saved = await showDialog<T>(
+  final saved = await showDialog<Map<String, PreparationOutputNote>>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => _ProductionNoteDialog<T>(
+    builder: (_) => _ProductionNoteDialog(
       title: title,
       description: description,
-      existing: existing,
+      targetName: targetName,
+      targets: targets,
       currentAccount: currentAccount,
       save: save,
       refresh: refresh,
@@ -213,30 +237,32 @@ Future<T?> _editProductionNote<T>(
   return saved;
 }
 
-class _ProductionNoteDialog<T> extends StatefulWidget {
-  const _ProductionNoteDialog(
-      {required this.title,
-      required this.description,
-      required this.existing,
-      required this.currentAccount,
-      required this.save,
-      required this.refresh});
+class _ProductionNoteDialog extends StatefulWidget {
+  const _ProductionNoteDialog({
+    required this.title,
+    required this.description,
+    required this.targetName,
+    required this.targets,
+    required this.currentAccount,
+    required this.save,
+    required this.refresh,
+  });
 
-  final String title, description;
-  final List<PreparationOutputNote?> existing;
+  final String title, description, targetName;
+  final Map<String, _ProductionNoteTarget> targets;
   final bool Function() currentAccount;
-  final Future<T> Function(String?, PreparationNoteAudience?) save;
+  final _SaveProductionNotes save;
   final VoidCallback refresh;
 
   @override
-  State<_ProductionNoteDialog<T>> createState() =>
-      _ProductionNoteDialogState<T>();
+  State<_ProductionNoteDialog> createState() => _ProductionNoteDialogState();
 }
 
-class _ProductionNoteDialogState<T> extends State<_ProductionNoteDialog<T>> {
-  late final _existingText = widget.existing.map((note) => note?.text ?? '').toSet();
-  late final _existingAudiences = widget.existing
-      .map((note) => note?.audience ?? const PreparationNoteAudience.all())
+class _ProductionNoteDialogState extends State<_ProductionNoteDialog> {
+  late final _existingText =
+      widget.targets.values.map((target) => target.note?.text ?? '').toSet();
+  late final _existingAudiences = widget.targets.values
+      .map((target) => target.note?.audience ?? const PreparationNoteAudience.all())
       .toSet();
   late final _controller = TextEditingController(
     text: _existingText.length == 1 ? _existingText.single : '',
@@ -278,14 +304,32 @@ class _ProductionNoteDialogState<T> extends State<_ProductionNoteDialog<T>> {
     }
   }
 
-  Future<void> _submit() async {
+  bool _hasExistingText(_ProductionNoteTarget target) =>
+      target.note?.text.trim().isNotEmpty == true;
+
+  List<_ProductionNoteTarget> get _overwrittenNotes {
+    final text = _textUpdate;
+    if (text == null || widget.targets.length < 2) return const [];
+    return widget.targets.values
+        .where((target) => _hasExistingText(target) && target.note!.text != text)
+        .toList(growable: false);
+  }
+
+  Future<void> _submit({bool onlyWithoutNotes = false}) async {
     if (!_canSave) return;
+    final revisions = {
+      for (final entry in widget.targets.entries)
+        if (!onlyWithoutNotes || !_hasExistingText(entry.value))
+          entry.key: entry.value.note?.revision ?? 0,
+    };
+    if (revisions.isEmpty) return;
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      final saved = await widget.save(_textUpdate, _audienceUpdate);
+      final saved =
+          await widget.save(revisions, _textUpdate, audience: _audienceUpdate);
       if (mounted && widget.currentAccount()) Navigator.of(context).pop(saved);
     } catch (error) {
       if (!mounted || !widget.currentAccount()) return;
@@ -316,8 +360,54 @@ class _ProductionNoteDialogState<T> extends State<_ProductionNoteDialog<T>> {
     });
   }
 
+  Widget _overwriteWarning(List<_ProductionNoteTarget> overwritten) {
+    final scheme = Theme.of(context).colorScheme;
+    final operation = _text.isEmpty ? 'o‘chiriladi' : 'almashtiriladi';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ExpansionTile(
+        key: const ValueKey('production-note-overwrite-warning'),
+        leading: const Icon(Icons.warning_amber_rounded),
+        iconColor: scheme.onTertiaryContainer,
+        collapsedIconColor: scheme.onTertiaryContainer,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        title: UrduAwareText(
+          '${widget.targets.length} ta ${widget.targetName}dan '
+          '${overwritten.length} tasining eslatmasi $operation.',
+          style: TextStyle(color: scheme.onTertiaryContainer),
+        ),
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        childrenPadding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 12),
+        children: [
+          for (final target in overwritten)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: UrduAwareText(
+                target.label,
+                style: TextStyle(color: scheme.onTertiaryContainer),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => PopScope(
+  Widget build(BuildContext context) {
+    final overwritten = _overwrittenNotes;
+    final canWriteOnlyWithoutNotes = overwritten.isNotEmpty &&
+        _text.isNotEmpty &&
+        widget.targets.values.any((target) => !_hasExistingText(target));
+    final saveLabel = overwritten.isEmpty
+        ? 'Saqlash'
+        : _text.isEmpty
+            ? 'Hammasidan o‘chirish'
+            : 'Hammasiga yozish';
+    return PopScope(
         canPop: !_saving,
         child: AlertDialog(
           title: UrduAwareText(widget.title),
@@ -348,6 +438,10 @@ class _ProductionNoteDialogState<T> extends State<_ProductionNoteDialog<T>> {
                           : null),
                 ),
               ),
+              if (overwritten.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _overwriteWarning(overwritten),
+              ],
               ListTile(
                 key: const ValueKey('production-note-audience'),
                 contentPadding: EdgeInsets.zero,
@@ -384,14 +478,21 @@ class _ProductionNoteDialogState<T> extends State<_ProductionNoteDialog<T>> {
               onPressed: _saving ? null : () => Navigator.of(context).pop(),
               child: const UrduAwareText('Bekor qilish'),
             ),
+            if (canWriteOnlyWithoutNotes)
+              TextButton(
+                key: const ValueKey('production-note-save-without-notes'),
+                onPressed: _canSave ? () => _submit(onlyWithoutNotes: true) : null,
+                child: const UrduAwareText('Faqat eslatmasi yo‘qlariga yozish'),
+              ),
             FilledButton(
               key: const ValueKey('production-note-save'),
               onPressed: _canSave ? _submit : null,
-              child: UrduAwareText(_saving ? 'Saqlanmoqda…' : 'Saqlash'),
+              child: UrduAwareText(_saving ? 'Saqlanmoqda…' : saveLabel),
             ),
           ],
         ),
       );
+  }
 
   @override
   void dispose() {

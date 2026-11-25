@@ -1057,6 +1057,99 @@ void main() {
     });
   });
 
+  testWidgets('roll note warning lists replacements and saves only to blank notes',
+      (tester) async {
+    const secondEpc = '303132333435363738394143';
+    const thirdEpc = '303132333435363738394144';
+    const text = 'Enini 120 mm qilib kesish';
+    const existing = {'text': 'Faqat grenki uchun', 'revision': 1};
+    final rows = [
+      {..._roll(), 'roll_note': existing},
+      {
+        ..._roll(),
+        'epc': secondEpc,
+        'receipt_name': 'MAT-TRACE-2',
+        'batch_note': {'text': 'Batch eslatmasi', 'revision': 1},
+        'roll_note': {'text': '', 'revision': 2},
+      },
+      {
+        ..._roll(),
+        'epc': thirdEpc,
+        'receipt_name': 'MAT-TRACE-3',
+        'roll_note': {'text': text, 'revision': 1},
+      },
+    ];
+    var writes = 0;
+    await _withApp(tester, () async {
+      tester.view.physicalSize = const Size(320, 680);
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-view-rolls')));
+      await tester.pumpAndSettle();
+
+      final first = find.byKey(const ValueKey('production-roll:$_epc'));
+      final second = find.byKey(const ValueKey('production-roll:$secondEpc'));
+      final third = find.byKey(const ValueKey('production-roll:$thirdEpc'));
+      await tester.longPress(first);
+      await tester.pumpAndSettle();
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(third);
+      await tester.tap(third);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Eslatma qo‘shish'));
+      await tester.pumpAndSettle();
+
+      final warning = find.byKey(const ValueKey('production-note-overwrite-warning'));
+      expect(warning, findsNothing);
+      await tester.enterText(
+        find.byKey(const ValueKey('production-note-input')),
+        text,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('3 ta rulondan 1 tasining eslatmasi almashtiriladi.'),
+          findsOneWidget);
+      await tester.ensureVisible(warning);
+      await tester.tap(warning);
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: warning, matching: find.textContaining(_epc)),
+          findsOneWidget);
+      expect(find.descendant(of: warning, matching: find.textContaining(secondEpc)),
+          findsNothing);
+      expect(find.descendant(of: warning, matching: find.textContaining(thirdEpc)),
+          findsNothing);
+      expect(writes, 0);
+
+      await tester.tap(find.text('Faqat eslatmasi yo‘qlariga yozish'));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(find.widgetWithText(MaterialBanner, 'Eslatma saqlandi'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, (request) {
+      if (request.url.path.endsWith('/production/rolls')) {
+        return _json({'rolls': rows, 'has_more': false});
+      }
+      if (request.url.path.endsWith('/production/notes')) {
+        expect(request.method, 'PATCH');
+        expect(jsonDecode(request.body), {
+          'scope': 'rolls',
+          'rolls': [
+            {'receipt_name': 'MAT-TRACE-2', 'expected_revision': 2},
+          ],
+          'text': text,
+        });
+        writes++;
+        final saved = {'text': text, 'revision': 3};
+        rows[1]['roll_note'] = saved;
+        return _json({'notes': {'MAT-TRACE-2': saved}});
+      }
+      return _route(request);
+    });
+  });
+
   testWidgets('journal FAB attaches selected order rolls and releases their original QR',
       (tester) async {
     const code = 'XP-ABCDEF0123456789';
@@ -1197,6 +1290,7 @@ void main() {
       (tester) async {
     const batchId = 'batch:lg';
     const otherId = 'batch:other';
+    const batchCode = 'B-0317';
     const audience = {'mode': 'roles', 'roles': ['rezka_master']};
     final notes = <String, Map<String, dynamic>>{
       batchId: {
@@ -1244,8 +1338,18 @@ void main() {
       expect(tester.widget<TextField>(input).controller!.text, isEmpty);
       expect(find.text('Turli rollar tanlangan'), findsOneWidget);
       await tester.enterText(input, 'Enini 120 mm qilib kesish');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('production-note-save')));
+      await tester.pumpAndSettle();
+      final warning = find.byKey(const ValueKey('production-note-overwrite-warning'));
+      expect(find.text('2 ta batchdan 1 tasining eslatmasi almashtiriladi.'),
+          findsOneWidget);
+      expect(find.text('Faqat eslatmasi yo‘qlariga yozish'), findsOneWidget);
+      expect(notes[batchId]!['revision'], 1);
+      expect(notes.containsKey(otherId), isFalse);
+      await tester.tap(warning);
+      await tester.pumpAndSettle();
+      expect(find.textContaining(batchCode), findsOneWidget);
+      expect(find.textContaining(otherId), findsNothing);
+      await tester.tap(find.text('Hammasiga yozish'));
       await tester.pumpAndSettle();
       expect(notes[batchId]!['revision'], 2);
       expect(notes[otherId]!['revision'], 1);
@@ -1261,6 +1365,7 @@ void main() {
       final batch = {
         ..._batch(recipe: null),
         'batch_id': batchId,
+        'batch_code': batchCode,
         'batch_note': notes[batchId],
       };
       switch (request.url.path.split('/').last) {

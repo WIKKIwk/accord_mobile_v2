@@ -87,6 +87,7 @@ class PreparationProductionOrder extends PreparationProductionRow {
 class PreparationProductionBatch extends PreparationProductionRow {
   PreparationProductionBatch.fromJson(Map<String, dynamic> json)
       : id = _identity(json, 'batch_id'),
+        batchCode = _text(json, 'batch_code'),
         orderId = _text(json, 'order_id'),
         orderCode = _text(json, 'order_code'),
         orderTitle = _text(json, 'order_title'),
@@ -103,6 +104,7 @@ class PreparationProductionBatch extends PreparationProductionRow {
         formula = _recipe(json),
         note = PreparationOutputNote.fromJson(json['batch_note']);
   final String id,
+      batchCode,
       orderId,
       orderCode,
       orderTitle,
