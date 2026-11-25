@@ -39,6 +39,7 @@ class RpsQrReprintSheet extends StatefulWidget {
     this.onDelete,
     this.deleteButtonKey,
     this.deleteButtonLabel = 'QRni o‘chirish',
+    this.showInlineDragHandle = true,
     this.showCloseButton = true,
   });
 
@@ -66,6 +67,7 @@ class RpsQrReprintSheet extends StatefulWidget {
   final Future<void> Function()? onDelete;
   final Key? deleteButtonKey;
   final String deleteButtonLabel;
+  final bool showInlineDragHandle;
   final bool showCloseButton;
 
   @override
@@ -172,23 +174,30 @@ class _RpsQrReprintSheetState extends State<RpsQrReprintSheet> {
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            widget.showInlineDragHandle ? 12 : 0,
+            20,
+            24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  key: const ValueKey('rps-qr-drag-handle'),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: scheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(999),
+              if (widget.showInlineDragHandle) ...[
+                Center(
+                  child: Container(
+                    key: const ValueKey('rps-qr-drag-handle'),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
+              ],
               Row(
                 children: [
                   Expanded(

@@ -1342,6 +1342,46 @@ void main() {
     }, (request) => _route(request));
   });
 
+  testWidgets('a batch roll sheet can be pulled down while scrolled',
+      (tester) async {
+    await _withApp(tester, () async {
+      tester.view.physicalSize = const Size(390, 640);
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-batch:batch-lg')));
+      await tester.pumpAndSettle();
+      final roll = find.byKey(const ValueKey('production-roll:$_epc'));
+      await tester.ensureVisible(roll);
+      await tester.tap(roll);
+      await tester.pumpAndSettle();
+
+      final sheet = find.byType(RpsQrReprintSheet);
+      final bottomSheet =
+          find.ancestor(of: sheet, matching: find.byType(BottomSheet));
+      final reprint =
+          find.byKey(const ValueKey('production-roll-reprint-$_epc'));
+      expect(find.descendant(of: sheet, matching: find.byTooltip('Yopish')),
+          findsNothing);
+      await tester.ensureVisible(reprint);
+      await tester.pumpAndSettle();
+      expect(Scrollable.of(tester.element(reprint)).position.pixels,
+          greaterThan(0));
+
+      final top = tester.getRect(bottomSheet).topCenter;
+      final drag = await tester.startGesture(
+          top + const Offset(0, kMinInteractiveDimension / 2));
+      await drag.moveBy(const Offset(0, 30));
+      await drag.moveBy(const Offset(0, 100));
+      await tester.pump();
+      expect(tester.getRect(bottomSheet).top, greaterThan(top.dy));
+      await drag.moveBy(const Offset(0, 320));
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+      expect(find.byType(PreparationProductionBatchScreen), findsOneWidget);
+    }, _route);
+  });
+
   for (final printFails in [false, true]) {
     testWidgets(
         'production roll QR reprints the existing label (failure: $printFails)',
@@ -1373,16 +1413,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('production-roll:$_epc')));
         await tester.pumpAndSettle();
-        final sheet = find.byType(RpsQrReprintSheet);
-        expect(sheet, findsOneWidget);
-        expect(find.descendant(of: sheet, matching: find.byTooltip('Yopish')),
-            findsNothing);
-        expect(
-            find.byKey(const ValueKey('rps-qr-drag-handle')), findsOneWidget);
-        final route =
-            ModalRoute.of(tester.element(sheet)) as ModalBottomSheetRoute;
-        expect(route.showDragHandle, isFalse);
-        expect(route.backgroundColor, Colors.transparent);
+        expect(find.byType(RpsQrReprintSheet), findsOneWidget);
         final reprint =
             find.byKey(const ValueKey('production-roll-reprint-$_epc'));
         await tester.ensureVisible(reprint);
@@ -1393,12 +1424,6 @@ void main() {
         expect((printCalls.single.arguments as Map)['epc'], _epc);
         expect(confirmed, !printFails);
         if (printFails) expect(find.text('Printer ulanmagan'), findsOneWidget);
-        await tester
-            .ensureVisible(find.byKey(const ValueKey('rps-qr-drag-handle')));
-        await tester.drag(find.byKey(const ValueKey('rps-qr-drag-handle')),
-            const Offset(0, 700));
-        await tester.pumpAndSettle();
-        expect(sheet, findsNothing);
       }, (request) {
         if (request.url.path.endsWith('/reprint/prepare')) {
           expect(jsonDecode(request.body),

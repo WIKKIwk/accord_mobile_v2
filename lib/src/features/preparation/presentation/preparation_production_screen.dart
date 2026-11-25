@@ -1062,11 +1062,15 @@ Future<void> _showRoll(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    showDragHandle: false,
-    backgroundColor: Colors.transparent,
+    showDragHandle: true,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+    ),
     builder: (sheetContext) => RpsQrReprintSheet(
       payload: roll.epc,
       itemName: roll.itemName.isEmpty ? roll.itemCode : roll.itemName,
+      showInlineDragHandle: false,
       showCloseButton: false,
       reprintButtonKey: ValueKey('production-roll-reprint-${roll.epc}'),
       onReprint: () => _reprintRoll(sheetContext, roll, orderId, scope),
