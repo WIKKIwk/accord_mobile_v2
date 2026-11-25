@@ -207,6 +207,9 @@ class PreparationPaddonSelection {
           ),
         ),
         skipped = Map<String, int>.unmodifiable(_object(json, 'skipped')),
+        transferWarehouses = Set<String>.unmodifiable(
+          (json['transfer_warehouses'] as List? ?? const []).cast<String>(),
+        ),
         packedRolls = json['packed_rolls'] == null
             ? const []
             : _items(json, 'packed_rolls', PreparationPackedRoll.fromJson) {
@@ -226,13 +229,16 @@ class PreparationPaddonSelection {
   final int totalRolls;
   final Map<String, List<String>> receiptNamesByWarehouse;
   final Map<String, int> skipped;
+  final Set<String> transferWarehouses;
   final List<PreparationPackedRoll> packedRolls;
 
   int get eligibleCount =>
       receiptNamesByWarehouse.values.fold(0, (sum, names) => sum + names.length);
 
   List<String> receiptsFor(String? warehouse) =>
-      receiptNamesByWarehouse[warehouse] ?? const [];
+      transferWarehouses.contains(warehouse)
+          ? receiptNamesByWarehouse.values.expand((names) => names).toList()
+          : receiptNamesByWarehouse[warehouse] ?? const [];
 }
 
 class PreparationPackedRoll {

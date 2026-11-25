@@ -62,6 +62,9 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   bool get _fromBatches => widget.batchIds.isNotEmpty;
   PreparationMaterialPaddon? get _selectedPaddon =>
       _paddons.where((paddon) => paddon.code == _selectedCode).firstOrNull;
+  bool get _transfersToSelected =>
+      _selection?.transferWarehouses.contains(_selectedPaddon?.warehouse) ??
+      false;
   List<String> get _selectedReceipts {
     if (_selection case final selection?) {
       return selection.receiptsFor(_selectedPaddon?.warehouse);
@@ -262,7 +265,14 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
       _error = null;
     });
     try {
-      await _api.attachPreparationRollsToPaddon(code, names, batchIds: batchIds);
+      await _api.attachPreparationRollsToPaddon(
+        code,
+        names,
+        batchIds: batchIds,
+        transferBetweenWarehouses: pending == null
+            ? _transfersToSelected
+            : pending.payload['transfer_between_warehouses'] == true,
+      );
       if (_current) {
         Navigator.of(context).pop(
           (code: code, receiptNames: names, batchIds: batchIds),
@@ -341,6 +351,13 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
               _ => 'rulon band yoki biriktirib bo‘lmaydi',
             }}'),
         if (elsewhere > 0) UrduAwareText('$elsewhere ta rulon boshqa omborda'),
+        if (selected != null && _transfersToSelected)
+          for (final entry in selection.receiptNamesByWarehouse.entries)
+            if (entry.key != selected.warehouse)
+              UrduAwareText(
+                '${entry.key} → ${selected.warehouse} • '
+                '${entry.value.length} ta rulon ko‘chiriladi',
+              ),
       ],
     );
   }
@@ -474,9 +491,11 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   ? 'Biriktirilmoqda…'
                   : pending != null
                       ? 'Natijani tekshirish'
-                      : partial
-                          ? 'Yaroqli rulonlarni biriktirish'
-                          : 'Biriktirish',
+                      : _transfersToSelected
+                          ? 'Ko‘chirish va biriktirish'
+                          : partial
+                              ? 'Yaroqli rulonlarni biriktirish'
+                              : 'Biriktirish',
             ),
           ),
         ],

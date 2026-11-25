@@ -170,9 +170,10 @@ extension MobileApiMaterialPaddons on MobileApi {
         '${MobileApi.baseUrl}/v1/mobile/preparation/production/paddon-options',
       );
       return _post(
-        previewPartial
-            ? uri.replace(queryParameters: {'preview_partial': 'true'})
-            : uri,
+        uri.replace(queryParameters: {
+          'transfer_between_warehouses': 'true',
+          if (previewPartial) 'preview_partial': 'true',
+        }),
         headers: _headers(requireToken())..['Content-Type'] = 'application/json',
         body: jsonEncode(payload),
       );
@@ -185,6 +186,7 @@ extension MobileApiMaterialPaddons on MobileApi {
     String code,
     List<String> receiptNames, {
     List<String> batchIds = const [],
+    bool transferBetweenWarehouses = false,
   }) async {
     final receipts = receiptNames.toList()..sort();
     await _submitPreparationCommand(
@@ -194,6 +196,7 @@ extension MobileApiMaterialPaddons on MobileApi {
         'code': code,
         'receipt_names': receipts,
         ..._paddonBatchTargets(batchIds),
+        if (transferBetweenWarehouses) 'transfer_between_warehouses': true,
       },
       storageKey: _paddonAttachmentKey,
       validateResult: (result) {

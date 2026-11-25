@@ -1672,17 +1672,18 @@ void main() {
     });
   });
 
-  testWidgets('existing paddon search selects a compatible result from the catalog',
+  testWidgets('existing paddon search can select a destination for a roll transfer',
       (tester) async {
     const code = 'XP-ABCDEF0123456789';
     const otherCode = 'XP-ABCDEF012345678A';
     const warehouse = 'Ibrohim W';
+    const destination = 'Qadoqlash W';
     const receipt = 'MAT-TRACE-1';
     const target = {
       'paddon_id': 'p-existing',
       'paddon_code': code,
       'name': 'PE zaxirasi',
-      'warehouse': warehouse,
+      'warehouse': destination,
       'remaining_kg': '0',
       'contents': [],
     };
@@ -1738,6 +1739,9 @@ void main() {
       await tester.pumpAndSettle();
       final chosen = find.byKey(const ValueKey('production-attach-paddon-$code'));
       expect(tester.widget<ListTile>(chosen).selected, isTrue);
+      expect(find.text('$warehouse → $destination • 1 ta rulon ko‘chiriladi'),
+          findsOneWidget);
+      expect(find.text('Ko‘chirish va biriktirish'), findsOneWidget);
       expect(writes, 0);
       await tester.tap(find.byKey(const ValueKey('production-attach-paddon-save')));
       await tester.pumpAndSettle();
@@ -1749,11 +1753,13 @@ void main() {
         case 'rolls':
           return _json({'rolls': [_roll()], 'has_more': false});
         case 'paddon-options':
+          expect(request.url.queryParameters['transfer_between_warehouses'], 'true');
           return _json({
             'paddons': [{
               ...target,
               'paddon_id': 'p-first-page',
               'paddon_code': 'XP-ABCDEF012345678B',
+              'warehouse': warehouse,
             }],
             'has_more': true,
             'next_offset': 50,
@@ -1761,6 +1767,7 @@ void main() {
               'batch_ids': [],
               'total_rolls': 1,
               'receipt_names_by_warehouse': {warehouse: [receipt]},
+              'transfer_warehouses': [destination],
               'skipped': {},
               'packed_rolls': [],
             },
@@ -1777,6 +1784,7 @@ void main() {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['code'], code);
           expect(body['receipt_names'], [receipt]);
+          expect(body['transfer_between_warehouses'], isTrue);
           writes++;
           return _json({'paddon_code': code, 'receipt_names': [receipt]});
         default:
