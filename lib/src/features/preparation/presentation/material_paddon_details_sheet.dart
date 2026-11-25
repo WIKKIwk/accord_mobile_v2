@@ -156,91 +156,212 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        top: false,
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: UrduAwareText(_paddon.title,
-                  style: Theme.of(context).textTheme.titleLarge),
-              subtitle: UrduAwareText([
-                _paddon.warehouse,
-                if (_paddon.name.isNotEmpty) _paddon.code,
-                materialPaddonBalance(_paddon),
-              ].join(' • ')),
-            ),
-            Center(
-              child: QrImageView(
-                data: _paddon.qrPayload,
-                size: 144,
-                backgroundColor: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: OutlinedButton.icon(
-                key: const ValueKey('paddon-print-qr'),
-                onPressed: _busy ? null : _printParent,
-                icon: const Icon(Icons.print_outlined),
-                label: const UrduAwareText('Paddon QR chiqarish'),
-              ),
-            ),
-            if (_canIssue)
-              FutureBuilder<PreparationPendingCommand?>(
-                future: _pending,
-                builder: (context, snapshot) {
-                  final recover =
-                      snapshot.data?.payload['code'] == _paddon.code;
-                  final hasUnits = _paddon.contents.any(
-                      (item) => item.lineNo != null && item.availableCount > 0);
-                  if (!hasUnits && !recover) return const SizedBox.shrink();
-                  return FilledButton.icon(
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return SafeArea(
+      top: false,
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+        children: [
+          UrduAwareText(_paddon.title, style: textTheme.titleLarge),
+          const SizedBox(height: 12),
+          _PaddonOverview(_paddon),
+          const SizedBox(height: 16),
+          if (_canIssue)
+            FutureBuilder<PreparationPendingCommand?>(
+              future: _pending,
+              builder: (context, snapshot) {
+                final recover = snapshot.data?.payload['code'] == _paddon.code;
+                final hasUnits = _paddon.contents.any(
+                  (item) => item.lineNo != null && item.availableCount > 0,
+                );
+                if (!hasUnits && !recover) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: FilledButton.icon(
                     key: const ValueKey('paddon-open-issue'),
                     onPressed: _busy ? null : _issue,
                     icon: const Icon(Icons.outbox_outlined),
-                    label: UrduAwareText(recover
-                        ? 'Chiqim natijasini tekshirish'
-                        : 'Paddondan yechib olish'),
-                  );
-                },
-              ),
-            for (final item in _paddon.contents)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: UrduAwareText(item.itemName),
-                subtitle: UrduAwareText([
-                  if (item.lotNumber.isNotEmpty) 'Partiya: ${item.lotNumber}',
-                  if (item.openUnitNo != null)
-                    'Ochilgan ${item.unit} №${item.openUnitNo}',
-                  if (item.widthMm != null)
-                    '${preparationDisplay(item.widthMm!)} mm',
-                  if (item.micron != null)
-                    '${preparationDisplay(item.micron!)} mkm',
-                  if (item.remainingCount case final count?)
-                    '$count ta ${item.unit}',
-                  if (item.openUnitNo == null && item.unitKg != null)
-                    '${preparationDisplay(item.unitKg!)} kg dan',
-                  if (item.remainingCount != null &&
-                      item.availableCount < item.remainingCount!)
-                    'Band: ${item.remainingCount! - item.availableCount} ta',
-                  if (item.unweighedCount > 0)
-                    'Vazni tortilmagan'
-                  else
-                    '${preparationDisplay(item.remainingKg)} kg',
-                ].join(' • ')),
-              ),
-            TextButton.icon(
-              key: const ValueKey('paddon-issue-history'),
-              onPressed: _busy ? null : _showHistory,
-              icon: const Icon(Icons.history_rounded),
-              label: const UrduAwareText('Chiqimlar va yorliqlar'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    label: UrduAwareText(
+                      recover
+                          ? 'Chiqim natijasini tekshirish'
+                          : 'Paddondan yechib olish',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              },
             ),
+          OutlinedButton.icon(
+            key: const ValueKey('paddon-print-qr'),
+            onPressed: _busy ? null : _printParent,
+            icon: const Icon(Icons.print_outlined),
+            label: const UrduAwareText('Paddon QR chiqarish'),
+          ),
+          if (_paddon.contents.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            UrduAwareText('Xomashyo', style: textTheme.titleSmall),
+            const SizedBox(height: 8),
+            for (final (index, item) in _paddon.contents.indexed) ...[
+              if (index > 0) const SizedBox(height: 8),
+              _PaddonContentRow(item),
+            ],
+          ],
+          const SizedBox(height: 12),
+          TextButton.icon(
+            key: const ValueKey('paddon-issue-history'),
+            onPressed: _busy ? null : _showHistory,
+            icon: const Icon(Icons.history_rounded),
+            label: const UrduAwareText('Chiqimlar va yorliqlar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaddonOverview extends StatelessWidget {
+  const _PaddonOverview(this.paddon);
+
+  final PreparationMaterialPaddon paddon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final qr = ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: QrImageView(
+        data: paddon.qrPayload,
+        size: 144,
+        backgroundColor: Colors.white,
+      ),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        UrduAwareText(
+          materialPaddonBalance(paddon),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        UrduAwareText(
+          paddon.warehouse,
+          style: theme.textTheme.bodyMedium,
+        ),
+        if (paddon.name.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            paddon.code,
+            textDirection: TextDirection.ltr,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontal = constraints.maxWidth >= 288;
+            return Flex(
+              direction: horizontal ? Axis.horizontal : Axis.vertical,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                qr,
+                const SizedBox(width: 14, height: 12),
+                if (horizontal) Expanded(child: details) else details,
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PaddonContentRow extends StatelessWidget {
+  const _PaddonContentRow(this.item);
+
+  final PreparationPaddonContent item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final specifications = [
+      if (item.lotNumber.isNotEmpty) 'Partiya: ${item.lotNumber}',
+      if (item.widthMm case final width?) '${preparationDisplay(width)} mm',
+      if (item.micron case final micron?) '${preparationDisplay(micron)} mkm',
+    ];
+    final count = item.remainingCount;
+    final stock = [
+      if (item.openUnitNo case final number?) 'Ochilgan ${item.unit} №$number',
+      if (count != null) '$count ta ${item.unit}',
+      if (item.openUnitNo == null && item.unitKg != null)
+        '${preparationDisplay(item.unitKg!)} kg dan',
+      if (count != null && item.availableCount < count)
+        'Band: ${count - item.availableCount} ta',
+    ];
+    final balance = item.unweighedCount > 0
+        ? 'Vazni tortilmagan'
+        : 'Jami ${preparationDisplay(item.remainingKg)} kg';
+    return Card.filled(
+      color: theme.colorScheme.surfaceContainerLowest,
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                UrduAwareText(item.itemName, style: theme.textTheme.titleMedium),
+                UrduAwareText(balance, style: theme.textTheme.labelLarge),
+              ],
+            ),
+            if (specifications.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              UrduAwareText(
+                specifications.join(' • '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (stock.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              UrduAwareText(
+                stock.join(' • '),
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
           ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _MaterialPaddonIssueHistory extends StatefulWidget {

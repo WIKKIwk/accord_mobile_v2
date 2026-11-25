@@ -266,9 +266,22 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('preparation-paddon:p1')));
       await tester.pumpAndSettle();
       expect(
-          find.widgetWithText(ListTile, 'Granula zaxirasi'), findsOneWidget);
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('Granula zaxirasi'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Granula'), findsOneWidget);
-      expect(find.text('Partiya: LOT-1 • 3 ta qop • 75 kg'), findsOneWidget);
+      expect(find.text('Partiya: LOT-1'), findsOneWidget);
+      expect(find.text('3 ta qop'), findsOneWidget);
+      expect(find.text('Jami 75 kg'), findsOneWidget);
+      final issue = find.byKey(const ValueKey('paddon-open-issue'));
+      final print = find.byKey(const ValueKey('paddon-print-qr'));
+      expect(
+        tester.getRect(print).top - tester.getRect(issue).bottom,
+        greaterThanOrEqualTo(8),
+      );
       await tester.tapAt(const Offset(12, 12));
       await tester.pumpAndSettle();
 
@@ -315,6 +328,7 @@ void main() {
                   'item_name': 'Granula',
                   'lot_number': 'LOT-1',
                   'kind': 'bag',
+                  'line_no': 1,
                   'remaining_count': 3,
                   'remaining_kg': '75.000000',
                 },
