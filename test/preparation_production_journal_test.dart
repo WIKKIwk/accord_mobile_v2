@@ -8,6 +8,7 @@ import 'package:accord_mobile_v2/src/core/printing/session_bluetooth_printer.dar
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/widgets/feedback/m3_confirm_dialog.dart';
 import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
@@ -660,6 +661,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Mos paddon topilmadi.'), findsOneWidget);
+      expect(find.text('Mavjud paddonni topish'), findsOneWidget);
       expect(find.text('$warehouse • 2 ta rulon'), findsOneWidget);
       expect(find.text('$otherWarehouse • 1 ta rulon'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('production-open-paddon-$warehouse')));
@@ -1664,6 +1666,119 @@ void main() {
           expect(body['request_id'], isNotEmpty);
           writes++;
           return _json({'paddon_code': targetCode, 'receipt_names': [freeReceipt]});
+        default:
+          return _route(request);
+      }
+    });
+  });
+
+  testWidgets('existing paddon search selects a compatible result from the catalog',
+      (tester) async {
+    const code = 'XP-ABCDEF0123456789';
+    const otherCode = 'XP-ABCDEF012345678A';
+    const warehouse = 'Ibrohim W';
+    const receipt = 'MAT-TRACE-1';
+    const target = {
+      'paddon_id': 'p-existing',
+      'paddon_code': code,
+      'name': 'PE zaxirasi',
+      'warehouse': warehouse,
+      'remaining_kg': '0',
+      'contents': [],
+    };
+    const elsewhere = {
+      'paddon_id': 'p-other',
+      'paddon_code': otherCode,
+      'name': 'Seryo zaxirasi',
+      'warehouse': 'Seryo W',
+      'remaining_kg': '0',
+      'contents': [],
+    };
+    final queries = <String>[];
+    var writes = 0;
+    await _withApp(tester, () async {
+      tester.view.physicalSize = const Size(390, 780);
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-view-rolls')));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('production-roll:$_epc')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+
+      final title = find.text('Paddonga biriktirish');
+      final surface = find.ancestor(
+        of: title,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Material && widget.type == MaterialType.card,
+        ),
+      ).first;
+      expect(tester.getSize(surface).width, 390 - m3DialogInsetPadding.horizontal);
+      await tester.tap(find.byKey(const ValueKey('production-find-existing-paddon')));
+      await tester.pumpAndSettle();
+
+      final search = find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(search, 'Seryo zaxirasi');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      final incompatible = find.byKey(const ValueKey('production-existing-paddon-$otherCode'));
+      expect(tester.widget<AdminCatalogListRow>(incompatible).onTap, isNull);
+      expect(find.textContaining('Bu omborda yaroqli rulon yo‘q'), findsOneWidget);
+
+      await tester.enterText(search, code);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-existing-paddon-$code')));
+      await tester.pumpAndSettle();
+      final chosen = find.byKey(const ValueKey('production-attach-paddon-$code'));
+      expect(tester.widget<ListTile>(chosen).selected, isTrue);
+      expect(writes, 0);
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-save')));
+      await tester.pumpAndSettle();
+      expect(writes, 1);
+      expect(queries, containsAllInOrder(['Seryo zaxirasi', code]));
+      expect(find.text('1 ta rulon $code paddoniga biriktirildi'), findsOneWidget);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'rolls':
+          return _json({'rolls': [_roll()], 'has_more': false});
+        case 'paddon-options':
+          return _json({
+            'paddons': [{
+              ...target,
+              'paddon_id': 'p-first-page',
+              'paddon_code': 'XP-ABCDEF012345678B',
+            }],
+            'has_more': true,
+            'next_offset': 50,
+            'roll_selection': {
+              'batch_ids': [],
+              'total_rolls': 1,
+              'receipt_names_by_warehouse': {warehouse: [receipt]},
+              'skipped': {},
+              'packed_rolls': [],
+            },
+          });
+        case 'raw-material-paddons':
+          expect(request.method, 'GET');
+          final query = request.url.queryParameters['q']!;
+          queries.add(query);
+          return _json({
+            'paddons': [if (query == code) target else elsewhere],
+            'has_more': false,
+          });
+        case 'paddon-attach':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['code'], code);
+          expect(body['receipt_names'], [receipt]);
+          writes++;
+          return _json({'paddon_code': code, 'receipt_names': [receipt]});
         default:
           return _route(request);
       }

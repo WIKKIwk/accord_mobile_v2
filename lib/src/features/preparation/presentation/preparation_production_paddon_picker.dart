@@ -56,7 +56,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   PreparationPaddonSelection? _selection;
   String? _selectedCode, _error;
   int? _nextOffset;
-  bool _loading = false, _saving = false, _creatingPaddon = false;
+  bool _loading = false, _saving = false, _paddonDialogOpen = false;
 
   bool get _current => mounted && widget.currentAccount();
   bool get _fromBatches => widget.batchIds.isNotEmpty;
@@ -143,9 +143,89 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     }
   }
 
+  String _paddonSubtitle(PreparationMaterialPaddon paddon) => [
+        paddon.warehouse,
+        if (paddon.name.isNotEmpty) paddon.code,
+        materialPaddonBalance(paddon),
+      ].join(' • ');
+
+  Future<void> _findExistingPaddon(PreparationPaddonSelection selection) async {
+    if (!_current || _loading || _saving || _paddonDialogOpen) return;
+    setState(() => _paddonDialogOpen = true);
+    try {
+      final paddon = await showModalBottomSheet<PreparationMaterialPaddon>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        sheetAnimationStyle: kM3PickerSheetAnimation,
+        builder: (sheetContext) => M3AsyncPickerSheet<PreparationMaterialPaddon>(
+          title: 'Mavjud paddonlar',
+          hintText: 'Paddon nomi yoki kodi',
+          itemKey: (paddon) => paddon.code,
+          itemTitle: (paddon) => paddon.title,
+          itemSubtitle: _paddonSubtitle,
+          loadPage: (query, offset, _) async {
+            if (!_current) throw StateError('Akkaunt o‘zgargan');
+            final page = await _api.materialPaddons(query: query, offset: offset);
+            if (!_current) throw StateError('Akkaunt o‘zgargan');
+            return page.paddons;
+          },
+          onSelected: (value) => Navigator.of(sheetContext).pop(value),
+          listBuilder: (context, paddons, controller, loadingMore, select) =>
+              ListView.separated(
+            controller: controller,
+            shrinkWrap: true,
+            itemCount: paddons.length + (loadingMore ? 1 : 0),
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: M3SegmentedListGeometry.gap),
+            itemBuilder: (context, index) {
+              if (index == paddons.length) {
+                return const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Center(child: AppLoadingIndicator()),
+                );
+              }
+              final paddon = paddons[index];
+              final count = selection.receiptsFor(paddon.warehouse).length;
+              final compatible = count > 0;
+              final availability = compatible
+                  ? '$count ta rulon biriktiriladi'
+                  : 'Bu omborda yaroqli rulon yo‘q';
+              return AdminCatalogListRow(
+                key: ValueKey('production-existing-paddon-${paddon.code}'),
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                  index, paddons.length,
+                ),
+                icon: compatible ? Icons.inventory_2_outlined : Icons.block_rounded,
+                title: paddon.title,
+                titleMaxLines: 2,
+                subtitleMaxLines: 4,
+                subtitle: '${_paddonSubtitle(paddon)}\n$availability',
+                onTap: compatible ? () => select(paddon) : null,
+              );
+            },
+          ),
+        ),
+      );
+      if (!_current || paddon == null) return;
+      setState(() {
+        final index = _paddons.indexWhere((item) => item.code == paddon.code);
+        if (index < 0) {
+          _paddons.add(paddon);
+        } else {
+          _paddons[index] = paddon;
+        }
+        _selectedCode = paddon.code;
+      });
+    } finally {
+      if (_current) setState(() => _paddonDialogOpen = false);
+    }
+  }
+
   Future<void> _openEmptyPaddon(String warehouse) async {
-    if (!_current || _loading || _saving || _creatingPaddon) return;
-    setState(() => _creatingPaddon = true);
+    if (!_current || _loading || _saving || _paddonDialogOpen) return;
+    setState(() => _paddonDialogOpen = true);
     try {
       final result = await showMaterialPaddonReceipt(
         context,
@@ -158,12 +238,12 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
             : null,
       );
     } finally {
-      if (_current) setState(() => _creatingPaddon = false);
+      if (_current) setState(() => _paddonDialogOpen = false);
     }
   }
 
   Future<void> _save() async {
-    if (!_current || _loading || _saving || _creatingPaddon) return;
+    if (!_current || _loading || _saving || _paddonDialogOpen) return;
     final pending = _pending;
     final code = pending?.payload['code'] as String? ?? _selectedCode;
     if (code == null) return;
@@ -274,13 +354,14 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
         _selectedPaddon != null &&
         _selectedReceipts.length < selection.totalRolls;
     return PopScope(
-      canPop: !_saving && !_creatingPaddon,
+      canPop: !_saving && !_paddonDialogOpen,
       child: AlertDialog(
         title: const UrduAwareText('Paddonga biriktirish'),
         scrollable: true,
-        constraints: const BoxConstraints(maxWidth: 460),
+        insetPadding: m3DialogInsetPadding,
+        constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
         content: SizedBox(
-          width: 360,
+          width: m3DialogMaxWidth,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -297,6 +378,18 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                     '${widget.receiptNames.length} ta tanlangan rulon',
                   ),
                 const SizedBox(height: 8),
+                if (selection != null && selection.eligibleCount > 0)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('production-find-existing-paddon'),
+                      onPressed: _loading || _saving || _paddonDialogOpen
+                          ? null
+                          : () => _findExistingPaddon(selection),
+                      icon: const Icon(Icons.search_rounded),
+                      label: const UrduAwareText('Mavjud paddonni topish'),
+                    ),
+                  ),
                 for (final paddon in _paddons)
                   ListTile(
                     key: ValueKey('production-attach-paddon-${paddon.code}'),
@@ -308,12 +401,8 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                     ),
                     selected: _selectedCode == paddon.code,
                     title: UrduAwareText(paddon.title),
-                    subtitle: UrduAwareText([
-                      paddon.warehouse,
-                      if (paddon.name.isNotEmpty) paddon.code,
-                      materialPaddonBalance(paddon),
-                    ].join(' • ')),
-                    onTap: _loading || _saving || _creatingPaddon
+                    subtitle: UrduAwareText(_paddonSubtitle(paddon)),
+                    onTap: _loading || _saving || _paddonDialogOpen
                         ? null
                         : () => setState(() => _selectedCode = paddon.code),
                   ),
@@ -345,7 +434,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                         subtitle: UrduAwareText(
                           '${entry.key} • ${entry.value.length} ta rulon',
                         ),
-                        onTap: _saving || _creatingPaddon
+                        onTap: _saving || _paddonDialogOpen
                             ? null
                             : () => _openEmptyPaddon(entry.key),
                       ),
@@ -366,7 +455,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
         ),
         actions: [
           TextButton(
-            onPressed: _saving || _creatingPaddon
+            onPressed: _saving || _paddonDialogOpen
                 ? null
                 : () => Navigator.of(context).pop(),
             child: const UrduAwareText('Bekor qilish'),
@@ -375,7 +464,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
             key: const ValueKey('production-attach-paddon-save'),
             onPressed: _loading ||
                     _saving ||
-                    _creatingPaddon ||
+                    _paddonDialogOpen ||
                     (pending == null &&
                         (_selectedCode == null || _selectedReceipts.isEmpty))
                 ? null
