@@ -674,6 +674,14 @@ class _ProductionOrdersState
       );
 }
 
+Color _productionHeaderColor(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  return Color.alphaBlend(
+    scheme.primaryContainer.withValues(alpha: 0.6),
+    scheme.surfaceContainerLowest,
+  );
+}
+
 class _ProductionOrderState extends _JournalState<
     PreparationProductionOrderScreen, PreparationProductionBatch> {
   PreparationProductionOrder? _order;
@@ -721,6 +729,7 @@ class _ProductionOrderState extends _JournalState<
                     slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                         0, items.length + 1),
                     icon: Icons.receipt_long_outlined,
+                    backgroundColor: _productionHeaderColor(context),
                     title: order.title,
                     subtitle: [
                       order.customerName,
@@ -810,11 +819,7 @@ class _ProductionBatchState extends _JournalState<
   Widget build(BuildContext context) {
     final batch = _batch;
     final note = _batchNote;
-    final scheme = Theme.of(context).colorScheme;
-    final headerColor = Color.alphaBlend(
-      scheme.primaryContainer.withValues(alpha: 0.6),
-      scheme.surfaceContainerLowest,
-    );
+    final headerColor = _productionHeaderColor(context);
     final showNote = batch?.canAttachNote == true;
     final headerCount = batch == null
         ? 0

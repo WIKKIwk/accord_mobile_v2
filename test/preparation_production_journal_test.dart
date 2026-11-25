@@ -1358,6 +1358,17 @@ void main() {
       const summary = 'production-order-summary';
       const firstBatch = 'production-batch:batch-lg';
       const secondBatch = 'production-batch:batch-2';
+      final scheme = Theme.of(
+        tester.element(find.byKey(const ValueKey(summary))),
+      ).colorScheme;
+      expect(
+        card(summary).backgroundColor,
+        Color.alphaBlend(
+          scheme.primaryContainer.withValues(alpha: 0.6),
+          scheme.surfaceContainerLowest,
+        ),
+      );
+      expect(card(firstBatch).backgroundColor, scheme.surfaceContainerLowest);
       expect(row(summary).slot, M3SegmentVerticalSlot.top);
       expect(row(summary).subtitle, contains('1 ta rulon • 23 kg • 125 m'));
       expect(row(firstBatch).slot, M3SegmentVerticalSlot.middle);
