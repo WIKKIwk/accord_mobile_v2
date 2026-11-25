@@ -480,12 +480,12 @@ void main() {
     });
   }
 
-  testWidgets('master opens an empty paddon and attaches a produced roll to it',
+  testWidgets('master opens an empty paddon in an assigned shared warehouse',
       (tester) async {
     const code = 'XP-ABCDEF0123456789';
     const title = 'Tayyor rulonlar';
     const receipt = 'MAT-TRACE-1';
-    const warehouse = 'Own W';
+    const warehouse = 'Shared W';
     const paddon = {
       'paddon_id': 'p-empty',
       'paddon_code': code,
@@ -516,6 +516,13 @@ void main() {
       final name = find.byKey(const ValueKey('paddon-name'));
       final save = find.byKey(const ValueKey('paddon-receipt-save'));
       expect(find.byKey(const ValueKey('paddon-item-0')), findsOneWidget);
+      final warehouseField = find.byKey(const ValueKey('paddon-warehouse-filled'));
+      await tester.tap(warehouseField);
+      await tester.pumpAndSettle();
+      expect(find.text(warehouse), findsNothing);
+      Navigator.of(tester.element(find.text('Own W').last)).pop();
+      await tester.pumpAndSettle();
+
       await tester.tap(toggle);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('paddon-item-0')), findsNothing);
@@ -589,9 +596,9 @@ void main() {
           });
         case 'snapshot':
           return _json({
-            'warehouses': [warehouse, 'Other W'],
-            'assigned_warehouses': [warehouse, 'Other W'],
-            'material_warehouses': [warehouse, 'Other W'],
+            'warehouses': [warehouse, 'Own W', 'Other W'],
+            'assigned_warehouses': [warehouse, 'Own W', 'Other W'],
+            'material_warehouses': ['Own W', 'Other W'],
             'materials': [],
             'orders': [],
             'history': [],
@@ -621,6 +628,123 @@ void main() {
           expect(body['receipt_names'], [receipt]);
           attached = true;
           return _json({'paddon_code': code, 'receipt_names': [receipt]});
+        default:
+          return _route(request);
+      }
+    });
+  });
+
+  testWidgets('batch packing can open an empty paddon in the rolls warehouse',
+      (tester) async {
+    const batchId = 'batch:lg';
+    const otherId = 'batch:other';
+    const warehouse = 'Ibrohim W';
+    const otherWarehouse = 'Ulug‘bek W';
+    const code = 'XP-ABCDEF0123456789';
+    const title = 'Tayyor rulonlar';
+    var created = false;
+    var attached = false;
+    var optionsReads = 0;
+
+    await _withApp(tester, () async {
+      tester.view.physicalSize = const Size(390, 780);
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('production-batch:$batchId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-batch:$otherId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mos paddon topilmadi.'), findsOneWidget);
+      expect(find.text('$warehouse • 2 ta rulon'), findsOneWidget);
+      expect(find.text('$otherWarehouse • 1 ta rulon'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-open-paddon-$warehouse')));
+      await tester.pumpAndSettle();
+      expect(find.text(warehouse), findsOneWidget);
+      expect(find.byKey(const ValueKey('paddon-empty-mode')), findsNothing);
+      expect(find.byKey(const ValueKey('paddon-item-0')), findsNothing);
+      await tester.enterText(find.byKey(const ValueKey('paddon-name')), title);
+      await tester.tap(find.byKey(const ValueKey('paddon-receipt-save')));
+      await tester.pumpAndSettle();
+
+      expect(created, isTrue);
+      expect(attached, isFalse);
+      expect(optionsReads, 2);
+      final target = find.byKey(const ValueKey('production-attach-paddon-$code'));
+      expect(tester.widget<ListTile>(target).selected, isTrue);
+      expect(find.text('3 ta rulondan 2 tasi biriktiriladi'), findsOneWidget);
+      expect(find.text('$otherWarehouse • 1 ta rulon'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-save')));
+      await tester.pumpAndSettle();
+      expect(attached, isTrue);
+      expect(find.text('2 ta rulon $code paddoniga biriktirildi'), findsOneWidget);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'batches':
+          return _json({
+            'batches': [
+              {..._batch(), 'batch_id': batchId, 'roll_count': 2},
+              {..._batch(), 'batch_id': otherId, 'roll_count': 1},
+            ],
+            'has_more': false,
+          });
+        case 'paddon-options':
+          optionsReads++;
+          return _json({
+            'paddons': [
+              if (created)
+                {
+                  'paddon_id': 'p-shared',
+                  'paddon_code': code,
+                  'name': title,
+                  'warehouse': warehouse,
+                  'remaining_kg': '0',
+                  'contents': [],
+                },
+            ],
+            'has_more': false,
+            'batch_selection': {
+              'batch_ids': [batchId, otherId],
+              'total_rolls': 3,
+              'receipt_names_by_warehouse': {
+                warehouse: ['MAT-A', 'MAT-B'],
+                otherWarehouse: ['MAT-C'],
+              },
+              'skipped': {},
+            },
+          });
+        case 'snapshot':
+          return _json({
+            'warehouses': [warehouse, otherWarehouse],
+            'assigned_warehouses': [warehouse, otherWarehouse],
+            'material_warehouses': [],
+            'materials': [],
+            'orders': [],
+            'history': [],
+          });
+        case 'raw-material-paddons':
+          expect(request.method, 'POST');
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['warehouse'], warehouse);
+          expect(body['name'], title);
+          expect(body['contents'], isEmpty);
+          expect(created, isFalse);
+          created = true;
+          return _json({'paddon_id': 'p-shared', 'paddon_code': code});
+        case 'paddon-attach':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['batch_ids'], [batchId, otherId]);
+          expect(body['code'], code);
+          expect(body['receipt_names'], ['MAT-A', 'MAT-B']);
+          attached = true;
+          return _json({
+            'paddon_code': code,
+            'receipt_names': ['MAT-A', 'MAT-B'],
+          });
         default:
           return _route(request);
       }

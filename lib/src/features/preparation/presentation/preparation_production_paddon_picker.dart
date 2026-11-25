@@ -56,7 +56,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   PreparationPaddonSelection? _selection;
   String? _selectedCode, _error;
   int? _nextOffset;
-  bool _loading = false, _saving = false;
+  bool _loading = false, _saving = false, _creatingPaddon = false;
 
   bool get _current => mounted && widget.currentAccount();
   bool get _fromBatches => widget.batchIds.isNotEmpty;
@@ -88,7 +88,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     super.dispose();
   }
 
-  Future<void> _load({int offset = 0}) async {
+  Future<void> _load({int offset = 0, String? selectCode}) async {
     if (!_current || _loading || _saving) return;
     setState(() {
       _loading = true;
@@ -107,17 +107,27 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
           ? await _api.preparationBatchPaddonOptions(widget.batchIds, offset: offset)
           : await _api.preparationPaddonOptions(widget.receiptNames, offset: offset);
       if (!_current) return;
+      final created = selectCode != null &&
+              page.hasMore &&
+              !page.paddons.any((paddon) => paddon.code == selectCode)
+          ? await _api.materialPaddonByCode(selectCode)
+          : null;
+      if (!_current) return;
       setState(() {
         _selection = selection;
         if (offset == 0) _paddons.clear();
         final known = _paddons.map((paddon) => paddon.code).toSet();
         _paddons.addAll(page.paddons.where((paddon) => known.add(paddon.code)));
+        if (created != null && known.add(created.code)) _paddons.add(created);
         if (selection != null) {
           _paddons.removeWhere(
             (paddon) => selection.receiptsFor(paddon.warehouse).isEmpty,
           );
-          if (_selectedPaddon == null) _selectedCode = null;
         }
+        if (selectCode != null && _paddons.any((paddon) => paddon.code == selectCode)) {
+          _selectedCode = selectCode;
+        }
+        if (_selectedPaddon == null) _selectedCode = null;
         _nextOffset = page.nextOffset;
       });
     } catch (error) {
@@ -133,8 +143,27 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     }
   }
 
+  Future<void> _openEmptyPaddon(String warehouse) async {
+    if (!_current || _loading || _saving || _creatingPaddon) return;
+    setState(() => _creatingPaddon = true);
+    try {
+      final result = await showMaterialPaddonReceipt(
+        context,
+        emptyWarehouse: warehouse,
+      );
+      if (!_current || result == null) return;
+      await _load(
+        selectCode: result.empty && result.warehouse == warehouse
+            ? result.code
+            : null,
+      );
+    } finally {
+      if (_current) setState(() => _creatingPaddon = false);
+    }
+  }
+
   Future<void> _save() async {
-    if (!_current || _loading || _saving) return;
+    if (!_current || _loading || _saving || _creatingPaddon) return;
     final pending = _pending;
     final code = pending?.payload['code'] as String? ?? _selectedCode;
     if (code == null) return;
@@ -245,7 +274,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
         _selectedPaddon != null &&
         _selectedReceipts.length < selection.totalRolls;
     return PopScope(
-      canPop: !_saving,
+      canPop: !_saving && !_creatingPaddon,
       child: AlertDialog(
         title: const UrduAwareText('Paddonga biriktirish'),
         scrollable: true,
@@ -284,7 +313,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                       if (paddon.name.isNotEmpty) paddon.code,
                       materialPaddonBalance(paddon),
                     ].join(' • ')),
-                    onTap: _loading || _saving
+                    onTap: _loading || _saving || _creatingPaddon
                         ? null
                         : () => setState(() => _selectedCode = paddon.code),
                   ),
@@ -303,6 +332,23 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                         ? 'Shu omborda paddon topilmadi.'
                         : 'Mos paddon topilmadi.',
                   ),
+                if (!_loading && _error == null && nextOffset == null &&
+                    selection != null)
+                  for (final entry in selection.receiptNamesByWarehouse.entries)
+                    if (entry.value.isNotEmpty &&
+                        !_paddons.any((paddon) => paddon.warehouse == entry.key))
+                      ListTile(
+                        key: ValueKey('production-open-paddon-${entry.key}'),
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.add_rounded),
+                        title: const UrduAwareText('Bo‘sh paddon ochish'),
+                        subtitle: UrduAwareText(
+                          '${entry.key} • ${entry.value.length} ta rulon',
+                        ),
+                        onTap: _saving || _creatingPaddon
+                            ? null
+                            : () => _openEmptyPaddon(entry.key),
+                      ),
               ],
               if (_error case final error?) ...[
                 const SizedBox(height: 8),
@@ -320,13 +366,16 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
         ),
         actions: [
           TextButton(
-            onPressed: _saving ? null : () => Navigator.of(context).pop(),
+            onPressed: _saving || _creatingPaddon
+                ? null
+                : () => Navigator.of(context).pop(),
             child: const UrduAwareText('Bekor qilish'),
           ),
           FilledButton(
             key: const ValueKey('production-attach-paddon-save'),
             onPressed: _loading ||
                     _saving ||
+                    _creatingPaddon ||
                     (pending == null &&
                         (_selectedCode == null || _selectedReceipts.isEmpty))
                 ? null
