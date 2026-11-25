@@ -448,10 +448,14 @@ class _ProductionOrdersState
   }
 
   Future<void> _receivePaddon() async {
-    final code = await showMaterialPaddonReceipt(context);
-    if (!mounted || !currentAccount || code == null || !_showPaddons) return;
+    final result = await showMaterialPaddonReceipt(context);
+    if (!mounted || !currentAccount || result == null || !_showPaddons) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: UrduAwareText('Paddon $code kirim qilindi')),
+      SnackBar(
+        content: UrduAwareText(
+          'Paddon ${result.code} ${result.empty ? 'ochildi' : 'kirim qilindi'}',
+        ),
+      ),
     );
     if (_query.isEmpty && _paddonStatus == 'all' && _search.text.isEmpty) {
       await load();

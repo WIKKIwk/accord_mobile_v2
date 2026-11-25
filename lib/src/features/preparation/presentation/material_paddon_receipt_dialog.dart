@@ -9,8 +9,12 @@ import '../../shared/models/app_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 
-Future<String?> showMaterialPaddonReceipt(BuildContext context) =>
-    showDialog<String>(
+typedef MaterialPaddonReceiptResult = ({String code, bool empty});
+
+Future<MaterialPaddonReceiptResult?> showMaterialPaddonReceipt(
+  BuildContext context,
+) =>
+    showDialog<MaterialPaddonReceiptResult>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const _MaterialPaddonReceiptDialog(),
@@ -76,6 +80,7 @@ class _MaterialPaddonReceiptDialogState
   PreparationPendingCommand? _pending;
   String? _warehouse, _failure;
   bool _saving = false;
+  bool _emptyPaddon = false;
 
   bool get _current => mounted && currentSessionReadScope() == _scope;
 
@@ -155,8 +160,8 @@ class _MaterialPaddonReceiptDialogState
   Future<void> _submit() async {
     if (_saving || !_current) return;
     final pending = _pending;
-    if (pending == null) {
-      if (!(_form.currentState?.validate() ?? false)) return;
+    if (pending == null && !(_form.currentState?.validate() ?? false)) return;
+    if (pending == null && !_emptyPaddon) {
       final count = _lines.fold(
           0, (sum, line) => sum + int.parse(line.count.text.trim()));
       if (count > 200 || _lines.any((line) => line.item == null)) {
@@ -172,14 +177,18 @@ class _MaterialPaddonReceiptDialogState
     });
     try {
       final name = _name.text.trim();
-      final code = await _api.receiveMaterialPaddon(pending?.payload ??
+      final payload = pending?.payload ??
           {
             'warehouse': _warehouse!,
             if (name.isNotEmpty) 'name': name,
-            'contents': [for (final line in _lines) line.payload],
-          });
-      if (mounted && currentSessionReadScope() == _scope) {
-        Navigator.of(context).pop(code);
+            'contents': _emptyPaddon
+                ? const []
+                : [for (final line in _lines) line.payload],
+          };
+      final code = await _api.receiveMaterialPaddon(payload);
+      if (_current) {
+        final empty = (payload['contents'] as List).isEmpty;
+        Navigator.of(context).pop((code: code, empty: empty));
       }
     } catch (failure) {
       if (!_current) return;
@@ -382,8 +391,12 @@ class _MaterialPaddonReceiptDialogState
     }
     if (!_current) return const UrduAwareText('Akkaunt o‘zgargan');
     if (_pending case final pending?) {
+      final warehouse = pending.payload['warehouse'];
+      final empty = (pending.payload['contents'] as List?)?.isEmpty == true;
       return UrduAwareText(
-        '${pending.payload['warehouse']} omboridagi kirim natijasi hali tasdiqlanmagan. Qayta urinib tekshiring.',
+        empty
+            ? '$warehouse omborida paddon ochish natijasini tekshiring.'
+            : '$warehouse omboridagi kirim natijasi hali tasdiqlanmagan. Qayta urinib tekshiring.',
       );
     }
     if (_warehouses.isEmpty) {
@@ -428,21 +441,34 @@ class _MaterialPaddonReceiptDialogState
               textInputAction: TextInputAction.next,
               decoration: _fieldDecoration('Paddon nomi (ixtiyoriy)'),
             ),
-            const SizedBox(height: 18),
-            UrduAwareText('Paddon tarkibi', style: theme.textTheme.titleSmall),
-            for (final (index, line) in _lines.indexed) ...[
-              const SizedBox(height: 8),
-              _fields(line, index),
-            ],
-            const SizedBox(height: 6),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton.icon(
-                onPressed: () => setState(() => _lines.add(_PaddonLine())),
-                icon: const Icon(Icons.add_rounded, size: 20),
-                label: const UrduAwareText('Yana xomashyo'),
+            if (AppSession.instance.profile?.role == UserRole.tayyorlovMasteri)
+              SwitchListTile(
+                key: const ValueKey('paddon-empty-mode'),
+                contentPadding: EdgeInsets.zero,
+                title: const UrduAwareText('Bo‘sh paddon'),
+                value: _emptyPaddon,
+                onChanged: (value) => setState(() {
+                  _emptyPaddon = value;
+                  _failure = null;
+                }),
               ),
-            ),
+            if (!_emptyPaddon) ...[
+              const SizedBox(height: 18),
+              UrduAwareText('Paddon tarkibi', style: theme.textTheme.titleSmall),
+              for (final (index, line) in _lines.indexed) ...[
+                const SizedBox(height: 8),
+                _fields(line, index),
+              ],
+              const SizedBox(height: 6),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _lines.add(_PaddonLine())),
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: const UrduAwareText('Yana xomashyo'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -481,9 +507,11 @@ class _MaterialPaddonReceiptDialogState
               onPressed: _saving ? null : _submit,
               child: UrduAwareText(_saving
                   ? 'Saqlanmoqda…'
-                  : _pending == null
-                      ? 'Kirim qilish'
-                      : 'Qayta urinish'),
+                  : _pending != null
+                      ? 'Qayta urinish'
+                      : _emptyPaddon
+                          ? 'Paddon ochish'
+                          : 'Kirim qilish'),
             ),
         ],
       ),

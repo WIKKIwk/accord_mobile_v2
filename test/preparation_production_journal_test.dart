@@ -28,6 +28,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _epc = '303132333435363738394142';
@@ -371,6 +372,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Paddon qo‘shish'));
         await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('paddon-empty-mode')),
+          materialRole ? findsNothing : findsOneWidget,
+        );
         if (!materialRole) {
           await tester.enterText(
               find.byKey(const ValueKey('paddon-name')), '  Ertalabki granula  ');
@@ -474,6 +479,153 @@ void main() {
       });
     });
   }
+
+  testWidgets('master opens an empty paddon and attaches a produced roll to it',
+      (tester) async {
+    const code = 'XP-ABCDEF0123456789';
+    const title = 'Tayyor rulonlar';
+    const receipt = 'MAT-TRACE-1';
+    const warehouse = 'Own W';
+    const paddon = {
+      'paddon_id': 'p-empty',
+      'paddon_code': code,
+      'name': title,
+      'warehouse': warehouse,
+      'remaining_kg': '0',
+      'remaining_count': 0,
+      'unweighed_count': 0,
+      'contents': [],
+    };
+    final submissions = <Map<String, dynamic>>[];
+    var attached = false;
+
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+      final paddons = find.byKey(const ValueKey('production-view-paddons'));
+      await tester.ensureVisible(paddons);
+      await tester.pumpAndSettle();
+      await tester.tap(paddons);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddon qo‘shish'));
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(const ValueKey('paddon-empty-mode'));
+      final name = find.byKey(const ValueKey('paddon-name'));
+      final save = find.byKey(const ValueKey('paddon-receipt-save'));
+      expect(find.byKey(const ValueKey('paddon-item-0')), findsOneWidget);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('paddon-item-0')), findsNothing);
+      expect(find.text('Paddon ochish'), findsOneWidget);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('Omborni tanlang'), findsOneWidget);
+      expect(submissions, isEmpty);
+
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(warehouse).last);
+      await tester.pumpAndSettle();
+      await tester.enterText(name, title);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('Qayta urinish'), findsOneWidget);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(submissions, hasLength(2));
+      expect(submissions.first, submissions.last);
+      expect(find.text('Paddon $code ochildi'), findsOneWidget);
+
+      final row = find.byKey(const ValueKey('preparation-paddon:p-empty'));
+      expect(find.descendant(of: row, matching: find.textContaining('Qoldiq: 0 kg')),
+          findsOneWidget);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      final qr = find.byType(QrImageView);
+      expect(qr, findsOneWidget);
+      expect(find.descendant(of: find.byType(BottomSheet), matching: find.text(code)),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('paddon-open-issue')), findsNothing);
+      Navigator.of(tester.element(qr)).pop();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('production-view-rolls')));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('production-roll:$_epc')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-$code')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-save')));
+      await tester.pumpAndSettle();
+      expect(attached, isTrue);
+      expect(find.text('1 ta rulon $code paddoniga biriktirildi'), findsOneWidget);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'raw-material-paddons':
+          if (request.method == 'POST') {
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            expect(body, {
+              'warehouse': warehouse,
+              'name': title,
+              'contents': [],
+              'request_id': isNotEmpty,
+            });
+            submissions.add(body);
+            if (submissions.length == 1) {
+              return _json({'error': 'Javob olinmadi'}, status: 503);
+            }
+            return _json({'paddon_id': 'p-empty', 'paddon_code': code});
+          }
+          return _json({
+            'paddons': [if (submissions.isNotEmpty) paddon],
+            'has_more': false,
+          });
+        case 'snapshot':
+          return _json({
+            'warehouses': [warehouse, 'Other W'],
+            'assigned_warehouses': [warehouse, 'Other W'],
+            'material_warehouses': [warehouse, 'Other W'],
+            'materials': [],
+            'orders': [],
+            'history': [],
+          });
+        case 'rolls':
+          return _json({'rolls': [_roll()], 'has_more': false});
+        case 'paddon-options':
+          expect(submissions, hasLength(2));
+          expect(jsonDecode(request.body), {
+            'receipt_names': [receipt],
+            'offset': 0,
+          });
+          return _json({
+            'paddons': [paddon],
+            'has_more': false,
+            'roll_selection': {
+              'batch_ids': [],
+              'total_rolls': 1,
+              'receipt_names_by_warehouse': {warehouse: [receipt]},
+              'skipped': {},
+              'packed_rolls': [],
+            },
+          });
+        case 'paddon-attach':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['code'], code);
+          expect(body['receipt_names'], [receipt]);
+          attached = true;
+          return _json({'paddon_code': code, 'receipt_names': [receipt]});
+        default:
+          return _route(request);
+      }
+    });
+  });
 
   testWidgets(
       'paddon partial checkout keeps bag balance and identifies different rolls',
