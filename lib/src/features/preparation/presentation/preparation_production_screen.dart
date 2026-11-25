@@ -810,7 +810,11 @@ class _ProductionBatchState extends _JournalState<
   Widget build(BuildContext context) {
     final batch = _batch;
     final note = _batchNote;
-    final headerColor = Theme.of(context).colorScheme.surfaceContainer;
+    final scheme = Theme.of(context).colorScheme;
+    final headerColor = Color.alphaBlend(
+      scheme.tertiaryContainer.withValues(alpha: 0.7),
+      scheme.surfaceContainerLowest,
+    );
     final showNote = batch?.canAttachNote == true;
     final headerCount = batch == null
         ? 0

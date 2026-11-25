@@ -1430,8 +1430,12 @@ void main() {
       final scheme = Theme.of(
         tester.element(find.byKey(const ValueKey(summary))),
       ).colorScheme;
-      expect(row(summary).backgroundColor, scheme.surfaceContainer);
-      expect(row(recipe).backgroundColor, scheme.surfaceContainer);
+      final headerColor = Color.alphaBlend(
+        scheme.tertiaryContainer.withValues(alpha: 0.7),
+        scheme.surfaceContainerLowest,
+      );
+      expect(row(summary).backgroundColor, headerColor);
+      expect(row(recipe).backgroundColor, headerColor);
       expect(row(summary).slot, M3SegmentVerticalSlot.top);
       expect(row(summary).title, 'Davom etmoqda');
       expect(row(summary).subtitle, contains('Own W'));
@@ -1488,9 +1492,13 @@ void main() {
         matching: find.byType(M3SegmentFilledSurface),
       ));
       expect(surface.slot, M3SegmentVerticalSlot.middle);
+      final scheme = Theme.of(tester.element(recipe)).colorScheme;
       expect(
         surface.backgroundColor,
-        Theme.of(tester.element(recipe)).colorScheme.surfaceContainer,
+        Color.alphaBlend(
+          scheme.tertiaryContainer.withValues(alpha: 0.7),
+          scheme.surfaceContainerLowest,
+        ),
       );
       expect(find.text('Shnek formulasi: LG'), findsOneWidget);
       expect(find.text('Shnek A • 30%'), findsOneWidget);
