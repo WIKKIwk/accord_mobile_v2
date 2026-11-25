@@ -274,16 +274,20 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
   Widget journal({
     List<Widget> children = const [],
     IndexedWidgetBuilder? rowBuilder,
+    int? rowCount,
+    Key? scrollKey,
+    bool active = true,
     required String empty,
     EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(8, 8, 8, 136),
   }) {
+    final count = rowCount ?? items.length;
     final leading = <Widget>[
-      if (loading && items.isEmpty)
+      if (active && loading && count == 0)
         const Padding(
             padding: EdgeInsets.all(24),
             child: Center(child: AppLoadingIndicator())),
-      if (loading && items.isNotEmpty) const LinearProgressIndicator(),
-      if (error != null)
+      if (active && loading && count > 0) const LinearProgressIndicator(),
+      if (active && error != null)
         Card.filled(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -300,9 +304,9 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
         ),
     ];
     final trailing = <Widget>[
-      if (!loading && error == null && items.isEmpty)
+      if (active && !loading && error == null && count == 0)
         Padding(padding: const EdgeInsets.all(24), child: UrduAwareText(empty)),
-      if (hasMore && currentAccount)
+      if (active && hasMore && currentAccount)
         Padding(
           padding: const EdgeInsets.all(12),
           child: OutlinedButton(
@@ -315,7 +319,10 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
     return AppRefreshIndicator(
       onRefresh: load,
       allowRefreshOnShortContent: true,
+      notificationPredicate: (notification) =>
+          active && defaultScrollNotificationPredicate(notification),
       child: CustomScrollView(
+        key: scrollKey,
         physics: const TopRefreshScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -324,7 +331,7 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
               SliverList.list(children: [...leading, ...children]),
               if (rowBuilder != null)
                 SliverList.builder(
-                    itemCount: items.length, itemBuilder: rowBuilder),
+                    itemCount: count, itemBuilder: rowBuilder),
               SliverList.list(children: trailing),
             ]),
           ),
@@ -364,13 +371,24 @@ class _ProductionOrdersState
       : _ProductionView.batches;
   bool get _showPaddons => _view == _ProductionView.paddons;
   @override
-  _JournalFilter get _journalFilter =>
-      (view: _view, query: _query, status: _showPaddons ? _paddonStatus : _status);
+  _JournalFilter get _journalFilter => _filterFor(_view);
+
+  _JournalFilter _filterFor(_ProductionView view) => (
+        view: view,
+        query: _query,
+        status: view == _ProductionView.paddons ? _paddonStatus : _status,
+      );
+
   late final _tabs = TabController(
     length: _ProductionView.values.length,
     initialIndex: _ProductionView.batches.index,
     vsync: this,
-  );
+  )..addListener(_syncViewFromTab);
+
+  void _syncViewFromTab() {
+    final view = _ProductionView.values[_tabs.index];
+    if (view != _view) _filter(view: view);
+  }
 
   @override
   Future<_JournalPage<PreparationProductionRow>> request(int offset) async {
@@ -592,8 +610,59 @@ class _ProductionOrdersState
     _searchDebounce?.cancel();
     _search.dispose();
     _searchFocus.dispose();
-    if (!widget.materialPaddonsOnly) _tabs.dispose();
+    if (!widget.materialPaddonsOnly) {
+      _tabs
+        ..removeListener(_syncViewFromTab)
+        ..dispose();
+    }
     super.dispose();
+  }
+
+  Widget _journalTab(_ProductionView view) {
+    final active = view == _view;
+    final rows = active ? items : _journalCache[_filterFor(view)]?.rows ?? const [];
+    return IgnorePointer(
+      ignoring: !active,
+      child: ExcludeSemantics(
+        excluding: !active,
+        child: journal(
+          active: active,
+          rowCount: rows.length,
+          scrollKey: PageStorageKey(view),
+          empty: view == _ProductionView.paddons
+              ? 'Xomashyo paddonlari topilmadi.'
+              : 'Hali ishlab chiqarish yozuvlari yo‘q.',
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
+          rowBuilder: (context, index) {
+            final item = rows[index];
+            final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(
+              index, rows.length,
+            );
+            final row = switch (item) {
+              PreparationProductionOrder() =>
+                _productionOrderRow(context, item, slot),
+              PreparationProductionBatch() => _productionBatchRow(
+                  context,
+                  item,
+                  slot,
+                  showOrder: true,
+                  selecting: _selectedBatches.isNotEmpty,
+                  selected: _selectedBatches.containsKey(item.id),
+                  onLongPress: _canSelectBatch(item) ? () => _toggleBatch(item) : null,
+                ),
+              PreparationProductionRoll() => rollRow(item, slot, showMaterial: true),
+              PreparationMaterialPaddon() =>
+                _materialPaddonRow(item, slot, () => _openPaddon(item)),
+            };
+            return Padding(
+              key: ValueKey('${view.name}:${item.journalKey}'),
+              padding: const EdgeInsets.only(bottom: M3SegmentedListGeometry.gap),
+              child: row,
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -656,8 +725,6 @@ class _ProductionOrdersState
                   controller: _tabs,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
-                  onTap: (index) =>
-                      _filter(view: _ProductionView.values[index]),
                   tabs: [
                     for (final (key, label) in const [
                       ('orders', 'Buyurtmalar'),
@@ -720,42 +787,19 @@ class _ProductionOrdersState
               ),
             ),
             Expanded(
-                child: journal(
-                    empty: _showPaddons
-                        ? 'Xomashyo paddonlari topilmadi.'
-                        : 'Hali ishlab chiqarish yozuvlari yo‘q.',
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
-                    rowBuilder: (context, index) {
-                      final item = items[index];
-                      final slot =
-                          M3SegmentedListGeometry.standaloneListSlotForIndex(
-                              index, items.length);
-                      final row = switch (item) {
-                        PreparationProductionOrder() =>
-                          _productionOrderRow(context, item, slot),
-                        PreparationProductionBatch() => _productionBatchRow(
-                            context,
-                            item,
-                            slot,
-                            showOrder: true,
-                            selecting: _selectedBatches.isNotEmpty,
-                            selected: _selectedBatches.containsKey(item.id),
-                            onLongPress: _canSelectBatch(item)
-                                ? () => _toggleBatch(item)
-                                : null,
-                          ),
-                        PreparationProductionRoll() =>
-                          rollRow(item, slot, showMaterial: true),
-                        PreparationMaterialPaddon() =>
-                          _materialPaddonRow(item, slot, () => _openPaddon(item)),
-                      };
-                      return Padding(
-                        key: ValueKey('${_view.name}:${item.journalKey}'),
-                        padding: const EdgeInsets.only(
-                            bottom: M3SegmentedListGeometry.gap),
-                        child: row,
-                      );
-                    })),
+              child: widget.materialPaddonsOnly
+                  ? _journalTab(_ProductionView.paddons)
+                  : TabBarView(
+                      key: const ValueKey('production-view-pages'),
+                      controller: _tabs,
+                      physics: currentAccount
+                          ? null
+                          : const NeverScrollableScrollPhysics(),
+                      children: [
+                        for (final view in _ProductionView.values) _journalTab(view),
+                      ],
+                    ),
+            ),
           ]),
           if (widget.materialPaddonsOnly && _paddonActions.isNotEmpty)
             PositionedDirectional(

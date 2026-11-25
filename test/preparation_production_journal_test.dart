@@ -2438,7 +2438,7 @@ void main() {
     });
   });
 
-  testWidgets('returning to a tab keeps its pages and applies journal deltas',
+  testWidgets('swiping between tabs keeps their pages and applies journal deltas',
       (tester) async {
     var orderReads = 0;
     var batchReads = 0;
@@ -2448,8 +2448,8 @@ void main() {
     final first = _order();
     final second = _order(id: 'zakaz-0318', code: '0318');
     final watchVersions = <String>[];
-    final orders = find.byKey(const ValueKey('production-view-orders'));
-    final batches = find.byKey(const ValueKey('production-view-batches'));
+    final pages = find.byKey(const ValueKey('production-view-pages'));
+    final batchRow = find.byKey(const ValueKey('production-batch:batch-lg'));
     final firstRow = find.byKey(const ValueKey('production-order:zakaz-0317'));
     final secondRow = find.byKey(const ValueKey('production-order:zakaz-0318'));
 
@@ -2463,11 +2463,16 @@ void main() {
       expect(extended, isTrue);
       expect(secondRow, findsOneWidget);
 
-      await tester.tap(batches);
+      await tester.timedDrag(
+        pages, const Offset(-300, 0), const Duration(milliseconds: 350),
+      );
       await tester.pumpAndSettle();
+      expect(batchRow, findsOneWidget);
       expect(batchReads, 1);
-      await tester.tap(orders);
-      await tester.pump();
+      await tester.timedDrag(
+        pages, const Offset(300, 0), const Duration(milliseconds: 350),
+      );
+      await tester.pumpAndSettle();
       expect(firstRow, findsOneWidget);
       expect(secondRow, findsOneWidget);
       expect(orderReads, 1);
