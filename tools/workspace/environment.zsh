@@ -1,6 +1,11 @@
 # Source with the absolute Accord workspace directory as the argument.
 export LOCAL_TOOLS_ROOT="${1:?Accord workspace required}/.tools"
-export FLUTTER_ROOT="$LOCAL_TOOLS_ROOT/flutter-sdk/flutter"
+accord_flutter_sdk="$LOCAL_TOOLS_ROOT/flutter-sdk/current"
+if [[ ! -x "$accord_flutter_sdk/bin/flutter" ]]; then
+  accord_flutter_sdk="$LOCAL_TOOLS_ROOT/flutter-sdk/flutter"
+fi
+export FLUTTER_ROOT="${accord_flutter_sdk:A}"
+unset accord_flutter_sdk
 export FLUTTER_BIN="$FLUTTER_ROOT/bin/flutter"
 export PUB_CACHE="$LOCAL_TOOLS_ROOT/pub-cache"
 export ANDROID_HOME="$LOCAL_TOOLS_ROOT/android-sdk"
