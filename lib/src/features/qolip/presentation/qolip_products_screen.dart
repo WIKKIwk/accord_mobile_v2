@@ -28,6 +28,7 @@ import 'qolip_home_screen.dart'
 import 'qolip_color_picker.dart';
 import 'qolip_code_details_sheet.dart';
 import 'qolip_product_pdf.dart';
+import 'qolip_product_information_sheet.dart';
 import 'qolip_management_dialogs.dart';
 import 'widgets/qolip_dock.dart';
 import 'widgets/qolip_navigation_drawer.dart';
@@ -38,6 +39,7 @@ part 'qolip_products_screen_widgets_part_01.dart';
 part 'qolip_products_management.dart';
 part 'qolip_products_catalog.dart';
 part 'qolip_products_reworks.dart';
+part 'qolip_products_information.dart';
 
 String _productMoldKey(QolipProduct product) =>
     '${product.code.trim().toLowerCase()}\u0000${product.qolipCode.trim().toLowerCase()}';
@@ -246,6 +248,11 @@ class _QolipProductsScreenState extends State<QolipProductsScreen> {
                       }
                     },
                     onLongPress: () => _toggleContainerSelection(container),
+                    onViewInformation: _selectionMode == null &&
+                            QolipCatalogStore.instance
+                                .productInformationStatus(container.key)?.hasContent == true
+                        ? () => unawaited(_openProductInformation(container))
+                        : null,
                     onToggleQolip: _toggleQolipSelection,
                     onPrintCodeQr: _showQolipCodeQr,
                     onCopyCode: _copyQolipCode,

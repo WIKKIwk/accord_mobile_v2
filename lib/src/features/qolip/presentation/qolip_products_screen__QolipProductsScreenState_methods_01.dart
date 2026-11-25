@@ -25,6 +25,10 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     final selectedProduct = selectedProductCodes.length == 1
         ? selectedProducts.first
         : null;
+    final informationTarget = _selectionMode == _QolipSelectionMode.containers &&
+            _selectedContainerKeys.length == 1
+        ? _details[_selectedContainerKeys.single]
+        : null;
     final addMold = AdminFabMenuAction(
       title: l10n.qolipText('products.add'),
       icon: Icons.inventory_2_rounded,
@@ -35,6 +39,17 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
     showAdminCreateHubSheet(
       context,
       actions: [
+        if (informationTarget != null &&
+            QolipCatalogStore.instance
+                    .productInformationStatus(informationTarget.key) !=
+                null)
+          AdminFabMenuAction(
+            title: l10n.qolipInformationText('add'),
+            icon: Icons.note_add_outlined,
+            onTap: () => unawaited(
+              _openProductInformation(informationTarget, edit: true),
+            ),
+          ),
         if (_selectedQolipCodes.isNotEmpty) ...[
           addMold,
           AdminFabMenuAction(
@@ -44,7 +59,7 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
             icon: Icons.build_outlined,
             onTap: () => unawaited(_sendSelectionToRework()),
           ),
-        ] else ...[
+        ] else if (_selectionMode == null) ...[
           AdminFabMenuAction(
             title: l10n.qolipManagementText('title'),
             icon: Icons.layers_outlined,
@@ -84,15 +99,12 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   }
 
   Future<void> _toggleContainerSelection(QolipProductContainer container) async {
-    if (_reworking) return;
+    if (_reworking || _deleting || _printing) return;
     final generation = _selectionGeneration;
     final resolved = await _ensureDetails(container);
     if (!mounted ||
         generation != _selectionGeneration ||
-        resolved == null ||
-        resolved.hasUnavailableQolip ||
-        resolved.children.any((row) =>
-            _reworkCodes.contains(row.qolipCode.trim().toLowerCase()))) {
+        resolved == null) {
       return;
     }
     container = resolved;
@@ -100,12 +112,27 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
         _selectionMode != _QolipSelectionMode.containers) {
       return;
     }
+    final unavailable = container.hasUnavailableQolip ||
+        container.children.any((row) =>
+            _reworkCodes.contains(row.qolipCode.trim().toLowerCase()));
+    if (!_selectedContainerKeys.contains(container.key)) {
+      // An unavailable product can be selected on its own to open its information.
+      if (unavailable &&
+          (_selectedContainerKeys.isNotEmpty ||
+              QolipCatalogStore.instance.productInformationStatus(container.key) ==
+                  null)) {
+        return;
+      }
+      if (_selectedContainerKeys.isNotEmpty && _selectedQolipCodes.isEmpty) {
+        return;
+      }
+    }
     _applyStateChange(() {
       _selectionMode = _QolipSelectionMode.containers;
       if (_selectedContainerKeys.add(container.key)) {
-        _selectedQolipCodes.addAll(
-          container.children.map(_productMoldKey),
-        );
+        if (!unavailable) {
+          _selectedQolipCodes.addAll(container.children.map(_productMoldKey));
+        }
       } else {
         _selectedContainerKeys.remove(container.key);
         _selectedQolipCodes.removeAll(
@@ -270,7 +297,9 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
   Widget _selectionTitle(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
-    final selectedQolipCount = _selectedQolipCodes.length;
+    final selectedQolipCount = _selectedQolipCodes.isEmpty
+        ? _selectedContainerKeys.length
+        : _selectedQolipCodes.length;
     return Row(
       children: [
         IconButton(
@@ -291,31 +320,38 @@ extension __QolipProductsScreenStateAstPart01 on _QolipProductsScreenState {
                 ),
           ),
         ),
-        IconButton.filled(
-          onPressed: _deleting || _printing || _reworking ? null : _printSelection,
-          style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
-          icon: _printing
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.print_outlined),
-          tooltip: l10n.qolipText('products.selection_print'),
-        ),
-        const SizedBox(width: 6),
-        IconButton.filled(
-          onPressed: _deleting || _printing || _reworking ||
-              _selectedProducts().any((p) => p.availabilityError.isNotEmpty)
-              ? null : _deleteSelection,
-          style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
-          icon: _deleting
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.delete_outline_rounded),
-          tooltip: l10n.qolipText('products.selection_delete'),
-        ),
+        if (_selectedQolipCodes.isNotEmpty) ...[
+          IconButton.filled(
+            onPressed: _deleting || _printing || _reworking
+                ? null
+                : _printSelection,
+            style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
+            icon: _printing
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.print_outlined),
+            tooltip: l10n.qolipText('products.selection_print'),
+          ),
+          const SizedBox(width: 6),
+          IconButton.filled(
+            onPressed: _deleting ||
+                    _printing ||
+                    _reworking ||
+                    _selectedProducts().any((p) => p.availabilityError.isNotEmpty)
+                ? null
+                : _deleteSelection,
+            style: IconButton.styleFrom(foregroundColor: scheme.onPrimary),
+            icon: _deleting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_outline_rounded),
+            tooltip: l10n.qolipText('products.selection_delete'),
+          ),
+        ],
       ],
     );
   }

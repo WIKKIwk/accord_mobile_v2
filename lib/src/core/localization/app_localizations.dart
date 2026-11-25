@@ -23,6 +23,7 @@ part 'app_localizations_qolip_management.dart';
 part 'app_localizations_qolip_reworks.dart';
 part 'app_localizations_qolip_storage.dart';
 part 'app_localizations_qolip_product_pdf.dart';
+part 'app_localizations_qolip_product_information.dart';
 part 'app_localizations_AppLocalizations_methods_01.dart';
 part 'app_localizations_AppLocalizations_methods_02.dart';
 part 'app_localizations_declarations_part_01.dart';

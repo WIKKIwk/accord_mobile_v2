@@ -149,6 +149,7 @@ part 'qolip/mobile_api_qolip_storage_print.dart';
 part 'qolip/mobile_api_qolip_order_products.dart';
 part 'qolip/mobile_api_qolip_products_cache.dart';
 part 'qolip/mobile_api_qolip_catalog.dart';
+part 'qolip/mobile_api_qolip_product_information.dart';
 part 'qolip/mobile_api_qolip_catalog_store.dart';
 part 'rezka/mobile_api_rezka.dart';
 part 'server/mobile_api_server.dart';

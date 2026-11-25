@@ -18,6 +18,7 @@ class QolipCatalogStore extends ChangeNotifier {
   final _windows = <String, QolipCatalogWindow>{};
   final _requests = <String, Future<QolipCatalogWindow>>{};
   final _details = <String, List<QolipProduct>>{};
+  final _informationStatuses = <String, QolipInformationStatus>{};
   final _searchTerms = <String, List<String>>{};
   final _detailReads = <String, Future<List<QolipProduct>>>{};
   final _overrides = <String, QolipCatalogItem?>{};
@@ -40,6 +41,7 @@ class QolipCatalogStore extends ChangeNotifier {
     _windows.clear();
     _requests.clear();
     _details.clear();
+    _informationStatuses.clear();
     _searchTerms.clear();
     _detailReads.clear();
     _overrides.clear();
@@ -59,6 +61,26 @@ class QolipCatalogStore extends ChangeNotifier {
   List<QolipProduct>? details(String id) {
     _synchronize();
     return _details[id];
+  }
+
+  QolipInformationStatus? productInformationStatus(String id) {
+    _synchronize();
+    return _informationStatuses[id];
+  }
+
+  void recordProductInformation(String id, QolipProductInformation entry) {
+    _synchronize();
+    _recordInformationStatus(id, (
+      revision: entry.revision,
+      hasContent: entry.hasContent,
+    ));
+  }
+
+  void _recordInformationStatus(String id, QolipInformationStatus? status) {
+    if (status != null &&
+        status.revision >= (_informationStatuses[id]?.revision ?? 0)) {
+      _informationStatuses[id] = status;
+    }
   }
 
   void invalidateDetails() {
@@ -139,7 +161,7 @@ class QolipCatalogStore extends ChangeNotifier {
     late final Future<List<QolipProduct>> pending;
     pending = (() async {
       try {
-        final products = await MobileApi.instance.qolipCatalogDetails(id);
+        final detail = await MobileApi.instance.qolipCatalogDetails(id);
         if (generation != _generation || scope != _currentScope) {
           throw StateError('Qolip catalog session changed');
         }
@@ -151,9 +173,10 @@ class QolipCatalogStore extends ChangeNotifier {
           if (current == null) throw StateError('Qolip product removed');
           return current;
         }
-        _details[id] = products;
-        _searchTerms[id] = _terms(products);
-        return products;
+        _details[id] = detail.products;
+        _recordInformationStatus(id, detail.information);
+        _searchTerms[id] = _terms(detail.products);
+        return detail.products;
       } finally {
         if (identical(_detailReads[id], pending)) _detailReads.remove(id);
       }
@@ -186,7 +209,8 @@ class QolipCatalogStore extends ChangeNotifier {
               id: row['id'] as String,
               name: row['name'] as String,
               orderImageOrderId: row['order_image_order_id'] as String? ?? ''),
-          products
+          products,
+          _qolipInformationStatus(row['information_status']),
         );
       }).toList();
       final removed = (delta['removed_ids'] as List).cast<String>();
@@ -194,11 +218,13 @@ class QolipCatalogStore extends ChangeNotifier {
       for (final id in removed) {
         _overrides[id] = null;
         _details.remove(id);
+        _informationStatuses.remove(id);
         _searchTerms.remove(id);
       }
-      for (final (item, products) in upserts) {
+      for (final (item, products, information) in upserts) {
         _overrides[item.id] = item;
         _details[item.id] = List.unmodifiable(products);
+        _recordInformationStatus(item.id, information);
         _searchTerms[item.id] = _terms(products);
       }
       for (final entry in _windows.entries) {

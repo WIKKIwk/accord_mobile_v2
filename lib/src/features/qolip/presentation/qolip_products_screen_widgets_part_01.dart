@@ -173,6 +173,7 @@ class QolipProductContainerCard extends StatelessWidget {
     this.expandKey,
     this.codeRowBuilder,
     this.emptyContent,
+    this.onViewInformation,
     this.showMoldCount = true,
     this.showExpandIcon = true,
   });
@@ -203,6 +204,7 @@ class QolipProductContainerCard extends StatelessWidget {
   final Key? expandKey;
   final Widget Function(QolipProduct product)? codeRowBuilder;
   final Widget? emptyContent;
+  final VoidCallback? onViewInformation;
   final bool showMoldCount;
   final bool showExpandIcon;
 
@@ -396,6 +398,15 @@ class QolipProductContainerCard extends StatelessWidget {
                                     ),
                                     if (sets.isEmpty && emptyContent != null)
                                       emptyContent!,
+                                    if (onViewInformation != null)
+                                      Align(
+                                        alignment: AlignmentDirectional.centerStart,
+                                        child: TextButton.icon(
+                                          onPressed: onViewInformation,
+                                          icon: const Icon(Icons.description_outlined),
+                                          label: Text(l10n.qolipInformationText('view')),
+                                        ),
+                                      ),
                                     for (final entry in sets.entries) ...[
                                       if (entry.key == 'extensions')
                                         Padding(

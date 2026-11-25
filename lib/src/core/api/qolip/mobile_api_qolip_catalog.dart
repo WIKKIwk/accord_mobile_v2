@@ -128,13 +128,15 @@ extension MobileApiQolipCatalog on MobileApi {
         nextCursor: data['has_more'] == true ? next as String : null);
   }
 
-  Future<List<QolipProduct>> qolipCatalogDetails(String id) async {
+  Future<({List<QolipProduct> products, QolipInformationStatus? information})>
+      qolipCatalogDetails(String id) async {
     if (await TestModeController.instance.isEnabled()) {
       final code =
           utf8.decode(base64Url.decode(base64Url.normalize(id.substring(4))));
-      return (await qolipProducts(limit: 20000, withQolipOnly: true))
+      final products = (await qolipProducts(limit: 20000, withQolipOnly: true))
           .where((product) => product.code.toLowerCase() == code.toLowerCase())
           .toList();
+      return (products: products, information: null);
     }
     final account = _qolipProductsAccount;
     final uri =
@@ -158,7 +160,10 @@ extension MobileApiQolipCatalog on MobileApi {
     if (data['products'] is! List || (data['products'] as List).isEmpty) {
       throw const FormatException('Missing Qolip product details');
     }
-    return List.unmodifiable((data['products'] as List).map(
-        (raw) => QolipProduct.fromJson((raw as Map).cast<String, dynamic>())));
+    return (
+      products: List<QolipProduct>.unmodifiable((data['products'] as List).map(
+          (raw) => QolipProduct.fromJson((raw as Map).cast<String, dynamic>()))),
+      information: _qolipInformationStatus(data['information_status']),
+    );
   }
 }
