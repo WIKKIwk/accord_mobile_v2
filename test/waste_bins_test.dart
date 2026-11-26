@@ -83,6 +83,39 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.wasteWarehouses), isFalse);
   });
 
+  test(
+      'the API does not request operator options without a token and passes QR denial through',
+      () async {
+    var sent = 0;
+    final client = MockClient((request) async {
+      sent++;
+      expect(request.url.path, '/v1/mobile/waste/bins/assign');
+      expect(request.headers['authorization'], 'Bearer token');
+      expect(jsonDecode(request.body), {
+        'code': 'FOREIGN-QR',
+        'apparatus_id': _apparatusId,
+      });
+      return _json({
+        'code': 'waste_bin_forbidden',
+        'error': 'Bu quti sizga biriktirilmagan',
+      }, 403);
+    });
+    await http.runWithClient(() async {
+      final api = MobileApi.instance;
+      AppSession.instance.token = null;
+      await expectLater(api.wasteBinOptions(), throwsException);
+      expect(sent, 0);
+      AppSession.instance.token = 'token';
+      await expectLater(
+        api.assignWasteBin('ACCORD-WASTE:FOREIGN-QR', _apparatusId),
+        throwsA(isA<MobileApiException>()
+            .having((error) => error.code, 'code', 'waste_bin_forbidden')
+            .having((error) => error.statusCode, 'status', 403)),
+      );
+    }, () => client);
+    expect(sent, 1);
+  });
+
   test('camera codes are reserved and receive/reset target one exact cycle',
       () async {
     expect(isWasteBinQr('CQ-10'), isFalse);
@@ -280,9 +313,12 @@ void main() {
     final operations = <String>[];
     String? active;
     var hasWaste = false;
+    var claimAttempts = 0;
     Map<String, dynamic> bin(String code, String status) => {
           ..._binJson(status),
           'code': code,
+          'name': code == 'CQ-A' ? 'Asosiy quti' : 'Zaxira quti',
+          'configured': true,
           'qr_payload': 'ACCORD-WASTE:$code',
           'cycle': status == 'empty'
               ? null
@@ -306,7 +342,14 @@ void main() {
         expect(request.url.queryParameters['status'], 'empty');
         expect(request.url.queryParameters['apparatus_id'], _apparatusId);
         return _json({
-          'bins': [bin(active == null ? 'CQ-A' : 'CQ-B', 'empty')]
+          'bins': [
+            bin(active == null ? 'CQ-A' : 'CQ-B', 'empty'),
+            {
+              ...bin('CQ-OLD', 'empty'),
+              'name': 'Eski quti',
+              'configured': false,
+            },
+          ],
         });
       }
       operations.add(action);
@@ -314,6 +357,9 @@ void main() {
       expect(body['apparatus_id'], _apparatusId);
       if (action == 'assign') {
         expect(body['code'], 'CQ-A');
+        if (claimAttempts++ == 0) {
+          return _json({'code': 'waste_bin_conflict', 'error': 'Band'}, 409);
+        }
         active = 'CQ-A';
         return _json(bin('CQ-A', 'open'));
       }
@@ -343,9 +389,19 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Quti tanlash'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('CQ-A'));
+      expect(find.text('Eski quti'), findsNothing);
+      await tester.tap(find.text('Asosiy quti'));
       await tester.pumpAndSettle();
-      expect(find.text('Faol quti CQ-A'), findsOneWidget);
+      expect(
+        find.text(
+            'Quti band yoki apparatda boshqa faol quti bor. Ro‘yxatni qayta oching.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Quti tanlash'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Asosiy quti'));
+      await tester.pumpAndSettle();
+      expect(find.text('Faol quti Asosiy quti · CQ-A'), findsOneWidget);
       await tester.tap(find.text('Chiqindi qo‘shish'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, '2,5');
@@ -355,15 +411,15 @@ void main() {
       expect(find.text('Qayd etilgan chiqindi: 2.5 kg'), findsOneWidget);
       await tester.tap(find.text('Qutini almashtirish'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('CQ-B'));
+      await tester.tap(find.text('Zaxira quti'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Topshirish'));
       await tester.pumpAndSettle();
-      expect(find.text('Faol quti CQ-B'), findsOneWidget);
+      expect(find.text('Faol quti Zaxira quti · CQ-B'), findsOneWidget);
       expect(find.text('Qutini bo‘shatish'), findsNothing);
       expect(tester.takeException(), isNull);
     }, () => client);
-    expect(operations, ['assign', 'entry', 'submit']);
+    expect(operations, ['assign', 'assign', 'entry', 'submit']);
   });
 
   test('Bosma astatka keeps one request key across an uncertain retry',

@@ -17,6 +17,58 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const _rezka = 'apparatus:default:asset-010';
+const _laminatsiya = 'apparatus:default:asset-007';
+const _bosma = 'apparatus:default:bosma_7';
+const _options = {
+  'apparatuses': [
+    {'id': _rezka, 'name': 'Rezka A'},
+    {'id': _laminatsiya, 'name': 'Laminatsiya B'},
+    {'id': _bosma, 'name': 'Bosma C'},
+  ],
+  'operators': [
+    {
+      'role': 'aparatchi',
+      'ref': 'ali',
+      'display_name': 'Ali',
+      'apparatus_ids': [_rezka],
+    },
+    {
+      'role': 'rezka_master',
+      'ref': 'vali',
+      'display_name': 'Vali',
+      'apparatus_ids': [_rezka, _laminatsiya],
+    },
+    {
+      'role': 'aparatchi',
+      'ref': 'salim',
+      'display_name': 'Salim',
+      'apparatus_ids': [_bosma],
+    },
+  ],
+};
+
+Widget _receiver() => MaterialApp(
+      locale: const Locale('uz'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const WasteReceivingScreen(),
+      routes: {
+        AppRoutes.wasteWarehouses: (_) => const WasteWarehousesScreen(),
+      },
+    );
+
+http.Response _json(Object response) => http.Response(
+      jsonEncode(response),
+      200,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -46,20 +98,7 @@ void main() {
 
     final paths = <String>[];
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(
-        locale: const Locale('uz'),
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const WasteReceivingScreen(),
-        routes: {
-          AppRoutes.wasteWarehouses: (_) => const WasteWarehousesScreen(),
-        },
-      ));
+      await tester.pumpWidget(_receiver());
       await tester.pumpAndSettle();
 
       expect(find.byType(RoleDock), findsOneWidget);
@@ -77,6 +116,7 @@ void main() {
 
       final fields = [
         for (final label in [
+          'Quti nomi',
           'Quti kodi',
           'Bo‘sh quti vazni (kg)',
           'Ruxsat etilgan farq (kg)',
@@ -84,9 +124,11 @@ void main() {
           tester.getRect(find.widgetWithText(TextFormField, label)),
       ];
       expect(fields.first.width, greaterThanOrEqualTo(290));
-      expect(fields[1].top - fields[0].bottom, greaterThanOrEqualTo(12));
-      expect(fields[2].top - fields[1].bottom, greaterThanOrEqualTo(12));
+      for (var i = 1; i < fields.length; i++) {
+        expect(fields[i].top - fields[i - 1].bottom, greaterThanOrEqualTo(12));
+      }
 
+      await tester.ensureVisible(find.text('Bekor qilish'));
       await tester.tap(find.text('Bekor qilish'));
       await tester.pumpAndSettle();
       navigation.onDestinationSelected(1);
@@ -99,24 +141,120 @@ void main() {
     },
         () => MockClient((request) async {
               paths.add(request.url.path);
-              final response = request.url.path == '/v1/mobile/waste/warehouses'
-                  ? {
-                      'warehouses': [
-                        {
-                          'id': 'warehouse-waste-west',
-                          'warehouse': 'G‘arbiy chiqindi ombori',
-                          'on_hand_kg': 18,
-                          'receipt_count': 1,
-                        },
-                      ],
-                    }
-                  : {'bins': []};
-              return http.Response(
-                jsonEncode(response),
-                200,
-                headers: {'content-type': 'application/json; charset=utf-8'},
-              );
+              return _json(switch (request.url.path) {
+                '/v1/mobile/waste/warehouses' => {
+                    'warehouses': [
+                      {
+                        'id': 'warehouse-waste-west',
+                        'warehouse': 'G‘arbiy chiqindi ombori',
+                        'on_hand_kg': 18,
+                        'receipt_count': 1,
+                      },
+                    ],
+                  },
+                '/v1/mobile/waste/bins/options' => _options,
+                _ => {'bins': []},
+              });
             }));
-    expect(paths, ['/v1/mobile/waste/bins', '/v1/mobile/waste/warehouses']);
+    expect(paths, [
+      '/v1/mobile/waste/bins',
+      '/v1/mobile/waste/bins/options',
+      '/v1/mobile/waste/warehouses',
+    ]);
+  });
+
+  testWidgets('receiver covers every selected apparatus and can rename a bin',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    Map<String, dynamic>? bin;
+    final writes = <(String, Map<String, dynamic>)>[];
+    final client = MockClient((request) async {
+      expect(request.headers['authorization'], 'Bearer waste-layout-token');
+      final action = request.url.pathSegments.last;
+      if (action == 'bins') {
+        return _json({
+          'bins': [if (bin case final b?) b]
+        });
+      }
+      if (action == 'options') return _json(_options);
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      writes.add((action, body));
+      bin = {
+        ...?bin,
+        ...body,
+        'qr_payload': 'ACCORD-WASTE:CQ-11',
+        'tolerance_kg': 0.5,
+        'status': 'empty',
+        'configured': true,
+      };
+      return _json(bin!);
+    });
+
+    Future<void> tap(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_receiver());
+      await tester.pumpAndSettle();
+      await tap(find.text('Yangi quti'));
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Quti nomi'), 'Bo‘sh quti A');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Quti kodi'), 'CQ-11');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Bo‘sh quti vazni (kg)'), '5');
+      await tap(find.text('Apparatlarni tanlash'));
+      await tap(find.widgetWithText(CheckboxListTile, 'Rezka A'));
+      await tap(find.widgetWithText(CheckboxListTile, 'Laminatsiya B'));
+      await tap(find.text('Tanlash'));
+      await tap(find.text('Aparatchilarni tanlash'));
+      expect(find.widgetWithText(CheckboxListTile, 'Salim'), findsNothing);
+      await tap(find.widgetWithText(CheckboxListTile, 'Ali'));
+      await tap(find.text('Tanlash'));
+      await tap(find.text('Saqlash'));
+      expect(writes, isEmpty);
+      expect(find.text('Laminatsiya B uchun aparatchini tanlang.'),
+          findsOneWidget);
+
+      await tap(find.text('Aparatchilarni tanlash'));
+      await tap(find.widgetWithText(CheckboxListTile, 'Vali'));
+      await tap(find.text('Tanlash'));
+      await tap(find.text('Saqlash'));
+      expect(writes.single.$1, 'register');
+      expect(writes.single.$2, {
+        'code': 'CQ-11',
+        'tare_kg': 5,
+        'name': 'Bo‘sh quti A',
+        'apparatus_ids': [_rezka, _laminatsiya],
+        'operators': [
+          {'role': 'aparatchi', 'ref': 'ali'},
+          {'role': 'rezka_master', 'ref': 'vali'},
+        ],
+      });
+      await tap(find.text('Yopish'));
+      await tap(find.text('Qutini sozlash'));
+      expect(find.text('Bo‘sh quti A'), findsOneWidget);
+      expect(find.text('Rezka A, Laminatsiya B'), findsOneWidget);
+      expect(find.text('Ali, Vali'), findsOneWidget);
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Quti nomi'), 'Umumiy quti');
+      await tap(find.text('Saqlash'));
+      expect(writes.last.$1, 'configure');
+      expect(
+          writes.last.$2,
+          {
+            ...writes.first.$2,
+            'name': 'Umumiy quti',
+          }..remove('tare_kg'));
+      expect(find.text('Umumiy quti · CQ-11'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    }, () => client);
   });
 }

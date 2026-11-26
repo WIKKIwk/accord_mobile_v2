@@ -119,7 +119,7 @@ class _WasteWeighDialogState extends State<WasteWeighDialog> {
         (!difference || _note.text.trim().isNotEmpty);
 
     return AlertDialog(
-      title: Text('${widget.bin.code} qutisini tortish'),
+      title: Text('${widget.bin.label} qutisini tortish'),
       scrollable: true,
       insetPadding: m3DialogInsetPadding,
       constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),

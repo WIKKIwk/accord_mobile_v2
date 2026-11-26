@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -7,12 +8,11 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
-import '../../../core/widgets/feedback/app_dialog_action_row.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
-import '../../../core/widgets/forms/app_input_decoration.dart';
 import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
+import 'waste_bin_configuration_dialog.dart';
 import 'waste_bin_details.dart';
 import 'waste_navigation.dart';
 import 'waste_warehouses_screen.dart';
@@ -108,27 +108,45 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     return matches;
   }
 
-  Future<void> _register() async {
-    final values = await showDialog<(String, double, double?)>(
+  Future<void> _editBin([WasteBin? existing]) async {
+    WasteBinOptions? options;
+    await _run(() async => options = await _api.wasteBinOptions());
+    final available = options;
+    if (!mounted || !_current || available == null) return;
+    final values = await showDialog<WasteBinFormResult>(
       context: context,
-      builder: (_) => const _RegisterWasteBinDialog(),
+      builder: (_) => WasteBinConfigurationDialog(
+        options: available,
+        bin: existing,
+      ),
     );
     if (!_current || values == null) return;
+    WasteBin? saved;
     await _run(() async {
-      final (code, tare, tolerance) = values;
-      final bin = await _api.registerWasteBin(
-          code: code, tareKg: tare, toleranceKg: tolerance);
+      final bin = existing == null
+          ? await _api.registerWasteBin(
+              code: values.code,
+              tareKg: values.tareKg,
+              toleranceKg: values.toleranceKg,
+              configuration: values.configuration,
+            )
+          : await _api.configureWasteBin(
+              code: existing.code,
+              configuration: values.configuration,
+            );
       if (!_current) return;
+      saved = bin;
       setState(() => _selected = bin);
       await _refresh();
-      if (_current) await _showQr(bin);
     });
+    final bin = saved;
+    if (_current && existing == null && bin != null) await _showQr(bin);
   }
 
   Future<void> _showQr(WasteBin bin) => showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text(bin.code),
+          title: Text(bin.label),
           insetPadding: m3DialogInsetPadding,
           constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
           content: SizedBox(
@@ -157,7 +175,16 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                     ? null
                     : box.localToGlobal(Offset.zero) & box.size;
                 try {
-                  final label = pw.Document();
+                  final font = pw.Font.ttf(await rootBundle
+                      .load('assets/fonts/google_sans/GoogleSans-Regular.ttf'));
+                  final arabic = pw.Font.ttf(await rootBundle.load(
+                      'assets/fonts/noto_naskh_arabic/NotoNaskhArabic.ttf'));
+                  final label = pw.Document(
+                    theme: pw.ThemeData.withFont(
+                      base: font,
+                      fontFallback: [arabic],
+                    ),
+                  );
                   label.addPage(pw.Page(
                     build: (_) => pw.Center(
                       child: pw.Column(
@@ -172,6 +199,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                             height: 140,
                           ),
                           pw.SizedBox(height: 12),
+                          if (bin.name != bin.code) pw.Text(bin.name),
                           pw.Text(bin.code),
                         ],
                       ),
@@ -259,7 +287,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     if (!await _scanMatching(bin) || !mounted || !_current) return;
     final confirmed = await showM3ConfirmDialog(
       context: context,
-      title: '${bin.code} qutisi bo‘shatildimi?',
+      title: '${bin.label} qutisi bo‘shatildimi?',
       message:
           'Qutini bo‘shatganingizdan keyin tasdiqlang. Yopilgan partiya tarixda saqlanadi.',
       cancelLabel: 'Bekor qilish',
@@ -282,7 +310,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     if (!mounted || !_current || history == null) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (historyContext) => AppShell(
-        title: '${bin.code} tarixi',
+        title: '${bin.label} tarixi',
         subtitle: '',
         nativeTopBar: true,
         child: history.isEmpty
@@ -297,6 +325,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                         MaterialPageRoute<void>(
                           builder: (_) => _WasteHistoryDetail(
                             code: bin.code,
+                            label: bin.label,
                             cycleId: cycle.id,
                           ),
                         ),
@@ -329,7 +358,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
           WasteBinStatus.reset: 4,
         };
         final status = ranks[a.status]!.compareTo(ranks[b.status]!);
-        return status == 0 ? a.code.compareTo(b.code) : status;
+        return status == 0 ? a.label.compareTo(b.label) : status;
       });
     return AppShell(
       title: 'Chiqindi qabul qilish',
@@ -361,7 +390,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: _busy ? null : _register,
+                  onPressed: _busy ? null : _editBin,
                   style: appOutlinedActionButtonStyle(),
                   icon: const Icon(Icons.add),
                   label: const Text('Yangi quti'),
@@ -386,13 +415,17 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Quti ${bin.code}',
+                  Text(bin.label,
                       style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 6),
                   Text(
                     '${wasteStatusLabel(bin.status)} · Tara ${wasteKgLabel(bin.tareKg)}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  const SizedBox(height: 6),
+                  Text(bin.configured
+                      ? '${bin.apparatusIds.length} ta apparat · ${bin.operators.length} ta aparatchi'
+                      : 'Apparat va aparatchilar biriktirilmagan'),
                   const SizedBox(height: 12),
                   if (cycle != null && bin.status == WasteBinStatus.sealed)
                     FilledButton(
@@ -416,6 +449,12 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
+                      if (bin.status == WasteBinStatus.empty)
+                        TextButton.icon(
+                          onPressed: _busy ? null : () => _editBin(bin),
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Qutini sozlash'),
+                        ),
                       TextButton.icon(
                         onPressed: _busy ? null : () => _showQr(bin),
                         icon: const Icon(Icons.qr_code_rounded),
@@ -448,9 +487,11 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
               child: ListTile(
                 selected: bin.code == _selected?.code,
                 leading: const Icon(Icons.inventory_2_outlined),
-                title: Text(bin.code),
+                title: Text(bin.label),
                 subtitle: Text([
                   wasteStatusLabel(bin.status),
+                  if (!bin.configured && bin.status == WasteBinStatus.empty)
+                    'Biriktirilmagan',
                   if (bin.cycle?.apparatusName case final name?
                       when name.isNotEmpty)
                     name,
@@ -468,9 +509,13 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
 }
 
 class _WasteHistoryDetail extends StatefulWidget {
-  const _WasteHistoryDetail({required this.code, required this.cycleId});
+  const _WasteHistoryDetail({
+    required this.code,
+    required this.label,
+    required this.cycleId,
+  });
 
-  final String code, cycleId;
+  final String code, label, cycleId;
 
   @override
   State<_WasteHistoryDetail> createState() => _WasteHistoryDetailState();
@@ -482,7 +527,7 @@ class _WasteHistoryDetailState extends State<_WasteHistoryDetail> {
 
   @override
   Widget build(BuildContext context) => AppShell(
-        title: widget.code,
+        title: widget.label,
         subtitle: '',
         nativeTopBar: true,
         child: FutureBuilder<WasteBin>(
@@ -502,102 +547,6 @@ class _WasteHistoryDetailState extends State<_WasteHistoryDetail> {
             return const Center(child: CircularProgressIndicator());
           },
         ),
-      );
-}
-
-class _RegisterWasteBinDialog extends StatefulWidget {
-  const _RegisterWasteBinDialog();
-
-  @override
-  State<_RegisterWasteBinDialog> createState() =>
-      _RegisterWasteBinDialogState();
-}
-
-class _RegisterWasteBinDialogState extends State<_RegisterWasteBinDialog> {
-  final _form = GlobalKey<FormState>();
-  final _code = TextEditingController();
-  final _tare = TextEditingController();
-  final _tolerance = TextEditingController();
-
-  @override
-  void dispose() {
-    _code.dispose();
-    _tare.dispose();
-    _tolerance.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Chiqindi qutisini ro‘yxatga olish'),
-        scrollable: true,
-        insetPadding: m3DialogInsetPadding,
-        constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
-        content: SizedBox(
-          width: m3DialogMaxWidth,
-          child: Form(
-            key: _form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextFormField(
-                  controller: _code,
-                  textCapitalization: TextCapitalization.characters,
-                  textInputAction: TextInputAction.next,
-                  decoration: appSurfaceInputDecoration(
-                    context,
-                    labelText: 'Quti kodi',
-                  ),
-                  validator: (value) {
-                    try {
-                      wasteBinCode(value ?? '');
-                      return null;
-                    } on FormatException catch (error) {
-                      return error.message;
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                _kgField(_tare, 'Bo‘sh quti vazni (kg)', required: true),
-                const SizedBox(height: 12),
-                _kgField(_tolerance, 'Ruxsat etilgan farq (kg)'),
-                const SizedBox(height: 20),
-                AppDialogActionRow(
-                  cancelLabel: 'Bekor qilish',
-                  confirmLabel: 'Saqlash',
-                  onCancel: () => Navigator.pop(context),
-                  onConfirm: () {
-                    if (!_form.currentState!.validate()) return;
-                    Navigator.pop(context, (
-                      _code.text,
-                      wasteKgInput(_tare.text)!,
-                      wasteKgInput(_tolerance.text),
-                    ));
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-  Widget _kgField(
-    TextEditingController controller,
-    String label, {
-    bool required = false,
-  }) =>
-      TextFormField(
-        controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textInputAction: required ? TextInputAction.next : TextInputAction.done,
-        decoration: appSurfaceInputDecoration(context, labelText: label),
-        validator: (value) {
-          if (!required && (value ?? '').trim().isEmpty) return null;
-          return wasteKgInput(value ?? '') == null
-              ? 'Vaznni kg’da kiriting'
-              : null;
-        },
       );
 }
 

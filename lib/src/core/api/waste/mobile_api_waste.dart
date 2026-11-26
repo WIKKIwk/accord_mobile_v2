@@ -33,6 +33,71 @@ String wasteBinCode(String value) {
 
 enum WasteBinStatus { empty, open, sealed, received, reset }
 
+typedef WasteBinOperatorRef = ({String role, String ref});
+
+WasteBinOperatorRef _wasteBinOperatorRef(Map<String, dynamic> json) =>
+    (role: json['role'] as String, ref: json['ref'] as String);
+
+class WasteBinApparatusOption {
+  const WasteBinApparatusOption({required this.id, required this.name});
+
+  final String id, name;
+}
+
+class WasteBinOperatorOption {
+  WasteBinOperatorOption.fromJson(Map<String, dynamic> json)
+      : identity = _wasteBinOperatorRef(json),
+        displayName = json['display_name'] as String,
+        apparatusIds = List<String>.unmodifiable(json['apparatus_ids'] as List);
+
+  final WasteBinOperatorRef identity;
+  final String displayName;
+  final List<String> apparatusIds;
+}
+
+class WasteBinOptions {
+  WasteBinOptions.fromJson(Map<String, dynamic> json)
+      : apparatuses = List.unmodifiable(
+          (json['apparatuses'] as List).map(
+            (row) => WasteBinApparatusOption(
+              id: row['id'] as String,
+              name: row['name'] as String,
+            ),
+          ),
+        ),
+        operators = List.unmodifiable(
+          (json['operators'] as List).map(
+            (row) => WasteBinOperatorOption.fromJson(
+              row as Map<String, dynamic>,
+            ),
+          ),
+        );
+
+  final List<WasteBinApparatusOption> apparatuses;
+  final List<WasteBinOperatorOption> operators;
+}
+
+class WasteBinConfiguration {
+  const WasteBinConfiguration({
+    required this.name,
+    required this.apparatusIds,
+    required this.operators,
+  });
+
+  final String name;
+  final List<String> apparatusIds;
+  final List<WasteBinOperatorRef> operators;
+
+  Map<String, dynamic> toJson() => {
+        'name': name.trim(),
+        'apparatus_ids': apparatusIds,
+        'operators': [
+          for (final operator in operators)
+            {'role': operator.role, 'ref': operator.ref},
+        ],
+      };
+}
+
 class WasteWarehouse {
   WasteWarehouse.fromJson(Map<String, dynamic> json)
       : id = json['id'] as String,
@@ -49,20 +114,36 @@ class WasteWarehouse {
 class WasteBin {
   WasteBin.fromJson(Map<String, dynamic> json)
       : code = json['code'] as String,
+        _name = (json['name'] as String?)?.trim() ?? '',
         qrPayload = json['qr_payload'] as String,
         tareKg = _wasteKg(json['tare_kg']),
         toleranceKg = _wasteKg(json['tolerance_kg']),
         status = WasteBinStatus.values.byName(json['status'] as String),
+        configured = json['configured'] as bool? ?? false,
+        apparatusIds =
+            List<String>.unmodifiable(json['apparatus_ids'] as List? ?? []),
+        operators = List.unmodifiable(
+          (json['operators'] as List? ?? []).map(
+            (row) => _wasteBinOperatorRef(row as Map<String, dynamic>),
+          ),
+        ),
         cycle = json['cycle'] == null
             ? null
             : WasteCycle.fromJson(json['cycle'] as Map<String, dynamic>);
 
   final String code;
+  final String _name;
   final String qrPayload;
   final double tareKg;
   final double toleranceKg;
   final WasteBinStatus status;
+  final bool configured;
+  final List<String> apparatusIds;
+  final List<WasteBinOperatorRef> operators;
   final WasteCycle? cycle;
+
+  String get name => _name.isEmpty ? code : _name;
+  String get label => name == code ? code : '$name · $code';
 }
 
 class WasteCycle {
@@ -166,6 +247,9 @@ class WasteActiveBins {
 }
 
 extension MobileApiWaste on MobileApi {
+  Future<WasteBinOptions> wasteBinOptions() async =>
+      WasteBinOptions.fromJson(await _wasteRequest('bins/options'));
+
   Future<List<WasteWarehouse>> wasteWarehouses() async {
     final data = await _wasteRequest('warehouses');
     return (data['warehouses'] as List)
@@ -209,12 +293,23 @@ extension MobileApiWaste on MobileApi {
   Future<WasteBin> registerWasteBin({
     required String code,
     required double tareKg,
+    required WasteBinConfiguration configuration,
     double? toleranceKg,
   }) =>
       _wasteBinMutation('register', {
         'code': wasteBinCode(code),
         'tare_kg': tareKg,
         if (toleranceKg != null) 'tolerance_kg': toleranceKg,
+        ...configuration.toJson(),
+      });
+
+  Future<WasteBin> configureWasteBin({
+    required String code,
+    required WasteBinConfiguration configuration,
+  }) =>
+      _wasteBinMutation('configure', {
+        'code': wasteBinCode(code),
+        ...configuration.toJson(),
       });
 
   Future<WasteBin> assignWasteBin(String code, String apparatusId) =>

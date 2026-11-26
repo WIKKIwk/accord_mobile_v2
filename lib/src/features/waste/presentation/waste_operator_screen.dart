@@ -113,7 +113,10 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
     _run(_refresh);
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(
+    Future<void> Function() action, {
+    bool claimingBin = false,
+  }) async {
     if (!_current || _busy) return;
     setState(() {
       _busy = true;
@@ -122,7 +125,17 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
     try {
       await action();
     } catch (error) {
-      if (_current) setState(() => _error = wasteErrorText(error));
+      if (!_current) return;
+      final message = claimingBin && error is MobileApiException
+          ? switch (error.code) {
+              'waste_bin_conflict' =>
+                'Quti band yoki apparatda boshqa faol quti bor. Ro‘yxatni qayta oching.',
+              'waste_bin_forbidden' =>
+                'Bu quti ushbu apparat va sizga biriktirilmagan.',
+              _ => wasteErrorText(error),
+            }
+          : wasteErrorText(error);
+      setState(() => _error = message);
     } finally {
       if (_current) setState(() => _busy = false);
     }
@@ -155,7 +168,7 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
     await _run(() async {
       await _api.assignWasteBin(code, widget.apparatusId);
       await _refresh();
-    });
+    }, claimingBin: true);
   }
 
   Future<void> _submit(WasteBin bin, {required bool replace}) async {
@@ -167,7 +180,7 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('${bin.code} qutisini topshirish'),
+        title: Text('${bin.label} qutisini topshirish'),
         content: Text(replacement == null
             ? 'Quti qabulga yuboriladi. Keyingi chiqindi uchun bo‘sh quti biriktiring.'
             : 'Quti qabulga yuboriladi va bo‘sh quti apparatga biriktiriladi.'),
@@ -191,7 +204,7 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
         replacementCode: replacement,
       );
       await _refresh();
-    });
+    }, claimingBin: replace);
   }
 
   Future<void> _record(WasteBin bin) async {
@@ -240,7 +253,7 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
               shrinkWrap: true,
               children: [
                 Text(
-                    'Faqat ${bin.code} qutisiga solingan chiqindilarni belgilang.'),
+                    'Faqat ${bin.label} qutisiga solingan chiqindilarni belgilang.'),
                 for (final entry in pending)
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
@@ -351,7 +364,7 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
             if (bin != null && cycle != null) ...[
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text('Faol quti ${bin.code}'),
+                title: Text('Faol quti ${bin.label}'),
                 subtitle: Text(
                     'Qayd etilgan chiqindi: ${wasteKgLabel(cycle.expectedKg)}'),
               ),
@@ -403,28 +416,37 @@ class _EmptyWasteBinPickerState extends State<_EmptyWasteBinPicker> {
   Widget build(BuildContext context) => SafeArea(
         child: FutureBuilder<List<WasteBin>>(
           future: _load,
-          builder: (context, snapshot) => ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.qr_code_scanner),
-                title: const Text('Qutini skan qilish'),
-                onTap: () => Navigator.pop(context, ''),
-              ),
-              if (snapshot.connectionState != ConnectionState.done)
-                const LinearProgressIndicator(),
-              if (snapshot.hasError)
-                ListTile(title: Text(wasteErrorText(snapshot.error!))),
-              if (snapshot.data?.isEmpty == true)
-                const ListTile(title: Text('Bo‘sh quti topilmadi')),
-              for (final bin in snapshot.data ?? <WasteBin>[])
+          builder: (context, snapshot) {
+            final bins = snapshot.data
+                ?.where((bin) => bin.configured)
+                .toList(growable: false);
+            return ListView(
+              shrinkWrap: true,
+              children: [
                 ListTile(
-                  title: Text(bin.code),
-                  subtitle: Text('Tara ${wasteKgLabel(bin.tareKg)}'),
-                  onTap: () => Navigator.pop(context, bin.code),
+                  leading: const Icon(Icons.qr_code_scanner),
+                  title: const Text('Qutini skan qilish'),
+                  onTap: () => Navigator.pop(context, ''),
                 ),
-            ],
-          ),
+                if (snapshot.connectionState != ConnectionState.done)
+                  const LinearProgressIndicator(),
+                if (snapshot.hasError)
+                  ListTile(title: Text(wasteErrorText(snapshot.error!))),
+                if (bins?.isEmpty == true)
+                  const ListTile(
+                      title: Text('Sizga ajratilgan bo‘sh quti topilmadi')),
+                for (final bin in bins ?? <WasteBin>[])
+                  ListTile(
+                    title: Text(bin.name),
+                    subtitle: Text([
+                      if (bin.name != bin.code) bin.code,
+                      'Tara ${wasteKgLabel(bin.tareKg)}',
+                    ].join(' · ')),
+                    onTap: () => Navigator.pop(context, bin.code),
+                  ),
+              ],
+            );
+          },
         ),
       );
 }
