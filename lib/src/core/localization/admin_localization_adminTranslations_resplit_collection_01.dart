@@ -307,6 +307,36 @@ const _admin_localization_adminTranslations_resplitPart01 = {
     'en': 'Create warehouse',
     'ru': 'Создать склад',
   },
+  'admin.warehouse.waste': {
+    'uz': 'Chiqindi ombori',
+    'en': 'Waste warehouse',
+    'ru': 'Склад отходов',
+  },
+  'admin.warehouse.waste_stock': {
+    'uz': 'Ombordagi chiqindi',
+    'en': 'Waste on hand',
+    'ru': 'Отходы на складе',
+  },
+  'admin.warehouse.waste_receipts': {
+    'uz': '{count} ta qabul',
+    'en': '{count} receipts',
+    'ru': 'Приёмок: {count}',
+  },
+  'admin.warehouse.waste_receiver_optional': {
+    'uz': 'Qabulchini keyin ham biriktirish mumkin',
+    'en': 'You can assign a receiver later',
+    'ru': 'Приёмщика можно назначить позже',
+  },
+  'admin.warehouse.create_failed': {
+    'uz': 'Ombor yaratilmadi',
+    'en': 'Could not create the warehouse',
+    'ru': 'Не удалось создать склад',
+  },
+  'admin.warehouse.waste_delete_blocked': {
+    'uz': 'Qabul tarixi bor chiqindi omborini o‘chirib bo‘lmaydi.',
+    'en': 'A waste warehouse with receipts cannot be deleted.',
+    'ru': 'Склад отходов с историей приёмок удалить нельзя.',
+  },
   'admin.warehouse.name': {
     'uz': 'Ombor nomi',
     'en': 'Warehouse name',

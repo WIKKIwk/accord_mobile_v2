@@ -33,6 +33,19 @@ String wasteBinCode(String value) {
 
 enum WasteBinStatus { empty, open, sealed, received, reset }
 
+class WasteWarehouse {
+  WasteWarehouse.fromJson(Map<String, dynamic> json)
+      : id = json['id'] as String,
+        warehouse = json['warehouse'] as String,
+        onHandKg = _wasteKg(json['on_hand_kg']),
+        receiptCount = json['receipt_count'] as int;
+
+  final String id;
+  final String warehouse;
+  final double onHandKg;
+  final int receiptCount;
+}
+
 class WasteBin {
   WasteBin.fromJson(Map<String, dynamic> json)
       : code = json['code'] as String,
@@ -109,11 +122,14 @@ class WasteReceipt {
         note = json['note'] as String? ?? '',
         receivedBy = json['received_by_display_name'] as String? ?? '',
         receivedAt = _wasteDate(json['received_at_unix']),
+        warehouseId = json['warehouse_id'] as String?,
+        warehouse = json['warehouse'] as String?,
         outsideTolerance = json['outside_tolerance'] as bool? ?? false;
 
   final double grossKg, tareKg, netKg, expectedKg, differenceKg;
   final String measurementSource, note, receivedBy;
   final DateTime? receivedAt;
+  final String? warehouseId, warehouse;
   final bool outsideTolerance;
 }
 
@@ -150,6 +166,13 @@ class WasteActiveBins {
 }
 
 extension MobileApiWaste on MobileApi {
+  Future<List<WasteWarehouse>> wasteWarehouses() async {
+    final data = await _wasteRequest('warehouses');
+    return (data['warehouses'] as List)
+        .map((row) => WasteWarehouse.fromJson(row as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
   Future<List<WasteBin>> wasteBins({
     String? apparatusId,
     WasteBinStatus? status,
@@ -242,15 +265,26 @@ extension MobileApiWaste on MobileApi {
 
   Future<WasteBin> receiveWasteBin({
     required WasteBin bin,
+    required String warehouseId,
     required double grossKg,
     required String source,
     required String note,
   }) =>
       _wasteBinMutation('receive', {
         ..._wasteIdentity(bin),
+        'warehouse_id': warehouseId,
         'gross_kg': grossKg,
         'measurement_source': source,
         if (note.isNotEmpty) 'note': note,
+      });
+
+  Future<WasteBin> assignWasteReceiptDestination({
+    required WasteBin bin,
+    required String warehouseId,
+  }) =>
+      _wasteBinMutation('destination', {
+        ..._wasteIdentity(bin),
+        'warehouse_id': warehouseId,
       });
 
   Future<WasteBin> resetWasteBin(WasteBin bin) =>

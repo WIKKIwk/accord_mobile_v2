@@ -11,6 +11,7 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
   Timer? _warehouseLiveReconnectTimer;
   Timer? _warehouseLiveRefreshTimer;
   Future<_WarehouseInventorySection?>? _detailFuture;
+  Set<String> _wasteWarehouseKeys = const {};
   String? _selectedWarehouse;
   bool _warehouseFilterExpanded = false;
   bool _refreshing = false;
@@ -190,13 +191,20 @@ class _AdminWarehousesScreenState extends State<AdminWarehousesScreen>
           if (_werkaScoped) {
             return productsTab;
           }
+          final selectedSummary =
+              _selectedWarehouseSummary(data.sections, _selectedWarehouse);
           return Column(
             children: [
               AdminSurfaceTabBar(
                 controller: _pageTabController,
-                tabs: const [
-                  Tab(height: 38, text: 'Mahsulotlar'),
-                  Tab(height: 38, text: 'Sozlamalar'),
+                tabs: [
+                  Tab(
+                    height: 38,
+                    text: selectedSummary?.isWaste == true
+                        ? context.l10n.adminText('warehouse.waste')
+                        : 'Mahsulotlar',
+                  ),
+                  const Tab(height: 38, text: 'Sozlamalar'),
                 ],
               ),
               Expanded(

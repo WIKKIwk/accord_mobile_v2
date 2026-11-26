@@ -17,15 +17,17 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
   }
 
   Future<void> _assignUser() async {
-    if (_warehouse.isEmpty || _assigning) {
+    final summary = _summary;
+    if (summary == null || _assigning) {
       return;
     }
+    final warehouse = summary.warehouse;
     _applyStateChange(() => _assigning = true);
     late final List<AdminUserListEntry> users;
     try {
       final results = await Future.wait<Object>([
-        _loadWarehouseAssigneeUsers(),
-        MobileApi.instance.adminWarehouseAssignments(warehouse: _warehouse),
+        _loadWarehouseAssigneeUsers(isWaste: summary.isWaste),
+        MobileApi.instance.adminWarehouseAssignments(warehouse: warehouse),
       ]);
       final candidates = results[0] as List<AdminUserListEntry>;
       final assignments = results[1] as List<AdminWarehouseAssignment>;
@@ -57,7 +59,7 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
         _applyStateChange(() => _assigning = false);
       }
     }
-    if (!mounted) {
+    if (!mounted || _warehouse != warehouse) {
       return;
     }
     if (users.isEmpty) {
@@ -94,13 +96,13 @@ extension __WarehouseSettingsTabStateAstPart03 on _WarehouseSettingsTabState {
         );
       },
     );
-    if (picked == null || !mounted) {
+    if (picked == null || !mounted || _warehouse != warehouse) {
       return;
     }
     _applyStateChange(() => _assigning = true);
     try {
       await MobileApi.instance.adminAssignWarehouse(
-        warehouse: _warehouse,
+        warehouse: warehouse,
         principalRole: _roleForUser(picked),
         principalRef: picked.id,
         displayName: picked.name,

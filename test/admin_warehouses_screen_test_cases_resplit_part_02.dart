@@ -2,6 +2,62 @@
 part of 'admin_warehouses_screen_test.dart';
 
 void _registeradmin_warehouses_screen_testCases02() {
+  testWidgets('admin creates a waste warehouse and assigns only a receiver', (
+    tester,
+  ) async {
+    final receiver = await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.chiqindiQabulchi,
+      name: 'Chiqindi qabulchisi',
+      phone: '+998110001196',
+    );
+    await MobileApi.instance.adminCreateSystemUser(
+      role: UserRole.qolipchi,
+      name: 'Oddiy ombor ishchisi',
+      phone: '+998110001150',
+    );
+    await _pumpWarehousesScreen(tester);
+    await tester.tap(find.byKey(_primaryNavigationButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ombor yaratish'));
+    await tester.pumpAndSettle();
+    const warehouseName = 'Chiqindi qabul maydoni';
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Ombor nomi'),
+      warehouseName,
+    );
+    await tester.tap(find.byKey(const ValueKey('warehouse-create-waste')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+    await tester.pumpAndSettle();
+
+    expect(
+      await MobileApi.instance.adminWarehouses(query: warehouseName),
+      isEmpty,
+    );
+    final warehouses = await MobileApi.instance.adminWarehouses(
+      query: warehouseName,
+      includeWaste: true,
+    );
+    expect(warehouses.single.isWaste, isTrue);
+
+    await _selectWarehouse(tester, warehouseName);
+    expect(find.text('Ombordagi chiqindi'), findsOneWidget);
+    expect(find.text('0 kg'), findsOneWidget);
+    await tester.tap(find.text('Sozlamalar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('warehouse-assign-user')));
+    await tester.pumpAndSettle();
+    expect(find.text('Oddiy ombor ishchisi'), findsNothing);
+    await tester.tap(find.text(receiver.name));
+    await tester.pumpAndSettle();
+
+    final assignments = await MobileApi.instance.adminWarehouseAssignments(
+      warehouse: warehouseName,
+    );
+    expect(assignments.single.principalRole, UserRole.chiqindiQabulchi);
+    expect(assignments.single.principalRef, receiver.id);
+  });
+
   testWidgets('warehouse assignee picker hides already assigned users', (
     tester,
   ) async {

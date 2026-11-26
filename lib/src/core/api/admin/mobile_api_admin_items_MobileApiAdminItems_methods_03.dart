@@ -100,7 +100,10 @@ extension MobileApiAdminItemsAstPart03 on MobileApi {
     }
   }
 
-  Future<AdminWarehouse> adminCreateWarehouse(String warehouse) async {
+  Future<AdminWarehouse> adminCreateWarehouse(
+    String warehouse, {
+    bool isWaste = false,
+  }) async {
     final name = warehouse.trim();
     if (name.isEmpty) {
       throw Exception('Admin warehouse name required');
@@ -111,6 +114,7 @@ extension MobileApiAdminItemsAstPart03 on MobileApi {
         company: '',
         isGroup: false,
         parentWarehouse: '',
+        isWaste: isWaste,
       );
       _testModeDeletedWarehouseNames.remove(name.toLowerCase());
       final index = _testModeWarehouses.indexWhere(
@@ -133,15 +137,29 @@ extension MobileApiAdminItemsAstPart03 on MobileApi {
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/admin/warehouses'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
-        body: jsonEncode({'warehouse': name}),
+        body: jsonEncode({
+          'warehouse': name,
+          if (isWaste) 'is_waste': true,
+        }),
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Admin warehouse create failed');
+      throw _adminApiException(
+        response,
+        fallbackCode: 'warehouse_create_failed',
+        fallbackMessage: 'Ombor yaratilmadi',
+      );
     }
-    return AdminWarehouse.fromJson(
+    final created = AdminWarehouse.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
+    if (created.isWaste != isWaste) {
+      throw const MobileApiException(
+        code: 'warehouse_type_not_confirmed',
+        message: 'Ombor turi serverda tasdiqlanmadi',
+      );
+    }
+    return created;
   }
 
   Future<void> adminDeleteWarehouse({

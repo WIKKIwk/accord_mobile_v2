@@ -78,12 +78,14 @@ class AdminWarehouse {
     this.company = '',
     this.isGroup = false,
     this.parentWarehouse = '',
+    this.isWaste = false,
   });
 
   final String warehouse;
   final String company;
   final bool isGroup;
   final String parentWarehouse;
+  final bool isWaste;
 
   factory AdminWarehouse.fromJson(Map<String, dynamic> json) {
     return AdminWarehouse(
@@ -93,6 +95,7 @@ class AdminWarehouse {
       parentWarehouse: (json['parent_warehouse'] as String?) ??
           (json['parent'] as String?) ??
           '',
+      isWaste: json['is_waste'] == true,
     );
   }
 }
@@ -104,6 +107,9 @@ class AdminWarehouseSummary {
     required this.reservedCount,
     required this.assignmentCount,
     required this.assignedDisplayNames,
+    this.isWaste = false,
+    this.wasteOnHandKg = 0,
+    this.wasteReceiptCount = 0,
   });
 
   final String warehouse;
@@ -111,6 +117,9 @@ class AdminWarehouseSummary {
   final int reservedCount;
   final int assignmentCount;
   final List<String> assignedDisplayNames;
+  final bool isWaste;
+  final double wasteOnHandKg;
+  final int wasteReceiptCount;
 
   factory AdminWarehouseSummary.fromJson(Map<String, dynamic> json) {
     return AdminWarehouseSummary(
@@ -118,6 +127,9 @@ class AdminWarehouseSummary {
       productCount: (json['product_count'] as num?)?.toInt() ?? 0,
       reservedCount: (json['reserved_count'] as num?)?.toInt() ?? 0,
       assignmentCount: (json['assignment_count'] as num?)?.toInt() ?? 0,
+      isWaste: json['is_waste'] == true,
+      wasteOnHandKg: (json['waste_on_hand_kg'] as num?)?.toDouble() ?? 0,
+      wasteReceiptCount: (json['waste_receipt_count'] as num?)?.toInt() ?? 0,
       assignedDisplayNames:
           (json['assigned_display_names'] as List<dynamic>? ?? const [])
               .map((item) => item.toString())

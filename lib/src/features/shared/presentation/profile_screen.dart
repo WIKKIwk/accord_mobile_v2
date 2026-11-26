@@ -37,6 +37,7 @@ import '../../boyoqchi/presentation/widgets/boyoqchi_dock.dart';
 import '../../preparation/presentation/preparation_navigation.dart';
 import '../../raw_material_split/presentation/raw_material_split_navigation.dart';
 import '../../metalayzer/presentation/metalayzer_navigation.dart';
+import '../../waste/presentation/waste_navigation.dart';
 import '../../boyoqchi/presentation/widgets/boyoqchi_navigation_drawer.dart';
 import '../../werka/presentation/widgets/werka_dock.dart';
 import '../../werka/presentation/widgets/werka_navigation_drawer.dart';
@@ -117,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
         final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
         final bottomPadding = bottomInset + 136.0;
-        final subtitle = current.accessRole == UserRole.metalayzer ? 'Metalayzer profili' : current.accessRole == UserRole.brigader ? 'Brigader profili' : current.accessRole == UserRole.salesManager ? 'Sotuv manageri profili' : current.accessRole == UserRole.homashyoRezkachi ? 'Homashyo rezkachisi profili' : current.accessRole == UserRole.tayyorlovMasteri ? 'Tayyorlov masteri profili' : current.isCapabilityOnlyProfile
+        final subtitle = current.accessRole == UserRole.chiqindiQabulchi ? 'Chiqindi qabul qiluvchi' : current.accessRole == UserRole.metalayzer ? 'Metalayzer profili' : current.accessRole == UserRole.brigader ? 'Brigader profili' : current.accessRole == UserRole.salesManager ? 'Sotuv manageri profili' : current.accessRole == UserRole.homashyoRezkachi ? 'Homashyo rezkachisi profili' : current.accessRole == UserRole.tayyorlovMasteri ? 'Tayyorlov masteri profili' : current.isCapabilityOnlyProfile
             ? l10n.capabilityBasedAccount
             : current.accessRole == UserRole.supplier
                 ? l10n.supplierAccount
@@ -186,6 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             _ProfileShellKind.preparation => const PreparationDrawer(profile:true),
             _ProfileShellKind.rawMaterialSplit => const RawMaterialSplitDrawer(profile:true),
             _ProfileShellKind.metalayzer => const MetalayzerDrawer(profile:true),
+            _ProfileShellKind.waste => const WasteDrawer(activeTab: WasteDockTab.profile),
             _ProfileShellKind.admin || _ProfileShellKind.none => null,
           },
           bottom: switch (shellKind) {
@@ -215,6 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             _ProfileShellKind.preparation => const PreparationDock(profile:true),
             _ProfileShellKind.rawMaterialSplit => const RawMaterialSplitDock(profile:true),
             _ProfileShellKind.metalayzer => const MetalayzerDock(profile:true),
+            _ProfileShellKind.waste => const WasteDock(activeTab: WasteDockTab.profile),
             _ProfileShellKind.admin => const AdminDock(
                 activeTab: AdminDockTab.user,
                 showPrimaryFab: false,

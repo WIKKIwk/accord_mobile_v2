@@ -21,6 +21,11 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
   int _itemsRequestGeneration = 0;
   String? _editingStockBarcode;
 
+  _WarehouseSummarySection? get _selectedSummary =>
+      _selectedWarehouseSummary(widget.summaries, widget.warehouse);
+
+  bool get _isWasteWarehouse => _selectedSummary?.isWaste == true;
+
   bool get _isQolipWarehouse =>
       widget.showQolipWarehouseProducts &&
       (_isQolipWarehouseName(widget.warehouse) ||
@@ -108,6 +113,13 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
         Center(child: Text(context.l10n.adminText('warehouse.empty'))),
       ]);
     }
+    final selectedSummary = _selectedSummary;
+    if (selectedSummary?.isWaste == true) {
+      return buildScaffold([
+        const SizedBox(height: 8),
+        _WasteWarehouseStockCard(selectedSummary!),
+      ]);
+    }
     if (widget.warehouse == null ||
         widget.warehouse!.trim().isEmpty ||
         future == null) {
@@ -127,14 +139,6 @@ class _WarehouseDetailsTabState extends State<_WarehouseDetailsTab> {
             );
         final availableRawStock = _availableRawStock(current.rawStock);
         final reservedRawStock = _reservedRawStock(current.rawStock);
-        _WarehouseSummarySection? selectedSummary;
-        for (final summary in widget.summaries) {
-          if (summary.warehouse.trim().toLowerCase() ==
-              selectedWarehouse.toLowerCase()) {
-            selectedSummary = summary;
-            break;
-          }
-        }
         final isQolipWarehouse = _isQolipWarehouse;
         final qolipProductGroups = isQolipWarehouse
             ? _groupAdminQolipProducts(_qolipProducts)

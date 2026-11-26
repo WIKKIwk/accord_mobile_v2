@@ -66,25 +66,29 @@ class _AdminWorkerDetailScreenState extends State<AdminWorkerDetailScreen> {
       widget.entry.kind == AdminUserKind.rezkaMaster ||
       widget.entry.kind == AdminUserKind.metalayzer ||
       widget.entry.kind == AdminUserKind.chiqindiQabulchi;
+  bool get _isWasteReceiver =>
+      widget.entry.kind == AdminUserKind.chiqindiQabulchi ||
+      widget.entry.principalRole == UserRole.chiqindiQabulchi;
   bool get _warehouseManagementEnabled =>
       (_isQolipchi ||
           widget.entry.kind == AdminUserKind.tayyorlovMasteri ||
           widget.entry.kind == AdminUserKind.homashyoRezkachi ||
-          widget.entry.kind == AdminUserKind.metalayzer) &&
+          widget.entry.kind == AdminUserKind.metalayzer ||
+          _isWasteReceiver) &&
       !widget.readOnly;
   bool get _isTayyorlovMasteri =>
       widget.entry.kind == AdminUserKind.tayyorlovMasteri ||
       widget.entry.principalRole == UserRole.tayyorlovMasteri;
   bool get _responsibilityManagementEnabled =>
       _isTayyorlovMasteri && !widget.readOnly;
-  UserRole get _warehousePrincipalRole =>
-      widget.entry.kind == AdminUserKind.metalayzer
-          ? UserRole.metalayzer
-          : widget.entry.kind == AdminUserKind.homashyoRezkachi
-          ? UserRole.homashyoRezkachi
-          : _isQolipchi
-              ? UserRole.qolipchi
-              : UserRole.tayyorlovMasteri;
+  UserRole get _warehousePrincipalRole {
+    if (_isWasteReceiver) return UserRole.chiqindiQabulchi;
+    return switch (widget.entry.kind) {
+      AdminUserKind.metalayzer => UserRole.metalayzer,
+      AdminUserKind.homashyoRezkachi => UserRole.homashyoRezkachi,
+      _ => _isQolipchi ? UserRole.qolipchi : UserRole.tayyorlovMasteri,
+    };
+  }
 
   @override
   void initState() {

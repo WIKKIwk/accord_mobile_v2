@@ -19,6 +19,7 @@ enum _ProfileShellKind {
   preparation,
   rawMaterialSplit,
   metalayzer,
+  waste,
   admin,
   none,
 }
@@ -35,6 +36,7 @@ _ProfileShellKind _profileShellKindForHomeRoute(String homeRoute) {
     AppRoutes.preparation => _ProfileShellKind.preparation,
     AppRoutes.rawMaterialSplit => _ProfileShellKind.rawMaterialSplit,
     AppRoutes.metalayzer => _ProfileShellKind.metalayzer,
+    AppRoutes.wasteReceiving => _ProfileShellKind.waste,
     AppRoutes.brigaderHome || AppRoutes.salesHome || AppRoutes.adminHome => _ProfileShellKind.admin,
     _ => _ProfileShellKind.none,
   };

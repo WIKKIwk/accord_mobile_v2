@@ -11,6 +11,7 @@ import '../../../boyoqchi/presentation/widgets/boyoqchi_dock.dart';
 import '../../../preparation/presentation/preparation_navigation.dart';
 import '../../../raw_material_split/presentation/raw_material_split_navigation.dart';
 import '../../../metalayzer/presentation/metalayzer_navigation.dart';
+import '../../../waste/presentation/waste_navigation.dart';
 import '../../../shared/models/app_models.dart';
 import '../../../supplier/presentation/widgets/supplier_dock.dart';
 import '../../../werka/presentation/widgets/werka_dock.dart';
@@ -161,7 +162,8 @@ class ChatRoleDock extends StatelessWidget {
           activeTab: null,
         ),
       UserRole.metalayzer => const MetalayzerDock(),
-      UserRole.chiqindiQabulchi || null => const SizedBox.shrink(),
+      UserRole.chiqindiQabulchi => const WasteDock(),
+      null => const SizedBox.shrink(),
     };
   }
 }

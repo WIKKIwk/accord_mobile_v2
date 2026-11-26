@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/widgets/display/app_info_row.dart';
+import '../../../core/widgets/lists/app_segment_surface_card.dart';
 
 String wasteKgLabel(double kg) =>
     '${kg.toStringAsFixed(6).replaceFirst(RegExp(r'\.?0+$'), '')} kg';
@@ -77,6 +79,11 @@ class WasteCycleDetails extends StatelessWidget {
           ),
           _movement(
               context, 'Qabul qilindi', receipt.receivedBy, receipt.receivedAt),
+          AppInfoRow(
+            label: 'Qabul ombori',
+            value: receipt.warehouse ?? 'Belgilanmagan',
+            icon: Icons.warehouse_outlined,
+          ),
           if (receipt.outsideTolerance)
             const ListTile(
               leading: Icon(Icons.warning_amber_rounded),
@@ -156,29 +163,28 @@ class WasteWeightComparison extends StatelessWidget {
       ('Haqiqiy sof vazn', net),
       ('Tafovut', difference),
     ];
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (label, kg) in rows)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(label)),
-                    Text(
-                      '${label == 'Tafovut' && kg > 0 ? '+' : ''}${wasteKgLabel(kg)}',
-                      style: label == 'Tafovut' && outsideTolerance
-                          ? TextStyle(color: theme.colorScheme.error)
-                          : null,
-                    ),
-                  ],
-                ),
+    return AppSegmentSurfaceCard(
+      elevation: 0,
+      backgroundColor: theme.colorScheme.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (label, kg) in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(child: Text(label)),
+                  Text(
+                    '${label == 'Tafovut' && kg > 0 ? '+' : ''}${wasteKgLabel(kg)}',
+                    style: label == 'Tafovut' && outsideTolerance
+                        ? TextStyle(color: theme.colorScheme.error)
+                        : null,
+                  ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

@@ -70,15 +70,20 @@ class _AdminWarehouseAssignmentEditorState
     final l10n = context.l10n;
     setState(() => _adding = true);
     try {
+      final isWasteReceiver = widget.principalRole == UserRole.chiqindiQabulchi;
       final warehouses = widget.warehousesLoader == null
-          ? await MobileApi.instance.adminWarehouses(limit: 500)
+          ? await MobileApi.instance.adminWarehouses(
+              limit: 500,
+              includeWaste: isWasteReceiver,
+            )
           : await widget.warehousesLoader!();
       final assignedKeys = widget.assignedWarehouses
           .map((warehouse) => warehouse.trim().toLowerCase())
           .toSet();
       final available = normalizeAdminWarehouseNames(
         warehouses
-            .where((warehouse) => !warehouse.isGroup)
+            .where((warehouse) =>
+                !warehouse.isGroup && warehouse.isWaste == isWasteReceiver)
             .map((warehouse) => warehouse.warehouse)
             .where(
               (warehouse) =>

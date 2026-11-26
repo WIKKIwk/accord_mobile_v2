@@ -11,18 +11,8 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
 
   String get _warehouse => widget.warehouse?.trim() ?? '';
 
-  _WarehouseSummarySection? get _summary {
-    final selected = _warehouse.toLowerCase();
-    if (selected.isEmpty) {
-      return null;
-    }
-    for (final summary in widget.summaries) {
-      if (summary.warehouse.trim().toLowerCase() == selected) {
-        return summary;
-      }
-    }
-    return null;
-  }
+  _WarehouseSummarySection? get _summary =>
+      _selectedWarehouseSummary(widget.summaries, _warehouse);
 
   @override
   void initState() {
@@ -62,39 +52,42 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
             ),
           ] else ...[
             const SizedBox(height: 8),
-            Card.filled(
-              margin: EdgeInsets.zero,
-              color: scheme.surfaceContainerLowest,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.adminText('warehouse.summary'),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-                    _WarehouseSettingCount(
-                      label: context.l10n.adminText('warehouse.items'),
-                      value: summary.productCount,
-                    ),
-                    _WarehouseSettingCount(
-                      label: context.l10n.adminText(
-                        'warehouse.reserved_count',
+            if (summary.isWaste)
+              _WasteWarehouseStockCard(summary)
+            else
+              Card.filled(
+                margin: EdgeInsets.zero,
+                color: scheme.surfaceContainerLowest,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.adminText('warehouse.summary'),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
-                      value: summary.reservedCount,
-                    ),
-                    _WarehouseSettingCount(
-                      label: context.l10n.adminText('warehouse.assignments'),
-                      value: summary.assignmentCount,
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      _WarehouseSettingCount(
+                        label: context.l10n.adminText('warehouse.items'),
+                        value: summary.productCount,
+                      ),
+                      _WarehouseSettingCount(
+                        label: context.l10n.adminText(
+                          'warehouse.reserved_count',
+                        ),
+                        value: summary.reservedCount,
+                      ),
+                      _WarehouseSettingCount(
+                        label: context.l10n.adminText('warehouse.assignments'),
+                        value: summary.assignmentCount,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 8),
             Card.filled(
               margin: EdgeInsets.zero,
@@ -215,7 +208,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                     const SizedBox(height: 6),
                     Text(
                       context.l10n.adminText(
-                        'warehouse.delete_cascade_warning',
+                        summary.wasteReceiptCount > 0
+                            ? 'warehouse.waste_delete_blocked'
+                            : 'warehouse.delete_cascade_warning',
                       ),
                       style: TextStyle(color: scheme.onErrorContainer),
                     ),
@@ -224,7 +219,9 @@ class _WarehouseSettingsTabState extends State<_WarehouseSettingsTab> {
                       width: double.infinity,
                       child: FilledButton.icon(
                         key: const ValueKey('warehouse-delete-button'),
-                        onPressed: _deleting ? null : _deleteWarehouse,
+                        onPressed: _deleting || summary.wasteReceiptCount > 0
+                            ? null
+                            : _deleteWarehouse,
                         style: FilledButton.styleFrom(
                           backgroundColor: scheme.error,
                           foregroundColor: scheme.onError,

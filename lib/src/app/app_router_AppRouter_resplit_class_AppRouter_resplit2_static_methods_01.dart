@@ -644,6 +644,8 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, const RawMaterialSplitScreen());
     case AppRoutes.wasteReceiving:
       return AppRouter._buildRoute(settings, const WasteReceivingScreen());
+    case AppRoutes.wasteWarehouses:
+      return AppRouter._buildRoute(settings, const WasteWarehousesScreen());
     case AppRoutes.metalayzer:
       return AppRouter._buildRoute(settings, const MetalayzerScreen());
     case AppRoutes.metalayzerMaterials:

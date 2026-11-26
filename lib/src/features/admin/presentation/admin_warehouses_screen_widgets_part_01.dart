@@ -27,6 +27,9 @@ class _WarehouseSummarySection {
     required this.reservedCount,
     required this.assignmentCount,
     required this.assignedDisplayNames,
+    required this.isWaste,
+    required this.wasteOnHandKg,
+    required this.wasteReceiptCount,
   });
 
   final String warehouse;
@@ -34,6 +37,47 @@ class _WarehouseSummarySection {
   final int reservedCount;
   final int assignmentCount;
   final List<String> assignedDisplayNames;
+  final bool isWaste;
+  final double wasteOnHandKg;
+  final int wasteReceiptCount;
+}
+
+_WarehouseSummarySection? _selectedWarehouseSummary(
+  List<_WarehouseSummarySection> summaries,
+  String? name,
+) {
+  final key = name?.trim().toLowerCase();
+  if (key == null || key.isEmpty) return null;
+  for (final summary in summaries) {
+    if (summary.warehouse.trim().toLowerCase() == key) return summary;
+  }
+  return null;
+}
+
+class _WasteWarehouseStockCard extends StatelessWidget {
+  const _WasteWarehouseStockCard(this.summary);
+
+  final _WarehouseSummarySection summary;
+
+  @override
+  Widget build(BuildContext context) => AdminSummaryCard(
+        slot: M3SegmentVerticalSlot.top,
+        borderRadiusOverride: BorderRadius.circular(16),
+        cornerRadius: 16,
+        title: context.l10n.adminText('warehouse.waste_stock'),
+        subtitle: context.l10n.adminText(
+          'warehouse.waste_receipts',
+          values: {'count': summary.wasteReceiptCount},
+        ),
+        value: formatQuantityWithUnit(
+          summary.wasteOnHandKg,
+          'kg',
+          decimalPlaces: 6,
+          trimTrailingZeros: true,
+        ),
+        leading: const Icon(Icons.recycling_rounded),
+        showChevron: false,
+      );
 }
 
 class _WarehouseInventorySection {
@@ -70,7 +114,18 @@ Future<List<AdminUserListEntry>> _loadWarehouseUserPages({
   }
 }
 
-Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers() async {
+Future<List<AdminUserListEntry>> _loadWarehouseAssigneeUsers({
+  required bool isWaste,
+}) async {
+  if (isWaste) {
+    final receivers = await _loadWarehouseUserPages(role: 'chiqindi_qabulchi');
+    return receivers
+        .where((user) =>
+            !user.blocked && _roleForUser(user) == UserRole.chiqindiQabulchi)
+        .toList(growable: false)
+      ..sort((left, right) =>
+          left.name.toLowerCase().compareTo(right.name.toLowerCase()));
+  }
   final results = await Future.wait<Object>([
     _loadWarehouseUserPages(role: 'werka'),
     _loadWarehouseUserPages(role: 'qolipchi'),
@@ -160,6 +215,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
   AdminUserListEntry? _selectedUser;
   bool _loadingUsers = false;
   bool _saving = false;
+  bool _isWaste = false;
 
   @override
   void dispose() {
@@ -172,25 +228,31 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
     if (current != null) {
       return current;
     }
-    final next = _loadWarehouseAssigneeUsers();
+    final next = _loadWarehouseAssigneeUsers(isWaste: _isWaste);
     _usersFuture = next;
     return next;
   }
 
   Future<void> _save() async {
     final warehouse = _warehouseController.text.trim();
-    if (warehouse.isEmpty || _selectedUser == null || _saving) {
+    final user = _selectedUser;
+    if (warehouse.isEmpty || (!_isWaste && user == null) || _saving) {
       return;
     }
     setState(() => _saving = true);
     try {
-      await MobileApi.instance.adminCreateWarehouse(warehouse);
-      await MobileApi.instance.adminAssignWarehouse(
-        warehouse: warehouse,
-        principalRole: _roleForUser(_selectedUser!),
-        principalRef: _selectedUser!.id,
-        displayName: _selectedUser!.name,
+      final created = await MobileApi.instance.adminCreateWarehouse(
+        warehouse,
+        isWaste: _isWaste,
       );
+      if (user != null) {
+        await MobileApi.instance.adminAssignWarehouse(
+          warehouse: created.warehouse,
+          principalRole: _roleForUser(user),
+          principalRef: user.id,
+          displayName: user.name,
+        );
+      }
       _warehouseController.clear();
       if (mounted) {
         setState(() => _selectedUser = null);
@@ -198,6 +260,15 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
       await widget.onSaved();
       if (mounted) {
         widget.onClose();
+      }
+    } catch (error) {
+      if (mounted) {
+        _showWarehouseNotice(
+          context,
+          error is MobileApiException
+              ? error.message
+              : context.l10n.adminText('warehouse.create_failed'),
+        );
       }
     } finally {
       if (mounted) {
@@ -207,7 +278,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
   }
 
   Future<void> _openUserPicker() async {
-    if (_loadingUsers) {
+    if (_loadingUsers || _saving) {
       return;
     }
     setState(() => _loadingUsers = true);
@@ -285,7 +356,7 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -318,11 +389,34 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (AppSession.instance.profile?.role == UserRole.admin) ...[
+                SwitchListTile(
+                  key: const ValueKey('warehouse-create-waste'),
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.l10n.adminText('warehouse.waste')),
+                  value: _isWaste,
+                  onChanged: _saving || _loadingUsers
+                      ? null
+                      : (value) => setState(() {
+                            _isWaste = value;
+                            _selectedUser = null;
+                            _usersFuture = null;
+                          }),
+                ),
+                const SizedBox(height: 12),
+              ],
               _AssignUserPickerField(
                 user: _selectedUser,
                 loading: _loadingUsers,
                 onTap: _openUserPicker,
               ),
+              if (_isWaste) ...[
+                const SizedBox(height: 8),
+                Text(
+                  context.l10n.adminText('warehouse.waste_receiver_optional'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
@@ -335,7 +429,9 @@ class _WarehouseCreateCardState extends State<_WarehouseCreateCard> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.link_rounded),
-                  label: Text(context.l10n.adminText('warehouse.assign')),
+                  label: Text(context.l10n.adminText(
+                    _isWaste ? 'action.save' : 'warehouse.assign',
+                  )),
                 ),
               ),
             ],

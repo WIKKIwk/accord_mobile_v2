@@ -60,6 +60,7 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
             .map((assignment) => assignment.warehouse),
       ),
       sections: summaries
+          .where((item) => _adminScoped || !item.isWaste)
           .where((item) => _warehouseAllowed(item.warehouse, allowedWarehouses))
           .map(
             (item) => _WarehouseSummarySection(
@@ -68,15 +69,25 @@ extension __AdminWarehousesScreenStateAstPart01 on _AdminWarehousesScreenState {
               reservedCount: item.reservedCount,
               assignmentCount: item.assignmentCount,
               assignedDisplayNames: item.assignedDisplayNames,
+              isWaste: item.isWaste,
+              wasteOnHandKg: item.wasteOnHandKg,
+              wasteReceiptCount: item.wasteReceiptCount,
             ),
           )
           .toList(growable: false),
     );
+    _wasteWarehouseKeys = data.sections
+        .where((section) => section.isWaste)
+        .map((section) => section.warehouse.trim().toLowerCase())
+        .toSet();
     _syncSelectedWarehouseAfterSummaryLoaded(data);
     return data;
   }
 
   Future<_WarehouseInventorySection?> _loadDetail(String warehouse) async {
+    if (_wasteWarehouseKeys.contains(warehouse.trim().toLowerCase())) {
+      return null;
+    }
     final allowedWarehouses =
         _warehouseScoped ? await _loadAssignedWarehouses() : null;
     if (!_warehouseAllowed(warehouse, allowedWarehouses)) {

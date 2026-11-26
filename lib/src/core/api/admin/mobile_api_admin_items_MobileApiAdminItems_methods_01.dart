@@ -314,6 +314,7 @@ extension MobileApiAdminItemsAstPart01 on MobileApi {
     String query = '',
     String parent = '',
     int limit = 50,
+    bool includeWaste = false,
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final normalized = query.trim().toLowerCase();
@@ -328,6 +329,7 @@ extension MobileApiAdminItemsAstPart01 on MobileApi {
                 !_testModeDeletedWarehouseNames.contains(
                   warehouse.warehouse.trim().toLowerCase(),
                 ) &&
+                (includeWaste || !warehouse.isWaste) &&
                 (normalized.isEmpty ||
                     warehouse.warehouse.toLowerCase().contains(normalized)) &&
                 (normalizedParent.isEmpty ||
@@ -360,6 +362,7 @@ extension MobileApiAdminItemsAstPart01 on MobileApi {
     final json = await decodeJsonListPayload(response.body);
     return json
         .map((item) => AdminWarehouse.fromJson(item as Map<String, dynamic>))
+        .where((warehouse) => includeWaste || !warehouse.isWaste)
         .toList();
   }
 

@@ -140,13 +140,13 @@ extension __WarehouseDetailsTabStateAstPart02 on _WarehouseDetailsTabState {
       _applyStateChange(() {
         _items = const <AdminWarehouseStockItem>[];
         _qolipProducts = const <QolipProduct>[];
-        _initialItemsLoading = warehouse.isNotEmpty;
+        _initialItemsLoading = warehouse.isNotEmpty && !_isWasteWarehouse;
         _loadingMoreItems = false;
         _hasMoreItems = false;
         _itemsError = null;
       });
     }
-    if (warehouse.isEmpty) {
+    if (warehouse.isEmpty || _isWasteWarehouse) {
       return;
     }
     if (_isQolipWarehouse) {

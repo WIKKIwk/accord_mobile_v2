@@ -4,20 +4,30 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/widgets/buttons/app_action_button_styles.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/forms/app_input_decoration.dart';
 import '../../gscale/gscale_mobile_app.dart';
 import 'waste_bin_details.dart';
+import 'waste_warehouses_screen.dart';
 
 class WasteMeasurement {
-  const WasteMeasurement(this.grossKg, this.source, this.note);
+  const WasteMeasurement(
+      this.grossKg, this.source, this.note, this.warehouseId);
 
   final double grossKg;
-  final String source, note;
+  final String source, note, warehouseId;
 }
 
 class WasteWeighDialog extends StatefulWidget {
-  const WasteWeighDialog({super.key, required this.bin});
+  const WasteWeighDialog({
+    super.key,
+    required this.bin,
+    required this.warehouses,
+  });
 
   final WasteBin bin;
+  final List<WasteWarehouse> warehouses;
 
   @override
   State<WasteWeighDialog> createState() => _WasteWeighDialogState();
@@ -31,6 +41,8 @@ class _WasteWeighDialogState extends State<WasteWeighDialog> {
   String? _scaleError;
   bool _reading = false;
   String _source = 'manual';
+  late String? _warehouseId =
+      widget.warehouses.length == 1 ? widget.warehouses.single.id : null;
 
   @override
   void dispose() {
@@ -102,95 +114,123 @@ class _WasteWeighDialogState extends State<WasteWeighDialog> {
         net == null ? null : ((net - expected) * 1000000).round() / 1000000;
     final difference = delta != null && delta.abs() > widget.bin.toleranceKg;
     final valid = !_reading &&
+        _warehouseId != null &&
         net != null &&
         (!difference || _note.text.trim().isNotEmpty);
 
     return AlertDialog(
       title: Text('${widget.bin.code} qutisini tortish'),
+      scrollable: true,
+      insetPadding: m3DialogInsetPadding,
+      constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
       content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _reading ? null : _pickScale,
-                    icon: const Icon(Icons.scale_outlined),
-                    label: Text(_scale == null ? 'GScale' : 'Tarozini tanlash'),
+        width: m3DialogMaxWidth,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            WasteWarehouseField(
+              warehouses: widget.warehouses,
+              selectedId: _warehouseId,
+              onChanged: (id) => setState(() => _warehouseId = id),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _reading ? null : _pickScale,
+                  style: appOutlinedActionButtonStyle(),
+                  icon: const Icon(Icons.scale_outlined),
+                  label: Text(_scale == null ? 'GScale' : 'Tarozini tanlash'),
+                ),
+                if (_scale != null)
+                  TextButton(
+                    onPressed: _reading ? null : _readScale,
+                    child: const Text('Vaznni qayta o‘qish'),
                   ),
-                  if (_scale != null)
-                    TextButton(
-                      onPressed: _reading ? null : _readScale,
-                      child: const Text('Vaznni qayta o‘qish'),
-                    ),
-                ],
-              ),
-              if (_reading) const LinearProgressIndicator(),
-              if (_scaleError != null) Text(_scaleError!),
-              TextField(
-                controller: _gross,
-                enabled: !_reading,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Quti bilan vazn (kg)',
-                  helperText:
-                      _source == 'gscale' ? 'GScale' : 'Qo‘lda kiritish',
-                  errorText: gross != null && gross < tare
-                      ? 'Vazn bo‘sh quti vaznidan kichik'
-                      : null,
-                ),
-                onChanged: (_) => setState(() {
-                  _source = 'manual';
-                  _scaleError = null;
-                }),
-              ),
-              if (net != null && delta != null)
-                WasteWeightComparison(
-                  expected: expected,
-                  gross: gross!,
-                  tare: tare,
-                  net: net,
-                  difference: delta,
-                  outsideTolerance: difference,
-                )
-              else
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Qayd etilgan: ${wasteKgLabel(expected)}'),
-                  subtitle: Text('Bo‘sh quti: ${wasteKgLabel(tare)}'),
-                ),
-              if (difference)
-                Text(
-                    'Tafovut ${wasteKgLabel(widget.bin.toleranceKg)} chegaradan oshdi. '
-                    'Vaznni qayta tekshiring va sababini kiriting.'),
-              TextField(
-                controller: _note,
-                maxLength: 500,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: difference ? 'Tafovut sababi *' : 'Izoh',
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
+              ],
+            ),
+            if (_reading) const LinearProgressIndicator(),
+            if (_scaleError != null) ...[
+              const SizedBox(height: 8),
+              Text(_scaleError!),
             ],
-          ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _gross,
+              enabled: !_reading,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: appSurfaceInputDecoration(
+                context,
+                labelText: 'Quti bilan vazn (kg)',
+              ).copyWith(
+                helperText: _source == 'gscale' ? 'GScale' : 'Qo‘lda kiritish',
+                errorText: gross != null && gross < tare
+                    ? 'Vazn bo‘sh quti vaznidan kichik'
+                    : null,
+              ),
+              onChanged: (_) => setState(() {
+                _source = 'manual';
+                _scaleError = null;
+              }),
+            ),
+            const SizedBox(height: 12),
+            if (net != null && delta != null)
+              WasteWeightComparison(
+                expected: expected,
+                gross: gross!,
+                tare: tare,
+                net: net,
+                difference: delta,
+                outsideTolerance: difference,
+              )
+            else
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('Qayd etilgan: ${wasteKgLabel(expected)}'),
+                subtitle: Text('Bo‘sh quti: ${wasteKgLabel(tare)}'),
+              ),
+            if (difference) ...[
+              const SizedBox(height: 12),
+              Text(
+                  'Tafovut ${wasteKgLabel(widget.bin.toleranceKg)} chegaradan oshdi. '
+                  'Vaznni qayta tekshiring va sababini kiriting.'),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _note,
+              maxLength: 500,
+              maxLines: 2,
+              decoration: appSurfaceInputDecoration(
+                context,
+                labelText: difference ? 'Tafovut sababi *' : 'Izoh',
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
         ),
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
+          style: appOutlinedActionButtonStyle(),
           onPressed: () => Navigator.pop(context),
           child: const Text('Bekor qilish'),
         ),
         FilledButton(
+          style: appFilledActionButtonStyle(),
           onPressed: valid
               ? () => Navigator.pop(
-                  context, WasteMeasurement(gross!, _source, _note.text.trim()))
+                    context,
+                    WasteMeasurement(
+                      gross!,
+                      _source,
+                      _note.text.trim(),
+                      _warehouseId!,
+                    ),
+                  )
               : null,
           child: const Text('Qabul qilish'),
         ),

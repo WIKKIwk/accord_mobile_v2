@@ -378,8 +378,12 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
   }
 
   final names = <String>{};
+  final wasteNames = <String>{};
   for (final warehouse in warehouses) {
     names.add(warehouse.warehouse.trim());
+    if (warehouse.isWaste) {
+      wasteNames.add(warehouse.warehouse.trim().toLowerCase());
+    }
   }
   names.addAll(productCounts.keys);
   names.addAll(reservedCounts.keys);
@@ -401,6 +405,7 @@ List<AdminWarehouseSummary> _testModeWarehouseSummaries({
       productCount: productCounts[warehouse] ?? 0,
       reservedCount: reservedCounts[warehouse] ?? 0,
       assignmentCount: assignments.length,
+      isWaste: wasteNames.contains(warehouse.trim().toLowerCase()),
       assignedDisplayNames: assignments
           .map(
             (item) => item.displayName.trim().isEmpty

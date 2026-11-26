@@ -72,6 +72,7 @@ void main() {
     expect(session.profile?.toJson()['role'], 'chiqindi_qabulchi');
     expect(session.homeRoute, AppRoutes.wasteReceiving);
     expect(AppRouter.canOpenRoute(AppRoutes.wasteReceiving), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.wasteWarehouses), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.adminHome), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.apparatusQueue), isFalse);
     session.profile = session.profile!.copyWith(
@@ -79,6 +80,7 @@ void main() {
       assignedApparatus: [_apparatusId],
     );
     expect(AppRouter.canOpenRoute(AppRoutes.wasteReceiving), isFalse);
+    expect(AppRouter.canOpenRoute(AppRoutes.wasteWarehouses), isFalse);
   });
 
   test('camera codes are reserved and receive/reset target one exact cycle',
@@ -95,12 +97,26 @@ void main() {
       'measurement_source': 'gscale',
       'outside_tolerance': true,
       'note': 'Qayta tortildi',
+      'warehouse_id': 'wh-waste-1',
+      'warehouse': 'Chiqindi ombori',
     };
     final calls = <String>[];
     final client = MockClient((request) async {
       final action = request.url.pathSegments.last;
       calls.add(action);
       expect(request.headers['authorization'], 'Bearer token');
+      if (action == 'warehouses') {
+        return _json({
+          'warehouses': [
+            {
+              'id': 'wh-waste-1',
+              'warehouse': 'Chiqindi ombori',
+              'on_hand_kg': '18.000000',
+              'receipt_count': 1,
+            },
+          ],
+        });
+      }
       if (action == 'bins') {
         final cycleSummary = _cycleJson('sealed')..remove('entries');
         return _json({
@@ -115,6 +131,7 @@ void main() {
       expect(body['code'], 'CQ-10');
       expect(body['cycle_id'], 'cycle-123');
       if (action == 'receive') {
+        expect(body['warehouse_id'], 'wh-waste-1');
         expect(body['gross_kg'], 23);
         expect(body['measurement_source'], 'gscale');
         expect(body['note'], 'Qayta tortildi');
@@ -127,24 +144,73 @@ void main() {
     });
     await http.runWithClient(() async {
       final api = MobileApi.instance;
+      final warehouse = (await api.wasteWarehouses()).single;
+      expect(warehouse.id, 'wh-waste-1');
+      expect(warehouse.warehouse, 'Chiqindi ombori');
+      expect(warehouse.onHandKg, 18);
+      expect(warehouse.receiptCount, 1);
       final queue = await api.wasteBins();
       expect(queue.single.cycle?.expectedKg, 20);
       final bin = await api.wasteBinDetail(' ACCORD-WASTE:CQ-10 ');
       expect(
           bin.cycle?.entries.map((entry) => entry.actorName), ['Ali', 'Vali']);
       final received = await api.receiveWasteBin(
-          bin: bin, grossKg: 23, source: 'gscale', note: 'Qayta tortildi');
+          bin: bin,
+          warehouseId: warehouse.id,
+          grossKg: 23,
+          source: 'gscale',
+          note: 'Qayta tortildi');
       expect(received.cycle?.receipt?.differenceKg, -2);
       expect(received.cycle?.receipt?.outsideTolerance, isTrue);
+      expect(received.cycle?.receipt?.warehouse, 'Chiqindi ombori');
       final reset = await api.resetWasteBin(received);
       expect(reset.status, WasteBinStatus.empty);
       expect(reset.cycle?.receipt?.netKg, 18);
     }, () => client);
-    expect(calls, ['bins', 'detail', 'receive', 'reset']);
+    expect(calls, ['warehouses', 'bins', 'detail', 'receive', 'reset']);
+  });
+
+  test('an old receipt retains its measured kg when a destination is assigned',
+      () async {
+    const receipt = {
+      'gross_kg': 23,
+      'tare_kg': 5,
+      'net_kg': 18,
+      'expected_kg': 20,
+      'difference_kg': -2,
+      'measurement_source': 'manual',
+    };
+    final legacy = WasteBin.fromJson(
+      _binJson('received', cycle: _cycleJson('received', receipt: receipt)),
+    );
+    expect(legacy.cycle?.receipt?.warehouseId, isNull);
+    final client = MockClient((request) async {
+      expect(request.url.path, '/v1/mobile/waste/bins/destination');
+      expect(jsonDecode(request.body), {
+        'code': 'CQ-10',
+        'cycle_id': 'cycle-123',
+        'warehouse_id': 'wh-waste-1',
+      });
+      return _json(_binJson('received',
+          cycle: _cycleJson('received', receipt: {
+            ...receipt,
+            'warehouse_id': 'wh-waste-1',
+            'warehouse': 'Chiqindi ombori',
+          })));
+    });
+    await http.runWithClient(() async {
+      final updated = await MobileApi.instance.assignWasteReceiptDestination(
+        bin: legacy,
+        warehouseId: 'wh-waste-1',
+      );
+      expect(updated.cycle?.receipt?.warehouseId, 'wh-waste-1');
+      expect(updated.cycle?.receipt?.warehouse, 'Chiqindi ombori');
+      expect(updated.cycle?.receipt?.netKg, legacy.cycle?.receipt?.netKg);
+    }, () => client);
   });
 
   testWidgets(
-      'weighing shows net and signed difference and requires a reason outside tolerance',
+      'weighing requires a destination and a reason for a difference outside tolerance',
       (tester) async {
     WasteMeasurement? result;
     final bin = WasteBin.fromJson(_binJson('sealed'));
@@ -155,7 +221,23 @@ void main() {
                   onPressed: () async {
                     result = await showDialog<WasteMeasurement>(
                       context: context,
-                      builder: (_) => WasteWeighDialog(bin: bin),
+                      builder: (_) => WasteWeighDialog(
+                        bin: bin,
+                        warehouses: [
+                          WasteWarehouse.fromJson({
+                            'id': 'waste-a',
+                            'warehouse': 'Chiqindi ombori A',
+                            'on_hand_kg': 0,
+                            'receipt_count': 0,
+                          }),
+                          WasteWarehouse.fromJson({
+                            'id': 'waste-b',
+                            'warehouse': 'Chiqindi ombori B',
+                            'on_hand_kg': 18,
+                            'receipt_count': 1,
+                          }),
+                        ],
+                      ),
                     );
                   },
                   child: const Text('Open'),
@@ -172,11 +254,20 @@ void main() {
     expect(tester.widget<FilledButton>(accept).onPressed, isNull);
     await tester.enterText(find.byType(TextField).last, 'Qayta tortildi');
     await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(accept).onPressed, isNull);
+    final warehousePicker = find.byType(DropdownButtonFormField<String>);
+    await tester.ensureVisible(warehousePicker);
+    await tester.tap(warehousePicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chiqindi ombori B').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(accept);
     await tester.tap(accept);
     await tester.pumpAndSettle();
     expect(result?.grossKg, 23);
     expect(result?.source, 'manual');
     expect(result?.note, 'Qayta tortildi');
+    expect(result?.warehouseId, 'waste-b');
   });
 
   testWidgets(

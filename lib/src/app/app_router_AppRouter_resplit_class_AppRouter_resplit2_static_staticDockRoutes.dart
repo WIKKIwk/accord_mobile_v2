@@ -75,6 +75,8 @@ const _app_router_AppRouter_resplit_class_AppRouter_staticDockRoutes_resplit2Val
   AppRoutes.rawMaterialSplit,
   AppRoutes.metalayzer,
   AppRoutes.metalayzerMaterials,
+  AppRoutes.wasteReceiving,
+  AppRoutes.wasteWarehouses,
   AppRoutes.rawMaterialSplitHistory,
   AppRoutes.boyoqchiAstatka,
 };

@@ -5,9 +5,17 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_action_button_styles.dart';
+import '../../../core/widgets/feedback/app_dialog_action_row.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/forms/app_input_decoration.dart';
+import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import 'waste_bin_details.dart';
+import 'waste_navigation.dart';
+import 'waste_warehouses_screen.dart';
 import 'waste_weigh_dialog.dart';
 
 class WasteReceivingScreen extends StatefulWidget {
@@ -121,13 +129,19 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(bin.code),
+          insetPadding: m3DialogInsetPadding,
+          constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
           content: SizedBox(
-            width: 200,
-            height: 200,
-            child: QrImageView(
-              data: bin.qrPayload,
-              padding: const EdgeInsets.all(12),
-              backgroundColor: Colors.white,
+            width: m3DialogMaxWidth,
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: QrImageView(
+                data: bin.qrPayload,
+                size: 200,
+                padding: const EdgeInsets.all(12),
+                backgroundColor: Colors.white,
+              ),
             ),
           ),
           actions: [
@@ -188,15 +202,17 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
 
   Future<void> _receive(WasteBin bin) async {
     if (_scannedCycleId != bin.cycle?.id && !await _scanMatching(bin)) return;
-    if (!mounted || !_current) return;
+    final warehouses = await _loadWarehouses();
+    if (!mounted || !_current || warehouses == null) return;
     final result = await showDialog<WasteMeasurement>(
       context: context,
-      builder: (_) => WasteWeighDialog(bin: bin),
+      builder: (_) => WasteWeighDialog(bin: bin, warehouses: warehouses),
     );
     if (!_current || result == null) return;
     await _run(() async {
       final updated = await _api.receiveWasteBin(
         bin: bin,
+        warehouseId: result.warehouseId,
         grossKg: result.grossKg,
         source: result.source,
         note: result.note,
@@ -207,26 +223,48 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     });
   }
 
+  Future<List<WasteWarehouse>?> _loadWarehouses() async {
+    List<WasteWarehouse>? warehouses;
+    await _run(() async {
+      final available = await _api.wasteWarehouses();
+      if (available.isEmpty) {
+        throw const FormatException(wasteNoWarehouseMessage);
+      }
+      warehouses = available;
+    });
+    return warehouses;
+  }
+
+  Future<void> _assignDestination(WasteBin bin) async {
+    if (_scannedCycleId != bin.cycle?.id && !await _scanMatching(bin)) return;
+    final warehouses = await _loadWarehouses();
+    if (!mounted || !_current || warehouses == null) return;
+    final warehouseId = await showDialog<String>(
+      context: context,
+      builder: (context) => _WasteDestinationDialog(warehouses: warehouses),
+    );
+    if (!_current || warehouseId == null) return;
+    await _run(() async {
+      final updated = await _api.assignWasteReceiptDestination(
+        bin: bin,
+        warehouseId: warehouseId,
+      );
+      if (!_current) return;
+      setState(() => _selected = updated);
+      await _refresh();
+    });
+  }
+
   Future<void> _reset(WasteBin bin) async {
     if (!await _scanMatching(bin) || !mounted || !_current) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showM3ConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('${bin.code} qutisi bo‘shatildimi?'),
-        content: const Text(
+      title: '${bin.code} qutisi bo‘shatildimi?',
+      message:
           'Qutini bo‘shatganingizdan keyin tasdiqlang. Yopilgan partiya tarixda saqlanadi.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Bo‘sh deb belgilash'),
-          ),
-        ],
-      ),
+      cancelLabel: 'Bekor qilish',
+      confirmLabel: 'Bo‘sh deb belgilash',
+      verticalActions: true,
     );
     if (!_current || confirmed != true) return;
     await _run(() async {
@@ -243,19 +281,18 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     final history = cycles;
     if (!mounted || !_current || history == null) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (historyContext) => Scaffold(
-        appBar: AppBar(title: Text('${bin.code} tarixi')),
-        body: history.isEmpty
+      builder: (historyContext) => AppShell(
+        title: '${bin.code} tarixi',
+        subtitle: '',
+        nativeTopBar: true,
+        child: history.isEmpty
             ? const Center(child: Text('Quti tarixi bo‘sh'))
             : ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
                   for (final cycle in history)
-                    ListTile(
-                      title: Text(cycle.apparatusName.isEmpty
-                          ? cycle.apparatusId
-                          : cycle.apparatusName),
-                      subtitle: Text(wasteWhen(historyContext, cycle.openedAt)),
-                      trailing: Text(wasteKgLabel(cycle.expectedKg)),
+                    AppSegmentSurfaceCard(
+                      padding: EdgeInsets.zero,
                       onTap: () => Navigator.of(historyContext).push(
                         MaterialPageRoute<void>(
                           builder: (_) => _WasteHistoryDetail(
@@ -263,6 +300,14 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                             cycleId: cycle.id,
                           ),
                         ),
+                      ),
+                      child: ListTile(
+                        title: Text(cycle.apparatusName.isEmpty
+                            ? cycle.apparatusId
+                            : cycle.apparatusName),
+                        subtitle:
+                            Text(wasteWhen(historyContext, cycle.openedAt)),
+                        trailing: Text(wasteKgLabel(cycle.expectedKg)),
                       ),
                     ),
                 ],
@@ -290,6 +335,9 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
       title: 'Chiqindi qabul qilish',
       subtitle: '',
       nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      drawer: const WasteDrawer(activeTab: WasteDockTab.receive),
+      bottom: const WasteDock(activeTab: WasteDockTab.receive),
       appBarBottomLoading: _busy,
       actions: [
         IconButton(
@@ -298,90 +346,122 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
           icon: const Icon(Icons.refresh),
         ),
       ],
-      child: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(2, 8, 0, 16),
+        children: [
+          AppSegmentSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 FilledButton.icon(
                   onPressed: _busy ? null : _scan,
+                  style: appFilledActionButtonStyle(),
                   icon: const Icon(Icons.qr_code_scanner),
                   label: const Text('Qutini skan qilish'),
                 ),
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _register,
+                  style: appOutlinedActionButtonStyle(),
                   icon: const Icon(Icons.add),
                   label: const Text('Yangi quti'),
                 ),
               ],
             ),
-            if (_error != null)
-              ListTile(
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            AppSegmentSurfaceCard(
+              padding: EdgeInsets.zero,
+              child: ListTile(
                 leading: Icon(Icons.error_outline,
                     color: Theme.of(context).colorScheme.error),
                 title: Text(_error!),
               ),
-            if (bin != null) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text('Quti ${bin.code}'),
-                subtitle: Text(
-                  '${wasteStatusLabel(bin.status)} · Tara ${wasteKgLabel(bin.tareKg)}',
-                ),
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+            ),
+          ],
+          if (bin != null) ...[
+            const SizedBox(height: 12),
+            AppSegmentSurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Text('Quti ${bin.code}',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${wasteStatusLabel(bin.status)} · Tara ${wasteKgLabel(bin.tareKg)}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
                   if (cycle != null && bin.status == WasteBinStatus.sealed)
                     FilledButton(
                       onPressed: _busy ? null : () => _receive(bin),
+                      style: appFilledActionButtonStyle(),
                       child: const Text('Tortish va qabul qilish'),
                     ),
                   if (cycle != null && bin.status == WasteBinStatus.received)
                     FilledButton(
-                      onPressed: _busy ? null : () => _reset(bin),
-                      child: const Text('Qutini bo‘shatish'),
+                      onPressed: _busy
+                          ? null
+                          : cycle.receipt?.warehouseId == null
+                              ? () => _assignDestination(bin)
+                              : () => _reset(bin),
+                      style: appFilledActionButtonStyle(),
+                      child: Text(cycle.receipt?.warehouseId == null
+                          ? 'Qabul omborini belgilash'
+                          : 'Qutini bo‘shatish'),
                     ),
-                  TextButton(
-                    onPressed: _busy ? null : () => _showQr(bin),
-                    child: const Text('QR'),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _busy ? null : () => _showQr(bin),
+                        icon: const Icon(Icons.qr_code_rounded),
+                        label: const Text('QR'),
+                      ),
+                      TextButton.icon(
+                        onPressed: _busy ? null : () => _showHistory(bin),
+                        icon: const Icon(Icons.history_rounded),
+                        label: const Text('Tarix'),
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: _busy ? null : () => _showHistory(bin),
-                    child: const Text('Tarix'),
-                  ),
+                  if (cycle != null) WasteCycleDetails(cycle: cycle),
                 ],
               ),
-              if (cycle != null) WasteCycleDetails(cycle: cycle),
-              const Divider(),
-            ],
-            if (!_busy && visible.isEmpty)
-              const ListTile(title: Text('Chiqindi qutilari yo‘q')),
-            for (final bin in visible)
-              ListTile(
-                onTap: _busy ? null : () => _open(bin.code),
+            ),
+          ],
+          if (!_busy && visible.isEmpty) ...[
+            const SizedBox(height: 12),
+            const AppSegmentSurfaceCard(
+              padding: EdgeInsets.zero,
+              child: ListTile(title: Text('Chiqindi qutilari yo‘q')),
+            ),
+          ],
+          for (final bin in visible) ...[
+            const SizedBox(height: 8),
+            AppSegmentSurfaceCard(
+              padding: EdgeInsets.zero,
+              onTap: _busy ? null : () => _open(bin.code),
+              child: ListTile(
                 selected: bin.code == _selected?.code,
                 leading: const Icon(Icons.inventory_2_outlined),
                 title: Text(bin.code),
-                subtitle: Text(
-                  [
-                    wasteStatusLabel(bin.status),
-                    if (bin.cycle?.apparatusName case final name?
-                        when name.isNotEmpty)
-                      name,
-                  ].join(' · '),
-                ),
+                subtitle: Text([
+                  wasteStatusLabel(bin.status),
+                  if (bin.cycle?.apparatusName case final name?
+                      when name.isNotEmpty)
+                    name,
+                ].join(' · ')),
                 trailing: bin.cycle == null
                     ? null
                     : Text(wasteKgLabel(bin.cycle!.expectedKg)),
               ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -401,16 +481,23 @@ class _WasteHistoryDetailState extends State<_WasteHistoryDetail> {
       MobileApi.instance.wasteBinDetail(widget.code, cycleId: widget.cycleId);
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.code)),
-        body: FutureBuilder<WasteBin>(
+  Widget build(BuildContext context) => AppShell(
+        title: widget.code,
+        subtitle: '',
+        nativeTopBar: true,
+        child: FutureBuilder<WasteBin>(
           future: _cycle,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(child: Text(wasteErrorText(snapshot.error!)));
             }
             if (snapshot.data?.cycle case final cycle?) {
-              return ListView(children: [WasteCycleDetails(cycle: cycle)]);
+              return ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  AppSegmentSurfaceCard(child: WasteCycleDetails(cycle: cycle)),
+                ],
+              );
             }
             return const Center(child: CircularProgressIndicator());
           },
@@ -443,16 +530,25 @@ class _RegisterWasteBinDialogState extends State<_RegisterWasteBinDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
         title: const Text('Chiqindi qutisini ro‘yxatga olish'),
-        content: Form(
-          key: _form,
-          child: SingleChildScrollView(
+        scrollable: true,
+        insetPadding: m3DialogInsetPadding,
+        constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
+        content: SizedBox(
+          width: m3DialogMaxWidth,
+          child: Form(
+            key: _form,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextFormField(
                   controller: _code,
                   textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'Quti kodi'),
+                  textInputAction: TextInputAction.next,
+                  decoration: appSurfaceInputDecoration(
+                    context,
+                    labelText: 'Quti kodi',
+                  ),
                   validator: (value) {
                     try {
                       wasteBinCode(value ?? '');
@@ -462,28 +558,28 @@ class _RegisterWasteBinDialogState extends State<_RegisterWasteBinDialog> {
                     }
                   },
                 ),
+                const SizedBox(height: 12),
                 _kgField(_tare, 'Bo‘sh quti vazni (kg)', required: true),
+                const SizedBox(height: 12),
                 _kgField(_tolerance, 'Ruxsat etilgan farq (kg)'),
+                const SizedBox(height: 20),
+                AppDialogActionRow(
+                  cancelLabel: 'Bekor qilish',
+                  confirmLabel: 'Saqlash',
+                  onCancel: () => Navigator.pop(context),
+                  onConfirm: () {
+                    if (!_form.currentState!.validate()) return;
+                    Navigator.pop(context, (
+                      _code.text,
+                      wasteKgInput(_tare.text)!,
+                      wasteKgInput(_tolerance.text),
+                    ));
+                  },
+                ),
               ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Bekor qilish')),
-          FilledButton(
-            onPressed: () {
-              if (!_form.currentState!.validate()) return;
-              Navigator.pop(context, (
-                _code.text,
-                wasteKgInput(_tare.text)!,
-                wasteKgInput(_tolerance.text)
-              ));
-            },
-            child: const Text('Saqlash'),
-          ),
-        ],
       );
 
   Widget _kgField(
@@ -494,12 +590,58 @@ class _RegisterWasteBinDialogState extends State<_RegisterWasteBinDialog> {
       TextFormField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(labelText: label),
+        textInputAction: required ? TextInputAction.next : TextInputAction.done,
+        decoration: appSurfaceInputDecoration(context, labelText: label),
         validator: (value) {
           if (!required && (value ?? '').trim().isEmpty) return null;
           return wasteKgInput(value ?? '') == null
               ? 'Vaznni kg’da kiriting'
               : null;
         },
+      );
+}
+
+class _WasteDestinationDialog extends StatefulWidget {
+  const _WasteDestinationDialog({required this.warehouses});
+
+  final List<WasteWarehouse> warehouses;
+
+  @override
+  State<_WasteDestinationDialog> createState() =>
+      _WasteDestinationDialogState();
+}
+
+class _WasteDestinationDialogState extends State<_WasteDestinationDialog> {
+  late String? _warehouseId =
+      widget.warehouses.length == 1 ? widget.warehouses.single.id : null;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Qabul omborini belgilash'),
+        scrollable: true,
+        insetPadding: m3DialogInsetPadding,
+        constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
+        content: SizedBox(
+          width: m3DialogMaxWidth,
+          child: WasteWarehouseField(
+            warehouses: widget.warehouses,
+            selectedId: _warehouseId,
+            onChanged: (id) => setState(() => _warehouseId = id),
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            style: appOutlinedActionButtonStyle(),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            style: appFilledActionButtonStyle(),
+            onPressed: _warehouseId == null
+                ? null
+                : () => Navigator.pop(context, _warehouseId),
+            child: const Text('Saqlash'),
+          ),
+        ],
       );
 }
