@@ -367,10 +367,12 @@ void main() {
           await tester.tap(paddons);
           await tester.pumpAndSettle();
         }
-        await tester.tap(materialRole
-            ? find.byKey(const ValueKey('material-paddons-fab'))
-            : find.byIcon(Icons.add_rounded));
+        final fab = find.byKey(const ValueKey('app-primary-navigation-button'));
+        await tester.tap(fab);
         await tester.pumpAndSettle();
+        expect(fab, findsNothing);
+        expect(find.byKey(const ValueKey('admin-hub-toggle-button')),
+            findsOneWidget);
         await tester.tap(find.text('Paddon qo‘shish'));
         await tester.pumpAndSettle();
         expect(
@@ -1114,7 +1116,7 @@ void main() {
             await tester.pumpAndSettle();
             if (viaScan) {
               await tester.tap(
-                find.byKey(const ValueKey('material-paddons-fab')),
+                find.byKey(const ValueKey('app-primary-navigation-button')),
               );
               await tester.pumpAndSettle();
               await tester.tap(find.text('Paddon QR skaneri'));

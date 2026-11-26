@@ -3,6 +3,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/navigation/app_root_navigation.dart';
 import '../../../../core/native_dock_bridge.dart';
 import '../../../../core/widgets/navigation/role_dock.dart';
+import '../../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import 'package:flutter/material.dart';
 
 enum MaterialTaminotchiDockTab { home, scale, tasks, profile }
@@ -13,18 +14,24 @@ class MaterialTaminotchiDock extends StatelessWidget {
     this.activeTab,
     this.compact = true,
     this.tightToEdges = true,
+    this.primaryFabActions = const [],
   });
 
   final MaterialTaminotchiDockTab? activeTab;
   final bool compact;
   final bool tightToEdges;
+  final List<AdminFabMenuAction> primaryFabActions;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: NativeDockBridge.instance,
+      animation: Listenable.merge([
+        NativeDockBridge.instance,
+        adminCreateHubMenuOpen,
+      ]),
       builder: (context, _) {
         final l10n = context.l10n;
+        final hasPrimary = primaryFabActions.isNotEmpty;
         final selectedIndex = switch (activeTab) {
           MaterialTaminotchiDockTab.home => 0,
           MaterialTaminotchiDockTab.scale => 1,
@@ -63,6 +70,7 @@ class MaterialTaminotchiDock extends StatelessWidget {
           tightToEdges: tightToEdges,
           selectionVisible: activeTab != null,
           selectedIndex: selectedIndex,
+          primaryVisible: hasPrimary && !adminCreateHubMenuOpen.value,
           destinations: [
             RoleDockDestination(
               id: 'material-home',
@@ -102,6 +110,19 @@ class MaterialTaminotchiDock extends StatelessWidget {
               replaceStack: false,
               onTap: () => handleSelection(3),
             ),
+            if (hasPrimary)
+              RoleDockDestination(
+                id: 'material-primary',
+                label: 'Amallar',
+                icon: Icons.add_rounded,
+                selectedIcon: Icons.add_rounded,
+                active: false,
+                primary: true,
+                onTap: () => showAdminCreateHubSheet(
+                  context,
+                  actions: primaryFabActions,
+                ),
+              ),
           ],
         );
       },

@@ -717,10 +717,10 @@ class _ProductionOrdersState
             : const PreparationDrawer(
                 selectedRouteName: AppRoutes.preparationProduction),
         bottom: widget.materialPaddonsOnly
-            ? const MaterialTaminotchiDock()
+            ? MaterialTaminotchiDock(primaryFabActions: _paddonActions)
             : PreparationDock(primaryFabActions: _journalFabActions),
-        child: Stack(children: [
-          Column(children: [
+        child: Column(
+          children: [
             if (!widget.materialPaddonsOnly)
               IgnorePointer(
                 ignoring: !currentAccount,
@@ -804,20 +804,8 @@ class _ProductionOrdersState
                       ],
                     ),
             ),
-          ]),
-          if (widget.materialPaddonsOnly && _paddonActions.isNotEmpty)
-            PositionedDirectional(
-              end: 16,
-              bottom: 16,
-              child: AdminFabOverlayActionMenu(
-                key: const ValueKey('material-paddons-fab'),
-                actions: _paddonActions,
-                closedLabel: 'Amallar',
-                openLabel: 'Yopish',
-                closedIcon: Icons.add_rounded,
-              ),
-            ),
-        ]),
+          ],
+        ),
       );
 }
 
