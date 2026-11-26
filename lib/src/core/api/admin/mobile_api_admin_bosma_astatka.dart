@@ -1,6 +1,7 @@
 part of '../mobile_api.dart';
 
 final List<Map<String, dynamic>> _testModeBosmaAstatkaReports = [];
+final _pendingBosmaAstatkaRequests = <(String, String), String>{};
 
 List<Map<String, dynamic>> mobileApiTestModeBosmaAstatkaReports() => [
       for (final report in _testModeBosmaAstatkaReports)
@@ -37,7 +38,8 @@ extension MobileApiAdminBosmaAstatka on MobileApi {
       'apparatus': apparatus,
       'order_id': orderId,
       'total_waste': totalWaste,
-      if (finishedGoodsMeter != null) 'finished_goods_meter': finishedGoodsMeter,
+      if (finishedGoodsMeter != null)
+        'finished_goods_meter': finishedGoodsMeter,
       if (finishedGoodsKg != null) 'finished_goods_kg': finishedGoodsKg,
       if (bobinaKg != null) 'bobina_kg': bobinaKg,
       'returned_paint_items': [
@@ -71,13 +73,30 @@ extension MobileApiAdminBosmaAstatka on MobileApi {
       _testModeBosmaAstatkaReports.add(report);
       return report;
     }
-    final response = await _sendAuthorized(() => _post(
-          Uri.parse(
-              '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/bosma-astatka'),
-          headers: _headers(requireToken())
-            ..['Content-Type'] = 'application/json',
-          body: jsonEncode(body),
-        ));
+    final scope = currentSessionReadScope();
+    final key = (scope, jsonEncode(body));
+    final requestId =
+        _pendingBosmaAstatkaRequests.putIfAbsent(key, newWasteRequestId);
+    if (_pendingBosmaAstatkaRequests.length > 64) {
+      _pendingBosmaAstatkaRequests
+          .remove(_pendingBosmaAstatkaRequests.keys.first);
+    }
+    final uri = Uri.parse(
+        '${MobileApi.baseUrl}/v1/mobile/admin/production-maps/bosma-astatka');
+    final response = await _sendAuthorized(() {
+      if (scope != currentSessionReadScope()) {
+        throw StateError('Akkaunt o‘zgardi');
+      }
+      return _post(
+        uri,
+        headers: _headers(requireToken())
+          ..['Content-Type'] = 'application/json',
+        body: jsonEncode({...body, 'request_id': requestId}),
+      );
+    });
+    if (scope != currentSessionReadScope()) {
+      throw StateError('Akkaunt o‘zgardi');
+    }
     if (response.statusCode != 200) {
       throw _adminProductionMapException(
           response, 'bosma_astatka_report_failed');
@@ -89,6 +108,7 @@ extension MobileApiAdminBosmaAstatka on MobileApi {
           code: 'bosma_astatka_invalid_response',
           message: 'Astatka qaydi javobi noto‘g‘ri');
     }
+    _pendingBosmaAstatkaRequests.remove(key);
     return report.cast<String, dynamic>();
   }
 }

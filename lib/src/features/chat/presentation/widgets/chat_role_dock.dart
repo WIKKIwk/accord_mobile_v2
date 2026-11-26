@@ -161,7 +161,7 @@ class ChatRoleDock extends StatelessWidget {
           activeTab: null,
         ),
       UserRole.metalayzer => const MetalayzerDock(),
-      null => const SizedBox.shrink(),
+      UserRole.chiqindiQabulchi || null => const SizedBox.shrink(),
     };
   }
 }

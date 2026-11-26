@@ -46,6 +46,10 @@ class AppSession {
       return '/';
     }
     final profile = this.profile!;
+    if (profile.role == UserRole.chiqindiQabulchi &&
+        profile.hasCapability('waste.receive')) {
+      return '/waste-receiving';
+    }
     if (profile.role == UserRole.metalayzer && profile.hasCapability('metalayzer.access')) {
       return '/metalayzer';
     }

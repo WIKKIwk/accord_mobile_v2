@@ -86,6 +86,7 @@ class _ChatDirectoryScreenState extends State<ChatDirectoryScreen> {
       UserRole.brigader ||
       UserRole.rezkaMaster ||
       UserRole.metalayzer ||
+      UserRole.chiqindiQabulchi ||
       UserRole.salesManager ||
       UserRole.homashyoRezkachi =>
         userRoleLabel(role),

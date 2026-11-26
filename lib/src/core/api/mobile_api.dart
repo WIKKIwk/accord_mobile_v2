@@ -43,6 +43,7 @@ import '../session/session.dart';
 import '../test_mode/test_mode_controller.dart';
 import '../test_mode/test_mode_demo_data.dart';
 import 'dart:async';
+import 'dart:math' as waste_math;
 import 'dart:convert';
 import '../realtime/sequence_delta.dart' as sequence_delta;
 
@@ -217,6 +218,7 @@ part 'qolip/mobile_api_qolip_MobileApiQolip_methods_02.dart';
 part 'qolip/mobile_api_qolip_MobileApiQolip_methods_04.dart';
 part 'qolip/mobile_api_qolip_MobileApiQolip_methods_01.dart';
 part 'gscale/mobile_api_gscale_models_part_02.dart';
+part 'waste/mobile_api_waste.dart';
 part 'gscale/mobile_api_gscale_declarations_part_01.dart';
 part 'werka/mobile_api_werka_MobileApiWerka_methods_02.dart';
 part 'werka/mobile_api_werka_MobileApiWerka_methods_01.dart';

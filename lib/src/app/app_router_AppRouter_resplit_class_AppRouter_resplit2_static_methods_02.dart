@@ -21,6 +21,12 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return false;
   }
   final profile = session.profile!;
+  if (routeName == AppRoutes.wasteReceiving ||
+      profile.role == UserRole.chiqindiQabulchi) {
+    return routeName == AppRoutes.wasteReceiving &&
+        profile.role == UserRole.chiqindiQabulchi &&
+        profile.hasCapability('waste.receive');
+  }
   final isMetalayzerRoute = routeName == AppRoutes.metalayzer ||
       routeName == AppRoutes.metalayzerMaterials;
   if (profile.role == UserRole.metalayzer) {

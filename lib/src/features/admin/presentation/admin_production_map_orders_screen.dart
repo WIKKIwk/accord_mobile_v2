@@ -66,6 +66,7 @@ import '../../preparation/presentation/preparation_order_formula_screen.dart';
 import '../../preparation/presentation/preparation_formula_variants_screen.dart';
 import '../../qolip/presentation/widgets/qolip_dock.dart';
 import '../../qolip/state/qolip_data_revision.dart';
+import '../../waste/presentation/waste_operator_screen.dart';
 import '../../qolip/presentation/widgets/qolip_navigation_drawer.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../logic/apparatus_queue_state.dart';

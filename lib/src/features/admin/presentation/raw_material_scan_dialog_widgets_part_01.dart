@@ -5,12 +5,14 @@ Future<String?> showRawMaterialScanDialog(
   BuildContext context, {
   String title = '',
   String manualLabel = '',
+  bool Function(String)? acceptCameraCode,
 }) {
   final l10n = context.l10n;
   return showDialog<String>(
     context: context,
     useSafeArea: false,
     builder: (_) => RawMaterialScanDialog(
+      acceptCameraCode: acceptCameraCode,
       title: title.trim().isEmpty
           ? l10n.productionText('worker.material.scanner.title')
           : title,

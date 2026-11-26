@@ -83,6 +83,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.preparationProduction: {'preparation.access'},
   AppRoutes.rawMaterialSplit: {'raw_material.split'},
   AppRoutes.metalayzer: {'metalayzer.access'},
+  AppRoutes.wasteReceiving: {'waste.receive'},
   AppRoutes.metalayzerMaterials: {'metalayzer.access'},
   AppRoutes.rawMaterialSplitHistory: {'raw_material.split'},
   AppRoutes.boyoqchiAstatka: {'boyoqchi.access'},

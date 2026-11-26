@@ -1,3 +1,4 @@
+import '../../waste/presentation/waste_operator_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../app/app_router.dart';
@@ -261,6 +262,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
+      actions: const [WasteOperatorAction()],
       drawer: const PreparationDrawer(),
       bottom: PreparationDock(
           primaryFabActions: data == null ? null : _fabActions(data)),

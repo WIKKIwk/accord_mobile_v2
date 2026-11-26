@@ -107,6 +107,7 @@ class SessionProfile {
           'brigader.access',
           'rezka.master.access',
           'metalayzer.access',
+          'waste.receive',
         ]) ||
         (role == UserRole.materialTaminotchi &&
             hasAnyCapability(materialTaminotchiWorkspaceCapabilities));
@@ -117,6 +118,9 @@ class SessionProfile {
   }
 
   UserRole? get accessRole {
+    if (role == UserRole.chiqindiQabulchi && hasCapability('waste.receive')) {
+      return UserRole.chiqindiQabulchi;
+    }
     if (role == UserRole.metalayzer && hasCapability('metalayzer.access')) {
       return UserRole.metalayzer;
     }

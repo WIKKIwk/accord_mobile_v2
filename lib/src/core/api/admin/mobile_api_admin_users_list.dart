@@ -18,6 +18,7 @@ Future<AdminUserListPage> adminUserList({
         'brigader' => UserRole.brigader,
         'rezka_master' => UserRole.rezkaMaster,
         'metalayzer' => UserRole.metalayzer,
+        'chiqindi_qabulchi' => UserRole.chiqindiQabulchi,
         'sales_manager' => UserRole.salesManager,
         'material_taminotchi' ||
         'material-taminotchi' =>
@@ -46,6 +47,7 @@ Future<AdminUserListPage> adminUserList({
                   UserRole.brigader => AdminUserKind.brigader,
                   UserRole.rezkaMaster => AdminUserKind.rezkaMaster,
                   UserRole.metalayzer => AdminUserKind.metalayzer,
+                  UserRole.chiqindiQabulchi => AdminUserKind.chiqindiQabulchi,
                   UserRole.salesManager => AdminUserKind.salesManager,
                   UserRole.materialTaminotchi =>
                     AdminUserKind.materialTaminotchi,

@@ -687,6 +687,14 @@ class _ReadOnlyOrderDetailSheetState extends State<_ReadOnlyOrderDetailSheet>
         detailError: widget.detailError,
         onRetryDetail: widget.onRetryDetail,
         noticeAnchorKey: _noticeAnchorKey,
+        wasteAction: widget.workerMode && !widget.detailPending &&
+                widget.apparatus != null && !_isTrainingOrder
+            ? WasteOperatorAction(
+                apparatusId: widget.apparatus!.id,
+                apparatusName: widget.apparatus!.name,
+                orderId: widget.order.map.id,
+              )
+            : null,
         onMaterialsLinked: () =>
             unawaited(_loadInteractionContractAndSections()),
         onWorkerMaterialUsed: (barcode) {

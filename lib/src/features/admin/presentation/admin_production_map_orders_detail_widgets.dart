@@ -9,6 +9,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
     required this.order,
     required this.noticeAnchorKey,
     required this.onClose,
+    this.wasteAction,
     this.onScannedWips,
     required this.map,
     required this.orderImageBytes,
@@ -101,6 +102,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
   final String? detailError;
   final VoidCallback? onRetryDetail;
   final VoidCallback onClose;
+  final Widget? wasteAction;
   final VoidCallback? onScannedWips;
   final ProductionMapDefinition map;
   final Uint8List? orderImageBytes;
@@ -334,6 +336,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (wasteAction != null) wasteAction!,
                           if (onScannedWips != null) ...[
                             IconButton.filledTonal(
                               key: const ValueKey('production-order-scanned-wips'),

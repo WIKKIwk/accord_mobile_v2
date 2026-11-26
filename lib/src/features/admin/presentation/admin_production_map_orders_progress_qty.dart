@@ -539,6 +539,12 @@ class _ProgressQtyDialogState extends State<_ProgressQtyDialog> {
         context,
         labelText: label,
         suffixText: suffix.isEmpty ? null : suffix,
+      ).copyWith(
+        helperMaxLines: 3,
+        helperText: identical(controller, _wasteController) &&
+                (_isComplete || _isAstatkaReport || _isBosmaClosingReport || _isWorkerHandoff)
+            ? 'Shu hisobotga tegishli, buyurtma uchun qo‘lda qayd etilgan chiqindini ham jami kg ga kiriting.'
+            : null,
       ),
       validator: (value) {
         final trimmed = (value ?? '').trim();

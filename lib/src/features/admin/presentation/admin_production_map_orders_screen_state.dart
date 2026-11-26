@@ -439,6 +439,7 @@ class _AdminProductionMapOrdersScreenState
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final role = AppSession.instance.profile?.role;
+    final wasteApparatus = _workerSelectedApparatus;
     final paddonApparatus = _workerPaddonApparatus;
     final isQolipchi = role == UserRole.qolipchi;
     final isMaterialTaminotchi = role == UserRole.materialTaminotchi;
@@ -499,6 +500,11 @@ class _AdminProductionMapOrdersScreenState
       subtitle: '',
       nativeTopBar: true,
       actions: [
+        if (wasteApparatus != null && !widget.supplyViewerMode)
+          WasteOperatorAction(
+            apparatusId: wasteApparatus.id,
+            apparatusName: wasteApparatus.name,
+          ),
         if (paddonApparatus != null) ...[
           IconButton(
             tooltip: context.l10n.productionText('worker.rezka.print.peremotka'),

@@ -135,6 +135,7 @@ class AppRoutes {
   static const String preparationProduction = '/preparation-production';
   static const String rawMaterialSplit = '/raw-material-split';
   static const String metalayzer = '/metalayzer';
+  static const String wasteReceiving = '/waste-receiving';
   static const String metalayzerMaterials = '/metalayzer-materials';
   static const String rawMaterialSplitHistory = '/raw-material-split-history';
   static const String boyoqchiAstatka = '/boyoqchi-astatka';

@@ -159,6 +159,7 @@ enum AdminUserKind {
   brigader,
   rezkaMaster,
   metalayzer,
+  chiqindiQabulchi,
 }
 
 class AdminUserListEntry {
@@ -191,7 +192,9 @@ class AdminUserListEntry {
     final principalRole = userRoleFromJson(
       json['principal_role'] as String? ?? source,
     );
-    final kind = principalRole == UserRole.metalayzer
+    final kind = principalRole == UserRole.chiqindiQabulchi
+        ? AdminUserKind.chiqindiQabulchi
+        : principalRole == UserRole.metalayzer
         ? AdminUserKind.metalayzer
         : principalRole == UserRole.rezkaMaster
         ? AdminUserKind.rezkaMaster
@@ -234,6 +237,7 @@ class AdminUserListEntry {
   }
 
   String get roleLabel {
+    if (kind == AdminUserKind.chiqindiQabulchi) return 'Chiqindi qabul qiluvchi';
     if (kind == AdminUserKind.metalayzer) return 'Metalayzer';
     if (kind == AdminUserKind.rezkaMaster) return 'Rezka master';
     if (kind == AdminUserKind.brigader) return 'Brigader';

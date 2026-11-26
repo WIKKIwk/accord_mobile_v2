@@ -1,3 +1,4 @@
+import '../../waste/presentation/waste_operator_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_router.dart';
@@ -506,6 +507,7 @@ class _RawMaterialSplitScreenState extends State<RawMaterialSplitScreen> {
         drawer: const RawMaterialSplitDrawer(),
         bottom: const RawMaterialSplitDock(),
         actions: [
+          const WasteOperatorAction(),
           IconButton(
               tooltip: 'Rezka tarixi',
               onPressed: _busy

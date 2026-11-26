@@ -100,10 +100,12 @@ class RawMaterialScanDialog extends StatefulWidget {
     super.key,
     this.title = '',
     this.manualLabel = '',
+    this.acceptCameraCode,
   });
 
   final String title;
   final String manualLabel;
+  final bool Function(String)? acceptCameraCode;
 
   @override
   State<RawMaterialScanDialog> createState() => _RawMaterialScanDialogState();
@@ -167,7 +169,7 @@ class _RawMaterialScanDialogState extends State<RawMaterialScanDialog> {
   void _detect(BarcodeCapture capture) {
     for (final barcode in capture.barcodes) {
       final value = (barcode.rawValue ?? barcode.displayValue ?? '').trim();
-      if (value.isNotEmpty) {
+      if (value.isNotEmpty && (widget.acceptCameraCode?.call(value) ?? true)) {
         _complete(value);
         return;
       }

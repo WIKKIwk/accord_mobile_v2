@@ -1,3 +1,4 @@
+import '../../waste/presentation/waste_operator_screen.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -171,6 +172,7 @@ class _MetalayzerScreenState extends State<MetalayzerScreen> {
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       appBarBottomLoading: _busy,
+      actions: const [WasteOperatorAction()],
       drawer: const MetalayzerDrawer(),
       bottom: const MetalayzerDock(),
       child: ListView(

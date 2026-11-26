@@ -15,7 +15,8 @@ enum UserRole {
   salesManager,
   brigader,
   rezkaMaster,
-  metalayzer;
+  metalayzer,
+  chiqindiQabulchi;
 
   bool get isApparatusOperator =>
       this == UserRole.aparatchi || this == UserRole.rezkaMaster;
@@ -25,6 +26,7 @@ UserRole userRoleFromJson(String? value) {
   final roleValue = (value ?? '').trim().toLowerCase();
   if (roleValue == 'tayyorlov_masteri') return UserRole.tayyorlovMasteri;
   if (roleValue == 'homashyo_rezkachi') return UserRole.homashyoRezkachi;
+  if (roleValue == 'chiqindi_qabulchi') return UserRole.chiqindiQabulchi;
   if (roleValue == 'metalayzer') return UserRole.metalayzer;
   if (roleValue == 'rezka_master') return UserRole.rezkaMaster;
   if (roleValue == 'brigader') return UserRole.brigader;
@@ -53,6 +55,7 @@ UserRole userRoleFromJson(String? value) {
 String userRoleToJson(UserRole role) {
   if (role == UserRole.tayyorlovMasteri) return 'tayyorlov_masteri';
   if (role == UserRole.homashyoRezkachi) return 'homashyo_rezkachi';
+  if (role == UserRole.chiqindiQabulchi) return 'chiqindi_qabulchi';
   if (role == UserRole.metalayzer) return 'metalayzer';
   if (role == UserRole.rezkaMaster) return 'rezka_master';
   if (role == UserRole.brigader) return 'brigader';
@@ -114,6 +117,7 @@ bool canonicalAasxSha256IsValid(String value) {
 String userRoleLabel(UserRole role) {
   if (role == UserRole.tayyorlovMasteri) return 'Tayyorlov masteri';
   if (role == UserRole.homashyoRezkachi) return 'Homashyo rezkachisi';
+  if (role == UserRole.chiqindiQabulchi) return 'Chiqindi qabul qiluvchi';
   if (role == UserRole.metalayzer) return 'Metalayzer';
   if (role == UserRole.rezkaMaster) return 'Rezka master';
   if (role == UserRole.brigader) return 'Brigader';

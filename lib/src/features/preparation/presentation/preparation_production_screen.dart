@@ -1,3 +1,4 @@
+import '../../waste/presentation/waste_operator_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -674,6 +675,7 @@ class _ProductionOrdersState
             : 'Tayyorlov hisobi',
         subtitle: '',
         nativeTopBar: true,
+        actions: const [WasteOperatorAction()],
         automaticallyImplyNativeLeading: false,
         profileActionListenable: _searchFocus,
         showProfileActionResolver: () => !_searchFocus.hasFocus,
@@ -861,6 +863,7 @@ class _ProductionOrderState extends _JournalState<
             : 'Buyurtma: ${_order!.displayCode}',
         subtitle: '',
         nativeTopBar: true,
+        actions: [WasteOperatorAction(orderId: widget.orderId)],
         contentPadding: EdgeInsets.zero,
         bottom: PreparationDock(primaryFabActions: _ordinaryJournalActions),
         child: journal(

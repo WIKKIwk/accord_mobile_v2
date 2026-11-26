@@ -21,6 +21,7 @@ import '../features/preparation/presentation/preparation_production_screen.dart'
 import '../features/raw_material_split/presentation/raw_material_split_screen.dart';
 import '../features/metalayzer/presentation/metalayzer_materials_screen.dart';
 import '../features/metalayzer/presentation/metalayzer_screen.dart';
+import '../features/waste/presentation/waste_receiving_screen.dart';
 import '../features/raw_material_split/presentation/raw_material_split_history_screen.dart';
 import '../features/admin/presentation/admin_activity_screen.dart';
 import '../features/admin/presentation/admin_apparatus_settings_screen.dart';

@@ -21,6 +21,13 @@ const _test_mode_demo_data_TestModeDemoData_resplit_class_TestModeDemoData_roles
     system: true,
   ),
   AdminRoleDefinition(
+    id: 'chiqindi_qabulchi',
+    label: 'Chiqindi qabul qiluvchi',
+    baseRole: UserRole.chiqindiQabulchi,
+    capabilityCodes: ['waste.receive'],
+    system: true,
+  ),
+  AdminRoleDefinition(
     id: 'demo-admin',
     label: 'Demo admin',
     baseRole: UserRole.admin,
