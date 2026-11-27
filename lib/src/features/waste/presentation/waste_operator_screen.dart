@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/display/app_metric_tile.dart';
 import '../../../core/widgets/display/app_status_chip.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
@@ -217,14 +218,16 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Qutiga yozuv biriktirish'),
+          title: const Text('Qutiga chiqindi biriktirish'),
+          insetPadding: m3DialogInsetPadding,
+          constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
           content: SizedBox(
-            width: 420,
+            width: m3DialogMaxWidth,
             child: ListView(
               shrinkWrap: true,
               children: [
                 Text(
-                    'Faqat ${bin.label} qutisiga solingan chiqindilarni belgilang.'),
+                    '${bin.label} qutisiga solingan chiqindi qaydlarini belgilang.'),
                 for (final entry in pending)
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
@@ -232,7 +235,8 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
                         Text('${wasteKgLabel(entry.kg)} · ${entry.actorName}'),
                     subtitle: Text([
                       entry.reason,
-                      entry.orderId,
+                      if (entry.orderId.isNotEmpty)
+                        'Buyurtma: ${entry.orderId}',
                       wasteWhen(context, entry.createdAt),
                     ].where((value) => value.isNotEmpty).join(' · ')),
                     value: selected.contains(entry.id),
@@ -282,6 +286,7 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
     final bin = _snapshot?.bin;
     final cycle = bin?.cycle;
     final pending = _snapshot?.pending ?? const <WasteEntry>[];
+    final pendingKg = pending.fold(0.0, (total, entry) => total + entry.kg);
     return AppShell(
       title: 'Chiqindi qutisi',
       subtitle: '',
@@ -317,7 +322,9 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
           ],
           const SizedBox(height: 4),
           Text(
-            'Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.',
+            bin == null
+                ? 'Hisobotdagi chiqindi quti tanlanguncha ro‘yxatda yig‘iladi.'
+                : 'Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.',
             style: secondaryText,
           ),
           if (_error case final message?) ...[
@@ -359,12 +366,15 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
             AppSegmentSurfaceCard(
               padding: EdgeInsets.zero,
               child: ListTile(
-                title: Text('Qutiga biriktirilmagan: ${pending.length} ta'),
+                title: const Text('Biriktirilmagan chiqindilar'),
+                subtitle: Text(
+                  '${pending.length} ta qayd · ${wasteKgLabel(pendingKg)}',
+                ),
                 trailing: bin != null
                     ? TextButton(
                         onPressed:
                             _busy ? null : () => _reconcile(bin, pending),
-                        child: const Text('Biriktirish'),
+                        child: const Text('Tanlash'),
                       )
                     : null,
               ),

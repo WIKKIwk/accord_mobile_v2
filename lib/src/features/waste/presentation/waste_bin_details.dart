@@ -73,7 +73,12 @@ class WasteCycleDetails extends StatelessWidget {
         if (cycle.openedAt != null)
           _movement(context, 'Biriktirildi', cycle.openedBy, cycle.openedAt),
         if (cycle.sealedAt != null)
-          _movement(context, 'Topshirildi', cycle.sealedBy, cycle.sealedAt),
+          _movement(
+            context,
+            cycle.sealedOnReceipt ? 'Qabulda yopildi' : 'Topshirildi',
+            cycle.sealedBy,
+            cycle.sealedAt,
+          ),
         if (receipt != null) ...[
           WasteWeightComparison(
             expected: receipt.expectedKg,

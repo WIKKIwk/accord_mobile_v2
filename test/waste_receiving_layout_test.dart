@@ -19,6 +19,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,9 +49,9 @@ Widget _receiver() => MaterialApp(
       },
     );
 
-http.Response _json(Object response) => http.Response(
+http.Response _json(Object response, [int status = 200]) => http.Response(
       jsonEncode(response),
-      200,
+      status,
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
 
@@ -72,6 +73,143 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('receiver scans and accepts an open bin with the current weight',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const qr = 'ACCORD-WASTE:CQ-001';
+    const changed = 'Qayd etilgan vazn o‘zgardi.';
+    var expected = 20.0;
+    var received = false;
+    final writes = <Map<String, dynamic>>[];
+    Map<String, dynamic> bin() => {
+          'code': 'CQ-001',
+          'qr_payload': qr,
+          'status': received ? 'received' : 'open',
+          'tare_kg': 5,
+          'tolerance_kg': 0.5,
+          'cycle': {
+            'id': 'open-cycle',
+            'apparatus_id': _bosma,
+            'apparatus_name': 'Bosma C',
+            'status': received ? 'received' : 'open',
+            'expected_kg': expected,
+            if (received) ...{
+              'sealed_on_receipt': true,
+              'sealed_at_unix': 1500,
+              'sealed_by_display_name': 'Chiqindi qabul qiluvchi',
+              'receipt': {
+                'gross_kg': 25,
+                'tare_kg': 5,
+                'expected_kg': expected,
+                'net_kg': 20,
+                'difference_kg': -1,
+                'outside_tolerance': true,
+                'measurement_source': 'manual',
+                'note': 'Qayta tortildi',
+                'warehouse_id': 'warehouse-waste',
+                'warehouse': 'Chiqindi ombori',
+              },
+            },
+          },
+        };
+    final client = MockClient((request) async {
+      switch (request.url.pathSegments.last) {
+        case 'bins':
+          return _json({
+            'bins': [bin()]
+          });
+        case 'detail':
+          expect(request.url.queryParameters['code'], 'CQ-001');
+          return _json(bin());
+        case 'warehouses':
+          return _json({
+            'warehouses': [
+              {
+                'id': 'warehouse-waste',
+                'warehouse': 'Chiqindi ombori',
+                'on_hand_kg': 0,
+                'receipt_count': 0,
+              },
+            ],
+          });
+        case 'receive':
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          writes.add(body);
+          if (writes.length == 1) {
+            expected = 21;
+            return _json({
+              'code': 'waste_expected_weight_changed',
+              'error': changed,
+            }, 409);
+          }
+          received = true;
+          return _json(bin());
+        default:
+          fail('Unexpected request ${request.method} ${request.url.path}');
+      }
+    });
+
+    Future<void> tap(String label) async {
+      final control = find.text(label);
+      await tester.ensureVisible(control);
+      await tester.tap(control);
+      await tester.pumpAndSettle();
+    }
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(_receiver());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Qutini skan qilish'));
+      await tester.pump();
+      tester.widget<MobileScanner>(find.byType(MobileScanner)).onDetect!(
+        const BarcodeCapture(barcodes: [
+          Barcode(rawValue: qr, format: BarcodeFormat.qrCode),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Yig‘ilmoqda · Tara 5 kg'), findsOneWidget);
+
+      final gross = find.widgetWithText(TextField, 'Quti bilan vazn (kg)');
+      await tap('Tortish va qabul qilish');
+      expect(find.byType(MobileScanner), findsNothing);
+      await tester.enterText(gross, '25');
+      await tester.pumpAndSettle();
+      expect(find.text('0 kg'), findsOneWidget);
+      expect(writes, isEmpty);
+      await tap('Qabul qilish');
+      expect(find.text(changed), findsOneWidget);
+      expect(writes.single['checked_expected_kg'], 20);
+      expect(find.text('Yig‘ilmoqda · Tara 5 kg'), findsOneWidget);
+
+      await tap('Tortish va qabul qilish');
+      await tester.enterText(gross, '25');
+      await tester.pumpAndSettle();
+      expect(find.text('-1 kg'), findsOneWidget);
+      final reason = find.widgetWithText(TextField, 'Tafovut sababi *');
+      await tester.ensureVisible(reason);
+      await tester.enterText(reason, 'Qayta tortildi');
+      await tester.pumpAndSettle();
+      await tap('Qabul qilish');
+      expect(writes, hasLength(2));
+      expect(writes.last, {
+        'code': 'CQ-001',
+        'cycle_id': 'open-cycle',
+        'warehouse_id': 'warehouse-waste',
+        'gross_kg': 25,
+        'checked_expected_kg': 21,
+        'measurement_source': 'manual',
+        'note': 'Qayta tortildi',
+      });
+      expect(find.text('Qabul qilindi'), findsOneWidget);
+      expect(find.text('Qabulda yopildi'), findsOneWidget);
+      expect(find.text('Qutini bo‘shatish'), findsOneWidget);
+    }, () => client);
   });
 
   testWidgets('receiver uses the shared list, dock and wide form on a phone',

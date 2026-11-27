@@ -329,6 +329,13 @@ void main() {
       'kg': 2.5,
       'reason': 'Astatka hisoboti',
     };
+    const laterReport = {
+      'id': 'production-entry',
+      'order_id': 'next-order',
+      'actor_display_name': 'Ali',
+      'kg': 3.25,
+      'reason': 'Ishlab chiqarish hisoboti',
+    };
     Map<String, dynamic> bin(String code, String status) => {
           ..._binJson(status),
           'code': code,
@@ -350,7 +357,7 @@ void main() {
         expect(request.url.queryParameters['apparatus_id'], _apparatusId);
         return _json({
           'bin': active == null ? null : bin(active!, 'open'),
-          'pending': [if (!hasWaste) report],
+          'pending': [if (!hasWaste) report, laterReport],
         });
       }
       if (action == 'bins') {
@@ -401,6 +408,9 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(find.byType(AppShell), findsOneWidget);
+      expect(find.text('Biriktirilmagan chiqindilar'), findsOneWidget);
+      expect(find.text('2 ta qayd · 5.75 kg'), findsOneWidget);
+      expect(find.text('Tanlash'), findsNothing);
       await tester.tap(find.text('Quti tanlash'));
       await tester.pumpAndSettle();
       expect(find.text('Eski quti'), findsNothing);
@@ -442,13 +452,15 @@ void main() {
       expect(
           find.text('Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.'),
           findsOneWidget);
-      await tester.tap(find.text('Biriktirish'));
+      await tester.tap(find.text('Tanlash'));
       await tester.pumpAndSettle();
+      expect(find.byType(CheckboxListTile), findsNWidgets(2));
       await tester.tap(find.widgetWithText(CheckboxListTile, '2.5 kg · Ali'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Biriktirish'));
       await tester.pumpAndSettle();
       expect(tester.widget<AppMetricTile>(weightTile).value, '2.5 kg');
+      expect(find.text('1 ta qayd · 3.25 kg'), findsOneWidget);
       expect(find.textContaining('Astatka hisoboti · Buyurtma: current-order'),
           findsOneWidget);
       await tester.tap(find.text('Qutini almashtirish'));
@@ -458,6 +470,7 @@ void main() {
       await tester.tap(find.text('Topshirish'));
       await tester.pumpAndSettle();
       expect(find.text('Zaxira quti · CQ-B'), findsOneWidget);
+      expect(find.text('1 ta qayd · 3.25 kg'), findsOneWidget);
       expect(find.text('Qutini bo‘shatish'), findsNothing);
       expect(tester.takeException(), isNull);
     }, () => client);

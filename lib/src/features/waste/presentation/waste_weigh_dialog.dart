@@ -129,6 +129,12 @@ class _WasteWeighDialogState extends State<WasteWeighDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.bin.status == WasteBinStatus.open) ...[
+              const Text(
+                'Tasdiqlaganingizda quti apparatdan ajratiladi va chiqindi omborga kirim qilinadi.',
+              ),
+              const SizedBox(height: 12),
+            ],
             WasteWarehouseField(
               warehouses: widget.warehouses,
               selectedId: _warehouseId,

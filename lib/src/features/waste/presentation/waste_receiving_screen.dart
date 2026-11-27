@@ -320,21 +320,32 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
 
   Future<void> _receive(WasteBin bin) async {
     if (_scannedCycleId != bin.cycle?.id && !await _scanMatching(bin)) return;
+    final scanned = _selected;
+    if (!_current || scanned == null || !scanned.canBeReceived) return;
     final warehouses = await _loadWarehouses();
     if (!mounted || !_current || warehouses == null) return;
     final result = await showDialog<WasteMeasurement>(
       context: context,
-      builder: (_) => WasteWeighDialog(bin: bin, warehouses: warehouses),
+      builder: (_) => WasteWeighDialog(bin: scanned, warehouses: warehouses),
     );
     if (!_current || result == null) return;
     await _run(() async {
-      final updated = await _api.receiveWasteBin(
-        bin: bin,
-        warehouseId: result.warehouseId,
-        grossKg: result.grossKg,
-        source: result.source,
-        note: result.note,
-      );
+      final WasteBin updated;
+      try {
+        updated = await _api.receiveWasteBin(
+          bin: scanned,
+          warehouseId: result.warehouseId,
+          grossKg: result.grossKg,
+          source: result.source,
+          note: result.note,
+        );
+      } on MobileApiException catch (error) {
+        if (_current && error.code == 'waste_expected_weight_changed') {
+          final current = await _api.wasteBinDetail(scanned.code);
+          if (_current) setState(() => _selected = current);
+        }
+        rethrow;
+      }
       if (!_current) return;
       setState(() => _selected = updated);
       await _refresh();
@@ -517,7 +528,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                       ? '${bin.apparatusIds.length} ta apparat'
                       : 'Apparat biriktirilmagan'),
                   const SizedBox(height: 12),
-                  if (cycle != null && bin.status == WasteBinStatus.sealed)
+                  if (bin.canBeReceived)
                     FilledButton(
                       onPressed: _busy ? null : () => _receive(bin),
                       style: appFilledActionButtonStyle(),

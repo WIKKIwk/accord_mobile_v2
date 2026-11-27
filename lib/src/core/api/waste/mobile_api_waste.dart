@@ -108,6 +108,9 @@ class WasteBin {
 
   String get name => _name.isEmpty ? code : _name;
   String get label => name == code ? code : '$name · $code';
+  bool get canBeReceived =>
+      cycle != null &&
+      (status == WasteBinStatus.open || status == WasteBinStatus.sealed);
 }
 
 class WasteCycle {
@@ -130,6 +133,7 @@ class WasteCycle {
         resetAt = _wasteDate(json['reset_at_unix']),
         openedBy = json['opened_by_display_name'] as String? ?? '',
         sealedBy = json['sealed_by_display_name'] as String? ?? '',
+        sealedOnReceipt = json['sealed_on_receipt'] == true,
         resetBy = json['reset_by_display_name'] as String? ?? '';
 
   final String id, apparatusId, apparatusName;
@@ -139,6 +143,7 @@ class WasteCycle {
   final WasteReceipt? receipt;
   final DateTime? openedAt, sealedAt, resetAt;
   final String openedBy, sealedBy, resetBy;
+  final bool sealedOnReceipt;
 }
 
 class WasteEntry {
@@ -318,6 +323,8 @@ extension MobileApiWaste on MobileApi {
         ..._wasteIdentity(bin),
         'warehouse_id': warehouseId,
         'gross_kg': grossKg,
+        if (bin.status == WasteBinStatus.open)
+          'checked_expected_kg': bin.cycle!.expectedKg,
         'measurement_source': source,
         if (note.isNotEmpty) 'note': note,
       });
