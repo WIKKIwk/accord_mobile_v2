@@ -7,10 +7,12 @@ import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/lists/app_segment_surface_card.dart';
 import 'package:accord_mobile_v2/src/core/widgets/navigation/app_navigation_bar.dart';
 import 'package:accord_mobile_v2/src/core/widgets/navigation/role_dock.dart';
+import 'package:accord_mobile_v2/src/core/widgets/printing/bluetooth_printer_list.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/waste/presentation/waste_receiving_screen.dart';
 import 'package:accord_mobile_v2/src/features/waste/presentation/waste_warehouses_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -145,7 +147,7 @@ void main() {
   });
 
   testWidgets(
-      'receiver registers and renames a bin using only apparatus selection',
+      'receiver registers, prints the QR over Bluetooth, and renames a bin',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -154,6 +156,21 @@ void main() {
 
     Map<String, dynamic>? bin;
     final writes = <(String, Map<String, dynamic>)>[];
+    final printJobs = <Map<Object?, Object?>>[];
+    const printerChannel = MethodChannel('accord/bluetooth_printer');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(printerChannel, (call) async {
+      if (call.method == 'pairedPrinters') {
+        return [
+          {'name': 'Printer A', 'address': '00:11:22:33:44:55'},
+          {'name': 'Printer B', 'address': '00:11:22:33:44:66'},
+        ];
+      }
+      expect(call.method, 'printLabel');
+      printJobs.add(Map<Object?, Object?>.from(call.arguments as Map));
+      return {'ok': printJobs.length > 1};
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(printerChannel, null));
     final client = MockClient((request) async {
       expect(request.headers['authorization'], 'Bearer waste-layout-token');
       final action = request.url.pathSegments.last;
@@ -219,6 +236,30 @@ void main() {
             matching: find.text('Bo‘sh quti A · CQ-001')),
         findsOneWidget,
       );
+      await tap(find.text('Chop etish'));
+      final printerList = find.byType(BluetoothPrinterList);
+      expect(printerList, findsOneWidget);
+      Navigator.of(tester.element(printerList)).pop();
+      await tester.pumpAndSettle();
+      expect(printJobs, isEmpty);
+
+      await tap(find.text('Chop etish'));
+      await tap(find.text('Printer B'));
+      expect(find.text('QR yorlig‘ini chop etib bo‘lmadi'), findsOneWidget);
+      await tap(find.text('Chop etish'));
+      await tap(find.text('Printer B'));
+      expect(find.text('QR yorlig‘i printerga yuborildi'), findsOneWidget);
+      expect(printJobs, hasLength(2));
+      for (final job in printJobs) {
+        expect(job['mac_address'], '00:11:22:33:44:66');
+        expect(job['epc'], 'ACCORD-WASTE:CQ-001');
+        expect(job['print_count'], 1);
+        expect(job['label_kind'], 'paddon_code');
+        expect(job, isNot(contains('material_data_matrix')));
+        expect(job['paddon_label_lines'],
+            ['CHIQINDI QUTISI', "BO'SH QUTI A", 'CQ-001']);
+      }
+      expect(writes, hasLength(1));
       await tap(find.text('Yopish'));
       await tap(find.text('Qutini sozlash'));
       expect(find.text('Bo‘sh quti A'), findsOneWidget);
@@ -245,6 +286,15 @@ void main() {
             ..remove('tare_kg')
             ..remove('request_id'));
       expect(find.text('Umumiy quti · CQ-001'), findsWidgets);
+      await tap(find.text('QR'));
+      await tap(find.text('Chop etish'));
+      await tap(find.text('Printer A'));
+      expect(printJobs, hasLength(3));
+      expect(printJobs.last['mac_address'], '00:11:22:33:44:55');
+      expect(printJobs.last['epc'], 'ACCORD-WASTE:CQ-001');
+      expect(printJobs.last['paddon_label_lines'],
+          ['CHIQINDI QUTISI', 'UMUMIY QUTI', 'CQ-001']);
+      expect(writes, hasLength(2));
       expect(tester.takeException(), isNull);
     }, () => client);
   });

@@ -5,6 +5,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/native_usb_printer.dart';
+import '../../../core/print_service.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
@@ -12,6 +14,7 @@ import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/app_segment_surface_card.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
+import '../../gscale/gscale_mobile_app.dart' show showPrintDevicePicker;
 import 'waste_bin_configuration_dialog.dart';
 import 'waste_bin_details.dart';
 import 'waste_navigation.dart';
@@ -154,90 +157,169 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     return bin;
   }
 
-  Future<void> _showQr(WasteBin bin) => showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(bin.label),
-          insetPadding: m3DialogInsetPadding,
-          constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
-          content: SizedBox(
-            width: m3DialogMaxWidth,
-            child: Center(
-              widthFactor: 1,
-              heightFactor: 1,
-              child: QrImageView(
-                data: bin.qrPayload,
-                size: 200,
-                padding: const EdgeInsets.all(12),
-                backgroundColor: Colors.white,
+  Future<void> _showQr(WasteBin bin) {
+    var printing = false;
+    bool? printed;
+    return showDialog<void>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (dialogContext, update) => PopScope(
+          canPop: !printing,
+          child: AlertDialog(
+            title: Text(bin.label),
+            scrollable: true,
+            insetPadding: m3DialogInsetPadding,
+            constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
+            content: SizedBox(
+              width: m3DialogMaxWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    dimension: 200,
+                    child: QrImageView(
+                      data: bin.qrPayload,
+                      padding: const EdgeInsets.all(12),
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                  if (printed case final success?) ...[
+                    const SizedBox(height: 12),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(success
+                          ? 'QR yorlig‘i printerga yuborildi'
+                          : 'QR yorlig‘ini chop etib bo‘lmadi'),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Yopish'),
-            ),
-            FilledButton.icon(
-              onPressed: () async {
-                // Capture the popover anchor before preparing the PDF on iPad.
-                final box = dialogContext.findRenderObject() as RenderBox?;
-                final anchor = box == null || !box.hasSize
+            actions: [
+              TextButton(
+                onPressed: printing ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Yopish'),
+              ),
+              TextButton.icon(
+                onPressed: printing ? null : () => _shareQr(dialogContext, bin),
+                icon: const Icon(Icons.share_outlined),
+                label: const Text('Ulashish'),
+              ),
+              FilledButton.icon(
+                onPressed: printing
                     ? null
-                    : box.localToGlobal(Offset.zero) & box.size;
-                try {
-                  final font = pw.Font.ttf(await rootBundle
-                      .load('assets/fonts/google_sans/GoogleSans-Regular.ttf'));
-                  final arabic = pw.Font.ttf(await rootBundle.load(
-                      'assets/fonts/noto_naskh_arabic/NotoNaskhArabic.ttf'));
-                  final label = pw.Document(
-                    theme: pw.ThemeData.withFont(
-                      base: font,
-                      fontFallback: [arabic],
-                    ),
-                  );
-                  label.addPage(pw.Page(
-                    build: (_) => pw.Center(
-                      child: pw.Column(
-                        mainAxisSize: pw.MainAxisSize.min,
-                        children: [
-                          pw.Text('Chiqindi qutisi'),
-                          pw.SizedBox(height: 12),
-                          pw.BarcodeWidget(
-                            barcode: pw.Barcode.qrCode(),
-                            data: bin.qrPayload,
-                            width: 140,
-                            height: 140,
-                          ),
-                          pw.SizedBox(height: 12),
-                          if (bin.name != bin.code) pw.Text(bin.name),
-                          pw.Text(bin.code),
-                        ],
-                      ),
-                    ),
-                  ));
-                  await SharePlus.instance.share(ShareParams(
-                    files: [
-                      XFile.fromData(await label.save(),
-                          name: '${bin.code}.pdf', mimeType: 'application/pdf')
-                    ],
-                    fileNameOverrides: ['${bin.code}.pdf'],
-                    sharePositionOrigin: anchor,
-                  ));
-                } catch (_) {
-                  if (!dialogContext.mounted) return;
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(
-                        content: Text('QR yorlig‘ini ulashib bo‘lmadi')),
-                  );
-                }
-              },
-              icon: const Icon(Icons.share_outlined),
-              label: const Text('QR yorlig‘i'),
-            ),
+                    : () async {
+                        if (printing || !_current) return;
+                        update(() {
+                          printing = true;
+                          printed = null;
+                        });
+                        final result = await _printQr(dialogContext, bin);
+                        if (!dialogContext.mounted) return;
+                        update(() {
+                          printing = false;
+                          printed = result;
+                        });
+                      },
+                icon: const Icon(Icons.print_outlined),
+                label: Text(printing ? 'Chop etilmoqda…' : 'Chop etish'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool?> _printQr(BuildContext dialogContext, WasteBin bin) async {
+    try {
+      final selection =
+          await showPrintDevicePicker(dialogContext, bluetoothOnly: true);
+      final printer = selection?.bluetoothPrinter;
+      if (selection == null ||
+          printer == null ||
+          !dialogContext.mounted ||
+          !_current) {
+        return null;
+      }
+      final result = await PrintService.printRps(
+        UsbRpsPrintRequest(
+          epc: bin.qrPayload,
+          itemCode: bin.code,
+          itemName: bin.name,
+          warehouse: '',
+          printer: printer.printer,
+          printMode: printer.printMode,
+          grossQty: 1,
+          unit: 'dona',
+          labelKind: 'paddon_code',
+          paddonLabelLines: [
+            'Chiqindi qutisi',
+            if (bin.name != bin.code) bin.name,
+            bin.code,
           ],
         ),
+        bluetoothPrinter: printer,
+        transport: selection.transport,
+        bluetoothQrCode: true,
       );
+      return result.ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _shareQr(BuildContext dialogContext, WasteBin bin) async {
+    // Capture the popover anchor before preparing the PDF on iPad.
+    final box = dialogContext.findRenderObject() as RenderBox?;
+    final anchor = box == null || !box.hasSize
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+    try {
+      final font = pw.Font.ttf(await rootBundle
+          .load('assets/fonts/google_sans/GoogleSans-Regular.ttf'));
+      final arabic = pw.Font.ttf(await rootBundle
+          .load('assets/fonts/noto_naskh_arabic/NotoNaskhArabic.ttf'));
+      final label = pw.Document(
+        theme: pw.ThemeData.withFont(base: font, fontFallback: [arabic]),
+      );
+      label.addPage(pw.Page(
+        build: (_) => pw.Center(
+          child: pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              pw.Text('Chiqindi qutisi'),
+              pw.SizedBox(height: 12),
+              pw.BarcodeWidget(
+                barcode: pw.Barcode.qrCode(),
+                data: bin.qrPayload,
+                width: 140,
+                height: 140,
+              ),
+              pw.SizedBox(height: 12),
+              if (bin.name != bin.code) pw.Text(bin.name),
+              pw.Text(bin.code),
+            ],
+          ),
+        ),
+      ));
+      final data = await label.save();
+      if (!dialogContext.mounted || !_current) return;
+      await SharePlus.instance.share(ShareParams(
+        files: [
+          XFile.fromData(data,
+              name: '${bin.code}.pdf', mimeType: 'application/pdf')
+        ],
+        fileNameOverrides: ['${bin.code}.pdf'],
+        sharePositionOrigin: anchor,
+      ));
+    } catch (_) {
+      if (!dialogContext.mounted) return;
+      ScaffoldMessenger.of(dialogContext).showSnackBar(
+        const SnackBar(content: Text('QR yorlig‘ini ulashib bo‘lmadi')),
+      );
+    }
+  }
 
   Future<void> _receive(WasteBin bin) async {
     if (_scannedCycleId != bin.cycle?.id && !await _scanMatching(bin)) return;

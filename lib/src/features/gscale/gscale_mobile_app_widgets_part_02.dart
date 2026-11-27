@@ -7,6 +7,7 @@ class ServerPickerPage extends StatefulWidget {
     required this.onSelectOffline,
     required this.onSelectBluetooth,
     required this.onExitMode,
+    this.bluetoothOnly = false,
     super.key,
   });
 
@@ -14,6 +15,7 @@ class ServerPickerPage extends StatefulWidget {
   final ValueChanged<BluetoothPrinterProfile> onSelectBluetooth;
   final Future<void> Function() onSelectOffline;
   final Future<void> Function() onExitMode;
+  final bool bluetoothOnly;
 
   @override
   State<ServerPickerPage> createState() => _ServerPickerPageState();
@@ -136,7 +138,11 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedConnection = _selectedConnection;
+    final selectedConnection = widget.bluetoothOnly
+        ? _DevicePickerConnection.bluetooth
+        : _selectedConnection;
+    final canGoBackToConnections =
+        !widget.bluetoothOnly && selectedConnection != null;
     final scheme = Theme.of(context).colorScheme;
 
     return Material(
@@ -159,14 +165,14 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(
-                selectedConnection != null ? 12 : 20,
+                canGoBackToConnections ? 12 : 20,
                 10,
                 16,
                 4,
               ),
               child: Row(
                 children: [
-                  if (selectedConnection != null) ...[
+                  if (canGoBackToConnections) ...[
                     IconButton.filledTonal(
                       onPressed: _backToConnections,
                       icon: const Icon(Icons.arrow_back_rounded, size: 22),
@@ -193,7 +199,7 @@ class _ServerPickerPageState extends State<ServerPickerPage> {
                       icon: const Icon(Icons.add_link_rounded, size: 22),
                       tooltip: 'Wi-Fi manzilini qo‘shish',
                     )
-                  else if (selectedConnection != null)
+                  else if (canGoBackToConnections)
                     const SizedBox(width: 40),
                 ],
               ),

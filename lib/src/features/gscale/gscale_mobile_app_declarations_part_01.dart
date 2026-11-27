@@ -445,7 +445,10 @@ class _GScaleMobileAppState extends State<GScaleMobileApp> {
   }
 }
 
-Future<PrintDeviceSelection?> showPrintDevicePicker(BuildContext context) {
+Future<PrintDeviceSelection?> showPrintDevicePicker(
+  BuildContext context, {
+  bool bluetoothOnly = false,
+}) {
   return showModalBottomSheet<PrintDeviceSelection>(
     context: context,
     isScrollControlled: true,
@@ -458,6 +461,7 @@ Future<PrintDeviceSelection?> showPrintDevicePicker(BuildContext context) {
     clipBehavior: Clip.antiAlias,
     builder: (sheetContext) {
       return ServerPickerPage(
+        bluetoothOnly: bluetoothOnly,
         onOpenServer: (server) {
           Navigator.of(sheetContext).pop(PrintDeviceSelection.wifi(server));
         },
