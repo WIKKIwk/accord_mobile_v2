@@ -107,6 +107,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     this.variantCode = '',
     this.allowAddingFormula = false,
     this.openEditorOnLoad = false,
+    this.onChanged,
   });
 
   final String orderId;
@@ -121,6 +122,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
   final String variantId, variantName, variantCode;
   final bool allowAddingFormula;
   final bool openEditorOnLoad;
+  final VoidCallback? onChanged;
 
   static Route<void> route({
     required String orderId,
@@ -137,6 +139,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
     String variantCode = '',
     bool allowAddingFormula = false,
     bool openEditorOnLoad = false,
+    VoidCallback? onChanged,
   }) {
     return PreparationOrderFormulaRoute(
       builder: (_) => PreparationOrderFormulaScreen(
@@ -154,6 +157,7 @@ class PreparationOrderFormulaScreen extends StatefulWidget {
         variantCode: variantCode,
         allowAddingFormula: allowAddingFormula,
         openEditorOnLoad: openEditorOnLoad,
+        onChanged: onChanged,
       ),
     );
   }
@@ -310,6 +314,7 @@ class _PreparationOrderFormulaScreenState
       orderId: _recipeOrderId,
     );
     if (mounted && _sameScope && formulas != null) {
+      widget.onChanged?.call();
       setState(() => _formulas = formulas);
       if (_recipeOrderId.isNotEmpty) await _refreshFormulas();
     }
@@ -568,6 +573,7 @@ class _PreparationOrderFormulaScreenState
         variantId: widget.variantId,
         orderId: _recipeOrderId,
       );
+      if (_sameScope) widget.onChanged?.call();
       if (!mounted) return;
       setState(() => _saving = false);
       _closeEditor();
@@ -608,6 +614,7 @@ class _PreparationOrderFormulaScreenState
         variantId: widget.variantId,
         orderId: _recipeOrderId,
       );
+      if (_sameScope) widget.onChanged?.call();
       if (!mounted) return;
       setState(() => _deleting = false);
       await _refreshFormulas();

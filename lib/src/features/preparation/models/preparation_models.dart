@@ -257,6 +257,7 @@ class PreparationFormulaSet {
     required this.productTitle,
     required this.orderCodes,
     required this.formulas,
+    this.sortAt = 0,
   });
   factory PreparationFormulaSet.fromJson(Map<String, dynamic> json) =>
       PreparationFormulaSet(
@@ -265,6 +266,7 @@ class PreparationFormulaSet {
         productCode: json['product_code'] as String,
         productTitle: json['product_title'] as String,
         orderCodes: List<String>.from(json['order_codes'] as List),
+        sortAt: (json['sort_at'] as int?) ?? 0,
         formulas: (json['formulas'] as List)
             .map((entry) => PreparationScopedFormula.fromJson({
                   'product_code': json['product_code'],
@@ -273,16 +275,21 @@ class PreparationFormulaSet {
             .toList(),
       );
   final String id, name, productCode, productTitle;
+  final int sortAt;
   final List<String> orderCodes;
   final List<PreparationScopedFormula> formulas;
 
-  PreparationFormulaSet renamed(String name) => PreparationFormulaSet(
+  PreparationFormulaSet copyWith({
+    String? name,
+    List<PreparationScopedFormula>? formulas,
+  }) => PreparationFormulaSet(
         id: id,
-        name: name,
+        name: name ?? this.name,
         productCode: productCode,
         productTitle: productTitle,
         orderCodes: orderCodes,
-        formulas: formulas,
+        formulas: formulas ?? this.formulas,
+        sortAt: sortAt,
       );
 }
 
@@ -322,10 +329,12 @@ class PreparationFormulaCatalogEntry {
         materialId = json['material_id'] as String,
         materialName = json['material_name'] as String,
         orderCodes = List<String>.from(json['order_codes'] as List),
+        sortAt = (json['sort_at'] as int?) ?? 0,
         canCreate = json['can_create'] == true;
 
   final String id, code, name, productCode, productTitle, setName;
   final String materialId, materialName;
+  final int sortAt;
   final List<String> orderCodes;
   final bool canCreate;
 }

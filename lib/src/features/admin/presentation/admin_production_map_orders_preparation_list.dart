@@ -504,10 +504,14 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
           _searchController.clear();
           _searchChanged('');
         },
-        onBackWithContext: (context) =>
-            AppShellDrawerScope.maybeOf(context)?.openDrawer(),
-        leadingIcon: Icons.menu_rounded,
-        leadingTooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        onBack: () {
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            navigator.pushReplacementNamed(AppRoutes.preparation);
+          }
+        },
       ),
       bottom: const PreparationDock(),
       bottomDockFadeStrength: null,
@@ -537,7 +541,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
                       child: UrduAwareText('Mos buyurtma topilmadi.'),
                     )),
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
                     sliver: SliverList.builder(
                       itemCount: _rows.length,
                       findChildIndexCallback: (key) => rowIndices[key],

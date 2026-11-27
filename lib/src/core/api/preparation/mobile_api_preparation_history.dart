@@ -3,6 +3,7 @@ part of '../mobile_api.dart';
 extension MobileApiPreparationHistory on MobileApi {
   Future<PreparationHistoryPage> preparationHistory({
     required String warehouseId,
+    String query = '',
     PreparationHistoryCursor? cursor,
   }) async {
     final scope = currentSessionReadScope();
@@ -21,6 +22,7 @@ extension MobileApiPreparationHistory on MobileApi {
       queryParameters: {
         'kind': 'all',
         if (warehouseId.isNotEmpty) 'warehouse_id': warehouseId,
+        if (query.isNotEmpty) 'q': query,
         if (cursor != null) ...{
           'before_time': cursor.time,
           'before_key': cursor.key,

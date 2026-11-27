@@ -6,8 +6,13 @@ const _sharedFormulaWarning =
     'Katalogdagi o‘zgarishlar formula keyingi safar buyurtmaga biriktirilganda olinadi.';
 
 class PreparationFormulaOrdersScreen extends StatefulWidget {
-  const PreparationFormulaOrdersScreen({super.key, this.initialSaved = false});
+  const PreparationFormulaOrdersScreen({
+    super.key,
+    this.initialSaved = false,
+    this.library,
+  });
   final bool initialSaved;
+  final PreparationFormulaLibraryStore? library;
   @override
   State<PreparationFormulaOrdersScreen> createState() =>
       _PreparationFormulaOrdersScreenState();
@@ -18,97 +23,70 @@ class _PreparationFormulaOrdersScreenState
     with SingleTickerProviderStateMixin {
   late final _tabs = TabController(
       length: 2, initialIndex: widget.initialSaved ? 1 : 0, vsync: this);
+  late final _library =
+      widget.library ?? PreparationFormulaLibraryStore.instance;
   final _scope = currentSessionReadScope();
-  bool get _sameScope => _scope == currentSessionReadScope();
+  bool get _sameScope =>
+      AppSession.instance.isLoggedIn && _scope == currentSessionReadScope();
   bool get _saved => _tabs.index == 1;
-  int _loadVersion = 0;
-  late bool _loadedSaved = widget.initialSaved;
-  List<PreparationFormulaSet> _sets = [];
-  List<PreparationFormulaCatalogEntry> _recipes = [];
+  late bool _lastTab = widget.initialSaved;
+  List<PreparationFormulaSet> get _sets =>
+      _sameScope ? _library.sets : const [];
+  List<PreparationFormulaCatalogEntry> get _recipes =>
+      _sameScope ? _library.recipes : const [];
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   String _query = '';
-  String? _error;
-  bool _loading = true;
+  String? get _error => !_sameScope
+      ? 'Akkaunt o‘zgargan. Sahifani qayta oching'
+      : _library.error == null
+          ? null
+          : _formulaPageError(_library.error!);
+  bool get _loading => _error == null && !_library.hasList(_saved);
   bool _renaming = false;
   @override
   void initState() {
     super.initState();
-    AppSession.instance.revision.addListener(_sessionChanged);
+    _library.attach();
+    _library.addListener(_libraryChanged);
     _tabs.addListener(_tabChanged);
-    _load();
+    unawaited(_library.ensure(_saved));
   }
 
-  void _sessionChanged() {
-    if (!mounted || _sameScope) return;
-    setState(() {
-      _sets = [];
-      _recipes = [];
-      _loading = false;
-      _error = 'Akkaunt o‘zgargan. Sahifani qayta oching';
-    });
-  }
+  void _libraryChanged() => setState(() {});
 
   void _tabChanged() {
-    if (_loadedSaved == _saved) return;
-    _loadedSaved = _saved;
+    if (_lastTab == _saved) return;
+    _lastTab = _saved;
     _search.clear();
-    _query = '';
-    _load();
+    setState(() => _query = '');
+    unawaited(_library.ensure(_saved));
   }
 
   @override
   void dispose() {
-    AppSession.instance.revision.removeListener(_sessionChanged);
+    _library.removeListener(_libraryChanged);
+    _library.detach();
     _tabs.dispose();
     _search.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    if (_renaming || !_sameScope) return;
-    final version = ++_loadVersion;
-    bool current() => mounted && _sameScope && version == _loadVersion;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final sets = _saved
-          ? const <PreparationFormulaSet>[]
-          : await MobileApi.instance.preparationFormulaSets();
-      if (!current()) return;
-      final recipes = await MobileApi.instance.preparationFormulaCatalog();
-      if (current()) {
-        setState(() {
-          _sets = sets;
-          _recipes = recipes;
-        });
-      }
-    } catch (error) {
-      if (current()) setState(() => _error = _formulaPageError(error));
-    } finally {
-      if (current()) setState(() => _loading = false);
-    }
-  }
+  Future<void> _load() =>
+      _renaming || !_sameScope ? Future.value() : _library.refresh(_saved);
 
   Future<void> _open(PreparationFormulaSet formulaSet) async {
     if (_renaming || !_sameScope) return;
-    await Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => _PreparationFormulaSetDetails(
               formulaSet: formulaSet,
-              recipes: _recipes
-                  .where((entry) => entry.productCode == formulaSet.productCode)
-                  .toList(),
+              library: _library,
             )));
-    if (mounted) await _load();
   }
 
   int _recipeCount(PreparationFormulaSet formulaSet) =>
-      _recipes
-          .where((entry) => entry.productCode == formulaSet.productCode)
-          .length +
+      _library.recipesFor(formulaSet.productCode).length +
       formulaSet.formulas.where((entry) => entry.variantId.isEmpty).length;
 
   Future<void> _actions(PreparationFormulaSet formulaSet) async {
@@ -147,10 +125,7 @@ class _PreparationFormulaOrdersScreenState
         name: name,
       );
       if (!mounted || !_sameScope) return;
-      setState(() => _sets = [
-            for (final item in _sets)
-              if (item.id == formulaSet.id) item.renamed(savedName) else item,
-          ]);
+      _library.renamedSet(formulaSet.id, savedName);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: UrduAwareText('Komplekt nomi o‘zgartirildi')),
       );
@@ -168,6 +143,7 @@ class _PreparationFormulaOrdersScreenState
   Future<void> _openRecipe(PreparationFormulaCatalogEntry entry) async {
     if (_renaming || _loading || !_sameScope) return;
     setState(() => _renaming = true);
+    var changed = false;
     try {
       await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
         orderId: '',
@@ -181,11 +157,12 @@ class _PreparationFormulaOrdersScreenState
         variantName: entry.name,
         variantCode: entry.code,
         allowAddingFormula: entry.canCreate,
+        onChanged: () => changed = true,
       ));
     } finally {
       if (mounted) {
         setState(() => _renaming = false);
-        if (_sameScope) await _load();
+        if (changed && _sameScope) await _library.afterEdit(saved: true);
       }
     }
   }
@@ -196,7 +173,7 @@ class _PreparationFormulaOrdersScreenState
     final renamed = await _renameCatalogRecipe(context, entry);
     if (!mounted) return;
     setState(() => _renaming = false);
-    if (renamed && _sameScope) await _load();
+    if (renamed && _sameScope) await _library.afterEdit(saved: true);
   }
 
   @override
@@ -255,6 +232,8 @@ class _PreparationFormulaOrdersScreenState
                         onRefresh: _load,
                         allowRefreshOnShortContent: true,
                         child: ListView(
+                            key: const PageStorageKey(
+                                'preparation-formula-sets'),
                             physics: const TopRefreshScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
                             children: [
@@ -306,13 +285,14 @@ class _PreparationFormulaOrdersScreenState
 
   Widget _savedRecipeList() {
     final query = _search.text.trim().toLowerCase();
+    final setNames = {for (final set in _sets) set.productCode: set.name};
     final entries = [
       for (final entry in _recipes)
         if ([
           entry.name,
           entry.code,
           entry.materialName,
-          entry.setName,
+          setNames[entry.productCode] ?? entry.setName,
           entry.productTitle,
           entry.productCode,
           ...entry.orderCodes
@@ -323,6 +303,7 @@ class _PreparationFormulaOrdersScreenState
       onRefresh: _load,
       allowRefreshOnShortContent: true,
       child: ListView.builder(
+        key: const PageStorageKey('preparation-saved-formulas'),
         physics: const TopRefreshScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
         itemCount: entries.length + 1,
@@ -378,10 +359,10 @@ class _PreparationFormulaOrdersScreenState
 class _PreparationFormulaSetDetails extends StatefulWidget {
   const _PreparationFormulaSetDetails({
     required this.formulaSet,
-    required this.recipes,
+    required this.library,
   });
   final PreparationFormulaSet formulaSet;
-  final List<PreparationFormulaCatalogEntry> recipes;
+  final PreparationFormulaLibraryStore library;
   @override
   State<_PreparationFormulaSetDetails> createState() =>
       _PreparationFormulaSetDetailsState();
@@ -389,42 +370,27 @@ class _PreparationFormulaSetDetails extends StatefulWidget {
 
 class _PreparationFormulaSetDetailsState
     extends State<_PreparationFormulaSetDetails> {
-  late List<PreparationScopedFormula> _formulas = widget.formulaSet.formulas;
-  late List<PreparationFormulaCatalogEntry> _recipes = widget.recipes;
+  final _scope = currentSessionReadScope();
+  bool get _sameScope =>
+      AppSession.instance.isLoggedIn && _scope == currentSessionReadScope();
+  PreparationFormulaLibraryStore get _library => widget.library;
+  PreparationFormulaSet? get _currentSet =>
+      _library.sets.where((set) => set.id == widget.formulaSet.id).firstOrNull;
+  List<PreparationScopedFormula> get _formulas =>
+      _sameScope ? _currentSet?.formulas ?? const [] : const [];
+  List<PreparationFormulaCatalogEntry> get _recipes => _sameScope
+      ? _library.recipesFor(widget.formulaSet.productCode)
+      : const [];
   bool _busy = false;
-  String? _error;
-
-  Future<void> _reload() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final sets = await MobileApi.instance.preparationFormulaSets();
-      final recipes = await MobileApi.instance.preparationFormulaCatalog();
-      if (mounted) {
-        setState(() {
-          _formulas = sets
-                .where((item) => item.id == widget.formulaSet.id)
-                .firstOrNull
-                ?.formulas ??
-              [];
-          _recipes = recipes
-              .where((entry) =>
-                  entry.productCode == widget.formulaSet.productCode)
-              .toList();
-        });
-      }
-    } catch (error) {
-      if (mounted) setState(() => _error = _formulaPageError(error));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  String? get _error =>
+      _library.error == null ? null : _formulaPageError(_library.error!);
+  Future<void> _reload() =>
+      _sameScope && !_busy ? _library.refresh(false) : Future.value();
 
   Future<void> _openRecipe(PreparationFormulaCatalogEntry entry) async {
-    if (_busy) return;
+    if (_busy || !_sameScope) return;
     setState(() => _busy = true);
+    var changed = false;
     try {
       await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
         orderId: '',
@@ -438,42 +404,61 @@ class _PreparationFormulaSetDetailsState
         variantName: entry.name,
         variantCode: entry.code,
         allowAddingFormula: entry.canCreate,
+        onChanged: () => changed = true,
       ));
     } finally {
-      if (mounted) await _reload();
+      if (mounted) {
+        setState(() => _busy = false);
+        if (changed && _sameScope) await _library.afterEdit(saved: false);
+      }
     }
   }
 
   Future<void> _renameRecipe(PreparationFormulaCatalogEntry entry) async {
-    if (_busy) return;
+    if (_busy || !_sameScope) return;
     setState(() => _busy = true);
     final renamed = await _renameCatalogRecipe(context, entry);
     if (!mounted) return;
     setState(() => _busy = false);
-    if (renamed) await _reload();
+    if (renamed && _sameScope) await _library.afterEdit(saved: false);
   }
 
   Future<void> _actions(PreparationScopedFormula entry) async {
-    if (_busy) return;
+    if (_busy || !_sameScope) return;
     final action = await showPreparationFormulaDetails(
       context,
       formula: entry.formula,
       materialName: entry.materialName,
       sharesComplete: preparationFormulaSharesComplete(_formulas
-          .where((f) => f.materialId == entry.materialId && f.variantId == entry.variantId).map((f) => f.formula).toList()),
+          .where((f) =>
+              f.materialId == entry.materialId &&
+              f.variantId == entry.variantId)
+          .map((f) => f.formula)
+          .toList()),
     );
-    if (!mounted || action == null) return;
+    if (!mounted || !_sameScope || action == null) return;
     if (action == 'shares') {
-      final updated = await showPreparationFormulaSharesEditor(context,
+      final updated = await showPreparationFormulaSharesEditor(
+        context,
         productCode: widget.formulaSet.productCode,
-        materialId: entry.materialId, materialName: entry.materialName,
-        formulas: _formulas.where((f) => f.materialId == entry.materialId && f.variantId == entry.variantId)
-            .map((f) => f.formula).toList(), savedOnly: true, variantId: entry.variantId,
+        materialId: entry.materialId,
+        materialName: entry.materialName,
+        formulas: _formulas
+            .where((f) =>
+                f.materialId == entry.materialId &&
+                f.variantId == entry.variantId)
+            .map((f) => f.formula)
+            .toList(),
+        savedOnly: true,
+        variantId: entry.variantId,
       );
-      if (mounted && updated != null) await _reload();
+      if (mounted && _sameScope && updated != null) {
+        await _library.afterEdit(saved: false);
+      }
       return;
     }
     if (action == 'edit') {
+      var changed = false;
       await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
         orderId: widget.formulaSet.id,
         orderCode: widget.formulaSet.id,
@@ -485,8 +470,11 @@ class _PreparationFormulaSetDetailsState
         manageSavedFormula: true,
         variantId: entry.variantId,
         variantName: entry.variantName,
+        onChanged: () => changed = true,
       ));
-      if (mounted) await _reload();
+      if (mounted && _sameScope && changed) {
+        await _library.afterEdit(saved: false);
+      }
       return;
     }
     final confirmed = await showM3ConfirmDialog(
@@ -497,21 +485,18 @@ class _PreparationFormulaSetDetailsState
         cancelLabel: 'Bekor qilish',
         confirmLabel: 'O‘chirish',
         destructive: true);
-    if (!mounted || confirmed != true || _busy) return;
+    if (!mounted || !_sameScope || confirmed != true || _busy) return;
     setState(() => _busy = true);
     try {
       await MobileApi.instance.preparationDeleteFormula(
           widget.formulaSet.productCode, entry.formula.name,
-          materialId: entry.materialId, savedOnly: true, variantId: entry.variantId);
-      if (!mounted) return;
-      setState(() => _formulas = _formulas
-          .where((f) =>
-              f.materialId != entry.materialId ||
-              f.variantId != entry.variantId ||
-              f.formula.name != entry.formula.name)
-          .toList());
+          materialId: entry.materialId,
+          savedOnly: true,
+          variantId: entry.variantId);
+      if (!mounted || !_sameScope) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: UrduAwareText('Formula o‘chirildi')));
+      _library.removedFormula(widget.formulaSet.id, entry);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -523,73 +508,95 @@ class _PreparationFormulaSetDetailsState
   }
 
   @override
-  Widget build(BuildContext context) {
-    final legacyFormulas =
-        _formulas.where((entry) => entry.variantId.isEmpty).toList();
-    final rowCount = _recipes.length + legacyFormulas.length;
-    return AppShell(
-        title: widget.formulaSet.name,
-        subtitle: widget.formulaSet.id,
-        nativeTopBar: true,
-        contentPadding: EdgeInsets.zero,
-        bottom: const PreparationDock(showPrimaryFab: false),
-        child: AppRefreshIndicator(
-          onRefresh: _reload,
-          allowRefreshOnShortContent: true,
-          child: ListView(
-              physics: const TopRefreshScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
-              children: [
-                if (_busy) const LinearProgressIndicator(),
-                const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(_sharedFormulaWarning)),
-                if (_error != null)
-                  Padding(
-                      padding: const EdgeInsets.all(12), child: Text(_error!)),
-                if (rowCount == 0)
-                  const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: UrduAwareText('Bu komplektda formula qolmadi.')),
-                M3SegmentSpacedColumn(children: [
-                  for (final (index, entry) in _recipes.indexed)
-                    AdminCatalogListRow(
-                      key: ValueKey('preparation-product-recipe-${entry.id}'),
-                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          index, rowCount),
-                      icon: Icons.functions_rounded,
-                      title: entry.name,
-                      subtitle: [entry.code, entry.materialName]
-                          .where((part) => part.isNotEmpty)
-                          .join(' • '),
-                      onTap: _busy ? null : () => _openRecipe(entry),
-                      onLongPress: _busy ? null : () => _renameRecipe(entry),
-                    ),
-                  for (final (index, entry) in legacyFormulas.indexed)
-                    AdminCatalogListRow(
-                      key: ValueKey(
-                          'preparation-order-formula-${entry.materialId}-${entry.variantId.isEmpty ? '' : '${entry.variantId}-'}${entry.formula.name}'),
-                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                          _recipes.length + index, rowCount),
-                      icon: Icons.functions_rounded,
-                      title: [entry.variantName, entry.materialName, entry.formula.name]
-                          .where((part) => part.isNotEmpty).join(' • '),
-                      subtitle: [
-                        entry.formula.sharePercent == null
-                            ? 'Shnek ulushi belgilanmagan'
-                            : 'Shnek ulushi: ${preparationDisplay(entry.formula.sharePercent!)}%',
-                        if (entry.materialId.isEmpty)
-                          'Eski formula — homashyo turi belgilanmagan',
-                        for (final line in entry.formula.lines)
-                          '${line.name} • ${preparationDisplay(line.percent)}%',
-                      ].join('\n'),
-                      subtitleMaxLines: entry.formula.lines.length + 1 +
-                          (entry.materialId.isEmpty ? 1 : 0),
-                      onTap: _busy ? null : () => _actions(entry),
-                    ),
-                ]),
-              ]),
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: _library,
+        builder: (context, _) => _buildDetails(context),
+      );
+
+  Widget _buildDetails(BuildContext context) {
+    if (!_sameScope || !_library.hasList(false)) {
+      return AppShell(
+        title: 'Formulalar',
+        subtitle: '',
+        child: Center(
+          child: UrduAwareText(
+            _error ?? 'Akkaunt o‘zgargan. Sahifani qayta oching',
+          ),
         ),
       );
+    }
+    final formulas = _formulas;
+    final recipes = _recipes;
+    final legacyFormulas =
+        formulas.where((entry) => entry.variantId.isEmpty).toList();
+    final rowCount = recipes.length + legacyFormulas.length;
+    return AppShell(
+      title: _currentSet?.name ?? widget.formulaSet.name,
+      subtitle: widget.formulaSet.id,
+      nativeTopBar: true,
+      contentPadding: EdgeInsets.zero,
+      bottom: const PreparationDock(showPrimaryFab: false),
+      child: AppRefreshIndicator(
+        onRefresh: _reload,
+        allowRefreshOnShortContent: true,
+        child: ListView(
+            physics: const TopRefreshScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
+            children: [
+              if (_busy) const LinearProgressIndicator(),
+              const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(_sharedFormulaWarning)),
+              if (_error != null)
+                Padding(
+                    padding: const EdgeInsets.all(12), child: Text(_error!)),
+              if (rowCount == 0)
+                const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: UrduAwareText('Bu komplektda formula qolmadi.')),
+              M3SegmentSpacedColumn(children: [
+                for (final (index, entry) in recipes.indexed)
+                  AdminCatalogListRow(
+                    key: ValueKey('preparation-product-recipe-${entry.id}'),
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        index, rowCount),
+                    icon: Icons.functions_rounded,
+                    title: entry.name,
+                    subtitle: [entry.code, entry.materialName]
+                        .where((part) => part.isNotEmpty)
+                        .join(' • '),
+                    onTap: _busy ? null : () => _openRecipe(entry),
+                    onLongPress: _busy ? null : () => _renameRecipe(entry),
+                  ),
+                for (final (index, entry) in legacyFormulas.indexed)
+                  AdminCatalogListRow(
+                    key: ValueKey(
+                        'preparation-order-formula-${entry.materialId}-${entry.variantId.isEmpty ? '' : '${entry.variantId}-'}${entry.formula.name}'),
+                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        recipes.length + index, rowCount),
+                    icon: Icons.functions_rounded,
+                    title: [
+                      entry.variantName,
+                      entry.materialName,
+                      entry.formula.name
+                    ].where((part) => part.isNotEmpty).join(' • '),
+                    subtitle: [
+                      entry.formula.sharePercent == null
+                          ? 'Shnek ulushi belgilanmagan'
+                          : 'Shnek ulushi: ${preparationDisplay(entry.formula.sharePercent!)}%',
+                      if (entry.materialId.isEmpty)
+                        'Eski formula — homashyo turi belgilanmagan',
+                      for (final line in entry.formula.lines)
+                        '${line.name} • ${preparationDisplay(line.percent)}%',
+                    ].join('\n'),
+                    subtitleMaxLines: entry.formula.lines.length +
+                        1 +
+                        (entry.materialId.isEmpty ? 1 : 0),
+                    onTap: _busy ? null : () => _actions(entry),
+                  ),
+              ]),
+            ]),
+      ),
+    );
   }
 }

@@ -137,19 +137,38 @@ class PreparationHistoryOperationCard extends StatelessWidget {
       title: title,
       subtitle: details.join('\n'),
       value: value,
-      leading: Icon(
-        isReversal || reversed
-            ? Icons.undo_rounded
-            : isReceipt
-                ? Icons.check_circle_outline_rounded
-                : Icons.remove_circle_outline_rounded,
-        color: isReversal
-            ? scheme.error
-            : reversed
-                ? scheme.outline
+      minHeight: 61,
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
+      titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+      subtitleStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.05,
+          ),
+      leading: SizedBox.square(
+        dimension: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            isReversal || reversed
+                ? Icons.undo_rounded
                 : isReceipt
-                    ? Colors.green
-                    : Colors.orange,
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.remove_circle_outline_rounded,
+            color: isReversal
+                ? scheme.error
+                : reversed
+                    ? scheme.outline
+                    : isReceipt
+                        ? Colors.green
+                        : Colors.orange,
+            size: 16,
+          ),
+        ),
       ),
       onLongPress:
           isReceipt && !reversed ? () => _showReceiptActions(context) : null,

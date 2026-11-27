@@ -6,6 +6,7 @@ class _PreparationHistoryTab extends StatefulWidget {
     required this.scope,
     required this.locations,
     required this.warehouseId,
+    required this.query,
     required this.onWarehouseSelected,
     required this.onRefreshLocations,
   });
@@ -13,6 +14,7 @@ class _PreparationHistoryTab extends StatefulWidget {
   final String scope;
   final List<InventoryLocation> locations;
   final String warehouseId;
+  final String query;
   final ValueChanged<String> onWarehouseSelected;
   final Future<void> Function() onRefreshLocations;
 
@@ -42,6 +44,7 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
   InventoryViewLease<InventoryTransfer>? _transferView;
   List<InventoryTransfer>? _lastTransfers;
   Timer? _transferRefresh;
+  Timer? _searchDebounce;
   int _request = 0;
   bool _loading = false;
   bool _failedAppend = false;
@@ -72,7 +75,14 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
   void didUpdateWidget(_PreparationHistoryTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.visibleWarehouseId != widget.visibleWarehouseId) {
+      _searchDebounce?.cancel();
       unawaited(_load(reset: true));
+    } else if (oldWidget.query.trim() != widget.query.trim()) {
+      _searchDebounce?.cancel();
+      _request++;
+      _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+        unawaited(_load(reset: true));
+      });
     }
   }
 
@@ -81,6 +91,7 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
     AppSession.instance.revision.removeListener(_sessionChanged);
     _transferView?.dispose();
     _transferRefresh?.cancel();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -126,6 +137,7 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
       do {
         final page = await MobileApi.instance.preparationHistory(
           warehouseId: warehouseId,
+          query: widget.query.trim(),
           cursor: cursor,
         );
         if (!_current || request != _request) return;
@@ -236,10 +248,10 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
       allowRefreshOnShortContent: true,
       child: ListView.separated(
         physics: const TopRefreshScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
+        padding: const EdgeInsets.only(bottom: 116),
         itemCount: _entries.length + 2,
         separatorBuilder: (_, index) => SizedBox(
-          height: index == 0 ? 8 : M3SegmentedListGeometry.gap,
+          height: index == 0 ? 0 : M3SegmentedListGeometry.gap,
         ),
         itemBuilder: (context, index) {
           if (index == 0) return _buildWarehouseFilter();
@@ -251,30 +263,36 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
           );
           final date = _inventoryTimestamp(entry.occurredAt);
           if (entry.transfer case final transfer?) {
-            return _InventoryTransferListRow(
-              key: ValueKey('inventory-transfer-${transfer.id}'),
-              slot: slot,
-              transfer: transfer,
-              busy: false,
-              historyTime: date,
-              onTap: () {
-                if (!_current) return;
-                unawaited(_InventoryTransferDetailsSheet.show(
-                  context,
-                  transfer,
-                  showHistoryDates: true,
-                  preparationReceivedAt: entry.preparationReceivedAt,
-                  preparationReceipts: entry.preparationReceipts,
-                ));
-              },
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: _InventoryTransferListRow(
+                key: ValueKey('inventory-transfer-${transfer.id}'),
+                slot: slot,
+                transfer: transfer,
+                busy: false,
+                historyTime: date,
+                onTap: () {
+                  if (!_current) return;
+                  unawaited(_InventoryTransferDetailsSheet.show(
+                    context,
+                    transfer,
+                    showHistoryDates: true,
+                    preparationReceivedAt: entry.preparationReceivedAt,
+                    preparationReceipts: entry.preparationReceipts,
+                  ));
+                },
+              ),
             );
           }
-          return PreparationHistoryOperationCard(
-            key: ValueKey(entry.key),
-            operation: entry.operation!,
-            date: date,
-            slot: slot,
-            onReversed: _receiptReversed,
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: PreparationHistoryOperationCard(
+              key: ValueKey(entry.key),
+              operation: entry.operation!,
+              date: date,
+              slot: slot,
+              onReversed: _receiptReversed,
+            ),
           );
         },
       ),

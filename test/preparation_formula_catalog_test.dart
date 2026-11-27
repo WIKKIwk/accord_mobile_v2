@@ -55,6 +55,7 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+    AppSession.instance.revision.value++;
   });
 
   testWidgets(

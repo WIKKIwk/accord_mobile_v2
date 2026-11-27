@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_cache.dart';
 import 'package:accord_mobile_v2/src/core/cache/order_image_disk_store_stub.dart';
 import 'package:accord_mobile_v2/src/core/cache/production_snapshot_store.dart';
@@ -284,6 +285,64 @@ void main() {
     AdminSequenceApparatusStore.instance.clearCache();
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+  });
+
+  testWidgets('order list keeps the standard space below the top bar',
+      (tester) async {
+    final api = _OrdersApi();
+    await http.runWithClient(() async {
+      await api.mount(tester);
+      await tester.pumpAndSettle();
+      final list = find.byKey(const ValueKey('preparation-orders-list'));
+      final firstRow =
+          find.byKey(const ValueKey('preparation-order-zakaz-1'));
+      expect(
+        tester.getTopLeft(firstRow).dy - tester.getTopLeft(list).dy,
+        4,
+      );
+      await api.close(tester);
+    }, () => MockClient(api.respond));
+  });
+
+  testWidgets('back returns to the previous page or preparation home',
+      (tester) async {
+    final api = _OrdersApi();
+    final navigator = GlobalKey<NavigatorState>();
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        navigatorKey: navigator,
+        locale: const Locale('uz'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const Scaffold(body: Text('Previous page')),
+        routes: {
+          '/orders': (_) => AdminProductionMapOrdersScreen(
+                readOnly: true,
+                supplyViewerMode: true,
+                liveEventsLoader: () => api.events.stream,
+              ),
+          AppRoutes.preparation: (_) =>
+              const Scaffold(body: Text('Preparation home')),
+        },
+      ));
+      navigator.currentState!.pushNamed('/orders');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Previous page'), findsOneWidget);
+
+      navigator.currentState!.pushReplacementNamed('/orders');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Preparation home'), findsOneWidget);
+      await api.close(tester);
+    }, () => MockClient(api.respond));
   });
 
   testWidgets('cached master labels paint while HTTP validation is pending',

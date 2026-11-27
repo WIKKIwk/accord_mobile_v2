@@ -466,9 +466,9 @@ void main() {
       final tabBar = tester.widget<TabBar>(find.byType(TabBar));
       expect(
         tabBar.tabs.cast<Tab>().map((tab) => tab.text),
-        ['Tarix', 'Qoldiqlar', 'Kutilayotgan'],
+        ['Qoldiqlar', 'Kutilayotgan', 'Tarix'],
       );
-      expect(tabBar.controller!.index, 0);
+      expect(tabBar.controller!.index, 2);
       expect(seriyo, findsNothing);
       expect(rejected, findsOneWidget);
       await tester.tap(find.text('Kutilayotgan'));
@@ -656,8 +656,11 @@ void main() {
       expect(find.text('+12 kg'), findsOneWidget);
       expect(find.byType(ChoiceChip), findsNothing);
       expect(older, findsNothing);
-      expect(find.byType(EditableText), findsNothing);
+      expect(find.byType(EditableText), findsOneWidget);
       expect(find.byKey(const ValueKey('inventory-movements-fab')), findsNothing);
+      final historyFilterPosition = tester.getTopLeft(find.byKey(
+        const ValueKey('preparation-transfer-history-warehouse'),
+      ));
 
       await tester.tap(find.text('Yana yuklash'));
       await tester.pumpAndSettle();
@@ -685,6 +688,9 @@ void main() {
       await tester.tap(find.text('Qoldiqlar'));
       await tester.pumpAndSettle();
       expect(find.text('Ombor: Tayyorlov ombori'), findsOneWidget);
+      expect(tester.getTopLeft(find.byKey(
+        const ValueKey('inventory-warehouse-filter-chip'),
+      )), historyFilterPosition);
       await tester.tap(find.text('Tarix'));
       await tester.pumpAndSettle();
       expect(older, findsOneWidget);
@@ -694,6 +700,13 @@ void main() {
       expect(usage, findsOneWidget);
       expect(find.text('Ishlatildi · 0317 Choy'), findsOneWidget);
       expect(find.text('−13 kg'), findsOneWidget);
+      await tester.enterText(find.byType(EditableText), 'QR-EXAMPLE');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(queries.last['q'], 'QR-EXAMPLE');
+      expect(queries.last['warehouse_id'], 'prep');
+      expect(queries.last['before_key'], isNull);
       expect(tester.takeException(), isNull);
     }, () => MockClient((request) async {
       expect(request.method, 'GET');

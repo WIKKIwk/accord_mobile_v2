@@ -281,6 +281,43 @@ extension MobileApiPreparation on MobileApi {
       Map<String, dynamic>.from(entry as Map))).toList();
   }
 
+  /// Either tab can bootstrap the shared library. Older servers return just
+  /// the requested list and the caller fills the other list once.
+  Future<Map<String, dynamic>> preparationFormulaLibrary({
+    required bool saved,
+  }) async {
+    final key = _preparationStorageKey();
+    final scope = currentSessionReadScope();
+    void verifyScope() {
+      if (scope != currentSessionReadScope() || key != _preparationStorageKey()) {
+        throw const MobileApiException(
+          code: 'account_changed',
+          message: 'Akkaunt o‘zgargan. Sahifani qayta oching',
+        );
+      }
+    }
+
+    final response = await _sendAuthorized(() {
+      verifyScope();
+      final endpoint = saved ? 'formula-catalog' : 'formula-sets';
+      final uri = Uri.parse(
+          '${MobileApi.baseUrl}/v1/mobile/preparation/$endpoint?library=true');
+      return _get(uri, headers: _headers(requireToken()));
+    });
+    verifyScope();
+    return _preparationResponse(response);
+  }
+
+  Stream<Map<String, dynamic>> preparationFormulaLibraryLive(
+          String epoch, int revision) =>
+      _productionMapDecodedLive(
+        () => privateLiveUri('/v1/mobile/preparation/formulas/live', {
+          'epoch': epoch,
+          'revision': '$revision',
+        }),
+        (event) => event,
+      );
+
   Future<String> preparationRenameFormulaSet({
     required String setId,
     required String name,

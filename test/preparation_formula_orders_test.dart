@@ -66,6 +66,7 @@ void main() {
   tearDown(() {
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
+    AppSession.instance.revision.value++;
   });
 
   testWidgets('product lists recipes once and opens their own internal formulas',

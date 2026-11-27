@@ -245,7 +245,7 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(history);
           await tester.pumpAndSettle();
-          expect(find.text('Transfer va tarix'), findsOneWidget);
+          expect(find.text('Mahsulot, kod yoki QR qidirish'), findsOneWidget);
           expect(find.text('Tarixda yozuv topilmadi'), findsOneWidget);
           final transferTabHeight = tester.getSize(find.byType(TabBar)).height;
           await tester.tap(find.byIcon(Icons.arrow_back_rounded));

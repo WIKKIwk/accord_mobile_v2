@@ -53,7 +53,7 @@ part 'preparation_history_tab.dart';
 
 class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     with SingleTickerProviderStateMixin {
-  static const _preparationHistoryTabIndex = 0;
+  static const _preparationHistoryTabIndex = 2;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
@@ -165,7 +165,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   bool get _preparationScoped =>
       AppSession.instance.profile?.role == UserRole.tayyorlovMasteri;
 
-  int get _assetsTabIndex => _preparationScoped ? 1 : 0;
+  int get _assetsTabIndex => 0;
   int get _transferTabIndex => _assetsTabIndex + (_materialScoped ? 2 : 1);
   bool get _showPreparationHistory =>
       _preparationScoped && _tabs.index == _preparationHistoryTabIndex;
@@ -214,7 +214,6 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
                 selectedAssets.isNotEmpty &&
                 selectedAssets.every((asset) => asset.canSelectForPaddon)));
     final tabs = <Tab>[
-      if (_preparationScoped) Tab(text: localizeUrduUiText('Tarix')),
       Tab(text: _preparationScoped ? 'Qoldiqlar' : 'Mahsulotlar'),
       if (_materialScoped) const Tab(text: 'State’lar'),
       if (_preparationScoped)
@@ -223,19 +222,9 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
         const Tab(text: 'Kiruvchi'),
         const Tab(text: 'Chiquvchi'),
       ],
+      if (_preparationScoped) Tab(text: localizeUrduUiText('Tarix')),
     ];
     final tabViews = <Widget>[
-      if (_preparationScoped)
-        _PreparationHistoryTab(
-          key: _preparationHistoryTabKey,
-          scope: _inventoryReadScope,
-          locations: _warehouseLocations,
-          warehouseId: _selectedWarehouseId,
-          onWarehouseSelected: _selectWarehouse,
-          onRefreshLocations: () async {
-            await _locationView?.refresh();
-          },
-        ),
       _buildAssetsTab(),
       if (_materialScoped)
         MaterialStateLocationsTab(
@@ -257,13 +246,25 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
         _buildTransferTab('incoming'),
         _buildTransferTab('outgoing'),
       ],
+      if (_preparationScoped)
+        _PreparationHistoryTab(
+          key: _preparationHistoryTabKey,
+          scope: _inventoryReadScope,
+          locations: _warehouseLocations,
+          warehouseId: _selectedWarehouseId,
+          query: _searchController.text,
+          onWarehouseSelected: _selectWarehouse,
+          onRefreshLocations: () async {
+            await _locationView?.refresh();
+          },
+        ),
     ];
     return AppShell(
       animateOnEnter: false,
       title: _preparationScoped ? localizeUrduUiText('Transfer va tarix') : '',
       subtitle: '',
       nativeTopBar: true,
-      automaticallyImplyNativeLeading: showHistory,
+      automaticallyImplyNativeLeading: false,
       showProfileAction: !selectionMode,
       profileActionListenable: _searchFocusNode,
       showProfileActionResolver: () => !_searchFocusNode.hasFocus,
@@ -300,9 +301,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
               ),
             ]
           : null,
-      titleWidget: showHistory
-          ? null
-          : selectionMode
+      titleWidget: selectionMode
               ? Row(
                   children: [
                     IconButton(
