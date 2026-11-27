@@ -1,4 +1,5 @@
 import '../../localization/app_localizations.dart';
+import '../buttons/app_action_button_styles.dart';
 import '../feedback/logout_prompt.dart';
 import '../feedback/spring_pressable.dart';
 import 'package:flutter/material.dart';
@@ -123,12 +124,7 @@ class RoleNavigationDrawer extends StatelessWidget {
                 },
                 icon: const Icon(Icons.logout_rounded),
                 label: Text(context.l10n.logoutTitle),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
+                style: appPillActionButtonStyle,
               ),
             ),
           ),

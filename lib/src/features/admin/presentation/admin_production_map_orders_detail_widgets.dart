@@ -655,10 +655,17 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                           UserRole.tayyorlovMasteri &&
                       AppSession.instance.can('preparation.access') &&
                       AppRouter.canOpenRoute(AppRoutes.gscaleMode))
-                    OutlinedButton.icon(
-                      onPressed: () => _openMaterialOrderReceipt(context, order),
-                      icon: const Icon(Icons.scale_outlined),
-                      label: const UrduAwareText('Homashyo kirimi'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+                      child: SpringPressable(
+                        child: FilledButton.icon(
+                          onPressed: () =>
+                              _openMaterialOrderReceipt(context, order),
+                          icon: const Icon(Icons.scale_outlined),
+                          label: const UrduAwareText('Homashyo kirimi'),
+                          style: appPillActionButtonStyle,
+                        ),
+                      ),
                     ),
                   if (!summaryOnlyMode && (!workerMode || summaryExpanded))
                     const SizedBox(height: 4),

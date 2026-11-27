@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+const appPillActionButtonStyle = ButtonStyle(
+  minimumSize: WidgetStatePropertyAll(Size.fromHeight(50)),
+  shape: WidgetStatePropertyAll(StadiumBorder()),
+);
+
 ButtonStyle appFilledActionButtonStyle({double borderRadius = 14}) {
   return FilledButton.styleFrom(
     shape: RoundedRectangleBorder(

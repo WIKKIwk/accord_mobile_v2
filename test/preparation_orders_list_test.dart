@@ -498,6 +498,7 @@ void main() {
     );
     await http.runWithClient(() async {
       await api.mount(tester);
+      tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
       expect(api.detailReads, isEmpty);
       await tester.tap(find.text('Master product 1'));
@@ -512,7 +513,18 @@ void main() {
       expect(find.textContaining('Full master product 1'), findsOneWidget);
       expect(find.text('120 kg'), findsOneWidget);
       expect(find.text('Shnek formulalar'), findsOneWidget);
-      expect(find.text('Homashyo kirimi'), findsOneWidget);
+      final formulaCard = find.byKey(const ValueKey('tayyorlov-formula-button'));
+      final receiptButton = find.widgetWithText(FilledButton, 'Homashyo kirimi');
+      expect(receiptButton, findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(receiptButton).style?.shape?.resolve({}),
+        isA<StadiumBorder>(),
+      );
+      expect(tester.getSize(receiptButton).height, greaterThanOrEqualTo(50));
+      expect(
+        tester.getTopLeft(receiptButton).dy - tester.getBottomLeft(formulaCard).dy,
+        greaterThanOrEqualTo(16),
+      );
       expect(find.text('Sarf yozish'), findsNothing);
       expect(api.detailReads, ['zakaz-1']);
       expect(
