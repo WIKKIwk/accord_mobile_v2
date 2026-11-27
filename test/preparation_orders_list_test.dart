@@ -523,8 +523,10 @@ void main() {
       expect(tester.getSize(receiptButton).height, greaterThanOrEqualTo(50));
       expect(
         tester.getTopLeft(receiptButton).dy - tester.getBottomLeft(formulaCard).dy,
-        greaterThanOrEqualTo(16),
+        10,
       );
+      expect(tester.getRect(receiptButton).left, tester.getRect(formulaCard).left);
+      expect(tester.getRect(receiptButton).right, tester.getRect(formulaCard).right);
       expect(find.text('Sarf yozish'), findsNothing);
       expect(api.detailReads, ['zakaz-1']);
       expect(

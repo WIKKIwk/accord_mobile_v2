@@ -656,7 +656,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       AppSession.instance.can('preparation.access') &&
                       AppRouter.canOpenRoute(AppRoutes.gscaleMode))
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+                      padding: const EdgeInsets.only(top: 10),
                       child: SpringPressable(
                         child: FilledButton.icon(
                           onPressed: () =>
