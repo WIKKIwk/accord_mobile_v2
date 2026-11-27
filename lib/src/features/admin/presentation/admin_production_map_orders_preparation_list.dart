@@ -488,7 +488,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
         onNavigate: (route) =>
             Navigator.of(context).pushReplacementNamed(route),
       ),
-      title: 'Ishlab chiqarish',
+      title: 'Buyurtmalar',
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -512,9 +512,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
       bottom: const PreparationDock(),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: Column(children: [
-        const PreparationProductionSections(journal: false),
-        Expanded(child: _loading && _rows.isEmpty
+      child: _loading && _rows.isEmpty
           ? const Align(
               alignment: Alignment.topCenter,
               child: _OrdersConnectionProgress())
@@ -583,8 +581,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
                               MediaQuery.viewPaddingOf(context).bottom + 136)),
                 ],
               ),
-            )),
-      ]),
+            ),
     );
   }
 

@@ -59,9 +59,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AdminSummaryCard), findsNWidgets(3));
+      expect(find.byType(AdminSummaryCard), findsNWidgets(4));
       for (final title in [
         'Ombor',
+        'Buyurtmalar',
         'Ishlab chiqarish',
         'Formulalar',
       ]) {
@@ -197,7 +198,7 @@ void main() {
             ),
             home: const PreparationScreen(),
             routes: {
-              '/supply-sequence': (_) => Scaffold(
+              AppRoutes.supplySequence: (_) => Scaffold(
                     appBar: AppBar(),
                     body: const Text('Ketma-ketlik'),
                   ),
@@ -209,7 +210,7 @@ void main() {
               findsOneWidget);
           expect(find.text('Ombor tanlang'), findsNothing);
           final label =
-              tester.renderObject<RenderParagraph>(find.text('Ishlab chiqarish'));
+              tester.renderObject<RenderParagraph>(find.text('Buyurtmalar'));
           final boxes = label.getBoxesForSelection(
             const TextSelection(baseOffset: 0, extentOffset: 8),
           );
@@ -218,7 +219,7 @@ void main() {
               lessThanOrEqualTo(textScale == 1 ? 1 : 2));
           expect(label.didExceedMaxLines, isFalse);
 
-          await tester.tap(find.text('Ishlab chiqarish'));
+          await tester.tap(find.text('Buyurtmalar'));
           await tester.pumpAndSettle();
           expect(find.text('Ketma-ketlik'), findsOneWidget);
           expect(find.text('Order tanlang'), findsNothing);

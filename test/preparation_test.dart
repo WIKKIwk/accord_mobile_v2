@@ -224,7 +224,7 @@ void main() {
     }, () => MockClient((_) async => throw http.ClientException('offline')));
   });
 
-  testWidgets('master can receive by material tap and opens ketma-ketlik',
+  testWidgets('master can receive by material tap and open the orders queue',
       (tester) async {
     tester.view.physicalSize = const Size(800, 1800);
     tester.view.devicePixelRatio = 1;
@@ -248,13 +248,15 @@ void main() {
           }));
       await tester.pumpAndSettle();
       expect(find.text('Ombor'), findsOneWidget);
+      expect(find.text('Buyurtmalar'), findsOneWidget);
       expect(find.text('Seriyo kirimi'), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('app-primary-navigation-button')),
       );
       await tester.pumpAndSettle();
       expect(find.text('Seriyo kirimi'), findsWidgets);
-      expect(find.text('Buyurtmalar'), findsNothing);
+      expect(find.byKey(const ValueKey('admin-fab-menu-Buyurtmalar')),
+          findsNothing);
       expect(find.text('Tarix'), findsNothing);
       await tester.tap(find.text('Seriyo kirimi').last);
       await tester.pumpAndSettle();
@@ -281,7 +283,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
       expect(requests.single['kg'], '12.500000');
-      await tester.tap(find.text('Ishlab chiqarish'));
+      await tester.tap(find.text('Buyurtmalar'));
       await tester.pumpAndSettle();
       expect(find.text('Ketma-ketlik'), findsOneWidget);
       expect(find.text('Order tanlang'), findsNothing);

@@ -496,7 +496,7 @@ class _AdminProductionMapOrdersScreenState
                   selectedRouteName: AppRoutes.adminProductionMapOrders,
                   onNavigate: _openDrawerRoute,
                 ),
-      title: isTayyorlovMasteri && widget.supplyViewerMode ? 'Ishlab chiqarish' : '',
+      title: isTayyorlovMasteri && widget.supplyViewerMode ? 'Buyurtmalar' : '',
       subtitle: '',
       nativeTopBar: true,
       actions: [
@@ -576,10 +576,7 @@ class _AdminProductionMapOrdersScreenState
                 ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: Column(children: [
-        if (isTayyorlovMasteri && widget.supplyViewerMode)
-          const PreparationProductionSections(journal: false),
-        Expanded(child: !_hasRezkaOrdersTab &&
+      child: !_hasRezkaOrdersTab &&
               ((_loading && !_adminPaging) ||
               (_loadError != null &&
                   _reconnectingOrderReads.contains(_OrdersReadSection.initial)))
@@ -883,9 +880,7 @@ class _AdminProductionMapOrdersScreenState
                                 ),
                     ),
                   ],
-                )),
-      ]),
-
+                ),
     );
   }
 

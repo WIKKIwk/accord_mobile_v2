@@ -67,35 +67,6 @@ class PreparationDock extends StatelessWidget {
   }
 }
 
-class PreparationProductionSections extends StatelessWidget {
-  const PreparationProductionSections({super.key, required this.journal});
-  final bool journal;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-        child: SegmentedButton<bool>(
-          expandedInsets: EdgeInsets.zero,
-          showSelectedIcon: false,
-          segments: [
-            ButtonSegment(
-                value: false, label: Text(context.l10n.uiText('Navbat'))),
-            ButtonSegment(
-                value: true, label: Text(context.l10n.uiText('Jurnal'))),
-          ],
-          selected: {journal},
-          onSelectionChanged: (value) {
-            if (value.single == journal) return;
-            Navigator.of(context).pushReplacementNamed(
-              value.single
-                  ? AppRoutes.preparationProduction
-                  : AppRoutes.supplySequence,
-            );
-          },
-        ),
-      );
-}
-
 class PreparationDrawer extends StatelessWidget {
   const PreparationDrawer({
     super.key,
@@ -113,11 +84,8 @@ class PreparationDrawer extends StatelessWidget {
     final l10n = context.l10n;
     return RoleNavigationDrawer(
       selectedIndex: profile ? 2 : 0,
-      selectedRouteName: selectedRouteName == AppRoutes.preparationProduction &&
-              AppRouter.canOpenRoute(AppRoutes.supplySequence)
-          ? AppRoutes.supplySequence
-          : selectedRouteName ??
-              (profile ? AppRoutes.profile : AppRoutes.preparation),
+      selectedRouteName: selectedRouteName ??
+          (profile ? AppRoutes.profile : AppRoutes.preparation),
       headerLabel: 'Tayyorlov bo‘limlari',
       onNavigate: onNavigate ??
           (route) => AppRootNavigation.replaceRootRoute(context, route),
@@ -134,14 +102,20 @@ class PreparationDrawer extends StatelessWidget {
           selectedIcon: Icons.warehouse,
           routeName: AppRoutes.preparationWarehouse,
         ),
-        RoleNavigationDrawerDestination(
-          label: 'Ishlab chiqarish',
-          icon: Icons.precision_manufacturing_outlined,
-          selectedIcon: Icons.precision_manufacturing,
-          routeName: AppRouter.canOpenRoute(AppRoutes.supplySequence)
-              ? AppRoutes.supplySequence
-              : AppRoutes.preparationProduction,
-        ),
+        if (AppRouter.canOpenRoute(AppRoutes.supplySequence))
+          RoleNavigationDrawerDestination(
+            label: l10n.uiText('Buyurtmalar'),
+            icon: Icons.format_list_numbered_outlined,
+            selectedIcon: Icons.format_list_numbered_rounded,
+            routeName: AppRoutes.supplySequence,
+          ),
+        if (AppRouter.canOpenRoute(AppRoutes.preparationProduction))
+          RoleNavigationDrawerDestination(
+            label: l10n.uiText('Ishlab chiqarish'),
+            icon: Icons.precision_manufacturing_outlined,
+            selectedIcon: Icons.precision_manufacturing,
+            routeName: AppRoutes.preparationProduction,
+          ),
         const RoleNavigationDrawerDestination(
           label: 'Formulalar',
           icon: Icons.functions_outlined,

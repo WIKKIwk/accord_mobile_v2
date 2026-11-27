@@ -12,6 +12,7 @@ import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
 import 'package:accord_mobile_v2/src/core/widgets/feedback/m3_confirm_dialog.dart';
 import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
+import 'package:accord_mobile_v2/src/core/widgets/navigation/role_navigation_drawer.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_list_row.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
@@ -412,23 +413,29 @@ void main() {
     });
   });
 
-  testWidgets('master home opens the production journal', (tester) async {
+  testWidgets('master home and drawer keep production separate from orders',
+      (tester) async {
     await _withApp(tester, () async {
       await tester.pumpWidget(_app(const PreparationScreen()));
       await tester.pumpAndSettle();
       final entry = find.text('Ishlab chiqarish');
       await tester.ensureVisible(entry);
       await tester.tap(entry);
-      for (var i = 0; i < 12 && find.text('Jurnal').evaluate().isEmpty; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(find.text('Jurnal'), findsOneWidget,
-        reason: tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(' | '));
-      await tester.tap(find.text('Jurnal'));
       await tester.pumpAndSettle();
       expect(find.byType(PreparationProductionScreen), findsOneWidget);
+      expect(find.text('Navbat'), findsNothing);
       expect(find.byKey(const ValueKey('production-batch:batch-lg')),
           findsOneWidget);
+      await tester.flingFrom(const Offset(4, 250), const Offset(220, 0), 900);
+      await tester.pumpAndSettle();
+      final drawer =
+          tester.widget<RoleNavigationDrawer>(find.byType(RoleNavigationDrawer));
+      final routes = {
+        for (final item in drawer.destinations) item.label: item.routeName,
+      };
+      expect(drawer.selectedRouteName, AppRoutes.preparationProduction);
+      expect(routes['Ishlab chiqarish'], AppRoutes.preparationProduction);
+      expect(routes['Buyurtmalar'], AppRoutes.supplySequence);
       expect(tester.takeException(), isNull);
     },
         (request) => request.url.path.endsWith('/preparation/snapshot')

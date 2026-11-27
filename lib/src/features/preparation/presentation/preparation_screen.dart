@@ -391,14 +391,20 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             'Seriyo, tayyor rulonlar va transferlar',
                             () => _openWarehouse(data)
                           ),
+                          if (AppRouter.canOpenRoute(AppRoutes.supplySequence))
+                            (
+                              M3SegmentVerticalSlot.middle,
+                              'Buyurtmalar',
+                              'Faol buyurtmalar navbati',
+                              () => Navigator.of(context)
+                                  .pushNamed(AppRoutes.supplySequence)
+                            ),
                           (
                             M3SegmentVerticalSlot.middle,
                             'Ishlab chiqarish',
-                            'Buyurtmalar navbati va ishlab chiqarish jurnali',
-                            () => Navigator.of(context).pushNamed(
-                                AppRouter.canOpenRoute(AppRoutes.supplySequence)
-                                    ? AppRoutes.supplySequence
-                                    : AppRoutes.preparationProduction)
+                            'Partiyalar, rulonlar va paddonlar',
+                            () => Navigator.of(context)
+                                .pushNamed(AppRoutes.preparationProduction)
                           ),
                           (
                             M3SegmentVerticalSlot.bottom,

@@ -719,8 +719,6 @@ class _ProductionOrdersState
             : PreparationDock(primaryFabActions: _journalFabActions),
         child: Column(
           children: [
-            if (!widget.materialPaddonsOnly && AppRouter.canOpenRoute(AppRoutes.supplySequence))
-              const PreparationProductionSections(journal: true),
             if (!widget.materialPaddonsOnly)
               IgnorePointer(
                 ignoring: !currentAccount,
