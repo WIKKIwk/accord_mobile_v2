@@ -59,9 +59,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AdminSummaryCard), findsNWidgets(4));
+      expect(find.byType(AdminSummaryCard), findsNWidgets(5));
       for (final title in [
         'Ombor',
+        'Transfer tarixi',
         'Buyurtmalar',
         'Ishlab chiqarish',
         'Formulalar',

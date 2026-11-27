@@ -46,6 +46,7 @@ part 'inventory_movements_screen__InventoryMovementsScreenState_methods_03.dart'
 part 'inventory_movements_screen_widgets_part_01.dart';
 part 'inventory_movements_screen_declarations_part_02.dart';
 part 'inventory_movements_screen_models_part_03.dart';
+part 'preparation_transfer_history_screen.dart';
 
 class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     with SingleTickerProviderStateMixin {

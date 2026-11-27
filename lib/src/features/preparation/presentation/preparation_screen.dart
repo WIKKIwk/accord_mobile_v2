@@ -391,6 +391,15 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             'Seriyo, tayyor rulonlar va transferlar',
                             () => _openWarehouse(data)
                           ),
+                          if (AppRouter.canOpenRoute(
+                              AppRoutes.preparationTransferHistory))
+                            (
+                              M3SegmentVerticalSlot.middle,
+                              'Transfer tarixi',
+                              'Omborlar orasidagi yakunlangan transferlar',
+                              () => Navigator.of(context).pushNamed(
+                                  AppRoutes.preparationTransferHistory)
+                            ),
                           if (AppRouter.canOpenRoute(AppRoutes.supplySequence))
                             (
                               M3SegmentVerticalSlot.middle,

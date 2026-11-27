@@ -97,20 +97,28 @@ extension __InventoryMovementsScreenStateAstPart03
           onRetry: () => _loadTransfers(direction, force: true));
     }
     final incoming = direction == 'incoming';
+    final transfers = incoming ? _incoming : _outgoing;
     return _TransferList(
-      transfers: incoming ? _incoming : _outgoing,
+      transfers: _preparationScoped
+          ? transfers
+              .where((transfer) => !_isPreparationTransferInHistory(transfer))
+              .toList(growable: false)
+          : transfers,
       emptyMessage:
           incoming ? 'Kiruvchi transfer yo‘q' : 'Chiquvchi transfer yo‘q',
       header: _warehouseFilter(),
       busyKeys: _busyKeys,
       enteringTransferIds: _enteringTransferIds,
-      actionsFor: (transfer) => _preparationScoped &&
+      onTransferTap: (transfer) => _showTransferDetails(
+        transfer,
+        [
+          if (_preparationScoped &&
               incoming &&
               transfer.status == InventoryTransferStatus.received &&
-              transfer.pendingPreparationLots > 0
-          ? const ['accept_preparation']
-          : const [],
-      onTransferTap: _showTransferDetails,
+              transfer.pendingPreparationLots > 0)
+            'accept_preparation',
+        ],
+      ),
       onRefresh: () => _loadTransfers(direction, force: true),
     );
   }
@@ -443,20 +451,7 @@ extension __InventoryMovementsScreenStateAstPart03
                 .trim()
                 .toLowerCase() ==
             normalizedWarehouse;
-        if (!matchesWarehouse || query.isEmpty) {
-          return matchesWarehouse;
-        }
-        return [
-          transfer.sourceWarehouse,
-          transfer.destinationWarehouse,
-          transfer.note,
-          for (final line in transfer.lines) ...[
-            line.itemName,
-            line.itemCode,
-            line.identifier,
-            line.assetRef,
-          ],
-        ].any((value) => value.toLowerCase().contains(query));
+        return matchesWarehouse && _matchesTransferSearch(transfer, query);
       },
     ).toList(growable: false);
   }
@@ -481,23 +476,13 @@ extension __InventoryMovementsScreenStateAstPart03
     InventoryTransfer transfer,
     List<String> actions,
   ) async {
-    final busy = _busyKeys.any((key) => key.startsWith(transfer.id));
-    await showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (sheetContext) => _InventoryTransferDetailsSheet(
-        transfer: transfer,
-        actions: actions,
-        busy: busy,
-        actionLabelFor: (action) => _transferActionLabel(transfer, action),
-        onAction: (action) async {
-          Navigator.of(sheetContext).pop();
-          await _transferAction(transfer, action);
-        },
-      ),
+    await _InventoryTransferDetailsSheet.show(
+      context,
+      transfer,
+      actions: actions,
+      busy: _busyKeys.any((key) => key.startsWith(transfer.id)),
+      actionLabelFor: (action) => _transferActionLabel(transfer, action),
+      onAction: (action) => _transferAction(transfer, action),
     );
   }
 }

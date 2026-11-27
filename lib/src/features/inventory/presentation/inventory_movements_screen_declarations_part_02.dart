@@ -6,20 +6,20 @@ class _TransferList extends StatelessWidget {
     required this.transfers,
     required this.emptyMessage,
     required this.header,
-    required this.busyKeys,
-    required this.enteringTransferIds,
-    required this.actionsFor,
     required this.onTransferTap,
     required this.onRefresh,
+    this.busyKeys = const {},
+    this.enteringTransferIds = const {},
+    this.footer,
   });
 
   final List<InventoryTransfer> transfers;
   final String emptyMessage;
   final Widget header;
+  final Widget? footer;
   final Set<String> busyKeys;
   final Set<String> enteringTransferIds;
-  final List<String> Function(InventoryTransfer) actionsFor;
-  final Future<void> Function(InventoryTransfer, List<String>) onTransferTap;
+  final Future<void> Function(InventoryTransfer) onTransferTap;
   final Future<void> Function() onRefresh;
 
   @override
@@ -29,62 +29,58 @@ class _TransferList extends StatelessWidget {
         ValueKey('inventory-transfer-animation-${transfers[index].id}'):
             index + 1,
     };
+    final rowCount = transfers.isEmpty ? 1 : transfers.length;
     return AppRefreshIndicator(
       onRefresh: onRefresh,
       allowRefreshOnShortContent: true,
-      child: transfers.isEmpty
-          ? ListView(
-              physics: const TopRefreshScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 116),
-              children: [
-                header,
-                SizedBox(
-                  height: MediaQuery.sizeOf(context).height * 0.55,
-                  child: _InventoryEmptyState(
-                    icon: Icons.swap_horiz_rounded,
-                    message: emptyMessage,
-                  ),
-                ),
-              ],
-            )
-          : ListView.separated(
-              physics: const TopRefreshScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(4, 4, 4, 116),
-              itemCount: transfers.length + 1,
-              findChildIndexCallback: (key) => transferIndices[key],
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return header;
-                }
-                final transfer = transfers[index - 1];
-                final actions = actionsFor(transfer);
-                return M3AnimatedListEntry(
-                  key: ValueKey('inventory-transfer-animation-${transfer.id}'),
-                  visible: true,
-                  animateIn: enteringTransferIds.contains(transfer.id),
-                  transitionKey: ValueKey(
-                    'inventory-transfer-transition-${transfer.id}',
-                  ),
-                  revision: '${transfer.status.apiValue}:'
-                      '${transfer.approvedAtUnix}:'
-                      '${transfer.dispatchedAtUnix}:'
-                      '${transfer.receivedAtUnix}:'
-                      '${transfer.rejectedAtUnix}:'
-                      '${transfer.cancelledAtUnix}',
-                  child: _InventoryTransferListRow(
-                    key: ValueKey('inventory-transfer-${transfer.id}'),
-                    slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
-                      index - 1,
-                      transfers.length,
-                    ),
-                    transfer: transfer,
-                    busy: busyKeys.any((key) => key.startsWith(transfer.id)),
-                    onTap: () => unawaited(onTransferTap(transfer, actions)),
-                  ),
-                );
-              },
+      child: ListView.separated(
+        physics: const TopRefreshScrollPhysics(),
+        padding: transfers.isEmpty
+            ? const EdgeInsets.only(bottom: 116)
+            : const EdgeInsets.fromLTRB(4, 4, 4, 116),
+        itemCount: rowCount + (footer == null ? 1 : 2),
+        findChildIndexCallback: (key) => transferIndices[key],
+        separatorBuilder: (_, __) => SizedBox(height: transfers.isEmpty ? 0 : 8),
+        itemBuilder: (context, index) {
+          if (index == 0) return header;
+          if (index > rowCount) return footer!;
+          if (transfers.isEmpty) {
+            return SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.55,
+              child: _InventoryEmptyState(
+                icon: Icons.swap_horiz_rounded,
+                message: emptyMessage,
+              ),
+            );
+          }
+          final transfer = transfers[index - 1];
+          return M3AnimatedListEntry(
+            key: ValueKey('inventory-transfer-animation-${transfer.id}'),
+            visible: true,
+            animateIn: enteringTransferIds.contains(transfer.id),
+            transitionKey: ValueKey(
+              'inventory-transfer-transition-${transfer.id}',
             ),
+            revision: '${transfer.status.apiValue}:'
+                '${transfer.approvedAtUnix}:'
+                '${transfer.dispatchedAtUnix}:'
+                '${transfer.receivedAtUnix}:'
+                '${transfer.rejectedAtUnix}:'
+                '${transfer.cancelledAtUnix}:'
+                '${transfer.pendingPreparationLots}',
+            child: _InventoryTransferListRow(
+              key: ValueKey('inventory-transfer-${transfer.id}'),
+              slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                index - 1,
+                transfers.length,
+              ),
+              transfer: transfer,
+              busy: busyKeys.any((key) => key.startsWith(transfer.id)),
+              onTap: () => unawaited(onTransferTap(transfer)),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -298,12 +294,52 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
   final List<String> actions;
   final bool busy;
   final String Function(String) actionLabelFor;
-  final Future<void> Function(String) onAction;
+  final Future<void> Function(String)? onAction;
+
+  static Future<void> show(
+    BuildContext context,
+    InventoryTransfer transfer, {
+    List<String> actions = const [],
+    bool busy = false,
+    String Function(String) actionLabelFor = _actionLabel,
+    Future<void> Function(String)? onAction,
+  }) {
+    final scope = currentSessionReadScope();
+    return showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      builder: (sheetContext) => ValueListenableBuilder(
+        valueListenable: AppSession.instance.revision,
+        builder: (context, _, __) {
+          if (scope != currentSessionReadScope()) {
+            return const SizedBox.shrink();
+          }
+          return _InventoryTransferDetailsSheet(
+            transfer: transfer,
+            actions: actions,
+            busy: busy,
+            actionLabelFor: actionLabelFor,
+            onAction: onAction == null
+                ? null
+                : (action) async {
+                    if (scope != currentSessionReadScope()) return;
+                    Navigator.of(sheetContext).pop();
+                    await onAction(action);
+                  },
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final runAction = onAction;
     return Material(
       color: scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
@@ -389,7 +425,7 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
             const SizedBox(height: materialSheetActionGap),
             if (busy)
               const Center(child: AppLoadingIndicator())
-            else if (actions.isNotEmpty)
+            else if (actions.isNotEmpty && runAction != null)
               Row(
                 children: [
                   for (int index = 0; index < actions.length; index++) ...[
@@ -401,14 +437,14 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
                           ? OutlinedButton(
                               style: materialSheetActionStyle,
                               onPressed: () => unawaited(
-                                onAction(actions[index]),
+                                runAction(actions[index]),
                               ),
                               child: Text(actionLabelFor(actions[index])),
                             )
                           : FilledButton(
                               style: materialSheetActionStyle,
                               onPressed: () => unawaited(
-                                onAction(actions[index]),
+                                runAction(actions[index]),
                               ),
                               child: Text(actionLabelFor(actions[index])),
                             ),

@@ -73,6 +73,7 @@ const _app_router_AppRouter_resplit_class_AppRouter_staticDockRoutes_resplit2Val
   AppRoutes.preparationWarehouse,
   AppRoutes.preparationFormulas,
   AppRoutes.preparationProduction,
+  AppRoutes.preparationTransferHistory,
   AppRoutes.rawMaterialSplit,
   AppRoutes.metalayzer,
   AppRoutes.metalayzerMaterials,

@@ -102,6 +102,13 @@ class PreparationDrawer extends StatelessWidget {
           selectedIcon: Icons.warehouse,
           routeName: AppRoutes.preparationWarehouse,
         ),
+        if (AppRouter.canOpenRoute(AppRoutes.preparationTransferHistory))
+          RoleNavigationDrawerDestination(
+            label: l10n.uiText('Transfer tarixi'),
+            icon: Icons.history_outlined,
+            selectedIcon: Icons.history,
+            routeName: AppRoutes.preparationTransferHistory,
+          ),
         if (AppRouter.canOpenRoute(AppRoutes.supplySequence))
           RoleNavigationDrawerDestination(
             label: l10n.uiText('Buyurtmalar'),

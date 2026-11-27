@@ -83,6 +83,28 @@ String _actionLabel(String action) => switch (action) {
       _ => action,
     };
 
+bool _isPreparationTransferInHistory(InventoryTransfer transfer) =>
+    switch (transfer.status) {
+      InventoryTransferStatus.received => transfer.pendingPreparationLots == 0,
+      InventoryTransferStatus.rejected || InventoryTransferStatus.cancelled =>
+        true,
+      _ => false,
+    };
+
+bool _matchesTransferSearch(InventoryTransfer transfer, String query) =>
+    query.isEmpty ||
+    [
+      transfer.sourceWarehouse,
+      transfer.destinationWarehouse,
+      transfer.note,
+      for (final line in transfer.lines) ...[
+        line.itemName,
+        line.itemCode,
+        line.identifier,
+        line.assetRef,
+      ],
+    ].any((value) => value.toLowerCase().contains(query));
+
 String _transferTimestamp(InventoryTransfer transfer) {
   final date = DateTime.fromMillisecondsSinceEpoch(
     transfer.createdAtUnix * 1000,

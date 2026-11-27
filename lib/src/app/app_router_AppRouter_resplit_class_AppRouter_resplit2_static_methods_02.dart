@@ -106,7 +106,12 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
       AppRoutes.inventoryMovements,
     }.contains(routeName);
   }
-  if ((routeName == AppRoutes.preparationProduction || routeName == AppRoutes.preparationWarehouse) && profile.role != UserRole.tayyorlovMasteri) {
+  if (profile.role != UserRole.tayyorlovMasteri &&
+      const {
+        AppRoutes.preparationProduction,
+        AppRoutes.preparationWarehouse,
+        AppRoutes.preparationTransferHistory,
+      }.contains(routeName)) {
     return false;
   }
   if (profile.role == UserRole.salesManager &&

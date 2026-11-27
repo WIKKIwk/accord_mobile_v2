@@ -384,12 +384,18 @@ void main() {
         }));
   });
 
-  testWidgets('master accepts the received Seriyo through the incoming transfer',
+  testWidgets('Seriyo stays incoming until accepted into preparation',
       (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     var accepted = 0;
     const transferPath = '/v1/mobile/preparation/transfers/seriyo-transfer/accept';
     final source = find.text('Ta’minot → Tayyorlov ombori');
+    final rejected = find.byKey(const ValueKey('inventory-transfer-rejected'));
     final accept = find.widgetWithText(FilledButton, 'Tayyorlovga qabul qilish');
+    final historyCard = find.text('Transfer tarixi');
 
     await http.runWithClient(() async {
       await tester.pumpWidget(const MaterialApp(
@@ -401,11 +407,22 @@ void main() {
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: InventoryMovementsScreen(),
+        initialRoute: AppRoutes.preparation,
+        onGenerateRoute: AppRouter.onGenerateRoute,
       ));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Kiruvchi'));
+      await tester.tap(historyCard);
       await tester.pumpAndSettle();
+      expect(find.byType(PreparationTransferHistoryScreen), findsOneWidget);
+      expect(source, findsNothing);
+      expect(rejected, findsOneWidget);
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ombor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Transferlar'));
+      await tester.pumpAndSettle();
+      expect(rejected, findsNothing);
       expect(find.text('Tayyorlovga qabul qilish · 1 ta'), findsOneWidget);
       await tester.tap(source);
       await tester.pumpAndSettle();
@@ -415,9 +432,17 @@ void main() {
       await tester.tap(find.text('Ha'));
       await tester.pumpAndSettle();
       expect(accepted, 1);
-      expect(find.text('Tayyorlovga qabul qilish · 1 ta'), findsNothing);
+      expect(source, findsNothing);
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await tester.pumpAndSettle();
+      await tester.tap(historyCard);
+      await tester.pumpAndSettle();
+      expect(source, findsOneWidget);
       await tester.tap(source);
       await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
       expect(accept, findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -428,23 +453,157 @@ void main() {
         return _json({'transfer_id': 'seriyo-transfer', 'warehouse': 'Tayyorlov ombori'});
       }
       if (request.url.path.endsWith('/inventory/transfers')) {
-        expect(request.url.queryParameters['direction'], 'incoming');
-        return _json([{
-          'id': 'seriyo-transfer',
-          'source_warehouse_id': 'supply',
-          'source_warehouse': 'Ta’minot',
-          'destination_warehouse_id': 'prep',
-          'destination_warehouse': 'Tayyorlov ombori',
-          'status': 'received',
-          'received_by_name': 'Ta’minotchi',
-          'pending_preparation_lots': accepted == 0 ? 1 : 0,
-        }]);
+        expect(request.method, 'GET');
+        expect(request.url.queryParameters['direction'], anyOf('all', 'incoming'));
+        return _json([
+          {
+            'id': 'seriyo-transfer',
+            'source_warehouse_id': 'supply',
+            'source_warehouse': 'Ta’minot',
+            'destination_warehouse_id': 'prep',
+            'destination_warehouse': 'Tayyorlov ombori',
+            'status': 'received',
+            'created_at_unix': 2,
+            'pending_preparation_lots': accepted == 0 ? 1 : 0,
+          },
+          {
+            'id': 'rejected',
+            'source_warehouse_id': 'other',
+            'source_warehouse': 'Tarqatish ombori',
+            'destination_warehouse_id': 'prep',
+            'destination_warehouse': 'Tayyorlov ombori',
+            'status': 'rejected',
+            'created_at_unix': 1,
+          },
+        ]);
       }
-      if (request.url.path.endsWith('/inventory/locations') ||
-          request.url.path.endsWith('/inventory/assets')) {
+      if (request.url.path.endsWith('/preparation/snapshot')) {
+        return _json({
+          'warehouses': ['Tayyorlov ombori'],
+          'assigned_warehouses': ['Tayyorlov ombori'],
+          'assigned_warehouse_ids': {'Tayyorlov ombori': 'prep'},
+          'material_warehouses': [],
+          'materials': [],
+          'history': [],
+          'orders': [],
+        });
+      }
+      if (request.url.path.endsWith('/inventory/locations')) {
+        return _json([
+          {
+            'id': 'location:prep',
+            'warehouse_id': 'prep',
+            'kind': 'warehouse',
+            'name': 'Tayyorlov ombori',
+          },
+        ]);
+      }
+      if (request.url.path.endsWith('/inventory/assets')) {
         return _json([]);
       }
       fail('Unexpected request: ${request.method} ${request.url}');
+    }));
+  });
+
+  testWidgets('transfer history loads older records and filters both warehouse sides',
+      (tester) async {
+    AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+      assignedWarehouses: ['Tayyorlov ombori', 'Ikkinchi ombor'],
+    );
+    final offsets = <int>[];
+    final newer = find.byKey(const ValueKey('inventory-transfer-cancelled'));
+    final older = find.byKey(const ValueKey('inventory-transfer-older'));
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: PreparationTransferHistoryScreen(),
+      ));
+      await tester.pumpAndSettle();
+      expect(newer, findsOneWidget);
+      expect(older, findsNothing);
+      expect(find.byKey(const ValueKey('inventory-movements-fab')), findsNothing);
+
+      await tester.tap(find.text('Yana yuklash'));
+      await tester.pumpAndSettle();
+      expect(offsets, [0, 100]);
+      expect(older, findsOneWidget);
+      expect(tester.getTopLeft(newer).dy, lessThan(tester.getTopLeft(older).dy));
+
+      await tester.tap(find.byKey(
+        const ValueKey('preparation-transfer-history-warehouse'),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tayyorlov ombori'));
+      await tester.pumpAndSettle();
+      expect(newer, findsNothing);
+      expect(older, findsOneWidget);
+      await tester.enterText(find.byType(EditableText), 'granula');
+      await tester.pumpAndSettle();
+      expect(older, findsOneWidget);
+      await tester.enterText(find.byType(EditableText), 'mavjud emas');
+      await tester.pumpAndSettle();
+      expect(older, findsNothing);
+      expect(find.text('Transfer tarixida yozuv topilmadi'), findsOneWidget);
+    }, () => MockClient((request) async {
+      expect(request.method, 'GET');
+      if (request.url.path.endsWith('/inventory/locations')) {
+        return _json([
+          for (final (id, name) in [
+            ('prep', 'Tayyorlov ombori'),
+            ('secondary', 'Ikkinchi ombor'),
+          ])
+            {
+              'id': 'location:$id',
+              'warehouse_id': id,
+              'kind': 'warehouse',
+              'name': name,
+            },
+        ]);
+      }
+      expect(request.url.path, '/v1/mobile/admin/inventory/transfers');
+      expect(request.url.queryParameters['direction'], 'all');
+      final offset = int.parse(request.url.queryParameters['offset'] ?? '0');
+      offsets.add(offset);
+      return _json(offset == 0
+          ? [
+              {
+                'id': 'cancelled',
+                'source_warehouse_id': 'supply',
+                'source_warehouse': 'Ta’minot',
+                'destination_warehouse_id': 'secondary',
+                'destination_warehouse': 'Ikkinchi ombor',
+                'status': 'cancelled',
+                'created_at_unix': 101,
+              },
+              for (var i = 99; i > 0; i--)
+                {'id': 'open-$i', 'status': 'in_transit', 'created_at_unix': i},
+            ]
+          : [
+              {
+                'id': 'older',
+                'source_warehouse_id': 'prep',
+                'source_warehouse': 'Tayyorlov ombori',
+                'destination_warehouse_id': 'supply',
+                'destination_warehouse': 'Ta’minot',
+                'status': 'received',
+                'created_at_unix': 1,
+                'lines': [
+                  {
+                    'asset_kind': 'raw_material',
+                    'item_name': 'Granula',
+                    'qty': 12,
+                    'uom': 'kg',
+                  },
+                ],
+              },
+            ]);
     }));
   });
 

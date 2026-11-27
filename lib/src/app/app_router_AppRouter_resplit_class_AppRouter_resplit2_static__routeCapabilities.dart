@@ -82,6 +82,7 @@ const _app_router_AppRouter_resplit_class_AppRouter__routeCapabilities_resplit2V
   AppRoutes.preparationWarehouse: {'preparation.access'},
   AppRoutes.preparationFormulas: {'preparation.access'},
   AppRoutes.preparationProduction: {'preparation.access'},
+  AppRoutes.preparationTransferHistory: {'preparation.access'},
   AppRoutes.rawMaterialSplit: {'raw_material.split'},
   AppRoutes.metalayzer: {'metalayzer.access'},
   AppRoutes.wasteReceiving: {'waste.receive'},
