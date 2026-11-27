@@ -247,6 +247,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('Transfer va tarix'), findsOneWidget);
           expect(find.text('Tarixda yozuv topilmadi'), findsOneWidget);
+          final transferTabHeight = tester.getSize(find.byType(TabBar)).height;
           await tester.tap(find.byIcon(Icons.arrow_back_rounded));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
@@ -267,6 +268,7 @@ void main() {
           expect(tester.takeException(), isNull);
           expect(find.text('Ombordan seriyo qidirish'), findsOneWidget);
           expect(find.text('Bu omborda hali kirim yo‘q.'), findsOneWidget);
+          expect(tester.getSize(find.byType(TabBar)).height, transferTabHeight);
           for (final shortcut in ['Transferlar', 'Katalog', 'Tarix']) {
             expect(find.text(shortcut), findsNothing);
           }
@@ -294,6 +296,10 @@ void main() {
                       jsonEncode({
                         'warehouses': warehouses,
                         'assigned_warehouses': warehouses,
+                        'assigned_warehouse_ids': {
+                          for (final warehouse in warehouses)
+                            warehouse: 'warehouse:test',
+                        },
                         'material_warehouses': warehouses,
                         'materials': [],
                         'orders': [],

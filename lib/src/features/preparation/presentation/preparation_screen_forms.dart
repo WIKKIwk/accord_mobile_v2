@@ -450,13 +450,12 @@ class _PreparationWarehouseScreenState
               onTap: (index) => setState(() { if (index == 0) _clearRollSelection(); }),
               tabs: const [
                 Tab(
-                  height: 52,
                   child: UrduAwareText(
                     'Seriyo',
                     textAlign: TextAlign.center,
                   ),
                 ),
-                Tab(height: 52, child: UrduAwareText('Tayyor rulonlar')),
+                Tab(child: UrduAwareText('Tayyor rulonlar')),
               ],
             ),
           if (_warehouses.isNotEmpty)
