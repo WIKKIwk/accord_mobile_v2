@@ -38,12 +38,16 @@ class _InventoryAssetListRow extends StatelessWidget {
     final assigned = orderAssignment != null;
     final title = orderAssignment?.orderLabel ?? materialTitle;
     final subtitle = [
-      if (assigned)
+      if (asset.paddonCode != null)
+        'Paddonda · ${asset.paddonCode}'
+      else if (assigned)
         materialTitle
+      else if (asset.isPreparationReceiptWithoutQr)
+        'QR kodisiz kirim'
       else if (asset.identifier.trim().isNotEmpty)
         asset.identifier.trim(),
       '${_qty(asset.qty)} ${asset.uom}',
-      _statusLabel(asset.status),
+      if (asset.paddonCode == null) _statusLabel(asset.status),
     ].join(' • ');
     final assignedGreen = theme.brightness == Brightness.dark
         ? const Color(0xFF81C784)
@@ -232,12 +236,19 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            _AssetSheetDetail(
-              icon: Icons.qr_code_rounded,
-              label: 'Identifikator',
-              value: asset.identifier,
-              fitValueOnOneLine: true,
-            ),
+            if (asset.isPreparationReceiptWithoutQr)
+              const _AssetSheetDetail(
+                icon: Icons.receipt_long_outlined,
+                label: 'Kirim',
+                value: 'QR kodisiz',
+              )
+            else
+              _AssetSheetDetail(
+                icon: Icons.qr_code_rounded,
+                label: 'Identifikator',
+                value: asset.identifier,
+                fitValueOnOneLine: true,
+              ),
             _AssetSheetDetail(
               icon: Icons.scale_outlined,
               label: 'Miqdor',
@@ -248,6 +259,12 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
               label: 'Fizik joy',
               value: asset.physicalLocation.name,
             ),
+            if (asset.paddonCode case final code?)
+              _AssetSheetDetail(
+                icon: Icons.inventory_2_outlined,
+                label: 'Paddon',
+                value: code,
+              ),
             if (asset.kind == InventoryAssetKind.rawMaterial)
               _AssetSheetDetail(
                 icon: Icons.check_circle_outline,

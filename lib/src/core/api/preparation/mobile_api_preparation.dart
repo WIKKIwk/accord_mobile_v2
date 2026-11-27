@@ -52,6 +52,22 @@ extension MobileApiPreparation on MobileApi {
     );
   }
 
+  Future<void> preparationAcceptTransfer(String transferId) async {
+    final key = _preparationStorageKey();
+    final uri = Uri.parse(
+      '${MobileApi.baseUrl}/v1/mobile/preparation/transfers/'
+      '${Uri.encodeComponent(transferId)}/accept',
+    );
+    final response = await _sendAuthorized(() {
+      if (_preparationStorageKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+      return _post(uri, headers: _headers(requireToken()));
+    });
+    if (_preparationStorageKey() != key) throw StateError('Akkaunt o‘zgargan');
+    _preparationResponse(response);
+  }
+
   Future<Map<String, dynamic>> preparationReverseReceipt({
     required String receiptId,
     required String reason,

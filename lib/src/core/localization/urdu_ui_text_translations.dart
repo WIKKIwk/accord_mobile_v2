@@ -612,6 +612,7 @@ class UrduUiTextTranslations {
     'Bu mahsulotda formula qolmadi.':
         'اس پروڈکٹ کے لیے کوئی فارمولہ باقی نہیں۔',
     'Bu omborda hali kirim yo‘q.': 'اس گودام میں ابھی تک کوئی وصولی نہیں ہوئی۔',
+    'Bu omborda tayyor rulon topilmadi.': 'اس گودام میں کوئی تیار رول نہیں ملا۔',
     'Bu qidiruv bo‘yicha chat topilmadi.': 'اس تلاش سے کوئی چیٹ نہیں ملی۔',
     'Bu qurilmada kamera mavjud emas': 'اس ڈیوائس میں کیمرہ موجود نہیں۔',
     'Bu receipt sizga tegishli emas.': 'یہ رسید آپ کی نہیں ہے۔',
@@ -833,6 +834,11 @@ class UrduUiTextTranslations {
     'Sarf: \${preparationDisplay(preparationRequiredKg(_order!.kg, entry.value.text))} kg':
         'استعمال: \${preparationDisplay(preparationRequiredKg(_order!.kg, entry.value.text))} کلوگرام',
     'Sarf: —': 'استعمال: —',
+    'Sarfga tayyor': 'استعمال کے لیے دستیاب',
+    'Sarfga tayyor · \$consumable kg': 'استعمال کے لیے دستیاب · \$consumable کلوگرام',
+    'Tayyorlov uchun': 'تیاری کے لیے',
+    'Tayyorlov uchun xomashyo': 'تیاری کا خام مال',
+    'Tayyor rulonlar': 'تیار رول',
     'Scale ulangan va kg kelganda tugma aktiv bo‘ladi.':
         'ترازو منسلک ہو اور وزن موصول ہونے پر بٹن فعال ہوگا۔',
     'Scanner bu qurilmada ishlamaydi': 'اس ڈیوائس پر اسکینر کام نہیں کرتا',

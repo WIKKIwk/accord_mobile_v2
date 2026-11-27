@@ -133,7 +133,9 @@ class _InventoryTransferListRow extends StatelessWidget {
           ? const AppLoadingIndicator(size: 30, glyphSize: 18)
           : _StatusBadge(status: transfer.status.apiValue),
       title: '${transfer.sourceWarehouse} → ${transfer.destinationWarehouse}',
-      subtitle: _transferSummary(transfer),
+      subtitle: transfer.pendingPreparationLots > 0
+          ? 'Tayyorlovga qabul qilish · ${transfer.pendingPreparationLots} ta'
+          : _transferSummary(transfer),
       titleMaxLines: 1,
       subtitleMaxLines: 1,
       titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(

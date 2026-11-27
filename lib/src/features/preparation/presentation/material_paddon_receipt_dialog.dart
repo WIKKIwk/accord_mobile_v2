@@ -124,10 +124,12 @@ class _MaterialPaddonReceiptDialogState
     if (!_current) throw StateError('Akkaunt o‘zgargan');
     _pending = pending;
     _preparation = preparation;
-    _materialWarehouses =
-        preparation?.materialWarehouses ?? profile.assignedWarehouses;
     _assignedWarehouses =
         preparation?.assignedWarehouses ?? profile.assignedWarehouses;
+    _materialWarehouses = preparation == null ||
+            preparation.assignedWarehouseIds.isNotEmpty
+        ? _assignedWarehouses
+        : preparation.materialWarehouses;
     final warehouses = _warehouses;
     _warehouse = warehouses.length == 1 ? warehouses.single : null;
   }
@@ -135,11 +137,12 @@ class _MaterialPaddonReceiptDialogState
   Future<List<SupplierItem>> _materials(
       String query, int offset, int limit) async {
     final search = query.trim().toLowerCase();
+    final preparation = _preparation;
+    final exclusiveWarehouses = preparation?.materialWarehouses ?? const <String>[];
     final manual = [
       for (final item
-          in _preparation?.materials ?? const <PreparationMaterial>[])
-        if (item.canReceive &&
-            item.visibleIn(_warehouse) &&
+          in preparation?.materials ?? const <PreparationMaterial>[])
+        if (item.canReceiveIn(_warehouse, exclusiveWarehouses) &&
             '${item.name} ${item.code}'.toLowerCase().contains(search))
           SupplierItem(
             name: item.name,
@@ -149,7 +152,9 @@ class _MaterialPaddonReceiptDialogState
           ),
     ];
     final page = manual.skip(offset).take(limit).toList();
-    if (page.length < limit && AppSession.instance.can('gscale.catalog.read')) {
+    if (page.length < limit &&
+        (preparation == null || exclusiveWarehouses.contains(_warehouse)) &&
+        AppSession.instance.can('gscale.catalog.read')) {
       final otherOffset = offset > manual.length ? offset - manual.length : 0;
       final items = await _api.gscaleItemsPage(
           query: query,

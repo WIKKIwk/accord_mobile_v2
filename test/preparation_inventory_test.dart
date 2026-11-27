@@ -44,6 +44,125 @@ void main() {
     AppSession.instance.profile = null;
   });
 
+  testWidgets('master receipts bound Seriyo from a shared warehouse and sees only its rolls in the second tab',
+      (tester) async {
+    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final receipts = <Map<String, dynamic>>[];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        initialRoute: AppRoutes.preparation,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ombor'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tayyorlov uchun xomashyo'), findsOneWidget);
+      expect(find.text('Master granulasi'), findsOneWidget);
+      expect(find.text('Katalog ruloni'), findsNothing);
+      expect(find.text('Sarfga tayyor · 10 kg'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Tarozi kirimi'), findsNothing);
+      await tester.tap(find.text('Kirim'));
+      await tester.pumpAndSettle();
+      final picker = find.byType(BottomSheet);
+      expect(find.descendant(of: picker, matching: find.text('Faqat ko‘rish uchun Seriyo')), findsNothing);
+      expect(find.descendant(of: picker, matching: find.text('Katalog ruloni')), findsNothing);
+      await tester.tap(find.descendant(of: picker, matching: find.text('Master granulasi')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), '5');
+      await tester.tap(find.text('Saqlash'));
+      await tester.pumpAndSettle();
+      expect(receipts, hasLength(1));
+      expect(receipts.single, containsPair('item_code', 'SER-1'));
+      expect(receipts.single, containsPair('warehouse', 'Umumiy ombor'));
+      expect(receipts.single, containsPair('kg', '5.000000'));
+      expect(find.text('Sarfga tayyor · 15 kg'), findsOneWidget);
+
+      await tester.tap(find.text('Tayyor rulonlar').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Rulon QR-01'), findsOneWidget);
+      expect(find.text('Master granulasi'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }, () => MockClient((request) async {
+          switch (request.url.path) {
+            case '/v1/mobile/preparation/snapshot':
+              return _json({
+                'warehouses': ['Umumiy ombor'],
+                'assigned_warehouses': ['Umumiy ombor'],
+                'assigned_warehouse_ids': {'Umumiy ombor': 'shared'},
+                'material_warehouses': [],
+                'materials': [
+                  {
+                    'item_code': 'SER-1',
+                    'name': 'Master granulasi',
+                    'can_receive': true,
+                    'is_seriyo': true,
+                    'visible_warehouses': ['Umumiy ombor'],
+                    'receipt_warehouses': ['Umumiy ombor'],
+                    'balances': [
+                      {'warehouse': 'Umumiy ombor', 'kg': receipts.isEmpty ? '15' : '20'},
+                    ],
+                    'consumable_balances': [
+                      {'warehouse': 'Umumiy ombor', 'kg': receipts.isEmpty ? '10' : '15'},
+                    ],
+                  },
+                  {
+                    'item_code': 'SER-2',
+                    'name': 'Faqat ko‘rish uchun Seriyo',
+                    'can_receive': false,
+                    'is_seriyo': true,
+                    'visible_warehouses': ['Umumiy ombor'],
+                    'receipt_warehouses': [],
+                  },
+                  {
+                    'item_code': 'ROLL-1',
+                    'name': 'Katalog ruloni',
+                    'can_receive': false,
+                    'is_seriyo': false,
+                    'visible_warehouses': ['Umumiy ombor'],
+                    'receipt_warehouses': [],
+                  },
+                ],
+                'orders': [],
+                'history': [],
+              });
+            case '/v1/mobile/preparation/receipts':
+              expect(request.method, 'POST');
+              receipts.add(jsonDecode(request.body) as Map<String, dynamic>);
+              return _json({'id': 'receipt-1'});
+            case '/v1/mobile/admin/inventory/assets':
+              expect(request.url.queryParameters, containsPair('stock_use', 'prepared_roll'));
+              expect(request.url.queryParameters, containsPair('warehouse_id', 'shared'));
+              return _json([
+                {
+                  'kind': 'raw_material',
+                  'stock_use': 'prepared_roll',
+                  'asset_ref': 'roll-1',
+                  'item_name': 'Rulon QR-01',
+                  'identifier': 'QR-01',
+                  'qty': 12,
+                  'uom': 'kg',
+                },
+              ]);
+          }
+          return _json([]);
+        }));
+  });
+
   testWidgets('master opens inventory, sees the order product and transfers a roll',
       (tester) async {
     tester.view.physicalSize = const Size(430, 1000);
@@ -166,6 +285,70 @@ void main() {
           }
           fail('Unexpected request: ${request.method} ${request.url}');
         }));
+  });
+
+  testWidgets('master accepts the received Seriyo through the incoming transfer',
+      (tester) async {
+    var accepted = 0;
+    const transferPath = '/v1/mobile/preparation/transfers/seriyo-transfer/accept';
+    final source = find.text('Ta’minot → Tayyorlov ombori');
+    final accept = find.widgetWithText(FilledButton, 'Tayyorlovga qabul qilish');
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+        locale: Locale('uz'),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: InventoryMovementsScreen(),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kiruvchi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tayyorlovga qabul qilish · 1 ta'), findsOneWidget);
+      await tester.tap(source);
+      await tester.pumpAndSettle();
+      await tester.tap(accept);
+      await tester.pumpAndSettle();
+      expect(find.text('Seriyoni tayyorlov sarfiga qabul qilasizmi?'), findsOneWidget);
+      await tester.tap(find.text('Ha'));
+      await tester.pumpAndSettle();
+      expect(accepted, 1);
+      expect(find.text('Tayyorlovga qabul qilish · 1 ta'), findsNothing);
+      await tester.tap(source);
+      await tester.pumpAndSettle();
+      expect(accept, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }, () => MockClient((request) async {
+      if (request.url.path == transferPath) {
+        expect(request.method, 'POST');
+        accepted++;
+        return _json({'transfer_id': 'seriyo-transfer', 'warehouse': 'Tayyorlov ombori'});
+      }
+      if (request.url.path.endsWith('/inventory/transfers')) {
+        expect(request.url.queryParameters['direction'], 'incoming');
+        return _json([{
+          'id': 'seriyo-transfer',
+          'source_warehouse_id': 'supply',
+          'source_warehouse': 'Ta’minot',
+          'destination_warehouse_id': 'prep',
+          'destination_warehouse': 'Tayyorlov ombori',
+          'status': 'received',
+          'received_by_name': 'Ta’minotchi',
+          'pending_preparation_lots': accepted == 0 ? 1 : 0,
+        }]);
+      }
+      if (request.url.path.endsWith('/inventory/locations') ||
+          request.url.path.endsWith('/inventory/assets')) {
+        return _json([]);
+      }
+      fail('Unexpected request: ${request.method} ${request.url}');
+    }));
   });
 
   testWidgets('master can link and unlink a warehouse roll to an order',

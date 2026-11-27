@@ -63,6 +63,8 @@ class InventoryViewStore {
     String warehouseId = '',
     String query = '',
     InventoryAssetKind? assetKind,
+    InventoryStockUse? stockUse,
+    bool includePreparedPaddons = false,
     bool currentUserStatesOnly = false,
     bool includeOrderAssignment = true,
     int limit = 100,
@@ -72,6 +74,8 @@ class InventoryViewStore {
         warehouseId: warehouseId,
         query: query,
         assetKind: assetKind,
+        stockUse: stockUse,
+        includePreparedPaddons: includePreparedPaddons,
         currentUserStatesOnly: currentUserStatesOnly,
         includeOrderAssignment: includeOrderAssignment,
         limit: limit,
@@ -226,6 +230,8 @@ class InventoryViewStore {
           assetKind: p['asset_kind'] == null
               ? null
               : InventoryAssetKind.fromJson(p['asset_kind']),
+          stockUse: InventoryStockUse.fromJson(p['stock_use']),
+          includePreparedPaddons: p['include_prepared_paddons'] == 'true',
           currentUserStatesOnly: p['current_user_states_only'] == 'true',
           includeOrderAssignment: p['include_order_assignment'] == 'true',
           limit: int.parse(p['limit']!),

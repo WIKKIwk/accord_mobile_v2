@@ -38,6 +38,7 @@ extension __InventoryMovementsScreenStateAstPart01
     _updateInventory(() {
       _inventoryFabOpen = false;
       _qrLookupOpen = true;
+      _qrLookupGeneration++;
       _qrScannedAssets = const [];
       _qrLookupBusyCodes.clear();
       _selectedAssetKeys.clear();
@@ -49,59 +50,55 @@ extension __InventoryMovementsScreenStateAstPart01
     if (!mounted) {
       return;
     }
-    _updateInventory(() => _qrLookupOpen = false);
-  }
-
-  bool _qrAssetMatchesBarcode(InventoryAsset asset, String barcode) {
-    final normalized = barcode.trim().toLowerCase();
-    return [asset.identifier, asset.assetRef, asset.itemCode].any(
-      (value) => value.trim().toLowerCase() == normalized,
-    );
+    _updateInventory(() {
+      _qrLookupOpen = false;
+      _qrLookupGeneration++;
+      _qrScannedAssets = const [];
+      _qrLookupBusyCodes.clear();
+      _selectedAssetKeys.clear();
+    });
   }
 
   Future<void> _handleQrLookupCode(String rawValue) async {
     final scope = currentSessionReadScope();
-    if (scope != _inventoryReadScope) return;
+    if (!mounted || !_qrLookupOpen || scope != _inventoryReadScope) return;
+    final generation = _qrLookupGeneration;
+    bool isCurrent() =>
+        mounted &&
+        _qrLookupOpen &&
+        generation == _qrLookupGeneration &&
+        scope == currentSessionReadScope() &&
+        _locationView?.rows != null;
     final barcode = rawMaterialBarcodeFromQr(rawValue).trim();
     final lookupKey = barcode.toLowerCase();
     if (barcode.isEmpty || !_qrLookupBusyCodes.add(lookupKey)) {
       return;
     }
-    if (mounted) {
-      _updateInventory(() => _qrLookupStatus = 'QR bazadan tekshirilmoqda...');
-    }
+    _updateInventory(() => _qrLookupStatus = 'QR bazadan tekshirilmoqda...');
     try {
       final assets = await MobileApi.instance.inventoryAssets(
         query: barcode,
+        identifier: barcode,
+        includePreparedPaddons: _materialScoped || _preparationScoped,
         assetKind: _preparationScoped ? InventoryAssetKind.rawMaterial : null,
         limit: 100,
         includeOrderAssignment: _includeAssignmentSummary,
       );
-      final warehouseAssets = assets
+      final matches = assets
           .where(
             (asset) =>
-                asset.physicalLocation.kind == InventoryLocationKind.warehouse,
+                asset.physicalLocation.kind == InventoryLocationKind.warehouse &&
+                !asset.isPreparationReceiptWithoutQr &&
+                asset.identifier.trim().toLowerCase() == lookupKey,
           )
           .toList(growable: false);
-      final exactMatches = warehouseAssets
-          .where((asset) => _qrAssetMatchesBarcode(asset, barcode))
-          .toList(growable: false);
-      final matches = exactMatches.isNotEmpty
-          ? exactMatches
-          : warehouseAssets.length == 1
-              ? warehouseAssets
-              : const <InventoryAsset>[];
       if (matches.isEmpty) {
         throw const MobileApiException(
           code: 'inventory_qr_asset_not_found',
           message: 'Bu QR bo‘yicha mahsulot topilmadi',
         );
       }
-      if (!mounted ||
-          scope != currentSessionReadScope() ||
-          _locationView?.rows == null) {
-        return;
-      }
+      if (!isCurrent()) return;
       _updateInventory(() {
         _rememberAssetAssignments(matches);
         final next = List<InventoryAsset>.of(_qrScannedAssets);
@@ -118,25 +115,23 @@ extension __InventoryMovementsScreenStateAstPart01
         _qrScannedAssets = List<InventoryAsset>.unmodifiable(next);
         _qrLookupStatus = '${matches.length} ta mahsulot topildi';
       });
-      if (exactMatches.any((asset) =>
-          asset.kind == InventoryAssetKind.rawMaterial &&
-          asset.identifier.trim().toLowerCase() == lookupKey)) {
+      if (matches.any((asset) => asset.kind == InventoryAssetKind.rawMaterial)) {
         await showScannedPreparationRollNotes(
           context,
           barcode,
-          isCurrent: () => _qrLookupOpen && scope == _inventoryReadScope,
+          isCurrent: isCurrent,
         );
       }
     } catch (error) {
-      if (mounted &&
-          scope == currentSessionReadScope() &&
-          _locationView?.rows != null) {
+      if (isCurrent()) {
         final message = _message(error);
         _updateInventory(() => _qrLookupStatus = message);
         _showMessage(message);
       }
     } finally {
-      _qrLookupBusyCodes.remove(lookupKey);
+      if (generation == _qrLookupGeneration) {
+        _qrLookupBusyCodes.remove(lookupKey);
+      }
     }
   }
 
@@ -233,10 +228,15 @@ extension __InventoryMovementsScreenStateAstPart01
     if (rows != null && _assetMutationDepth > 0) return;
     if (identical(rows, _assets) && _assetsLoading == (rows == null)) return;
     _updateInventory(() {
-      _assets = rows ?? const [];
+      if (_materialScoped && rows?.any((asset) => asset.stockUse != null) == true) {
+        _hasStockUses = true;
+      }
+      _assets = rows == null || _stockUse == null
+          ? rows ?? const []
+          : rows.where((asset) => asset.stockUse == _stockUse).toList();
       _assetsLoading = rows == null && view?.loading == true;
       if (rows != null) _rememberAssetAssignments(rows);
-      final keys = _assets.map(_selectionKey).toSet();
+      final keys = _selectionAssets.map(_selectionKey).toSet();
       _selectedAssetKeys.removeWhere((key) => !keys.contains(key));
     });
   }
@@ -298,7 +298,7 @@ extension __InventoryMovementsScreenStateAstPart01
       return;
     }
     final search = _searchController.text.trim();
-    final key = jsonEncode([warehouse, search, _includeAssignmentSummary]);
+    final key = jsonEncode([warehouse, search, _includeAssignmentSummary, _stockUse?.apiValue]);
     var acquired = false;
     if (_assetView == null || _assetViewKey != key) {
       _assetView?.removeListener(_handleAssetViewChanged);
@@ -308,6 +308,8 @@ extension __InventoryMovementsScreenStateAstPart01
         warehouseId: warehouse,
         query: search,
         assetKind: _preparationScoped ? InventoryAssetKind.rawMaterial : null,
+        stockUse: _stockUse,
+        includePreparedPaddons: _materialScoped || _preparationScoped,
         includeOrderAssignment: _includeAssignmentSummary,
       )..addListener(_handleAssetViewChanged);
       acquired = true;
@@ -409,6 +411,7 @@ extension __InventoryMovementsScreenStateAstPart01
   bool _assetBelongsToSelectedWarehouse(InventoryAsset asset) {
     if (asset.status.trim().toLowerCase() == 'deleted' ||
         asset.physicalLocation.kind != InventoryLocationKind.warehouse ||
+        (_stockUse != null && asset.stockUse != _stockUse) ||
         !_assetMatchesSearch(asset)) {
       return false;
     }
@@ -474,7 +477,7 @@ extension __InventoryMovementsScreenStateAstPart01
       _assets = List<InventoryAsset>.unmodifiable(next);
       _exitingAssetKeys.removeAll(unique.keys);
       _enteringAssetKeys.addAll(enteringKeys);
-      final visibleKeys = _assets.map(_selectionKey).toSet();
+      final visibleKeys = _selectionAssets.map(_selectionKey).toSet();
       _selectedAssetKeys.removeWhere((key) => !visibleKeys.contains(key));
     });
     if (enteringKeys.isNotEmpty) {
@@ -713,6 +716,8 @@ extension __InventoryMovementsScreenStateAstPart01
           itemCode: current?.itemCode ?? line.itemCode,
           itemName: current?.itemName ?? line.itemName,
           isMetalayzer: current?.isMetalayzer ?? false,
+          stockUse: current?.stockUse,
+          preparationQr: current?.preparationQr,
           batchNote: current?.batchNote,
           rollNote: current?.rollNote,
           identifier: current?.identifier ?? line.identifier,
@@ -735,8 +740,8 @@ extension __InventoryMovementsScreenStateAstPart01
     _searchDebounce = Timer(const Duration(milliseconds: 350), _loadAssets);
   }
 
-  void _toggleAssetSelection(InventoryAsset asset) {
-    if (!_canBulkRelocate(asset)) {
+  void _toggleAssetSelection(InventoryAsset asset, {bool fromQrLookup = false}) {
+    if (!_canBulkRelocate(asset, fromQrLookup: fromQrLookup)) {
       return;
     }
     if (_stateSelectionMode) {

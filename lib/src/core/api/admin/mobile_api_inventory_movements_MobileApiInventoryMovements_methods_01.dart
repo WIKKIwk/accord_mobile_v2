@@ -40,7 +40,10 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
   Future<List<InventoryAsset>> inventoryAssets({
     String warehouseId = '',
     String query = '',
+    String identifier = '',
     InventoryAssetKind? assetKind,
+    InventoryStockUse? stockUse,
+    bool includePreparedPaddons = false,
     // Legacy API name: shared state inventory within the user's access scope.
     bool currentUserStatesOnly = false,
     bool includeOrderAssignment = false,
@@ -49,6 +52,7 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
   }) async {
     if (await TestModeController.instance.isEnabled()) {
       final needle = query.trim().toLowerCase();
+      final exactIdentifier = identifier.trim().toLowerCase();
       final warehouseLocationIds = _testModeInventoryLocations
           .where(
             (location) =>
@@ -70,6 +74,10 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
                     asset.physicalLocation.kind ==
                         InventoryLocationKind.state) &&
                 (assetKind == null || asset.kind == assetKind) &&
+                (stockUse == null || asset.stockUse == stockUse) &&
+                (includePreparedPaddons || asset.paddonCode == null) &&
+                (exactIdentifier.isEmpty ||
+                    asset.identifier.trim().toLowerCase() == exactIdentifier) &&
                 (needle.isEmpty ||
                     [
                       asset.itemCode,
@@ -124,7 +132,10 @@ extension MobileApiInventoryMovementsAstPart01 on MobileApi {
             if (warehouseId.trim().isNotEmpty)
               'warehouse_id': warehouseId.trim(),
             if (query.trim().isNotEmpty) 'query': query.trim(),
+            if (identifier.trim().isNotEmpty) 'identifier': identifier.trim(),
             if (assetKind != null) 'asset_kind': assetKind.apiValue,
+            if (stockUse != null) 'stock_use': stockUse.apiValue,
+            if (includePreparedPaddons) 'include_prepared_paddons': 'true',
             if (currentUserStatesOnly) 'current_user_states_only': 'true',
             if (includeOrderAssignment) 'include_order_assignment': 'true',
             'limit': '$limit',

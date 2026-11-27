@@ -62,6 +62,7 @@ IconData _assetIcon(InventoryAssetKind kind) => switch (kind) {
 
 String _statusLabel(String status) => switch (status) {
       'available' => 'Mavjud',
+      'on_paddon' => 'Paddonda',
       'requested' => 'So‘ralgan',
       'approved' => 'Tasdiqlangan',
       'in_transit' => 'Yo‘lda',
@@ -77,6 +78,7 @@ String _actionLabel(String action) => switch (action) {
       'reject' => 'Rad etish',
       'dispatch' => 'Jo‘natish',
       'receive' => 'Qabul qilish',
+      'accept_preparation' => 'Tayyorlovga qabul qilish',
       'cancel' => 'Bekor qilish',
       _ => action,
     };

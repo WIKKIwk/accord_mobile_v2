@@ -44,10 +44,10 @@ extension _PreparationForms on _PreparationScreenState {
   }
 
   Future<void> _receive(PreparationMaterial material) async {
-    final warehouse = _warehouse!;
-    if (!_syncedMaterialWarehouses().contains(warehouse)) {
-      await _openPreparationScaleReceipt(context, warehouse);
-      if (mounted) await _reload();
+    final warehouse = _warehouse;
+    if (warehouse == null ||
+        !_syncedAssignedWarehouses().contains(warehouse) ||
+        !material.canReceiveIn(warehouse, _syncedMaterialWarehouses())) {
       return;
     }
     final kg = await _input(
@@ -99,6 +99,8 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.freshAssignedWarehouses,
     required this.freshMaterialWarehouses,
     this.freshManagedWarehouses,
+    this.freshAssignedWarehouseIds,
+    this.showPreparedRolls = false,
   });
 
   final List<String> warehouses;
@@ -117,6 +119,8 @@ class PreparationWarehouseScreen extends StatefulWidget {
   final List<String> Function() freshAssignedWarehouses;
   final List<String> Function() freshMaterialWarehouses;
   final List<String> Function()? freshManagedWarehouses;
+  final Map<String, String> Function()? freshAssignedWarehouseIds;
+  final bool showPreparedRolls;
 
   @override
   State<PreparationWarehouseScreen> createState() =>
@@ -124,7 +128,7 @@ class PreparationWarehouseScreen extends StatefulWidget {
 }
 
 class _PreparationWarehouseScreenState
-    extends State<PreparationWarehouseScreen> {
+    extends State<PreparationWarehouseScreen> with SingleTickerProviderStateMixin {
   late String? _warehouse = widget.initialWarehouse;
   late List<PreparationMaterial> _materials = widget.materials;
   final TextEditingController _searchController = TextEditingController();
@@ -132,6 +136,7 @@ class _PreparationWarehouseScreenState
   String _query = '';
   bool _filterExpanded = false;
   bool _managingWarehouse = false;
+  late final TabController _stockTabs;
   void _updateWarehouse(VoidCallback action) => setState(action);
 
   /// Faqat shu userga ulangan omborlar, jumladan yangi bola omborlar.
@@ -141,12 +146,28 @@ class _PreparationWarehouseScreenState
       widget.freshManagedWarehouses?.call() ?? const [];
 
   List<String> get _materialWarehouses => widget.freshMaterialWarehouses();
+  Map<String, String> get _warehouseIds =>
+      widget.freshAssignedWarehouseIds?.call() ?? const {};
+  bool get _hasStockViews => _warehouseIds.isNotEmpty;
 
   bool get _canCreateMaterial =>
-      _warehouse != null && _materialWarehouses.contains(_warehouse);
+      _warehouse != null &&
+      (_hasStockViews ? _warehouses.contains(_warehouse)
+          : _materialWarehouses.contains(_warehouse));
+
+  @override
+  void initState() {
+    super.initState();
+    _stockTabs = TabController(
+      length: 2,
+      initialIndex: widget.showPreparedRolls ? 1 : 0,
+      vsync: this,
+    );
+  }
 
   @override
   void dispose() {
+    _stockTabs.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -156,9 +177,8 @@ class _PreparationWarehouseScreenState
     final q = _query.trim().toLowerCase();
     final visible = _warehouse == null
         ? const <PreparationMaterial>[]
-        : _materials.where((m) => m.visibleIn(_warehouse));
-    // Server bergan ombor scope ichidagi barcha homashyolar ko'rinadi — yangi
-    // (qoldiqsiz) material ham. Qoldiq bo'lmasa available() '0' qaytaradi.
+        : _materials.where((m) =>
+            m.visibleIn(_warehouse) && (!_hasStockViews || m.isSeriyo == true));
     if (q.isEmpty) return visible.toList();
     return visible
         .where((m) => '${m.name} ${m.code}'.toLowerCase().contains(q))
@@ -171,8 +191,13 @@ class _PreparationWarehouseScreenState
   }
 
   Future<void> _doKirim() async {
-    if (_warehouse == null || widget.locked) return;
-    if (!_canCreateMaterial) {
+    final warehouse = _warehouse;
+    if (warehouse == null ||
+        widget.locked ||
+        (_hasStockViews && !_warehouses.contains(warehouse))) {
+      return;
+    }
+    if (!_hasStockViews && !_canCreateMaterial) {
       await _openPreparationScaleReceipt(context, _warehouse);
       await widget.onReload();
       if (mounted) setState(() => _materials = widget.freshMaterials());
@@ -188,8 +213,8 @@ class _PreparationWarehouseScreenState
         title: 'Homashyo tanlang',
         hintText: 'Qidirish',
         pageSize: 50,
-        loadPage: (query, offset, limit) async => _filtered
-            .where((m) => m.canReceive)
+        loadPage: (query, offset, limit) async => _materials
+            .where((m) => m.canReceiveIn(warehouse, _materialWarehouses))
             .where((m) => '${m.name} ${m.code}'
                 .toLowerCase()
                 .contains(query.trim().toLowerCase()))
@@ -198,11 +223,11 @@ class _PreparationWarehouseScreenState
             .toList(),
         itemTitle: (m) => m.name,
         itemSubtitle: (m) =>
-            'Mavjud: ${preparationDisplay(m.available(_warehouse))} kg',
+            'Mavjud: ${preparationDisplay(m.available(warehouse))} kg',
         onSelected: (m) => Navigator.of(sheetContext).pop(m),
       ),
     );
-    if (material != null && mounted) {
+    if (material != null && mounted && _warehouse == warehouse) {
       await widget.onReceive(material);
       if (mounted) setState(() => _materials = widget.freshMaterials());
     }
@@ -320,6 +345,7 @@ class _PreparationWarehouseScreenState
           freshMaterials: widget.freshMaterials,
           freshHistory: widget.freshHistory,
           freshMaterialWarehouses: widget.freshMaterialWarehouses,
+          legacyWarehouseView: !_hasStockViews,
         ),
       ),
     );
@@ -336,6 +362,15 @@ class _PreparationWarehouseScreenState
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
     final filtered =
         _warehouse == null ? const <PreparationMaterial>[] : _filtered;
+    final warehouseId = _warehouseIds[_warehouse];
+    final showPreparedRolls = _hasStockViews && _stockTabs.index == 1;
+    final rollsView = showPreparedRolls && warehouseId != null
+        ? _PreparationWarehouseRolls(
+            key: ValueKey(warehouseId),
+            warehouseId: warehouseId,
+            query: _query.trim(),
+          )
+        : null;
 
     return AppShell(
       title: '',
@@ -360,12 +395,15 @@ class _PreparationWarehouseScreenState
         primaryFabActions: _warehouses.isEmpty
             ? null
             : [
-                if (_warehouse != null &&
+                if (!showPreparedRolls &&
+                    _warehouse != null &&
                     !widget.locked &&
                     !_managingWarehouse) ...[
                   AdminFabMenuAction(
-                    title: _canCreateMaterial ? 'Kirim' : 'Tarozi kirimi',
-                    icon: _canCreateMaterial
+                    title: _hasStockViews || _canCreateMaterial
+                        ? 'Kirim'
+                        : 'Tarozi kirimi',
+                    icon: _hasStockViews || _canCreateMaterial
                         ? Icons.add_circle_outline_rounded
                         : Icons.scale_outlined,
                     onTap: _doKirim,
@@ -377,7 +415,8 @@ class _PreparationWarehouseScreenState
                       onTap: _doCreateMaterial,
                     ),
                 ],
-                if (!widget.locked &&
+                if (!showPreparedRolls &&
+                    !widget.locked &&
                     !_managingWarehouse &&
                     _materialWarehouses.isNotEmpty)
                   AdminFabMenuAction(
@@ -419,8 +458,23 @@ class _PreparationWarehouseScreenState
               chipKey: const ValueKey('preparation-warehouse-filter-chip'),
               optionKeyPrefix: 'preparation-warehouse-filter-option',
             ),
+          if (_hasStockViews)
+            AdminSurfaceTabBar(
+              controller: _stockTabs,
+              onTap: (_) => setState(() {}),
+              tabs: const [
+                Tab(
+                  height: 52,
+                  child: UrduAwareText(
+                    'Tayyorlov uchun xomashyo',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Tab(height: 52, child: UrduAwareText('Tayyor rulonlar')),
+              ],
+            ),
           Expanded(
-            child: AppRefreshIndicator(
+            child: rollsView ?? AppRefreshIndicator(
               onRefresh: () async {
                 await widget.onReload();
                 if (mounted) {
@@ -442,7 +496,8 @@ class _PreparationWarehouseScreenState
                         ),
                       ),
                     )
-                  else if (_warehouse == null)
+                  else if (_warehouse == null ||
+                      (_hasStockViews && !_warehouses.contains(_warehouse)))
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: UrduAwareText(
@@ -506,6 +561,8 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final title = material.name.trim().isEmpty ? material.code : material.name;
+    final available = preparationDisplay(material.available(warehouse));
+    final consumable = preparationDisplay(material.consumable(warehouse));
 
     return AdminSummaryCard(
       slot: slot,
@@ -513,7 +570,7 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
       backgroundColor: scheme.surfaceContainerLowest,
       fixedHeight: 61,
       padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
-      value: '${preparationDisplay(material.available(warehouse))} kg',
+      value: '$available kg',
       onTap: onTap,
       showChevron: onTap != null,
       leading: SizedBox.square(
@@ -531,7 +588,11 @@ class _PreparationWarehouseStockRow extends StatelessWidget {
         ),
       ),
       title: title,
-      subtitle: 'Mavjud qoldiq',
+      subtitle: material.consumableBalances == null
+          ? 'Mavjud qoldiq'
+          : available == consumable
+              ? 'Sarfga tayyor'
+              : 'Sarfga tayyor · $consumable kg',
       titleMaxLines: 1,
       subtitleMaxLines: 1,
       titleStyle: Theme.of(
@@ -558,6 +619,7 @@ class PreparationMaterialDetailScreen extends StatefulWidget {
     required this.freshMaterials,
     required this.freshHistory,
     required this.freshMaterialWarehouses,
+    this.legacyWarehouseView = true,
   });
 
   final String materialCode;
@@ -570,6 +632,7 @@ class PreparationMaterialDetailScreen extends StatefulWidget {
   final List<PreparationMaterial> Function() freshMaterials;
   final List<dynamic> Function() freshHistory;
   final List<String> Function() freshMaterialWarehouses;
+  final bool legacyWarehouseView;
 
   @override
   State<PreparationMaterialDetailScreen> createState() =>
@@ -626,19 +689,22 @@ class _PreparationMaterialDetailScreenState
     });
   }
 
-  bool get _canReceiveManually =>
-      widget.freshMaterialWarehouses().contains(widget.warehouse);
+  bool get _canReceiveManually => _material?.canReceiveIn(
+      widget.warehouse, widget.freshMaterialWarehouses()) == true;
+
+  bool get _canOpenLegacyScale => widget.legacyWarehouseView &&
+      !widget.freshMaterialWarehouses().contains(widget.warehouse);
 
   Future<void> _doKirim() async {
     final material = _material;
     if (material == null || widget.locked) return;
-    if (!_canReceiveManually) {
+    if (_canOpenLegacyScale) {
       await _openPreparationScaleReceipt(context, widget.warehouse);
       await widget.onReload();
       await _sync();
       return;
     }
-    if (!material.canReceive) return;
+    if (!_canReceiveManually) return;
     await widget.onReceive(material);
     await _sync();
   }
@@ -712,23 +778,20 @@ class _PreparationMaterialDetailScreenState
                   elevation: 0,
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  _adminHomePanelCardGap, 12, _adminHomePanelCardGap, 0),
-              child: FilledButton.icon(
-                key: const Key('preparation-detail-kirim'),
-                onPressed: material == null ||
-                        widget.locked ||
-                        (_canReceiveManually && !material.canReceive)
-                    ? null
-                    : _doKirim,
-                icon: Icon(_canReceiveManually
-                    ? Icons.add_circle_outline_rounded
-                    : Icons.scale_outlined),
-                label: UrduAwareText(
-                    _canReceiveManually ? 'Kirim qilish' : 'Tarozi kirimi'),
+            if (_canReceiveManually || _canOpenLegacyScale)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    _adminHomePanelCardGap, 12, _adminHomePanelCardGap, 0),
+                child: FilledButton.icon(
+                  key: const Key('preparation-detail-kirim'),
+                  onPressed: material == null || widget.locked ? null : _doKirim,
+                  icon: Icon(_canReceiveManually
+                      ? Icons.add_circle_outline_rounded
+                      : Icons.scale_outlined),
+                  label: UrduAwareText(
+                      _canReceiveManually ? 'Kirim qilish' : 'Tarozi kirimi'),
+                ),
               ),
-            ),
             if (receipts.isNotEmpty) ...[
               const SizedBox(height: 20),
               Padding(

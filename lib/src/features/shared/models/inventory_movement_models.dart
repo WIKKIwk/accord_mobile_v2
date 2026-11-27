@@ -21,6 +21,22 @@ enum InventoryAssetKind {
   }
 }
 
+enum InventoryStockUse {
+  preparationInput('preparation_input'),
+  preparedRoll('prepared_roll'),
+  other('other');
+
+  const InventoryStockUse(this.apiValue);
+  final String apiValue;
+
+  static InventoryStockUse? fromJson(Object? raw) => switch (raw) {
+        'preparation_input' => preparationInput,
+        'prepared_roll' => preparedRoll,
+        'other' => other,
+        _ => null,
+      };
+}
+
 enum InventoryLocationKind {
   warehouse,
   state,
@@ -205,6 +221,9 @@ class InventoryAsset {
     this.orderAssignment,
     this.orderAssignmentKnown = false,
     this.isMetalayzer = false,
+    this.stockUse,
+    this.preparationQr,
+    this.paddonCode,
     this.batchNote,
     this.rollNote,
   });
@@ -226,11 +245,26 @@ class InventoryAsset {
   // Omitted metadata (legacy/mutation response) must not mean "unassigned".
   final bool orderAssignmentKnown;
   final bool isMetalayzer;
+  final InventoryStockUse? stockUse;
+  final bool? preparationQr;
+  final String? paddonCode;
   final PreparationOutputNote? batchNote;
   final PreparationOutputNote? rollNote;
 
   bool get isAvailable =>
       status.trim().toLowerCase() == 'available' && transferId.trim().isEmpty;
+
+  bool get _hasPreparationQrLabel =>
+      preparationQr ?? !identifier.trim().toUpperCase().startsWith('PREP-');
+
+  bool get isPreparationReceiptWithoutQr =>
+      stockUse == InventoryStockUse.preparedRoll && !_hasPreparationQrLabel;
+
+  bool get canSelectForPaddon => kind == InventoryAssetKind.rawMaterial &&
+      isAvailable &&
+      identifier.trim().isNotEmpty &&
+      (stockUse == null || stockUse == InventoryStockUse.preparedRoll) &&
+      _hasPreparationQrLabel;
 
   factory InventoryAsset.fromJson(Map<String, dynamic> json) {
     final location = json['physical_location'];
@@ -250,6 +284,9 @@ class InventoryAsset {
       uom: json['uom']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       isMetalayzer: json['is_metalayzer'] == true,
+      stockUse: InventoryStockUse.fromJson(json['stock_use']),
+      preparationQr: json['preparation_qr'] as bool?,
+      paddonCode: json['paddon_code'] as String?,
       batchNote: PreparationOutputNote.fromJson(json['batch_note']),
       rollNote: PreparationOutputNote.fromJson(json['roll_note']),
       physicalLocation: InventoryLocationReference.fromJson(
@@ -294,6 +331,9 @@ class InventoryAsset {
           : orderAssignment ?? this.orderAssignment,
       orderAssignmentKnown: orderAssignmentKnown ?? this.orderAssignmentKnown,
       isMetalayzer: isMetalayzer,
+      stockUse: stockUse,
+      preparationQr: preparationQr,
+      paddonCode: paddonCode,
       batchNote: batchNote,
       rollNote: rollNote,
     );
@@ -358,6 +398,7 @@ class InventoryTransfer {
     this.receivedAtUnix,
     this.rejectedAtUnix,
     this.cancelledAtUnix,
+    this.pendingPreparationLots = 0,
   });
 
   final String id;
@@ -380,6 +421,7 @@ class InventoryTransfer {
   final int? rejectedAtUnix;
   final int? cancelledAtUnix;
   final List<InventoryTransferLine> lines;
+  final int pendingPreparationLots;
 
   factory InventoryTransfer.fromJson(Map<String, dynamic> json) {
     final rawLines = json['lines'];
@@ -404,6 +446,8 @@ class InventoryTransfer {
       receivedAtUnix: (json['received_at_unix'] as num?)?.toInt(),
       rejectedAtUnix: (json['rejected_at_unix'] as num?)?.toInt(),
       cancelledAtUnix: (json['cancelled_at_unix'] as num?)?.toInt(),
+      pendingPreparationLots:
+          (json['pending_preparation_lots'] as num?)?.toInt() ?? 0,
       lines: rawLines is List
           ? rawLines
               .whereType<Map>()
@@ -450,6 +494,7 @@ class InventoryTransfer {
       receivedAtUnix: receivedAtUnix ?? this.receivedAtUnix,
       rejectedAtUnix: rejectedAtUnix ?? this.rejectedAtUnix,
       cancelledAtUnix: cancelledAtUnix ?? this.cancelledAtUnix,
+      pendingPreparationLots: pendingPreparationLots,
       lines: lines,
     );
   }

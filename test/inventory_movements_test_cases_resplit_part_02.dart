@@ -55,14 +55,24 @@ void _registerinventory_movements_testCases02({
     final scanner = tester.widget<ProductionQuickScannerPanel>(
       find.byKey(const ValueKey('inventory-qr-search-scanner')),
     );
-    await scanner.onCodeDetected('30CC');
+    final result = find.byKey(const ValueKey('inventory-qr-search-result-raw:b'));
+    await scanner.onCodeDetected('30C');
+    await tester.pumpAndSettle();
+    expect(result, findsNothing);
+    await scanner.onCodeDetected('PP-B');
+    await tester.pumpAndSettle();
+    expect(result, findsNothing);
+    await scanner.onCodeDetected('30cc');
     await tester.pumpAndSettle();
 
+    expect(result, findsOneWidget);
+    expect(find.text('Polipropilen'), findsOneWidget);
+    await tester.longPress(result);
+    await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('inventory-qr-search-result-raw:b')),
+      find.byKey(const ValueKey('inventory-asset-selected-raw:b')),
       findsOneWidget,
     );
-    expect(find.text('Polipropilen'), findsOneWidget);
   });
 
   testWidgets('QR search results support long-press selection and relocation', (

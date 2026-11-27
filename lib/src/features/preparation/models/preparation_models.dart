@@ -95,24 +95,34 @@ class PreparationMaterial {
       : code = json['item_code'] as String,
         name = json['name'] as String,
         canReceive = json['can_receive'] != false,
-        visibleWarehouses = json.containsKey('visible_warehouses')
-            ? ((json['visible_warehouses'] is List)
-                ? (json['visible_warehouses'] as List)
-                    .whereType<String>()
-                    .map((w) => w.trim().toLowerCase())
-                    .where((w) => w.isNotEmpty)
-                    .toSet()
-                : <String>{})
+        isSeriyo = json['is_seriyo'] as bool?,
+        receiptWarehouses = json.containsKey('receipt_warehouses')
+            ? _preparationWarehouseKeys(json['receipt_warehouses'])
             : null,
-        balances = {
-          for (final b in json['balances'] as List? ?? [])
-            b['warehouse'] as String: b['kg'] as String
-        };
+        visibleWarehouses = json.containsKey('visible_warehouses')
+            ? _preparationWarehouseKeys(json['visible_warehouses'])
+            : null,
+        balances = _preparationBalances(json['balances']),
+        consumableBalances = json.containsKey('consumable_balances')
+            ? _preparationBalances(json['consumable_balances'])
+            : null;
   final String code, name;
   final bool canReceive;
+  final bool? isSeriyo;
+  final Set<String>? receiptWarehouses;
   final Set<String>? visibleWarehouses;
   final Map<String, String> balances;
+  final Map<String, String>? consumableBalances;
   String available(String? warehouse) => balances[warehouse] ?? '0';
+  String consumable(String? warehouse) =>
+      (consumableBalances ?? balances)[warehouse] ?? '0';
+
+  bool canReceiveIn(String? warehouse, List<String> legacyMaterialWarehouses) =>
+      receiptWarehouses?.contains(warehouse?.trim().toLowerCase()) ??
+      (canReceive &&
+          legacyMaterialWarehouses.contains(warehouse) &&
+          visibleIn(warehouse));
+
   bool visibleIn(String? warehouse) {
     final key = warehouse?.trim().toLowerCase();
     if (key == null || key.isEmpty) return false;
@@ -155,11 +165,27 @@ List<String> _preparationWarehouseList(dynamic raw) => raw is List
     ? raw.whereType<String>().toList(growable: false)
     : const [];
 
+Set<String> _preparationWarehouseKeys(Object? raw) => _preparationWarehouseList(raw)
+    .map((warehouse) => warehouse.trim().toLowerCase())
+    .where((warehouse) => warehouse.isNotEmpty)
+    .toSet();
+
+Map<String, String> _preparationBalances(Object? raw) => {
+      if (raw is List)
+        for (final balance in raw)
+          balance['warehouse'] as String: balance['kg'] as String,
+    };
+
 class PreparationSnapshot {
   PreparationSnapshot.fromJson(Map<String, dynamic> json)
       : warehouses = _preparationWarehouseList(json['warehouses']),
         assignedWarehouses =
             _preparationWarehouseList(json['assigned_warehouses']),
+        assignedWarehouseIds = {
+          if (json['assigned_warehouse_ids'] case final Map warehouseIds)
+            for (final entry in warehouseIds.entries)
+              entry.key as String: entry.value as String,
+        },
         materialWarehouses =
             _preparationWarehouseList(json['material_warehouses']),
         managedWarehouses =
@@ -181,6 +207,7 @@ class PreparationSnapshot {
             .toList();
   final List<String> warehouses;
   final List<String> assignedWarehouses;
+  final Map<String, String> assignedWarehouseIds;
   final List<String> materialWarehouses;
   final List<String> managedWarehouses;
   final List<PreparationMaterial> materials;

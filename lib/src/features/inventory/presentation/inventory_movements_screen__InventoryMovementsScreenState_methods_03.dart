@@ -104,7 +104,12 @@ extension __InventoryMovementsScreenStateAstPart03
       header: _warehouseFilter(),
       busyKeys: _busyKeys,
       enteringTransferIds: _enteringTransferIds,
-      actionsFor: (_) => const [],
+      actionsFor: (transfer) => _preparationScoped &&
+              incoming &&
+              transfer.status == InventoryTransferStatus.received &&
+              transfer.pendingPreparationLots > 0
+          ? const ['accept_preparation']
+          : const [],
       onTransferTap: _showTransferDetails,
       onRefresh: () => _loadTransfers(direction, force: true),
     );
@@ -133,6 +138,8 @@ extension __InventoryMovementsScreenStateAstPart03
           SliverToBoxAdapter(
             child: _warehouseFilter(),
           ),
+          if (_materialScoped && _hasStockUses)
+            SliverToBoxAdapter(child: _stockUseFilter()),
           if (_assetsLoading)
             const SliverFillRemaining(
               hasScrollBody: false,
@@ -303,11 +310,12 @@ extension __InventoryMovementsScreenStateAstPart03
                     selected: selected,
                     onTap: _selectionMode
                         ? (selectable
-                            ? () => _toggleAssetSelection(asset)
+                            ? () => _toggleAssetSelection(asset, fromQrLookup: true)
                             : null)
                         : () => _showAssetDetails(asset),
-                    onLongPress:
-                        selectable ? () => _toggleAssetSelection(asset) : null,
+                    onLongPress: selectable
+                        ? () => _toggleAssetSelection(asset, fromQrLookup: true)
+                        : null,
                   ),
                 );
               },
@@ -325,6 +333,36 @@ extension __InventoryMovementsScreenStateAstPart03
     return _warehouseLocations
         .where((location) => assigned.contains(location.name.toLowerCase()))
         .toList(growable: false);
+  }
+
+  Widget _stockUseFilter() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Wrap(
+        spacing: 6,
+        children: [
+          for (final (value, label) in const [
+            (null, 'Barchasi'),
+            (InventoryStockUse.preparationInput, 'Tayyorlov uchun'),
+            (InventoryStockUse.preparedRoll, 'Tayyor rulonlar'),
+          ])
+            ChoiceChip(
+              label: UrduAwareText(label),
+              selected: _stockUse == value,
+              onSelected: (_) {
+                if (_stockUse == value) return;
+                _updateInventory(() {
+                  _stockUse = value;
+                  _assets = const [];
+                  _selectedAssetKeys.clear();
+                  _inventoryFabOpen = false;
+                });
+                unawaited(_loadAssets());
+              },
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _warehouseFilter() {

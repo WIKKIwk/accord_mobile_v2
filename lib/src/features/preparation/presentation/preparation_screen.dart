@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import '../../waste/presentation/waste_operator_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
+import '../../../core/inventory/inventory_view_store.dart';
 import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
@@ -18,6 +21,8 @@ import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
 import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
+import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
+import '../../shared/models/inventory_movement_models.dart';
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
@@ -27,6 +32,7 @@ import 'preparation_formula_shares_sheet.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 
 part 'preparation_screen_forms.dart';
+part 'preparation_warehouse_rolls.dart';
 part 'preparation_warehouse_management.dart';
 part 'preparation_materials_screen.dart';
 part 'preparation_formula_orders_screen.dart';
@@ -146,7 +152,10 @@ class _PreparationScreenState extends State<PreparationScreen> {
     }
   }
 
-  void _openWarehouse(PreparationSnapshot data) {
+  void _openWarehouse(
+    PreparationSnapshot data, {
+    bool showPreparedRolls = false,
+  }) {
     _openAndReload(PreparationWarehouseScreen(
       warehouses: data.assignedWarehouses,
       assignedWarehouses: data.assignedWarehouses,
@@ -164,31 +173,36 @@ class _PreparationScreenState extends State<PreparationScreen> {
       freshAssignedWarehouses: _syncedAssignedWarehouses,
       freshMaterialWarehouses: _syncedMaterialWarehouses,
       freshManagedWarehouses: () => _snapshot?.managedWarehouses ?? const [],
+      freshAssignedWarehouseIds: () =>
+          _snapshot?.assignedWarehouseIds ?? const {},
+      showPreparedRolls: showPreparedRolls,
     ));
   }
 
   Future<void> _startKirim(PreparationSnapshot data) async {
-    if (_warehouse == null) {
+    final warehouse = _warehouse;
+    if (warehouse == null) {
       _openWarehouse(data);
       return;
     }
-    if (!data.materialWarehouses.contains(_warehouse)) {
-      await _openPreparationScaleReceipt(context, _warehouse);
+    if (data.assignedWarehouseIds.isEmpty &&
+        !data.materialWarehouses.contains(warehouse)) {
+      await _openPreparationScaleReceipt(context, warehouse);
       if (mounted) await _reload();
       return;
     }
     final material = await _pick<PreparationMaterial>(
       title: 'Homashyo tanlang',
-      // Faqat Tayyorlovga tegishli materiallar kirim picker'iga kiradi.
-      // Umumiy ERP homashyo katalogi ombor ko'rinishida read-only ko'rinadi.
       items: data.materials
-          .where((m) => m.canReceive && m.visibleIn(_warehouse))
+          .where((m) => m.canReceiveIn(warehouse, data.materialWarehouses))
           .toList(),
       label: (m) => m.name,
       subtitle: (m) =>
-          'Mavjud: ${preparationDisplay(m.available(_warehouse))} kg',
+          'Mavjud: ${preparationDisplay(m.available(warehouse))} kg',
     );
-    if (material != null && mounted) await _receive(material);
+    if (material != null && mounted && _warehouse == warehouse) {
+      await _receive(material);
+    }
   }
 
   List<AdminFabMenuAction> _fabActions(PreparationSnapshot data) => [
@@ -218,7 +232,9 @@ class _PreparationScreenState extends State<PreparationScreen> {
               if (mounted) await _reload();
             },
           ),
-        if (_warehouse == null || data.materialWarehouses.contains(_warehouse))
+        if (_warehouse == null ||
+            data.assignedWarehouseIds.isNotEmpty ||
+            data.materialWarehouses.contains(_warehouse))
           AdminFabMenuAction(
             title: 'Kirim',
             icon: Icons.add_circle_outline_rounded,
@@ -457,14 +473,18 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           slot: M3SegmentVerticalSlot.middle,
                           cornerRadius: M3SegmentedListGeometry.cornerMiddle,
                           backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Ishlab chiqarilgan homashyolar',
+                          title: data.assignedWarehouseIds.isEmpty
+                              ? 'Ishlab chiqarilgan homashyolar'
+                              : 'Tayyor rulonlar',
                           titleStyle: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                           value: '',
                           showChevron: false,
-                          onTap: () => Navigator.of(context)
-                              .pushNamed(AppRoutes.inventoryMovements),
+                          onTap: data.assignedWarehouseIds.isEmpty
+                              ? () => Navigator.of(context)
+                                  .pushNamed(AppRoutes.inventoryMovements)
+                              : () => _openWarehouse(data, showPreparedRolls: true),
                           elevation: 4,
                         ),
                         AdminSummaryCard(

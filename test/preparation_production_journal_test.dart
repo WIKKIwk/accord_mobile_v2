@@ -238,8 +238,17 @@ void main() {
       name: 'Shared',
       warehouseId: 'shared',
     );
-    InventoryAsset roll(String id) => InventoryAsset.fromJson({
+    InventoryAsset roll(
+      String id, {
+      String stockUse = 'prepared_roll',
+      bool preparationQr = true,
+      String? paddonCode,
+    }) =>
+        InventoryAsset.fromJson({
           'kind': 'raw_material',
+          'stock_use': stockUse,
+          'preparation_qr': preparationQr,
+          'paddon_code': paddonCode,
           'asset_ref': id,
           'custody_warehouse_id': 'shared',
           'custody_warehouse': 'Shared',
@@ -248,7 +257,7 @@ void main() {
           'identifier': id.toUpperCase(),
           'qty': 10,
           'uom': 'kg',
-          'status': 'available',
+          'status': paddonCode == null ? 'available' : 'on_paddon',
           'physical_location': {
             'id': location.id,
             'name': location.name,
@@ -256,19 +265,32 @@ void main() {
           },
         });
     var packed = false;
+    const code = 'XP-ABCDEF0123456789';
     final free = roll('free');
     final linked = roll('linked');
+    final noQr = roll('no-qr', preparationQr: false);
+    final seriyo = roll('seriyo', stockUse: 'preparation_input', preparationQr: false);
+    final stockFilters = <String?>[];
     InventoryViewStore.debugOverride = InventoryViewStore(
       liveEnabled: () => false,
-      snapshotLoader: (query) async => switch (query.kind) {
-        'locations' => [location],
-        'assets' => [if (!packed) free, linked],
-        _ => [],
+      snapshotLoader: (query) async {
+        if (query.kind == 'locations') return [location];
+        if (query.kind != 'assets') return [];
+        final filter = query.parameters['stock_use'];
+        stockFilters.add(filter);
+        return [
+          for (final asset in [
+            packed ? roll('free', paddonCode: code) : free,
+            linked,
+            noQr,
+            seriyo,
+          ])
+            if (filter == null || asset.stockUse?.apiValue == filter) asset,
+        ];
       },
     );
     addTearDown(() => InventoryViewStore.debugOverride = null);
 
-    const code = 'XP-ABCDEF0123456789';
     const conflict = 'Buyurtmaga ulangan rulonni biriktirib bo‘lmaydi';
     final writes = <Map<String, dynamic>>[];
     await _withApp(tester, () async {
@@ -278,12 +300,44 @@ void main() {
       final pack = find.text('Paddonga biriktirish');
       final freeRow = find.byKey(const ValueKey('inventory-asset-free'));
       final linkedRow = find.byKey(const ValueKey('inventory-asset-linked'));
+      final noQrRow = find.byKey(const ValueKey('inventory-asset-no-qr'));
+      final seriyoRow = find.byKey(const ValueKey('inventory-asset-seriyo'));
       final save = find.byKey(const ValueKey('production-attach-paddon-save'));
+
+      expect(seriyoRow, findsOneWidget);
+      await tester.tap(find.text('Tayyorlov uchun'));
+      await tester.pumpAndSettle();
+      expect(seriyoRow, findsOneWidget);
+      expect(freeRow, findsNothing);
+      expect(stockFilters.last, 'preparation_input');
+      await tester.tap(find.text('Tayyor rulonlar'));
+      await tester.pumpAndSettle();
+      expect(seriyoRow, findsNothing);
+      expect(freeRow, findsOneWidget);
+      expect(stockFilters.last, 'prepared_roll');
 
       await tester.tap(fab);
       await tester.pumpAndSettle();
       expect(pack, findsNothing);
       await tester.tap(find.bySemanticsLabel('Yopish'));
+      await tester.pumpAndSettle();
+      await tester.longPress(noQrRow);
+      await tester.pumpAndSettle();
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      expect(pack, findsNothing);
+      await tester.tap(find.bySemanticsLabel('Yopish'));
+      await tester.pumpAndSettle();
+      await tester.tap(noQrRow);
+      await tester.pumpAndSettle();
+      await tester.tap(noQrRow);
+      await tester.pumpAndSettle();
+      expect(find.text('QR kodisiz'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('inventory-asset-qr-button-no-qr')),
+        findsNothing,
+      );
+      Navigator.of(tester.element(find.byType(BottomSheet))).pop();
       await tester.pumpAndSettle();
       await tester.longPress(freeRow);
       await tester.pumpAndSettle();
@@ -317,8 +371,12 @@ void main() {
       expect(writes.first, writes.last);
       expect(writes.first['request_id'], isNotEmpty);
       expect(find.byType(AlertDialog), findsNothing);
-      expect(freeRow, findsNothing);
+      expect(freeRow, findsOneWidget);
+      expect(find.textContaining('Paddonda · $code'), findsOneWidget);
       expect(linkedRow, findsOneWidget);
+      await tester.longPress(freeRow);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('inventory-asset-selected-free')), findsNothing);
     }, (request) {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(request.method, 'POST');

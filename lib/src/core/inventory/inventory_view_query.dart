@@ -14,6 +14,8 @@ class InventoryViewQuery {
     String warehouseId = '',
     String query = '',
     InventoryAssetKind? assetKind,
+    InventoryStockUse? stockUse,
+    bool includePreparedPaddons = false,
     bool currentUserStatesOnly = false,
     bool includeOrderAssignment = true,
     int limit = 100,
@@ -23,6 +25,8 @@ class InventoryViewQuery {
         if (warehouseId.trim().isNotEmpty) 'warehouse_id': warehouseId.trim(),
         if (query.trim().isNotEmpty) 'query': query.trim(),
         if (assetKind != null) 'asset_kind': assetKind.apiValue,
+        if (stockUse != null) 'stock_use': stockUse.apiValue,
+        if (includePreparedPaddons) 'include_prepared_paddons': 'true',
         if (currentUserStatesOnly) 'current_user_states_only': 'true',
         if (includeOrderAssignment) 'include_order_assignment': 'true',
         'limit': '$limit',
@@ -78,6 +82,7 @@ class InventoryViewQuery {
             entry.key: switch (entry.key) {
               'limit' || 'offset' => int.parse(entry.value),
               'current_user_states_only' ||
+              'include_prepared_paddons' ||
               'include_order_assignment' =>
                 entry.value == 'true',
               _ => entry.value,

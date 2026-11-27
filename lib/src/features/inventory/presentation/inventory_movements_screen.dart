@@ -73,6 +73,8 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   Map<String, RawMaterialListAssignment> _rawMaterialOrderAssignments =
       const {};
   String _selectedWarehouseId = '';
+  InventoryStockUse? _stockUse;
+  bool _hasStockUses = false;
   bool _loading = true;
   bool _assetsLoading = false;
   bool _warehouseFilterExpanded = false;
@@ -86,6 +88,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   bool _inventoryFabOpen = false;
   bool _pendingPaddonAttachment = false;
   bool _qrLookupOpen = false;
+  int _qrLookupGeneration = 0;
   String _qrLookupStatus = 'QR kodni ramkaga keltiring';
   List<InventoryAsset> _qrScannedAssets = const [];
   final Set<String> _qrLookupBusyCodes = {};
@@ -152,16 +155,12 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
       ? _selectedStateAssetCount
       : _selectedAssetKeys.length;
 
-  List<InventoryAsset> get _selectedAssets {
-    final selected = <String, InventoryAsset>{};
-    for (final asset in [..._assets, ..._qrScannedAssets]) {
-      final key = _selectionKey(asset);
-      if (_selectedAssetKeys.contains(key)) {
-        selected[key] = asset;
-      }
-    }
-    return selected.values.toList(growable: false);
-  }
+  List<InventoryAsset> get _selectionAssets =>
+      _qrLookupOpen ? _qrScannedAssets : _assets;
+
+  List<InventoryAsset> get _selectedAssets => _selectionAssets
+      .where((asset) => _selectedAssetKeys.contains(_selectionKey(asset)))
+      .toList(growable: false);
 
   List<InventoryAsset> get _selectedLinkedRawMaterialAssets => _selectedAssets
       .where(
@@ -181,10 +180,13 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   Widget build(BuildContext context) {
     final selectedLinkedRawMaterials = _selectedLinkedRawMaterialAssets;
     final selectionActionBusy = _selectionActionBusy;
+    final selectedAssets = _selectedAssets;
     final showPaddonAttachment = MobileApi.instance.canPackInventoryPaddon &&
         !_stateSelectionMode &&
         (_pendingPaddonAttachment ||
-            ((_tabs.index == 0 || _qrLookupOpen) && _selectedAssetKeys.isNotEmpty));
+            ((_tabs.index == 0 || _qrLookupOpen) &&
+                selectedAssets.isNotEmpty &&
+                selectedAssets.every((asset) => asset.canSelectForPaddon)));
     final tabs = <Tab>[
       const Tab(text: 'Mahsulotlar'),
       if (_materialScoped) const Tab(text: 'State’lar'),

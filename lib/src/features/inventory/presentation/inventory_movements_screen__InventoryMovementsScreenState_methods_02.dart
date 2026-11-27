@@ -40,14 +40,16 @@ extension __InventoryMovementsScreenStateAstPart02
     if (!_inventoryFabOpen || !currentAccount() || _selectionActionBusy) return;
     if (!_pendingPaddonAttachment && _tabs.index != 0 && !_qrLookupOpen) return;
     final assets = _selectedAssets;
+    final warehouseId = _qrLookupOpen
+        ? assets.firstOrNull?.custodyWarehouseId
+        : _selectedWarehouseId;
     _updateInventory(() => _inventoryFabOpen = false);
     if (!_pendingPaddonAttachment &&
         (assets.isEmpty ||
             assets.length > 100 ||
             assets.any((asset) =>
-                asset.kind != InventoryAssetKind.rawMaterial ||
-                asset.custodyWarehouseId != _selectedWarehouseId ||
-                !asset.isAvailable ||
+                !asset.canSelectForPaddon ||
+                asset.custodyWarehouseId != warehouseId ||
                 asset.physicalLocation.kind != InventoryLocationKind.warehouse))) {
       _showMessage('Bitta ombordagi 1–100 ta bo‘sh tayyorlov rulonini tanlang');
       return;
@@ -354,6 +356,7 @@ extension __InventoryMovementsScreenStateAstPart02
     final physicallyInWarehouse =
         asset.physicalLocation.kind == InventoryLocationKind.warehouse;
     final barcode = _rawMaterialAssetBarcode(asset).trim();
+    final isPacked = asset.paddonCode != null;
     final hasOrderAssignment =
         _rawMaterialOrderAssignments.containsKey(barcode);
     final showOrderAssignment = asset.kind == InventoryAssetKind.rawMaterial &&
@@ -371,10 +374,11 @@ extension __InventoryMovementsScreenStateAstPart02
       builder: (sheetContext) => _InventoryAssetDetailsSheet(
         asset: asset,
         busy: busy,
-        showRelocation: !_preparationScoped,
-        showTransfer: !_preparationScoped ||
-            _assignedWarehouseNames
-                .contains(asset.custodyWarehouse.trim().toLowerCase()),
+        showRelocation: !isPacked && !_preparationScoped,
+        showTransfer: !isPacked &&
+            (!_preparationScoped ||
+                _assignedWarehouseNames
+                    .contains(asset.custodyWarehouse.trim().toLowerCase())),
         orderLabel: _preparationScoped && !showOrderAssignment
             ? _rawMaterialOrderAssignments[barcode]?.orderLabel
             : null,
@@ -385,7 +389,7 @@ extension __InventoryMovementsScreenStateAstPart02
             physicallyInWarehouse &&
             !busy,
         onOrderAssignmentChanged: _reloadOrderAssignments,
-        onQrRequested: barcode.isEmpty
+        onQrRequested: barcode.isEmpty || asset.isPreparationReceiptWithoutQr
             ? null
             : () async {
                 await Navigator.of(sheetContext).maybePop();
@@ -428,7 +432,8 @@ extension __InventoryMovementsScreenStateAstPart02
   }
 
   Future<void> _showAssetQr(InventoryAsset asset) async {
-    if (asset.kind != InventoryAssetKind.rawMaterial) {
+    if (asset.kind != InventoryAssetKind.rawMaterial ||
+        asset.isPreparationReceiptWithoutQr) {
       return;
     }
     final barcode = _rawMaterialAssetBarcode(asset).trim();
@@ -462,8 +467,12 @@ extension __InventoryMovementsScreenStateAstPart02
       'reject': 'Transferni rad qilasizmi?',
       'dispatch': 'Mahsulot jo‘natildimi?',
       'receive': 'Mahsulot to‘liq qabul qilindimi?',
+      'accept_preparation': 'Seriyoni tayyorlov sarfiga qabul qilasizmi?',
       'cancel': 'Transfer bekor qilinsinmi?',
     };
+    final positionCount = action == 'accept_preparation'
+        ? transfer.pendingPreparationLots
+        : transfer.lines.length;
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -475,7 +484,7 @@ extension __InventoryMovementsScreenStateAstPart02
             content: UrduAwareText(
               '${transfer.sourceWarehouse} → '
               '${transfer.destinationWarehouse}\n'
-              '${transfer.lines.length} ta pozitsiya',
+              '$positionCount ta pozitsiya',
             ),
             actions: [
               TextButton(
@@ -494,6 +503,16 @@ extension __InventoryMovementsScreenStateAstPart02
       return;
     }
     await _runBusy('${transfer.id}:$action', () async {
+      if (action == 'accept_preparation') {
+        await MobileApi.instance.preparationAcceptTransfer(transfer.id);
+        if (!mounted) return;
+        await Future.wait([
+          _loadTransfers('incoming', force: true),
+          _loadAssets(force: true),
+        ]);
+        if (mounted) _showMessage('Seriyo tayyorlov sarfiga qabul qilindi');
+        return;
+      }
       final updated = await MobileApi.instance.inventoryTransferAction(
         transferId: transfer.id,
         action: action,
