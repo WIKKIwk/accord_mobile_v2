@@ -435,8 +435,8 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(bin.configured
-                      ? '${bin.apparatusIds.length} ta apparat · ${bin.operators.length} ta aparatchi'
-                      : 'Apparat va aparatchilar biriktirilmagan'),
+                      ? '${bin.apparatusIds.length} ta apparat'
+                      : 'Apparat biriktirilmagan'),
                   const SizedBox(height: 12),
                   if (cycle != null && bin.status == WasteBinStatus.sealed)
                     FilledButton(

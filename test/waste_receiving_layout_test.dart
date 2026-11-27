@@ -27,26 +27,6 @@ const _options = {
     {'id': _laminatsiya, 'name': 'Laminatsiya B'},
     {'id': _bosma, 'name': 'Bosma C'},
   ],
-  'operators': [
-    {
-      'role': 'aparatchi',
-      'ref': 'ali',
-      'display_name': 'Ali',
-      'apparatus_ids': [_rezka],
-    },
-    {
-      'role': 'rezka_master',
-      'ref': 'vali',
-      'display_name': 'Vali',
-      'apparatus_ids': [_rezka, _laminatsiya],
-    },
-    {
-      'role': 'aparatchi',
-      'ref': 'salim',
-      'display_name': 'Salim',
-      'apparatus_ids': [_bosma],
-    },
-  ],
 };
 
 Widget _receiver() => MaterialApp(
@@ -164,7 +144,8 @@ void main() {
     ]);
   });
 
-  testWidgets('receiver covers every selected apparatus and can rename a bin',
+  testWidgets(
+      'receiver registers and renames a bin using only apparatus selection',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -181,7 +162,10 @@ void main() {
           'bins': [if (bin case final b?) b]
         });
       }
-      if (action == 'options') return _json(_options);
+      if (action == 'options') {
+        expect(request.url.queryParameters['apparatus_only'], 'true');
+        return _json(_options);
+      }
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       writes.add((action, body));
       bin = {
@@ -210,21 +194,13 @@ void main() {
           find.widgetWithText(TextFormField, 'Quti nomi'), 'Bo‘sh quti A');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Bo‘sh quti vazni (kg)'), '5');
+      expect(find.text('Aparatchilarni tanlash'), findsNothing);
+      await tap(find.text('Saqlash'));
+      expect(writes, isEmpty);
+      expect(find.text('Kamida bitta apparatni tanlang.'), findsOneWidget);
       await tap(find.text('Apparatlarni tanlash'));
       await tap(find.widgetWithText(CheckboxListTile, 'Rezka A'));
       await tap(find.widgetWithText(CheckboxListTile, 'Laminatsiya B'));
-      await tap(find.text('Tanlash'));
-      await tap(find.text('Aparatchilarni tanlash'));
-      expect(find.widgetWithText(CheckboxListTile, 'Salim'), findsNothing);
-      await tap(find.widgetWithText(CheckboxListTile, 'Ali'));
-      await tap(find.text('Tanlash'));
-      await tap(find.text('Saqlash'));
-      expect(writes, isEmpty);
-      expect(find.text('Laminatsiya B uchun aparatchini tanlang.'),
-          findsOneWidget);
-
-      await tap(find.text('Aparatchilarni tanlash'));
-      await tap(find.widgetWithText(CheckboxListTile, 'Vali'));
       await tap(find.text('Tanlash'));
       await tap(find.text('Saqlash'));
       expect(writes.single.$1, 'register');
@@ -235,10 +211,6 @@ void main() {
         'tare_kg': 5,
         'name': 'Bo‘sh quti A',
         'apparatus_ids': [_rezka, _laminatsiya],
-        'operators': [
-          {'role': 'aparatchi', 'ref': 'ali'},
-          {'role': 'rezka_master', 'ref': 'vali'},
-        ],
       });
       expect(find.byType(QrImageView), findsOneWidget);
       expect(
@@ -258,7 +230,7 @@ void main() {
         'CQ-001',
       );
       expect(find.text('Rezka A, Laminatsiya B'), findsOneWidget);
-      expect(find.text('Ali, Vali'), findsOneWidget);
+      expect(find.text('Aparatchilarni tanlash'), findsNothing);
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Quti nomi'), 'Umumiy quti');
       await tap(find.text('Saqlash'));

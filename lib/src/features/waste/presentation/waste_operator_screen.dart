@@ -131,7 +131,7 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
               'waste_bin_conflict' =>
                 'Quti band yoki apparatda boshqa faol quti bor. Ro‘yxatni qayta oching.',
               'waste_bin_forbidden' =>
-                'Bu quti ushbu apparat va sizga biriktirilmagan.',
+                'Bu quti ushbu apparatga biriktirilmagan.',
               _ => wasteErrorText(error),
             }
           : wasteErrorText(error);
@@ -434,7 +434,8 @@ class _EmptyWasteBinPickerState extends State<_EmptyWasteBinPicker> {
                   ListTile(title: Text(wasteErrorText(snapshot.error!))),
                 if (bins?.isEmpty == true)
                   const ListTile(
-                      title: Text('Sizga ajratilgan bo‘sh quti topilmadi')),
+                      title: Text(
+                          'Bu apparatga biriktirilgan bo‘sh quti topilmadi')),
                 for (final bin in bins ?? <WasteBin>[])
                   ListTile(
                     title: Text(bin.name),
@@ -501,9 +502,11 @@ class _WasteRecordDialogState extends State<_WasteRecordDialog> {
                   controller: _reason,
                   maxLength: 200,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(labelText: 'Sabab'),
-                  validator: (value) =>
-                      (value ?? '').trim().isEmpty ? 'Sababini kiriting' : null,
+                  decoration: const InputDecoration(
+                      labelText: 'Chiqindi turi yoki sababi'),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'Chiqindi turi yoki sababini kiriting'
+                      : null,
                 ),
               ],
             ),

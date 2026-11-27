@@ -24,9 +24,7 @@ class WasteBinFormResult {
       toleranceKg == other.toleranceKg &&
       configuration.name.trim() == other.configuration.name.trim() &&
       setEquals(configuration.apparatusIds.toSet(),
-          other.configuration.apparatusIds.toSet()) &&
-      setEquals(configuration.operators.toSet(),
-          other.configuration.operators.toSet());
+          other.configuration.apparatusIds.toSet());
 }
 
 class WasteBinConfigurationDialog extends StatefulWidget {
@@ -57,17 +55,7 @@ class _WasteBinConfigurationDialogState
     for (final id in widget.bin?.apparatusIds ?? const <String>[])
       if (_apparatusNames.containsKey(id)) id,
   };
-  late Set<WasteBinOperatorRef> _operators = {
-    for (final option in _eligibleOperators)
-      if (widget.bin?.operators.contains(option.identity) ?? false)
-        option.identity,
-  };
-  String? _scopeError;
-
-  List<WasteBinOperatorOption> get _eligibleOperators =>
-      widget.options.operators
-          .where((option) => option.apparatusIds.any(_apparatus.contains))
-          .toList(growable: false);
+  bool _needsApparatus = false;
 
   @override
   void dispose() {
@@ -80,72 +68,22 @@ class _WasteBinConfigurationDialogState
   Future<void> _pickApparatus() async {
     final selected = await showDialog<Set<String>>(
       context: context,
-      builder: (_) => _WasteScopePicker(
-        title: 'Apparatlarni tanlash',
-        options: [
-          for (final option in widget.options.apparatuses)
-            _WasteScopeOption(option.id, option.name),
-        ],
+      builder: (_) => _WasteApparatusPicker(
+        options: widget.options.apparatuses,
         selected: _apparatus,
       ),
     );
     if (!mounted || selected == null) return;
     setState(() {
       _apparatus = selected;
-      final allowed = _eligibleOperators.map((operator) => operator.identity);
-      _operators = _operators.where(allowed.contains).toSet();
-      _scopeError = null;
+      _needsApparatus = false;
     });
   }
-
-  Future<void> _pickOperators() async {
-    final selected = await showDialog<Set<WasteBinOperatorRef>>(
-      context: context,
-      builder: (_) => _WasteScopePicker(
-        title: 'Aparatchilarni tanlash',
-        options: [
-          for (final operator in _eligibleOperators)
-            _WasteScopeOption(
-              operator.identity,
-              operator.displayName,
-              subtitle: _operatorApparatus(operator).join(', '),
-            ),
-        ],
-        selected: _operators,
-      ),
-    );
-    if (!mounted || selected == null) return;
-    setState(() {
-      _operators = selected;
-      _scopeError = null;
-    });
-  }
-
-  Iterable<String> _operatorApparatus(WasteBinOperatorOption operator) =>
-      operator.apparatusIds
-          .where(_apparatus.contains)
-          .map((id) => _apparatusNames[id] ?? id);
 
   void _save() {
     final validForm = _form.currentState!.validate();
-    String? error;
-    if (_apparatus.isEmpty) {
-      error = 'Kamida bitta apparatni tanlang.';
-    } else if (_operators.isEmpty) {
-      error = 'Aparatchini tanlang.';
-    } else {
-      final covered = {
-        for (final option in _eligibleOperators)
-          if (_operators.contains(option.identity)) ...option.apparatusIds,
-      };
-      final missing = _apparatus
-          .where((id) => !covered.contains(id))
-          .map((id) => _apparatusNames[id])
-          .join(', ');
-      if (missing.isNotEmpty) error = '$missing uchun aparatchini tanlang.';
-    }
-    setState(() => _scopeError = error);
-    if (!validForm || error != null) return;
+    setState(() => _needsApparatus = _apparatus.isEmpty);
+    if (!validForm || _needsApparatus) return;
     Navigator.pop(
       context,
       WasteBinFormResult(
@@ -154,7 +92,6 @@ class _WasteBinConfigurationDialogState
         configuration: WasteBinConfiguration(
           name: _name.text,
           apparatusIds: _apparatus.toList(growable: false),
-          operators: _operators.toList(growable: false),
         ),
       ),
     );
@@ -216,27 +153,11 @@ class _WasteBinConfigurationDialogState
                 _kgField(_tolerance, 'Ruxsat etilgan farq (kg)'),
               ],
               const SizedBox(height: 16),
-              _scopeField(
-                title: 'Apparatlarni tanlash',
-                selected: [
-                  for (final id in _apparatus) _apparatusNames[id] ?? id,
-                ],
-                onPressed: _pickApparatus,
-              ),
-              const SizedBox(height: 12),
-              _scopeField(
-                title: 'Aparatchilarni tanlash',
-                selected: [
-                  for (final option in _eligibleOperators)
-                    if (_operators.contains(option.identity))
-                      option.displayName,
-                ],
-                onPressed: _apparatus.isEmpty ? null : _pickOperators,
-              ),
-              if (_scopeError case final error?) ...[
+              _apparatusField(),
+              if (_needsApparatus) ...[
                 const SizedBox(height: 8),
                 Text(
-                  error,
+                  'Kamida bitta apparatni tanlang.',
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ],
@@ -254,36 +175,35 @@ class _WasteBinConfigurationDialogState
     );
   }
 
-  Widget _scopeField({
-    required String title,
-    required List<String> selected,
-    required VoidCallback? onPressed,
-  }) =>
-      OutlinedButton(
-        style: appOutlinedActionButtonStyle(),
-        onPressed: onPressed,
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title),
-                  if (selected.isNotEmpty)
-                    Text(
-                      selected.join(', '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                ],
-              ),
+  Widget _apparatusField() {
+    final selected =
+        _apparatus.map((id) => _apparatusNames[id] ?? id).join(', ');
+    return OutlinedButton(
+      style: appOutlinedActionButtonStyle(),
+      onPressed: _pickApparatus,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Apparatlarni tanlash'),
+                if (selected.isNotEmpty)
+                  Text(
+                    selected,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
             ),
-            const SizedBox(width: 12),
-            const Icon(Icons.expand_more),
-          ],
-        ),
-      );
+          ),
+          const SizedBox(width: 12),
+          const Icon(Icons.expand_more),
+        ],
+      ),
+    );
+  }
 
   Widget _kgField(
     TextEditingController controller,
@@ -304,41 +224,30 @@ class _WasteBinConfigurationDialogState
       );
 }
 
-class _WasteScopeOption<T extends Object> {
-  const _WasteScopeOption(this.id, this.title, {this.subtitle = ''});
-
-  final T id;
-  final String title, subtitle;
-}
-
-class _WasteScopePicker<T extends Object> extends StatefulWidget {
-  const _WasteScopePicker({
-    required this.title,
+class _WasteApparatusPicker extends StatefulWidget {
+  const _WasteApparatusPicker({
     required this.options,
     required this.selected,
   });
 
-  final String title;
-  final List<_WasteScopeOption<T>> options;
-  final Set<T> selected;
+  final List<WasteBinApparatusOption> options;
+  final Set<String> selected;
 
   @override
-  State<_WasteScopePicker<T>> createState() => _WasteScopePickerState<T>();
+  State<_WasteApparatusPicker> createState() => _WasteApparatusPickerState();
 }
 
-class _WasteScopePickerState<T extends Object>
-    extends State<_WasteScopePicker<T>> {
-  late final _selection = Set<T>.of(widget.selected);
+class _WasteApparatusPickerState extends State<_WasteApparatusPicker> {
+  late final _selection = Set<String>.of(widget.selected);
   String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final options = widget.options
-        .where((option) =>
-            '${option.title} ${option.subtitle}'.toLowerCase().contains(_query))
+        .where((option) => option.name.toLowerCase().contains(_query))
         .toList(growable: false);
     return AlertDialog(
-      title: Text(widget.title),
+      title: const Text('Apparatlarni tanlash'),
       scrollable: true,
       insetPadding: m3DialogInsetPadding,
       constraints: const BoxConstraints(maxWidth: m3DialogMaxWidth),
@@ -369,10 +278,7 @@ class _WasteScopePickerState<T extends Object>
                   itemBuilder: (context, index) {
                     final option = options[index];
                     return CheckboxListTile(
-                      title: Text(option.title),
-                      subtitle: option.subtitle.isEmpty
-                          ? null
-                          : Text(option.subtitle),
+                      title: Text(option.name),
                       value: _selection.contains(option.id),
                       onChanged: (value) => setState(() {
                         if (value == true) {
