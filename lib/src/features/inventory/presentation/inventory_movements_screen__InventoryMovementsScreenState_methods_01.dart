@@ -270,7 +270,7 @@ extension __InventoryMovementsScreenStateAstPart01
       });
       await _loadAssets(force: force);
       if (!mounted) return;
-      _handleInventoryTabChanged();
+      _loadCurrentTransferTab();
     } catch (error) {
       if (!mounted) return;
       _updateInventory(() {
@@ -283,7 +283,7 @@ extension __InventoryMovementsScreenStateAstPart01
   }
 
   Future<void> _loadAssets({bool force = false}) async {
-    if (_loading || !mounted) return;
+    if (_loading || !mounted || _showPreparationHistory) return;
     final request = ++_assetsRequest;
     final warehouse = _selectedWarehouseId;
     if (warehouse.isEmpty && !_preparationScoped) {
@@ -329,11 +329,29 @@ extension __InventoryMovementsScreenStateAstPart01
   }
 
   void _handleInventoryTabChanged() {
-    final incomingIndex = _materialScoped ? 2 : 1;
+    if (_shownTabIndex == _tabs.index) return;
+    final wasHistory = _preparationScoped &&
+        _shownTabIndex ==
+            _InventoryMovementsScreenState._preparationHistoryTabIndex;
+    _updateInventory(() {
+      _shownTabIndex = _tabs.index;
+      if (_showPreparationHistory) _inventoryFabOpen = false;
+    });
+    if (_showPreparationHistory) {
+      _searchFocusNode.unfocus();
+      if (_qrLookupOpen) _closeQrLookup();
+      return;
+    }
+    if (_loading) return;
+    if (wasHistory) unawaited(_loadAssets());
+    _loadCurrentTransferTab();
+  }
+
+  void _loadCurrentTransferTab() {
     final index = _tabs.index;
-    if (index == incomingIndex || index == incomingIndex + 1) {
+    if (index == _incomingTabIndex || index == _incomingTabIndex + 1) {
       unawaited(
-          _loadTransfers(index == incomingIndex ? 'incoming' : 'outgoing'));
+          _loadTransfers(index == _incomingTabIndex ? 'incoming' : 'outgoing'));
     }
   }
 

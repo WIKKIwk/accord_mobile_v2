@@ -645,9 +645,17 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
           settings, const PreparationFormulaOrdersScreen());
     case AppRoutes.preparationProduction:
       return AppRouter._buildRoute(settings, const PreparationProductionScreen());
+    case AppRoutes.preparationTransfers:
     case AppRoutes.preparationTransferHistory:
+      final args = settings.arguments;
       return AppRouter._buildRoute(
-          settings, const PreparationTransferHistoryScreen());
+        settings,
+        InventoryMovementsScreen(
+          preparationTransfers: args is PreparationTransfersArgs
+              ? args
+              : const PreparationTransfersArgs(openHistory: true),
+        ),
+      );
     case AppRoutes.rawMaterialSplit:
       return AppRouter._buildRoute(settings, const RawMaterialSplitScreen());
     case AppRoutes.wasteReceiving:

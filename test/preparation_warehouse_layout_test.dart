@@ -62,7 +62,7 @@ void main() {
       expect(find.byType(AdminSummaryCard), findsNWidgets(5));
       for (final title in [
         'Ombor',
-        'Transfer tarixi',
+        'Transfer va tarix',
         'Buyurtmalar',
         'Ishlab chiqarish',
         'Formulalar',

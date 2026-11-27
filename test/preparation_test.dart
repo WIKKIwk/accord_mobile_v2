@@ -74,12 +74,15 @@ void main() {
         UserRole.tayyorlovMasteri);
     expect(AppSession.instance.homeRoute, AppRoutes.preparation);
     expect(AppRouter.canOpenRoute(AppRoutes.preparation), isTrue);
+    expect(AppRouter.canOpenRoute(AppRoutes.preparationTransfers), isTrue);
     expect(AppRouter.canOpenRoute(AppRoutes.preparationTransferHistory), isTrue);
     AppSession.instance.profile = _profile.copyWith(capabilities: []);
     expect(AppRouter.canOpenRoute(AppRoutes.preparation), isFalse);
+    expect(AppRouter.canOpenRoute(AppRoutes.preparationTransfers), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.preparationTransferHistory), isFalse);
     AppSession.instance.profile =
         _profile.copyWith(role: UserRole.materialTaminotchi);
+    expect(AppRouter.canOpenRoute(AppRoutes.preparationTransfers), isFalse);
     expect(AppRouter.canOpenRoute(AppRoutes.preparationTransferHistory), isFalse);
     final user = AdminUserListEntry.fromJson({
       'id': 'prep-1',

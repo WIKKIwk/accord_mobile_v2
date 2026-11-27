@@ -27,6 +27,7 @@ import '../../inventory/presentation/inventory_movements_screen.dart'
     show PreparationTransfersArgs;
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
+import '../state/preparation_formula_library_store.dart';
 import 'preparation_navigation.dart';
 import 'preparation_production_paddon_picker.dart';
 import '../../../core/models/preparation_output_note.dart'
@@ -392,13 +393,13 @@ class _PreparationScreenState extends State<PreparationScreen> {
                             () => _openWarehouse(data)
                           ),
                           if (AppRouter.canOpenRoute(
-                              AppRoutes.preparationTransferHistory))
+                              AppRoutes.preparationTransfers))
                             (
                               M3SegmentVerticalSlot.middle,
-                              'Transfer tarixi',
-                              'Omborlar orasidagi yakunlangan transferlar',
+                              'Transfer va tarix',
+                              'Kiruvchi, chiquvchi va yakunlangan transferlar',
                               () => Navigator.of(context).pushNamed(
-                                  AppRoutes.preparationTransferHistory)
+                                  AppRoutes.preparationTransfers)
                             ),
                           if (AppRouter.canOpenRoute(AppRoutes.supplySequence))
                             (

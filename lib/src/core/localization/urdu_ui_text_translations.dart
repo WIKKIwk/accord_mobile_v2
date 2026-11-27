@@ -528,8 +528,9 @@ class UrduUiTextTranslations {
     'Rulonni tortish': 'رول کا وزن کریں',
     'Ombor transferlari': 'گودام کی منتقلیاں',
     'Transferlar': 'منتقلیاں',
-    'Transfer tarixi': 'منتقلیوں کا ریکارڈ',
-    'Omborlar orasidagi yakunlangan transferlar': 'گوداموں کے درمیان مکمل شدہ منتقلیاں',
+    'Transfer va tarix': 'منتقلیاں اور ریکارڈ',
+    'Kiruvchi, chiquvchi va yakunlangan transferlar':
+        'آنے والی، جانے والی اور مکمل شدہ منتقلیاں',
     'Transfer tarixida yozuv topilmadi': 'منتقلیوں کے ریکارڈ میں کوئی اندراج نہیں ملا',
     'Katalog': 'فہرست',
     'Kirim va sarf tarixi': 'وصولی اور کھپت کا ریکارڈ',

@@ -11,12 +11,14 @@ class _TransferList extends StatelessWidget {
     this.busyKeys = const {},
     this.enteringTransferIds = const {},
     this.footer,
+    this.rowGap = 8,
   });
 
   final List<InventoryTransfer> transfers;
   final String emptyMessage;
   final Widget header;
   final Widget? footer;
+  final double rowGap;
   final Set<String> busyKeys;
   final Set<String> enteringTransferIds;
   final Future<void> Function(InventoryTransfer) onTransferTap;
@@ -40,7 +42,9 @@ class _TransferList extends StatelessWidget {
             : const EdgeInsets.fromLTRB(4, 4, 4, 116),
         itemCount: rowCount + (footer == null ? 1 : 2),
         findChildIndexCallback: (key) => transferIndices[key],
-        separatorBuilder: (_, __) => SizedBox(height: transfers.isEmpty ? 0 : 8),
+        separatorBuilder: (_, index) => SizedBox(
+          height: transfers.isEmpty ? 0 : index == 0 ? 8 : rowGap,
+        ),
         itemBuilder: (context, index) {
           if (index == 0) return header;
           if (index > rowCount) return footer!;

@@ -2,8 +2,9 @@
 part of 'inventory_movements_screen.dart';
 
 class PreparationTransfersArgs {
-  const PreparationTransfersArgs({this.warehouseId});
+  const PreparationTransfersArgs({this.warehouseId, this.openHistory = false});
   final String? warehouseId;
+  final bool openHistory;
 }
 
 class InventoryMovementsScreen extends StatefulWidget {

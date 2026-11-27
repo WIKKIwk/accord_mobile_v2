@@ -487,11 +487,11 @@ class _PreparationWarehouseScreenState
           Wrap(
             alignment: WrapAlignment.center,
             children: [
-              if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
+              if (AppRouter.canOpenRoute(AppRoutes.preparationTransfers))
                 TextButton.icon(
                   onPressed: () async {
                     await Navigator.of(context).pushNamed(
-                      AppRoutes.inventoryMovements,
+                      AppRoutes.preparationTransfers,
                       arguments: PreparationTransfersArgs(warehouseId: warehouseId),
                     );
                     if (mounted) await widget.onReload();

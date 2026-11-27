@@ -38,7 +38,9 @@ extension __InventoryMovementsScreenStateAstPart02
         _inventoryReadScope == currentSessionReadScope() &&
         MobileApi.instance.canPackInventoryPaddon;
     if (!_inventoryFabOpen || !currentAccount() || _selectionActionBusy) return;
-    if (!_pendingPaddonAttachment && _tabs.index != 0 && !_qrLookupOpen) return;
+    if (!_pendingPaddonAttachment &&
+        _tabs.index != _assetsTabIndex &&
+        !_qrLookupOpen) return;
     final assets = _selectedAssets;
     final warehouseId = _qrLookupOpen
         ? assets.firstOrNull?.custodyWarehouseId
@@ -506,9 +508,11 @@ extension __InventoryMovementsScreenStateAstPart02
       if (action == 'accept_preparation') {
         await MobileApi.instance.preparationAcceptTransfer(transfer.id);
         if (!mounted) return;
+        final history = _preparationHistoryTabKey.currentState;
         await Future.wait([
           _loadTransfers('incoming', force: true),
           _loadAssets(force: true),
+          if (history != null) history._refreshTransfers(),
         ]);
         if (mounted) _showMessage('Seriyo tayyorlov sarfiga qabul qilindi');
         return;

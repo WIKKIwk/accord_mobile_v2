@@ -1,49 +1,56 @@
 part of 'inventory_movements_screen.dart';
 
-class PreparationTransferHistoryScreen extends StatefulWidget {
-  const PreparationTransferHistoryScreen({super.key});
+class _PreparationTransferHistoryTab extends StatefulWidget {
+  const _PreparationTransferHistoryTab({
+    super.key,
+    required this.scope,
+    required this.locations,
+    required this.warehouseId,
+    required this.onWarehouseSelected,
+    required this.onRefreshLocations,
+  });
+
+  final String scope;
+  final List<InventoryLocation> locations;
+  final String warehouseId;
+  final ValueChanged<String> onWarehouseSelected;
+  final Future<void> Function() onRefreshLocations;
 
   @override
-  State<PreparationTransferHistoryScreen> createState() =>
-      _PreparationTransferHistoryScreenState();
+  State<_PreparationTransferHistoryTab> createState() =>
+      _PreparationTransferHistoryTabState();
 }
 
-class _PreparationTransferHistoryScreenState
-    extends State<PreparationTransferHistoryScreen> {
+class _PreparationTransferHistoryTabState
+    extends State<_PreparationTransferHistoryTab>
+    with AutomaticKeepAliveClientMixin<_PreparationTransferHistoryTab> {
   static const _pageSize = 100;
   // The inventory endpoint caps the offset at this value.
   static const _lastOffset = 100000;
-  final _scope = currentSessionReadScope();
-  final _search = TextEditingController();
-  final _searchFocus = FocusNode();
   final _pages = <InventoryViewLease<InventoryTransfer>>[];
-  late final InventoryViewLease<InventoryLocation> _locations;
-  String _warehouseId = '';
   bool _warehouseFilterExpanded = false;
 
   bool get _current =>
       mounted &&
-      _scope == currentSessionReadScope() &&
-      AppRouter.canOpenRoute(AppRoutes.preparationTransferHistory);
+      widget.scope == currentSessionReadScope() &&
+      AppRouter.canOpenRoute(AppRoutes.preparationTransfers);
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     AppSession.instance.revision.addListener(_viewChanged);
-    _locations = InventoryViewStore.instance.locations()
-      ..addListener(_viewChanged);
-    _addPage();
+    if (_current) _addPage();
   }
 
   @override
   void dispose() {
     AppSession.instance.revision.removeListener(_viewChanged);
-    _locations.dispose();
     for (final page in _pages) {
       page.dispose();
     }
-    _search.dispose();
-    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -58,37 +65,32 @@ class _PreparationTransferHistoryScreenState
     )..addListener(_viewChanged));
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refreshTransfers() async {
     if (!_current) return;
     await Future.wait([
-      _locations.refresh().onError((_, __) {}),
       for (final page in _pages) page.refresh().onError((_, __) {}),
     ]);
   }
 
-  @override
-  Widget build(BuildContext context) => AppShell(
-        title: localizeUrduUiText('Transfer tarixi'),
-        subtitle: '',
-        nativeTopBar: true,
-        contentPadding: EdgeInsets.zero,
-        drawer: const PreparationDrawer(
-          selectedRouteName: AppRoutes.preparationTransferHistory,
-        ),
-        bottom: const PreparationDock(showPrimaryFab: false),
-        child: _buildHistory(),
-      );
+  Future<void> _refresh() async {
+    if (!_current) return;
+    await Future.wait([
+      widget.onRefreshLocations().onError((_, __) {}),
+      _refreshTransfers(),
+    ]);
+  }
 
-  Widget _buildHistory() {
-    if (!_current) {
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (!_current || _pages.isEmpty) {
       return const Center(
         child: UrduAwareText('Akkaunt o‘zgargan. Sahifani qayta oching'),
       );
     }
-    final locations = _locations.rows;
     final firstPage = _pages.first;
-    if (locations == null || firstPage.rows == null) {
-      final error = _locations.error ?? firstPage.error;
+    if (firstPage.rows == null) {
+      final error = firstPage.error;
       return error == null
           ? const Center(child: AppLoadingIndicator())
           : _InventoryErrorState(message: error, onRetry: _refresh);
@@ -97,17 +99,14 @@ class _PreparationTransferHistoryScreenState
     final assigned = AppSession.instance.profile!.assignedWarehouses
         .map((name) => name.trim().toLowerCase())
         .toSet();
-    final warehouses = locations
-        .where((location) =>
-            location.isWarehouse &&
-            location.active &&
-            assigned.contains(location.name.trim().toLowerCase()))
+    final warehouses = widget.locations
+        .where(
+            (location) => assigned.contains(location.name.trim().toLowerCase()))
         .toList(growable: false);
-    final warehouseId =
-        warehouses.any((warehouse) => warehouse.warehouseId == _warehouseId)
-            ? _warehouseId
-            : '';
-    final query = _search.text.trim().toLowerCase();
+    final warehouseId = warehouses
+            .any((warehouse) => warehouse.warehouseId == widget.warehouseId)
+        ? widget.warehouseId
+        : '';
     final byId = {
       for (final page in _pages.reversed)
         for (final transfer in page.rows ?? const <InventoryTransfer>[])
@@ -118,8 +117,7 @@ class _PreparationTransferHistoryScreenState
             _isPreparationTransferInHistory(transfer) &&
             (warehouseId.isEmpty ||
                 transfer.sourceWarehouseId == warehouseId ||
-                transfer.destinationWarehouseId == warehouseId) &&
-            _matchesTransferSearch(transfer, query))
+                transfer.destinationWarehouseId == warehouseId))
         .toList()
       ..sort((a, b) {
         final byDate = b.createdAtUnix.compareTo(a.createdAtUnix);
@@ -132,19 +130,9 @@ class _PreparationTransferHistoryScreenState
     return _TransferList(
       transfers: transfers,
       emptyMessage: localizeUrduUiText('Transfer tarixida yozuv topilmadi'),
+      rowGap: M3SegmentedListGeometry.gap,
       header: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: AdminCatalogSearchField(
-              controller: _search,
-              focusNode: _searchFocus,
-              hintText: localizeUrduUiText('Mahsulot, kod yoki QR qidirish'),
-              showLeading: false,
-              onChanged: (_) => setState(() {}),
-              onClear: () => setState(_search.clear),
-            ),
-          ),
           if (warehouses.isNotEmpty)
             AdminExpandableFilterChip<String>(
               chipKey: const ValueKey('preparation-transfer-history-warehouse'),
@@ -156,10 +144,10 @@ class _PreparationTransferHistoryScreenState
               onToggle: () => setState(() {
                 _warehouseFilterExpanded = !_warehouseFilterExpanded;
               }),
-              onSelect: (value) => setState(() {
-                _warehouseId = value;
-                _warehouseFilterExpanded = false;
-              }),
+              onSelect: (value) {
+                setState(() => _warehouseFilterExpanded = false);
+                widget.onWarehouseSelected(value);
+              },
               options: [
                 const AdminFilterChipOption(
                   value: '',

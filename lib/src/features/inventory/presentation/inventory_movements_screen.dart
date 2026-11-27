@@ -50,10 +50,12 @@ part 'preparation_transfer_history_screen.dart';
 
 class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     with SingleTickerProviderStateMixin {
+  static const _preparationHistoryTabIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
   late final TabController _tabs;
+  late int _shownTabIndex;
   late final String _inventoryReadScope;
   InventoryViewLease<InventoryLocation>? _locationView;
   InventoryViewLease<InventoryAsset>? _assetView;
@@ -95,6 +97,8 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   final Set<String> _qrLookupBusyCodes = {};
   final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
       GlobalKey<MaterialStateLocationsTabState>();
+  final _preparationHistoryTabKey =
+      GlobalKey<_PreparationTransferHistoryTabState>();
 
   void _updateInventory(VoidCallback update) => setState(update);
 
@@ -102,9 +106,18 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   void initState() {
     super.initState();
     _inventoryReadScope = currentSessionReadScope();
-    _tabs = TabController(length: _materialScoped ? 4 : 3, vsync: this,
-        initialIndex: _preparationScoped && widget.preparationTransfers != null ? 1 : 0)
-      ..addListener(_handleInventoryTabChanged);
+    final preparationTransfers = widget.preparationTransfers;
+    _tabs = TabController(
+      length: _materialScoped || _preparationScoped ? 4 : 3,
+      vsync: this,
+      initialIndex: _preparationScoped && preparationTransfers != null
+          ? preparationTransfers.openHistory
+              ? _preparationHistoryTabIndex
+              : _incomingTabIndex
+          : _assetsTabIndex,
+    );
+    _shownTabIndex = _tabs.index;
+    _tabs.addListener(_handleInventoryTabChanged);
     unawaited(_restoreWarehouseFilterAndLoad());
     unawaited(_loadPendingPaddonAttachment());
   }
@@ -141,12 +154,18 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
           .where((name) => name.isNotEmpty)
           .toSet();
 
-  bool get _isAdmin => !_preparationScoped && AppSession.instance.canUseAdminComponents;
+  bool get _isAdmin =>
+      !_preparationScoped && AppSession.instance.canUseAdminComponents;
 
   bool get _materialScoped =>
       AppSession.instance.profile?.role == UserRole.materialTaminotchi;
   bool get _preparationScoped =>
       AppSession.instance.profile?.role == UserRole.tayyorlovMasteri;
+
+  int get _assetsTabIndex => _preparationScoped ? 1 : 0;
+  int get _incomingTabIndex => _assetsTabIndex + (_materialScoped ? 2 : 1);
+  bool get _showPreparationHistory =>
+      _preparationScoped && _tabs.index == _preparationHistoryTabIndex;
 
   bool get _stateSelectionMode => _selectedStateAssetCount > 0;
 
@@ -180,22 +199,36 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final showHistory = _showPreparationHistory;
+    final selectionMode = !showHistory && _selectionMode;
     final selectedLinkedRawMaterials = _selectedLinkedRawMaterialAssets;
     final selectionActionBusy = _selectionActionBusy;
     final selectedAssets = _selectedAssets;
     final showPaddonAttachment = MobileApi.instance.canPackInventoryPaddon &&
         !_stateSelectionMode &&
         (_pendingPaddonAttachment ||
-            ((_tabs.index == 0 || _qrLookupOpen) &&
+            ((_tabs.index == _assetsTabIndex || _qrLookupOpen) &&
                 selectedAssets.isNotEmpty &&
                 selectedAssets.every((asset) => asset.canSelectForPaddon)));
     final tabs = <Tab>[
+      if (_preparationScoped) Tab(text: localizeUrduUiText('Tarix')),
       Tab(text: _preparationScoped ? 'Qoldiqlar' : 'Mahsulotlar'),
       if (_materialScoped) const Tab(text: 'State’lar'),
       const Tab(text: 'Kiruvchi'),
       const Tab(text: 'Chiquvchi'),
     ];
     final tabViews = <Widget>[
+      if (_preparationScoped)
+        _PreparationTransferHistoryTab(
+          key: _preparationHistoryTabKey,
+          scope: _inventoryReadScope,
+          locations: _warehouseLocations,
+          warehouseId: _selectedWarehouseId,
+          onWarehouseSelected: _selectWarehouse,
+          onRefreshLocations: () async {
+            await _locationView?.refresh();
+          },
+        ),
       _buildAssetsTab(),
       if (_materialScoped)
         MaterialStateLocationsTab(
@@ -216,14 +249,14 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     ];
     return AppShell(
       animateOnEnter: false,
-      title: _preparationScoped ? 'Ombor transferlari' : '',
+      title: _preparationScoped ? localizeUrduUiText('Transfer va tarix') : '',
       subtitle: '',
       nativeTopBar: true,
-      automaticallyImplyNativeLeading: false,
-      showProfileAction: !_selectionMode,
+      automaticallyImplyNativeLeading: showHistory,
+      showProfileAction: !selectionMode,
       profileActionListenable: _searchFocusNode,
       showProfileActionResolver: () => !_searchFocusNode.hasFocus,
-      actions: _selectionMode
+      actions: selectionMode
           ? [
               if (selectedLinkedRawMaterials.isNotEmpty)
                 IconButton(
@@ -256,45 +289,47 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
               ),
             ]
           : null,
-      titleWidget: _selectionMode
-          ? Row(
-              children: [
-                IconButton(
-                  key: const ValueKey('inventory-selection-close'),
-                  tooltip: 'Tanlashni bekor qilish',
-                  onPressed: _clearSelection,
-                  icon: const Icon(Icons.close_rounded),
+      titleWidget: showHistory
+          ? null
+          : selectionMode
+              ? Row(
+                  children: [
+                    IconButton(
+                      key: const ValueKey('inventory-selection-close'),
+                      tooltip: 'Tanlashni bekor qilish',
+                      onPressed: _clearSelection,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                    const SizedBox(width: 4),
+                    UrduAwareText(
+                      '$_selectionCount ta tanlandi',
+                      key: const ValueKey('inventory-selection-count'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                )
+              : AdminCatalogSearchField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  hintText: 'Mahsulot, kod yoki QR qidirish',
+                  onChanged: (value) {
+                    _onSearchChanged(value);
+                    _materialStateLocationsKey.currentState
+                        ?.handleItemsSearchChanged(value);
+                  },
+                  onClear: () {
+                    _searchController.clear();
+                    _onSearchChanged('');
+                    _materialStateLocationsKey.currentState
+                        ?.handleItemsSearchChanged('');
+                  },
+                  onBack: _goBack,
                 ),
-                const SizedBox(width: 4),
-                UrduAwareText(
-                  '$_selectionCount ta tanlandi',
-                  key: const ValueKey('inventory-selection-count'),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
-            )
-          : AdminCatalogSearchField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              hintText: 'Mahsulot, kod yoki QR qidirish',
-              onChanged: (value) {
-                _onSearchChanged(value);
-                _materialStateLocationsKey.currentState
-                    ?.handleItemsSearchChanged(value);
-              },
-              onClear: () {
-                _searchController.clear();
-                _onSearchChanged('');
-                _materialStateLocationsKey.currentState
-                    ?.handleItemsSearchChanged('');
-              },
-              onBack: _goBack,
-            ),
       drawer: _preparationScoped
           ? const PreparationDrawer(
-              selectedRouteName: AppRoutes.preparationWarehouse)
+              selectedRouteName: AppRoutes.preparationTransfers)
           : _materialScoped
               ? MaterialTaminotchiNavigationDrawer(
                   selectedRouteName: AppRoutes.inventoryMovements,
@@ -314,7 +349,13 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
         children: [
           Column(
             children: [
-              TabBar(controller: _tabs, tabs: tabs),
+              TabBar(
+                controller: _tabs,
+                labelPadding: _preparationScoped
+                    ? const EdgeInsets.symmetric(horizontal: 8)
+                    : null,
+                tabs: tabs,
+              ),
               Expanded(
                 child: _loading
                     ? const Center(child: AppLoadingIndicator())
@@ -329,36 +370,37 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
               ),
             ],
           ),
-          PositionedDirectional(
-            end: 16,
-            bottom: 16,
-            child: AdminFabActionMenu(
-              key: const ValueKey('inventory-movements-fab'),
-              open: _inventoryFabOpen,
-              actions: [
-                if (showPaddonAttachment)
+          if (!showHistory)
+            PositionedDirectional(
+              end: 16,
+              bottom: 16,
+              child: AdminFabActionMenu(
+                key: const ValueKey('inventory-movements-fab'),
+                open: _inventoryFabOpen,
+                actions: [
+                  if (showPaddonAttachment)
+                    AdminFabMenuAction(
+                      title: _pendingPaddonAttachment
+                          ? 'Biriktirish natijasini tekshirish'
+                          : 'Paddonga biriktirish',
+                      icon: Icons.inventory_2_outlined,
+                      onTap: _attachSelectedInventoryRolls,
+                    ),
                   AdminFabMenuAction(
-                    title: _pendingPaddonAttachment
-                        ? 'Biriktirish natijasini tekshirish'
-                        : 'Paddonga biriktirish',
-                    icon: Icons.inventory_2_outlined,
-                    onTap: _attachSelectedInventoryRolls,
+                    title: 'QR orqali izlash',
+                    icon: Icons.qr_code_scanner_rounded,
+                    onTap: _openQrLookup,
                   ),
-                AdminFabMenuAction(
-                  title: 'QR orqali izlash',
-                  icon: Icons.qr_code_scanner_rounded,
-                  onTap: _openQrLookup,
-                ),
-              ],
-              onToggle: () {
-                setState(() => _inventoryFabOpen = !_inventoryFabOpen);
-              },
-              closedLabel: 'Amallar',
-              openLabel: 'Yopish',
-              closedIcon: Icons.add_rounded,
-              openIcon: Icons.close_rounded,
+                ],
+                onToggle: () {
+                  setState(() => _inventoryFabOpen = !_inventoryFabOpen);
+                },
+                closedLabel: 'Amallar',
+                openLabel: 'Yopish',
+                closedIcon: Icons.add_rounded,
+                openIcon: Icons.close_rounded,
+              ),
             ),
-          ),
         ],
       ),
     );

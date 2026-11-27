@@ -110,6 +110,7 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
       const {
         AppRoutes.preparationProduction,
         AppRoutes.preparationWarehouse,
+        AppRoutes.preparationTransfers,
         AppRoutes.preparationTransferHistory,
       }.contains(routeName)) {
     return false;

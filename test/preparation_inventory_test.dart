@@ -5,6 +5,8 @@ import 'package:accord_mobile_v2/src/core/inventory/inventory_view_store.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
 import 'package:accord_mobile_v2/src/features/inventory/presentation/inventory_movements_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:flutter/material.dart';
@@ -285,7 +287,8 @@ void main() {
       expect(find.byType(InventoryMovementsScreen), findsOneWidget);
       expect(find.text('State’lar'), findsNothing);
       expect(find.text('Qoldiqlar'), findsOneWidget);
-      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect((tabBar.tabs[tabBar.controller!.index] as Tab).text, 'Kiruvchi');
       await tester.tap(find.text('Qoldiqlar'));
       await tester.pumpAndSettle();
       expect(find.text('Kiruvchi'), findsOneWidget);
@@ -395,7 +398,7 @@ void main() {
     final source = find.text('Ta’minot → Tayyorlov ombori');
     final rejected = find.byKey(const ValueKey('inventory-transfer-rejected'));
     final accept = find.widgetWithText(FilledButton, 'Tayyorlovga qabul qilish');
-    final historyCard = find.text('Transfer tarixi');
+    final transfersCard = find.text('Transfer va tarix');
 
     await http.runWithClient(() async {
       await tester.pumpWidget(const MaterialApp(
@@ -411,16 +414,18 @@ void main() {
         onGenerateRoute: AppRouter.onGenerateRoute,
       ));
       await tester.pumpAndSettle();
-      await tester.tap(historyCard);
+      await tester.tap(transfersCard);
       await tester.pumpAndSettle();
-      expect(find.byType(PreparationTransferHistoryScreen), findsOneWidget);
+      expect(find.byType(InventoryMovementsScreen), findsOneWidget);
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(
+        tabBar.tabs.cast<Tab>().map((tab) => tab.text),
+        ['Tarix', 'Qoldiqlar', 'Kiruvchi', 'Chiquvchi'],
+      );
+      expect(tabBar.controller!.index, 0);
       expect(source, findsNothing);
       expect(rejected, findsOneWidget);
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Ombor'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Transferlar'));
+      await tester.tap(find.text('Kiruvchi'));
       await tester.pumpAndSettle();
       expect(rejected, findsNothing);
       expect(find.text('Tayyorlovga qabul qilish · 1 ta'), findsOneWidget);
@@ -433,11 +438,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(accepted, 1);
       expect(source, findsNothing);
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
-      await tester.pumpAndSettle();
-      await tester.tap(historyCard);
+      await tester.tap(find.text('Tarix'));
       await tester.pumpAndSettle();
       expect(source, findsOneWidget);
       await tester.tap(source);
@@ -514,19 +515,25 @@ void main() {
     final newer = find.byKey(const ValueKey('inventory-transfer-cancelled'));
     final older = find.byKey(const ValueKey('inventory-transfer-older'));
     await http.runWithClient(() async {
-      await tester.pumpWidget(const MaterialApp(
-        locale: Locale('uz'),
-        localizationsDelegates: [
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: PreparationTransferHistoryScreen(),
+        initialRoute: AppRoutes.preparationTransferHistory,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        onGenerateInitialRoutes: (route) => [
+          AppRouter.onGenerateRoute(RouteSettings(name: route)),
+        ],
       ));
       await tester.pumpAndSettle();
       expect(newer, findsOneWidget);
+      expect(find.text('Mahsulot, kod yoki QR qidirish'), findsNothing);
+      expect(find.byType(EditableText), findsNothing);
       expect(older, findsNothing);
       expect(find.byKey(const ValueKey('inventory-movements-fab')), findsNothing);
 
@@ -535,6 +542,14 @@ void main() {
       expect(offsets, [0, 100]);
       expect(older, findsOneWidget);
       expect(tester.getTopLeft(newer).dy, lessThan(tester.getTopLeft(older).dy));
+      expect(tester.getTopLeft(older).dy - tester.getBottomLeft(newer).dy,
+          M3SegmentedListGeometry.gap);
+      expect(tester.widget<AdminSummaryCard>(find.descendant(
+        of: newer, matching: find.byType(AdminSummaryCard),
+      )).slot, M3SegmentVerticalSlot.top);
+      expect(tester.widget<AdminSummaryCard>(find.descendant(
+        of: older, matching: find.byType(AdminSummaryCard),
+      )).slot, M3SegmentVerticalSlot.bottom);
 
       await tester.tap(find.byKey(
         const ValueKey('preparation-transfer-history-warehouse'),
@@ -544,13 +559,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(newer, findsNothing);
       expect(older, findsOneWidget);
-      await tester.enterText(find.byType(EditableText), 'granula');
+      await tester.tap(find.text('Qoldiqlar'));
       await tester.pumpAndSettle();
+      expect(find.text('Ombor: Tayyorlov ombori'), findsOneWidget);
+      await tester.tap(find.text('Tarix'));
+      await tester.pumpAndSettle();
+      expect(newer, findsNothing);
       expect(older, findsOneWidget);
-      await tester.enterText(find.byType(EditableText), 'mavjud emas');
-      await tester.pumpAndSettle();
-      expect(older, findsNothing);
-      expect(find.text('Transfer tarixida yozuv topilmadi'), findsOneWidget);
+      expect(offsets, [0, 100]);
     }, () => MockClient((request) async {
       expect(request.method, 'GET');
       if (request.url.path.endsWith('/inventory/locations')) {
@@ -566,6 +582,10 @@ void main() {
               'name': name,
             },
         ]);
+      }
+      if (request.url.path.endsWith('/inventory/assets')) {
+        expect(request.url.queryParameters['warehouse_id'], 'prep');
+        return _json([]);
       }
       expect(request.url.path, '/v1/mobile/admin/inventory/transfers');
       expect(request.url.queryParameters['direction'], 'all');

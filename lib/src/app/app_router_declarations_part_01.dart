@@ -134,6 +134,7 @@ class AppRoutes {
   static const String preparationWarehouse = '/preparation-warehouse';
   static const String preparationFormulas = '/preparation-formulas';
   static const String preparationProduction = '/preparation-production';
+  static const String preparationTransfers = '/preparation-transfers';
   static const String preparationTransferHistory = '/preparation-transfer-history';
   static const String rawMaterialSplit = '/raw-material-split';
   static const String metalayzer = '/metalayzer';
