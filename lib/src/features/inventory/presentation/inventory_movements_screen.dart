@@ -32,7 +32,10 @@ import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../material_taminotchi/presentation/widgets/raw_material_list_assignment.dart';
 import '../../material_taminotchi/presentation/widgets/raw_material_order_assignment_section.dart';
+import '../../preparation/models/preparation_history.dart';
+import '../../preparation/models/preparation_models.dart' show preparationDisplay;
 import '../../preparation/presentation/preparation_navigation.dart';
+import '../../preparation/presentation/widgets/preparation_history_operation_card.dart';
 import '../../preparation/presentation/preparation_production_paddon_picker.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
@@ -46,7 +49,7 @@ part 'inventory_movements_screen__InventoryMovementsScreenState_methods_03.dart'
 part 'inventory_movements_screen_widgets_part_01.dart';
 part 'inventory_movements_screen_declarations_part_02.dart';
 part 'inventory_movements_screen_models_part_03.dart';
-part 'preparation_transfer_history_screen.dart';
+part 'preparation_history_tab.dart';
 
 class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     with SingleTickerProviderStateMixin {
@@ -98,7 +101,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   final GlobalKey<MaterialStateLocationsTabState> _materialStateLocationsKey =
       GlobalKey<MaterialStateLocationsTabState>();
   final _preparationHistoryTabKey =
-      GlobalKey<_PreparationTransferHistoryTabState>();
+      GlobalKey<_PreparationHistoryTabState>();
 
   void _updateInventory(VoidCallback update) => setState(update);
 
@@ -219,7 +222,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     ];
     final tabViews = <Widget>[
       if (_preparationScoped)
-        _PreparationTransferHistoryTab(
+        _PreparationHistoryTab(
           key: _preparationHistoryTabKey,
           scope: _inventoryReadScope,
           locations: _warehouseLocations,

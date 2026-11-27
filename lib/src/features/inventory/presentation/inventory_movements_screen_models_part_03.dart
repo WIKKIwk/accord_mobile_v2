@@ -105,10 +105,23 @@ bool _matchesTransferSearch(InventoryTransfer transfer, String query) =>
       ],
     ].any((value) => value.toLowerCase().contains(query));
 
-String _transferTimestamp(InventoryTransfer transfer) {
-  final date = DateTime.fromMillisecondsSinceEpoch(
-    transfer.createdAtUnix * 1000,
-  ).toLocal();
+DateTime _inventoryDateFromUnix(int seconds) =>
+    DateTime.fromMillisecondsSinceEpoch(seconds * 1000).toLocal();
+
+String _transferTimestamp(InventoryTransfer transfer) =>
+    _inventoryTimestamp(_inventoryDateFromUnix(transfer.createdAtUnix));
+
+DateTime? _transferCompletionTime(InventoryTransfer transfer) {
+  final timestamp = switch (transfer.status) {
+    InventoryTransferStatus.received => transfer.receivedAtUnix,
+    InventoryTransferStatus.rejected => transfer.rejectedAtUnix,
+    InventoryTransferStatus.cancelled => transfer.cancelledAtUnix,
+    _ => null,
+  };
+  return timestamp == null ? null : _inventoryDateFromUnix(timestamp);
+}
+
+String _inventoryTimestamp(DateTime date) {
   String two(int value) => value.toString().padLeft(2, '0');
   return '${two(date.day)}.${two(date.month)}.${date.year} '
       '${two(date.hour)}:${two(date.minute)}';
@@ -124,16 +137,17 @@ String _rawMaterialAssetBarcode(InventoryAsset asset) {
   return separator < 0 ? assetRef : assetRef.substring(separator + 1).trim();
 }
 
-String _transferSummary(InventoryTransfer transfer) {
+String _transferSummary(InventoryTransfer transfer, {String? date}) {
+  final timestamp = date ?? _transferTimestamp(transfer);
   if (transfer.lines.isEmpty) {
-    return _transferTimestamp(transfer);
+    return timestamp;
   }
   final line = transfer.lines.first;
   final item = line.itemName.trim().isEmpty ? line.itemCode : line.itemName;
   final extra =
       transfer.lines.length > 1 ? ' +${transfer.lines.length - 1} ta' : '';
   return '$item$extra • ${_qty(line.qty)} ${line.uom} • '
-      '${_transferTimestamp(transfer)}';
+      '$timestamp';
 }
 
 String _qty(double value) {

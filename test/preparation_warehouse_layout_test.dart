@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
+import 'package:accord_mobile_v2/src/core/inventory/inventory_view_store.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
@@ -23,6 +24,7 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await TestModeController.instance.setEnabled(false);
+    InventoryViewStore.debugOverride = InventoryViewStore(liveEnabled: () => false);
     AppSession.instance.token = 'token';
     AppSession.instance.profile = const SessionProfile(
       role: UserRole.tayyorlovMasteri,
@@ -35,6 +37,8 @@ void main() {
     );
   });
   tearDown(() {
+    InventoryViewStore.debugOverride?.reset();
+    InventoryViewStore.debugOverride = null;
     AppSession.instance.token = null;
     AppSession.instance.profile = null;
   });
@@ -198,6 +202,7 @@ void main() {
               child: child!,
             ),
             home: const PreparationScreen(),
+            onGenerateRoute: AppRouter.onGenerateRoute,
             routes: {
               AppRoutes.supplySequence: (_) => Scaffold(
                     appBar: AppBar(),
@@ -233,8 +238,9 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(history);
           await tester.pumpAndSettle();
-          expect(find.text('Hali kirim yoki sarf yo‘q.'), findsOneWidget);
-          await tester.tap(find.byType(BackButton));
+          expect(find.text('Transfer va tarix'), findsOneWidget);
+          expect(find.text('Tarixda yozuv topilmadi'), findsOneWidget);
+          await tester.tap(find.byIcon(Icons.arrow_back_rounded));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
 
@@ -268,7 +274,15 @@ void main() {
           await tester.pumpAndSettle();
         },
             () => MockClient((request) async {
-                  expect(request.url.path, '/v1/mobile/preparation/snapshot');
+                  final path = request.url.path;
+                  if (path.endsWith('/inventory/locations') ||
+                      path.endsWith('/inventory/transfers')) {
+                    return http.Response('[]', 200);
+                  }
+                  if (path.endsWith('/preparation/history')) {
+                    return http.Response('{"entries":[]}', 200);
+                  }
+                  expect(path, '/v1/mobile/preparation/snapshot');
                   return http.Response(
                       jsonEncode({
                         'warehouses': warehouses,

@@ -129,7 +129,7 @@ class _PreparationFormulaOrdersScreenState
     if (!mounted || !_sameScope || action != 'rename') return;
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => _PreparationInputDialog(
+      builder: (_) => PreparationInputDialog(
         title: 'Komplekt nomini o‘zgartirish',
         label: 'Komplekt nomi',
         initialValue: formulaSet.name,

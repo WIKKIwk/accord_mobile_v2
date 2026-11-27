@@ -441,9 +441,16 @@ void main() {
       await tester.tap(find.text('Tarix'));
       await tester.pumpAndSettle();
       expect(source, findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('preparation-history-kind-receipt')));
+      await tester.pumpAndSettle();
+      expect(source, findsOneWidget);
+      expect(rejected, findsNothing);
       await tester.tap(source);
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('Tayyorlovga qabul qilingan'), findsOneWidget);
+      expect(find.text('PE seriyo'), findsOneWidget);
+      expect(find.text('12.5 kg'), findsOneWidget);
       expect(accept, findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -452,6 +459,41 @@ void main() {
         expect(request.method, 'POST');
         accepted++;
         return _json({'transfer_id': 'seriyo-transfer', 'warehouse': 'Tayyorlov ombori'});
+      }
+      if (request.url.path.endsWith('/preparation/history')) {
+        final kind = request.url.queryParameters['kind'];
+        return _json({
+          'entries': [
+            if (accepted > 0)
+              {
+                'key': 'transfer:seriyo-transfer',
+                'kind': 'transfer',
+                'occurred_at': '2026-11-25T11:00:00Z',
+                'preparation_received_at': '2026-11-25T11:00:00Z',
+                'preparation_receipts': [
+                  {
+                    'material': 'PE seriyo',
+                    'kg': '12.500000',
+                    'received_at': '2026-11-25T11:00:00Z',
+                  },
+                ],
+                'transfer': {
+                  'id': 'seriyo-transfer',
+                  'source_warehouse': 'Ta’minot',
+                  'destination_warehouse': 'Tayyorlov ombori',
+                  'status': 'received',
+                  'created_at_unix': 2,
+                },
+              },
+            if (kind == 'all')
+              {
+                'key': 'transfer:rejected',
+                'kind': 'transfer',
+                'occurred_at': '2026-11-25T10:00:00Z',
+                'transfer': {'id': 'rejected', 'status': 'rejected'},
+              },
+          ],
+        });
       }
       if (request.url.path.endsWith('/inventory/transfers')) {
         expect(request.method, 'GET');
@@ -506,22 +548,24 @@ void main() {
     }));
   });
 
-  testWidgets('transfer history loads older records and filters both warehouse sides',
+  testWidgets('unified history pages mixed records and shares the warehouse filter',
       (tester) async {
     AppSession.instance.profile = AppSession.instance.profile!.copyWith(
       assignedWarehouses: ['Tayyorlov ombori', 'Ikkinchi ombor'],
     );
-    final offsets = <int>[];
+    final queries = <Map<String, String>>[];
     final newer = find.byKey(const ValueKey('inventory-transfer-cancelled'));
     final older = find.byKey(const ValueKey('inventory-transfer-older'));
+    final receipt = find.byKey(const ValueKey('operation:direct'));
+    final usage = find.byKey(const ValueKey('operation:used'));
     await http.runWithClient(() async {
       await tester.pumpWidget(MaterialApp(
         locale: const Locale('uz'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         initialRoute: AppRoutes.preparationTransferHistory,
@@ -532,21 +576,20 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(newer, findsOneWidget);
-      expect(find.text('Mahsulot, kod yoki QR qidirish'), findsNothing);
-      expect(find.byType(EditableText), findsNothing);
+      expect(receipt, findsOneWidget);
+      expect(find.text('+12 kg'), findsOneWidget);
       expect(older, findsNothing);
+      expect(find.byType(EditableText), findsNothing);
       expect(find.byKey(const ValueKey('inventory-movements-fab')), findsNothing);
 
       await tester.tap(find.text('Yana yuklash'));
       await tester.pumpAndSettle();
-      expect(offsets, [0, 100]);
+      expect(queries[1]['before_key'], 'operation:direct');
+      expect(queries[1]['before_time'], '2026-11-24T11:00:00Z');
       expect(older, findsOneWidget);
-      expect(tester.getTopLeft(newer).dy, lessThan(tester.getTopLeft(older).dy));
-      expect(tester.getTopLeft(older).dy - tester.getBottomLeft(newer).dy,
+      expect(tester.getTopLeft(newer).dy, lessThan(tester.getTopLeft(receipt).dy));
+      expect(tester.getTopLeft(older).dy - tester.getBottomLeft(receipt).dy,
           M3SegmentedListGeometry.gap);
-      expect(tester.widget<AdminSummaryCard>(find.descendant(
-        of: newer, matching: find.byType(AdminSummaryCard),
-      )).slot, M3SegmentVerticalSlot.top);
       expect(tester.widget<AdminSummaryCard>(find.descendant(
         of: older, matching: find.byType(AdminSummaryCard),
       )).slot, M3SegmentVerticalSlot.bottom);
@@ -557,6 +600,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Tayyorlov ombori'));
       await tester.pumpAndSettle();
+      expect(queries.last['warehouse_id'], 'prep');
+      expect(queries.last['before_key'], isNull);
       expect(newer, findsNothing);
       expect(older, findsOneWidget);
       await tester.tap(find.text('Qoldiqlar'));
@@ -564,9 +609,18 @@ void main() {
       expect(find.text('Ombor: Tayyorlov ombori'), findsOneWidget);
       await tester.tap(find.text('Tarix'));
       await tester.pumpAndSettle();
-      expect(newer, findsNothing);
       expect(older, findsOneWidget);
-      expect(offsets, [0, 100]);
+      expect(queries, hasLength(3));
+
+      await tester.tap(find.byKey(const ValueKey('preparation-history-kind-consumption')));
+      await tester.pumpAndSettle();
+      expect(queries.last['warehouse_id'], 'prep');
+      expect(queries.last['kind'], 'consumption');
+      expect(older, findsNothing);
+      expect(receipt, findsNothing);
+      expect(usage, findsOneWidget);
+      expect(find.text('−13 kg'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     }, () => MockClient((request) async {
       expect(request.method, 'GET');
       if (request.url.path.endsWith('/inventory/locations')) {
@@ -583,47 +637,82 @@ void main() {
             },
         ]);
       }
-      if (request.url.path.endsWith('/inventory/assets')) {
-        expect(request.url.queryParameters['warehouse_id'], 'prep');
+      if (request.url.path.endsWith('/inventory/assets') ||
+          request.url.path.endsWith('/inventory/transfers')) {
         return _json([]);
       }
-      expect(request.url.path, '/v1/mobile/admin/inventory/transfers');
-      expect(request.url.queryParameters['direction'], 'all');
-      final offset = int.parse(request.url.queryParameters['offset'] ?? '0');
-      offsets.add(offset);
-      return _json(offset == 0
-          ? [
-              {
-                'id': 'cancelled',
-                'source_warehouse_id': 'supply',
-                'source_warehouse': 'Ta’minot',
-                'destination_warehouse_id': 'secondary',
-                'destination_warehouse': 'Ikkinchi ombor',
-                'status': 'cancelled',
-                'created_at_unix': 101,
-              },
-              for (var i = 99; i > 0; i--)
-                {'id': 'open-$i', 'status': 'in_transit', 'created_at_unix': i},
-            ]
-          : [
-              {
-                'id': 'older',
-                'source_warehouse_id': 'prep',
-                'source_warehouse': 'Tayyorlov ombori',
-                'destination_warehouse_id': 'supply',
-                'destination_warehouse': 'Ta’minot',
-                'status': 'received',
-                'created_at_unix': 1,
+      expect(request.url.path, '/v1/mobile/preparation/history');
+      final params = request.url.queryParameters;
+      queries.add(params);
+      const olderTransfer = {
+        'key': 'transfer:older',
+        'kind': 'transfer',
+        'occurred_at': '2026-11-24T10:00:00Z',
+        'transfer': {
+          'id': 'older',
+          'source_warehouse_id': 'prep',
+          'source_warehouse': 'Tayyorlov ombori',
+          'destination_warehouse': 'Ta’minot',
+          'status': 'received',
+        },
+      };
+      if (params['kind'] == 'consumption') {
+        return _json({
+          'entries': [
+            {
+              'key': 'operation:used',
+              'kind': 'consumption',
+              'occurred_at': '2026-11-24T12:00:00Z',
+              'operation': {
+                'id': 'used',
+                'kind': 'consumption',
+                'order_code': '0317',
+                'order_title': 'Choy',
+                'order_kg': '300',
+                'warehouse': 'Tayyorlov ombori',
                 'lines': [
-                  {
-                    'asset_kind': 'raw_material',
-                    'item_name': 'Granula',
-                    'qty': 12,
-                    'uom': 'kg',
-                  },
+                  {'name': 'PE', 'percent': '40', 'kg': '5.123456'},
+                  {'name': 'EVA', 'percent': '60', 'kg': '7.876544'},
                 ],
               },
-            ]);
+            },
+          ],
+        });
+      }
+      if (params['before_key'] != null || params['warehouse_id'] == 'prep') {
+        return _json({'entries': [olderTransfer]});
+      }
+      return _json({
+        'entries': [
+          {
+            'key': 'transfer:cancelled',
+            'kind': 'transfer',
+            'occurred_at': '2026-11-25T10:00:00Z',
+            'transfer': {
+              'id': 'cancelled',
+              'source_warehouse': 'Ta’minot',
+              'destination_warehouse': 'Ikkinchi ombor',
+              'status': 'cancelled',
+            },
+          },
+          {
+            'key': 'operation:direct',
+            'kind': 'receipt',
+            'occurred_at': '2026-11-24T11:00:00Z',
+            'operation': {
+              'id': 'direct',
+              'kind': 'receipt',
+              'name': 'PE',
+              'warehouse': 'Tayyorlov ombori',
+              'kg': '12.000000',
+            },
+          },
+        ],
+        'next_cursor': {
+          'key': 'operation:direct',
+          'time': '2026-11-24T11:00:00Z',
+        },
+      });
     }));
   });
 

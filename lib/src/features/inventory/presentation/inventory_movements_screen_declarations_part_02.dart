@@ -96,12 +96,14 @@ class _InventoryTransferListRow extends StatelessWidget {
     required this.transfer,
     required this.busy,
     required this.onTap,
+    this.historyTime,
   });
 
   final M3SegmentVerticalSlot slot;
   final InventoryTransfer transfer;
   final bool busy;
   final VoidCallback onTap;
+  final String? historyTime;
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +137,7 @@ class _InventoryTransferListRow extends StatelessWidget {
       title: '${transfer.sourceWarehouse} → ${transfer.destinationWarehouse}',
       subtitle: transfer.pendingPreparationLots > 0
           ? 'Tayyorlovga qabul qilish · ${transfer.pendingPreparationLots} ta'
-          : _transferSummary(transfer),
+          : _transferSummary(transfer, date: historyTime),
       titleMaxLines: 1,
       subtitleMaxLines: 1,
       titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -292,6 +294,9 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
     required this.busy,
     required this.actionLabelFor,
     required this.onAction,
+    required this.showHistoryDates,
+    required this.preparationReceivedAt,
+    required this.preparationReceipts,
   });
 
   final InventoryTransfer transfer;
@@ -299,6 +304,9 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
   final bool busy;
   final String Function(String) actionLabelFor;
   final Future<void> Function(String)? onAction;
+  final bool showHistoryDates;
+  final DateTime? preparationReceivedAt;
+  final List<PreparationTransferReceipt> preparationReceipts;
 
   static Future<void> show(
     BuildContext context,
@@ -307,6 +315,9 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
     bool busy = false,
     String Function(String) actionLabelFor = _actionLabel,
     Future<void> Function(String)? onAction,
+    bool showHistoryDates = false,
+    DateTime? preparationReceivedAt,
+    List<PreparationTransferReceipt> preparationReceipts = const [],
   }) {
     final scope = currentSessionReadScope();
     return showModalBottomSheet<void>(
@@ -326,6 +337,9 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
             actions: actions,
             busy: busy,
             actionLabelFor: actionLabelFor,
+            showHistoryDates: showHistoryDates,
+            preparationReceivedAt: preparationReceivedAt,
+            preparationReceipts: preparationReceipts,
             onAction: onAction == null
                 ? null
                 : (action) async {
@@ -417,9 +431,31 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
               ),
             _AssetSheetDetail(
               icon: Icons.schedule_rounded,
-              label: 'Sana',
+              label: showHistoryDates ? 'So‘rov sanasi' : 'Sana',
               value: _transferTimestamp(transfer),
             ),
+            if (_transferCompletionTime(transfer) case final completed? when showHistoryDates)
+              _AssetSheetDetail(
+                icon: Icons.schedule_rounded,
+                label: _statusLabel(transfer.status.apiValue),
+                value: _inventoryTimestamp(completed),
+              ),
+            if (preparationReceivedAt case final receivedAt?)
+              _AssetSheetDetail(
+                icon: Icons.check_circle_outline_rounded,
+                label: 'Tayyorlovga qabul qilingan',
+                value: _inventoryTimestamp(receivedAt),
+              ),
+            for (final receipt in preparationReceipts)
+              _AssetSheetDetail(
+                icon: Icons.inventory_2_outlined,
+                label: receipt.material,
+                value: [
+                  if (receipt.kg.isNotEmpty) '${preparationDisplay(receipt.kg)} kg',
+                  if (receipt.receivedAt != preparationReceivedAt)
+                    _inventoryTimestamp(receipt.receivedAt),
+                ].join(' · '),
+              ),
             if (transfer.note.trim().isNotEmpty)
               _AssetSheetDetail(
                 icon: Icons.notes_rounded,

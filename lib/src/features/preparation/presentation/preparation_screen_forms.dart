@@ -55,7 +55,7 @@ extension _PreparationForms on _PreparationScreenState {
           bool quantity = false}) =>
       showDialog<String>(
           context: context,
-          builder: (_) => _PreparationInputDialog(
+          builder: (_) => PreparationInputDialog(
               title: title, label: label, quantity: quantity));
 
   Future<void> _createMaterial(String warehouse) async {
@@ -96,16 +96,6 @@ String _formatDateTime(dynamic raw) {
   final dt = DateTime.tryParse(raw.toString())?.toLocal();
   if (dt == null) return raw.toString();
   return dt.toString().split('.').first;
-}
-
-String _linesSummary(dynamic lines) {
-  if (lines is! List) return '';
-  return lines.map((l) {
-    final name = l['name'] ?? '';
-    final pct = preparationDisplay(l['percent']?.toString() ?? '0');
-    final kg = preparationDisplay(l['kg']?.toString() ?? '0');
-    return '$name: $pct% → $kg kg';
-  }).join('\n');
 }
 
 class PreparationWarehouseScreen extends StatefulWidget {
@@ -509,18 +499,21 @@ class _PreparationWarehouseScreenState
                 },
                 child: const UrduAwareText('Katalog'),
               ),
-              TextButton(
-                onPressed: () async {
-                  await Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => PreparationHistoryScreen(
-                      history: widget.freshHistory(),
-                      onReload: widget.onReload,
-                      freshHistory: widget.freshHistory,
-                    )));
-                  if (mounted) setState(() => _materials = widget.freshMaterials());
-                },
-                child: const UrduAwareText('Tarix'),
-              ),
+              if (AppRouter.canOpenRoute(AppRoutes.preparationTransfers))
+                TextButton(
+                  onPressed: () async {
+                    await Navigator.of(context).pushNamed(
+                      AppRoutes.preparationTransfers,
+                      arguments: PreparationTransfersArgs(
+                        warehouseId: warehouseId,
+                        openHistory: true,
+                      ),
+                    );
+                    if (mounted) await widget.onReload();
+                    if (mounted) setState(() => _materials = widget.freshMaterials());
+                  },
+                  child: const UrduAwareText('Tarix'),
+                ),
             ],
           ),
           if (_warehouses.isNotEmpty)
@@ -1003,345 +996,6 @@ class _PreparationMaterialDetailScreenState
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class PreparationHistoryScreen extends StatefulWidget {
-  const PreparationHistoryScreen({
-    super.key,
-    required this.history,
-    required this.onReload,
-    this.freshHistory,
-  });
-
-  final List<dynamic> history;
-  final List<dynamic> Function()? freshHistory;
-  final Future<void> Function() onReload;
-
-  @override
-  State<PreparationHistoryScreen> createState() =>
-      _PreparationHistoryScreenState();
-}
-
-class _PreparationHistoryScreenState extends State<PreparationHistoryScreen> {
-  late List<Map<String, dynamic>> _history = [
-    for (final entry in widget.history)
-      if (entry is Map) Map<String, dynamic>.from(entry),
-  ];
-
-  Future<void> _onReceiptLongPress(
-      BuildContext context, Map<String, dynamic> doc) async {
-    final canReverse = doc['can_reverse'] == true;
-    final action = await showSpringBottomSheet<String>(
-      context: context,
-      builder: (_) => AppActionSheet<String>(
-        title: 'Kirim — ${doc['name'] ?? ''}',
-        subtitle:
-            '${doc['warehouse'] ?? ''} • ${preparationDisplay(doc['kg']?.toString() ?? '0')} kg',
-        actions: [
-          AppActionSheetAction(
-            title: 'Kirimni bekor qilish',
-            icon: Icons.undo_rounded,
-            value: 'reverse',
-            subtitle: canReverse
-                ? 'Ishlatilmagan va orderga ulanmagan kirim'
-                : 'Bu kirim ishlatilgan yoki orderga ulangan',
-            enabled: canReverse,
-            destructive: true,
-          ),
-          const AppActionSheetAction(
-            title: 'Yopish',
-            icon: Icons.close_rounded,
-            value: 'close',
-          ),
-        ],
-      ),
-    );
-    if (action == 'reverse' && mounted) {
-      await _reverseReceipt(doc);
-    }
-  }
-
-  Future<void> _reverseReceipt(Map<String, dynamic> doc) async {
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (_) => const _PreparationInputDialog(
-        title: 'Kirimni bekor qilish',
-        label: 'Sabab',
-        emptyError: 'Sabab kiriting',
-        maxLength: 500,
-      ),
-    );
-    if (!mounted || reason == null) return;
-    final confirmed = await showM3ConfirmDialog(
-      context: context,
-      title: 'Kirimni bekor qilish',
-      message:
-          '${preparationDisplay(doc['kg']?.toString() ?? '0')} kg kirim bekor qilinsinmi? Bu amal tarixda saqlanadi.',
-      cancelLabel: 'Qaytish',
-      confirmLabel: 'Bekor qilish',
-      destructive: true,
-    );
-    if (confirmed != true || !mounted) return;
-    try {
-      final result = await MobileApi.instance.preparationReverseReceipt(
-        receiptId: doc['id']?.toString() ?? '',
-        reason: reason,
-      );
-      if (!mounted) return;
-      final receiptId = doc['id']?.toString();
-      setState(() {
-        _history = [
-          {
-            ...result,
-            'created_at': DateTime.now().toIso8601String(),
-          },
-          for (final entry in _history)
-            if (entry['id']?.toString() == receiptId)
-              {
-                ...entry,
-                'reversed': true,
-                'can_reverse': false,
-              }
-            else
-              entry,
-        ];
-      });
-      await widget.onReload();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: UrduAwareText('Kirim bekor qilindi')),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-
-    return AppShell(
-      title: 'Kirim va sarf tarixi',
-      subtitle: 'Oxirgi 100 ta kirim va sarf',
-      nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      contentPadding: EdgeInsets.zero,
-      bottom: const PreparationDock(),
-      child: AppRefreshIndicator(
-        onRefresh: () async {
-          await widget.onReload();
-          final entries = widget.freshHistory?.call();
-          if (mounted && entries != null) {
-            setState(() => _history = [
-              for (final entry in entries)
-                if (entry is Map) Map<String, dynamic>.from(entry),
-            ]);
-          }
-        },
-        allowRefreshOnShortContent: true,
-        child: ListView(
-          physics: const TopRefreshScrollPhysics(),
-          padding: EdgeInsets.only(bottom: bottomPadding),
-          children: [
-            const SizedBox(height: _adminHomePanelCardGap),
-            if (_history.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: UrduAwareText(
-                  'Hali kirim yoki sarf yo‘q.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              )
-            else
-              M3SegmentSpacedColumn(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _adminHomePanelCardGap,
-                ),
-                children: [
-                  for (var i = 0; i < _history.length; i++)
-                    _buildHistoryCard(
-                      context,
-                      _history[i],
-                      _slotFor(i, _history.length),
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHistoryCard(
-    BuildContext context,
-    Map<String, dynamic> doc,
-    M3SegmentVerticalSlot slot,
-  ) {
-    final scheme = Theme.of(context).colorScheme;
-    final isReceipt = doc['kind'] == 'receipt';
-    final isReversal = doc['kind'] == 'receipt_reversal';
-    final reversed = doc['reversed'] == true;
-    final title = isReceipt
-        ? 'Kirim — ${doc['name']}'
-        : isReversal
-            ? 'Kirimni bekor qilish — ${doc['name']}'
-            : 'Sarf — ${doc['order_code']} ${doc['order_title']}';
-    final subtitle = isReceipt || isReversal
-        ? '${doc['warehouse']} • ${_formatDateTime(doc['created_at'])}${reversed ? '\nBekor qilingan' : ''}'
-        : '${doc['warehouse']} • ${_formatDateTime(doc['created_at'])}\n${_linesSummary(doc['lines'])}';
-    final value = isReceipt
-        ? '+${preparationDisplay(doc['kg'] as String? ?? '0')} kg'
-        : isReversal
-            ? '-${preparationDisplay(doc['kg'] as String? ?? '0')} kg'
-            : 'Order: ${preparationDisplay(doc['order_kg'] as String? ?? '0')} kg';
-
-    return AdminSummaryCard(
-      slot: slot,
-      cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
-      backgroundColor: scheme.surfaceContainerLowest,
-      title: title,
-      subtitle: subtitle,
-      value: value,
-      leading: Icon(
-        isReversal
-            ? Icons.undo_rounded
-            : isReceipt
-                ? (reversed
-                    ? Icons.undo_outlined
-                    : Icons.check_circle_outline_rounded)
-                : Icons.remove_circle_outline_rounded,
-        color: isReversal
-            ? scheme.error
-            : isReceipt
-                ? (reversed ? scheme.outline : Colors.green)
-                : Colors.orange,
-      ),
-      onLongPress: isReceipt && !reversed
-          ? () => _onReceiptLongPress(context, doc)
-          : null,
-      showChevron: false,
-      elevation: 4,
-    );
-  }
-}
-
-class _PreparationInputDialog extends StatefulWidget {
-  const _PreparationInputDialog(
-      {required this.title,
-      required this.label,
-      this.quantity = false,
-      this.emptyError = 'Nom kiriting',
-      this.initialValue = '',
-      this.maxLength = 160});
-  final String title, label;
-  final bool quantity;
-  final String emptyError;
-  final String initialValue;
-  final int maxLength;
-  @override
-  State<_PreparationInputDialog> createState() =>
-      _PreparationInputDialogState();
-}
-
-class _PreparationInputDialogState extends State<_PreparationInputDialog> {
-  late final _controller = TextEditingController(text: widget.initialValue);
-  final _form = GlobalKey<FormState>();
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    void submit() {
-      if (_form.currentState!.validate()) {
-        Navigator.pop(context, _controller.text.trim());
-      }
-    }
-
-    // Freym showM3ConfirmDialog bilan 1:1 (inset, fon, radius, border).
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      backgroundColor: scheme.surfaceContainerHigh,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-        side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: 0.65),
-        ),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.title, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 10),
-              Form(
-                key: _form,
-                child: TextFormField(
-                    controller: _controller,
-                    autofocus: true,
-                    keyboardType: widget.quantity
-                        ? const TextInputType.numberWithOptions(decimal: true)
-                        : TextInputType.text,
-                    inputFormatters: widget.quantity
-                        ? [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.,]'),
-                            ),
-                          ]
-                        : null,
-                    decoration: InputDecoration(labelText: widget.label),
-                    validator: (text) {
-                      if (!widget.quantity) {
-                        return (text ?? '').trim().isEmpty
-                            ? widget.emptyError
-                            : (text!.trim().length > widget.maxLength
-                                ? 'Matn juda uzun'
-                                : null);
-                      }
-                      try {
-                        preparationDecimal(text ?? '');
-                        return null;
-                      } on FormatException catch (e) {
-                        return e.message;
-                      }
-                    }),
-              ),
-              const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                    onPressed: submit, child: const UrduAwareText('Saqlash')),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const UrduAwareText('Bekor qilish')),
-              ),
-            ],
-          ),
         ),
       ),
     );

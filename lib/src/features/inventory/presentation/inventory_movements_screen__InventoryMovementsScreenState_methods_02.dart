@@ -512,7 +512,7 @@ extension __InventoryMovementsScreenStateAstPart02
         await Future.wait([
           _loadTransfers('incoming', force: true),
           _loadAssets(force: true),
-          if (history != null) history._refreshTransfers(),
+          if (history != null) history._load(),
         ]);
         if (mounted) _showMessage('Seriyo tayyorlov sarfiga qabul qilindi');
         return;
@@ -524,6 +524,7 @@ extension __InventoryMovementsScreenStateAstPart02
       );
       _upsertTransfer(updated);
       await _applyAssetMutations(_assetMutationsForTransfer(updated));
+      await _preparationHistoryTabKey.currentState?._load();
     });
   }
 }

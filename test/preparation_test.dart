@@ -5,6 +5,8 @@ import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/state/app_session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
+import 'package:accord_mobile_v2/src/features/preparation/presentation/widgets/preparation_history_operation_card.dart';
 import 'package:accord_mobile_v2/src/features/preparation/models/preparation_models.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -178,21 +180,20 @@ void main() {
   testWidgets('receipt history long press exposes cancellation action',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: PreparationHistoryScreen(
-        history: const [
-          {
+      home: Scaffold(
+        body: PreparationHistoryOperationCard(
+          date: '08.09.2026 10:54',
+          slot: M3SegmentVerticalSlot.top,
+          operation: const {
             'id': 'receipt-1',
             'kind': 'receipt',
             'warehouse': 'Tayyorlov ombori',
-            'item_code': 'P1',
             'name': 'Kley',
             'kg': '12.500000',
-            'created_at': '2026-09-08T10:54:36',
             'can_reverse': true,
-            'reversed': false,
           },
-        ],
-        onReload: () async {},
+          onReversed: () async {},
+        ),
       ),
     ));
     await tester.pumpAndSettle();

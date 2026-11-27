@@ -35,7 +35,7 @@ extension _PreparationWarehouseManagement on _PreparationWarehouseScreenState {
     if (action == 'rename') {
       newName = await showDialog<String>(
         context: context,
-        builder: (_) => _PreparationInputDialog(
+        builder: (_) => PreparationInputDialog(
           title: 'Ombor nomini o‘zgartirish',
           label: 'Ombor nomi',
           initialValue: warehouse,

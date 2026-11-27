@@ -92,7 +92,7 @@ class _PreparationMaterialsScreenState
     if (action == 'rename') {
       name = await showDialog<String>(
           context: context,
-          builder: (_) => _PreparationInputDialog(
+          builder: (_) => PreparationInputDialog(
               title: 'Homashyo nomini o‘zgartirish',
               label: 'Homashyo nomi',
               initialValue: material.name));
