@@ -30,6 +30,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
   final _scope = currentSessionReadScope();
   List<WasteBin> _bins = const [];
   WasteBin? _selected;
+  ({WasteBinFormResult values, String requestId})? _registrationAttempt;
   String? _scannedCycleId;
   bool _busy = false;
   String? _error;
@@ -124,12 +125,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     WasteBin? saved;
     await _run(() async {
       final bin = existing == null
-          ? await _api.registerWasteBin(
-              code: values.code,
-              tareKg: values.tareKg,
-              toleranceKg: values.toleranceKg,
-              configuration: values.configuration,
-            )
+          ? await _registerBin(values)
           : await _api.configureWasteBin(
               code: existing.code,
               configuration: values.configuration,
@@ -141,6 +137,21 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
     });
     final bin = saved;
     if (_current && existing == null && bin != null) await _showQr(bin);
+  }
+
+  Future<WasteBin> _registerBin(WasteBinFormResult values) async {
+    final attempt = _registrationAttempt;
+    if (attempt == null || !values.sameRegistrationAs(attempt.values)) {
+      _registrationAttempt = (values: values, requestId: newWasteRequestId());
+    }
+    final bin = await _api.registerWasteBin(
+      requestId: _registrationAttempt!.requestId,
+      tareKg: values.tareKg,
+      toleranceKg: values.toleranceKg,
+      configuration: values.configuration,
+    );
+    _registrationAttempt = null;
+    return bin;
   }
 
   Future<void> _showQr(WasteBin bin) => showDialog<void>(

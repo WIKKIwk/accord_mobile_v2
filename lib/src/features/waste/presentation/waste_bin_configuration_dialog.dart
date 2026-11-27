@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 
 import '../../../core/api/mobile_api.dart';
@@ -9,16 +10,23 @@ import 'waste_bin_details.dart';
 
 class WasteBinFormResult {
   const WasteBinFormResult({
-    required this.code,
     required this.tareKg,
     required this.toleranceKg,
     required this.configuration,
   });
 
-  final String code;
   final double tareKg;
   final double? toleranceKg;
   final WasteBinConfiguration configuration;
+
+  bool sameRegistrationAs(WasteBinFormResult other) =>
+      tareKg == other.tareKg &&
+      toleranceKg == other.toleranceKg &&
+      configuration.name.trim() == other.configuration.name.trim() &&
+      setEquals(configuration.apparatusIds.toSet(),
+          other.configuration.apparatusIds.toSet()) &&
+      setEquals(configuration.operators.toSet(),
+          other.configuration.operators.toSet());
 }
 
 class WasteBinConfigurationDialog extends StatefulWidget {
@@ -40,7 +48,6 @@ class _WasteBinConfigurationDialogState
     extends State<WasteBinConfigurationDialog> {
   final _form = GlobalKey<FormState>();
   late final _name = TextEditingController(text: widget.bin?.name);
-  late final _code = TextEditingController(text: widget.bin?.code);
   final _tare = TextEditingController();
   final _tolerance = TextEditingController();
   late final _apparatusNames = {
@@ -65,7 +72,6 @@ class _WasteBinConfigurationDialogState
   @override
   void dispose() {
     _name.dispose();
-    _code.dispose();
     _tare.dispose();
     _tolerance.dispose();
     super.dispose();
@@ -143,7 +149,6 @@ class _WasteBinConfigurationDialogState
     Navigator.pop(
       context,
       WasteBinFormResult(
-        code: _code.text,
         tareKg: widget.bin?.tareKg ?? wasteKgInput(_tare.text)!,
         toleranceKg: wasteKgInput(_tolerance.text),
         configuration: WasteBinConfiguration(
@@ -193,25 +198,17 @@ class _WasteBinConfigurationDialogState
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _code,
-                readOnly: !isNew,
-                textCapitalization: TextCapitalization.characters,
-                textInputAction: TextInputAction.next,
-                decoration: appSurfaceInputDecoration(
-                  context,
-                  labelText: 'Quti kodi',
+              if (widget.bin case final bin?) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: bin.code,
+                  readOnly: true,
+                  decoration: appSurfaceInputDecoration(
+                    context,
+                    labelText: 'Quti kodi',
+                  ),
                 ),
-                validator: (value) {
-                  try {
-                    wasteBinCode(value ?? '');
-                    return null;
-                  } on FormatException catch (error) {
-                    return error.message;
-                  }
-                },
-              ),
+              ],
               if (isNew) ...[
                 const SizedBox(height: 12),
                 _kgField(_tare, 'Bo‘sh quti vazni (kg)', required: true),

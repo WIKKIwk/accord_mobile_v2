@@ -15,6 +15,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _rezka = 'apparatus:default:asset-010';
@@ -114,10 +115,10 @@ void main() {
       await tester.tap(newBin);
       await tester.pumpAndSettle();
 
+      expect(find.widgetWithText(TextFormField, 'Quti kodi'), findsNothing);
       final fields = [
         for (final label in [
           'Quti nomi',
-          'Quti kodi',
           'Bo‘sh quti vazni (kg)',
           'Ruxsat etilgan farq (kg)',
         ])
@@ -186,11 +187,12 @@ void main() {
       bin = {
         ...?bin,
         ...body,
-        'qr_payload': 'ACCORD-WASTE:CQ-11',
+        'code': 'CQ-001',
+        'qr_payload': 'ACCORD-WASTE:CQ-001',
         'tolerance_kg': 0.5,
         'status': 'empty',
         'configured': true,
-      };
+      }..remove('request_id');
       return _json(bin!);
     });
 
@@ -206,8 +208,6 @@ void main() {
       await tap(find.text('Yangi quti'));
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Quti nomi'), 'Bo‘sh quti A');
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Quti kodi'), 'CQ-11');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Bo‘sh quti vazni (kg)'), '5');
       await tap(find.text('Apparatlarni tanlash'));
@@ -228,8 +228,10 @@ void main() {
       await tap(find.text('Tanlash'));
       await tap(find.text('Saqlash'));
       expect(writes.single.$1, 'register');
+      final requestId = writes.single.$2['request_id'];
+      expect(requestId, matches(RegExp(r'^waste-[a-f0-9]{32}$')));
       expect(writes.single.$2, {
-        'code': 'CQ-11',
+        'request_id': requestId,
         'tare_kg': 5,
         'name': 'Bo‘sh quti A',
         'apparatus_ids': [_rezka, _laminatsiya],
@@ -238,9 +240,23 @@ void main() {
           {'role': 'rezka_master', 'ref': 'vali'},
         ],
       });
+      expect(find.byType(QrImageView), findsOneWidget);
+      expect(
+        find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.text('Bo‘sh quti A · CQ-001')),
+        findsOneWidget,
+      );
       await tap(find.text('Yopish'));
       await tap(find.text('Qutini sozlash'));
       expect(find.text('Bo‘sh quti A'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextFormField>(
+                find.widgetWithText(TextFormField, 'Quti kodi'))
+            .initialValue,
+        'CQ-001',
+      );
       expect(find.text('Rezka A, Laminatsiya B'), findsOneWidget);
       expect(find.text('Ali, Vali'), findsOneWidget);
       await tester.enterText(
@@ -251,9 +267,12 @@ void main() {
           writes.last.$2,
           {
             ...writes.first.$2,
+            'code': 'CQ-001',
             'name': 'Umumiy quti',
-          }..remove('tare_kg'));
-      expect(find.text('Umumiy quti · CQ-11'), findsWidgets);
+          }
+            ..remove('tare_kg')
+            ..remove('request_id'));
+      expect(find.text('Umumiy quti · CQ-001'), findsWidgets);
       expect(tester.takeException(), isNull);
     }, () => client);
   });

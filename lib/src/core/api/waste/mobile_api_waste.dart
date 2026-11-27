@@ -291,13 +291,13 @@ extension MobileApiWaste on MobileApi {
   }
 
   Future<WasteBin> registerWasteBin({
-    required String code,
+    required String requestId,
     required double tareKg,
     required WasteBinConfiguration configuration,
     double? toleranceKg,
   }) =>
       _wasteBinMutation('register', {
-        'code': wasteBinCode(code),
+        'request_id': requestId,
         'tare_kg': tareKg,
         if (toleranceKg != null) 'tolerance_kg': toleranceKg,
         ...configuration.toJson(),
