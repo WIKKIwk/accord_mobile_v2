@@ -107,6 +107,73 @@ extension MobileApiMaterialPaddons on MobileApi {
   Future<PreparationPendingCommand?> pendingPreparationPaddonAttachment() =>
       _readPaddonCommand(_paddonAttachmentKey);
 
+  bool get canPackInventoryPaddon {
+    final profile = AppSession.instance.profile;
+    return profile != null &&
+        profile.role == UserRole.materialTaminotchi &&
+        profile.ref.isNotEmpty &&
+        profile.hasCapability('material.paddon.pack') &&
+        profile.hasCapability('inventory.movement.manage') &&
+        profile.hasCapability('gscale.catalog.read');
+  }
+
+  String _inventoryPaddonAttachmentKey() {
+    if (!canPackInventoryPaddon) {
+      throw const MobileApiException(
+          code: 'forbidden', message: 'Rulonlarni biriktirishga ruxsat yo‘q');
+    }
+    return '${_paddonStorageKey(write: false)}:inventory-attach';
+  }
+
+  Future<PreparationPendingCommand?> pendingInventoryPaddonAttachment() =>
+      _readPaddonCommand(_inventoryPaddonAttachmentKey);
+
+  Future<PreparationMaterialPaddonsPage> inventoryPaddonOptions(
+    List<String> assetRefs, {
+    int offset = 0,
+    String query = '',
+  }) async {
+    final key = _inventoryPaddonAttachmentKey();
+    final scope = currentSessionReadScope();
+    void checkAccess() {
+      if (currentSessionReadScope() != scope ||
+          _inventoryPaddonAttachmentKey() != key) {
+        throw StateError('Akkaunt o‘zgargan');
+      }
+    }
+
+    final response = await _sendAuthorized(() {
+      checkAccess();
+      return _post(
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/raw-material-paddons/roll-options'),
+        headers: _headers(requireToken())..['Content-Type'] = 'application/json',
+        body: jsonEncode({
+          'asset_refs': assetRefs,
+          'offset': offset,
+          'q': String.fromCharCodes(query.trim().runes.take(200)),
+        }),
+      );
+    });
+    checkAccess();
+    return PreparationMaterialPaddonsPage.fromJson(_preparationResponse(response));
+  }
+
+  Future<void> attachInventoryRollsToPaddon(
+    String code,
+    List<String> assetRefs,
+  ) async {
+    final refs = assetRefs.toList()..sort();
+    await _submitPreparationCommand(
+      kind: 'inventory_paddon_attach',
+      path: 'raw-material-paddons/roll-attach',
+      payload: {'code': code, 'asset_refs': refs},
+      storageKey: _inventoryPaddonAttachmentKey,
+      validateResult: (result) => _validatePaddonAttachment(
+        result, code, 'asset_refs', refs,
+      ),
+    );
+  }
+
   Future<(PreparationMaterialPaddonsPage, PreparationPaddonSelection?)>
       preparationPaddonOptions(List<String> receiptNames, {int offset = 0}) async {
     final data = await _preparationPaddonOptions({
@@ -199,16 +266,25 @@ extension MobileApiMaterialPaddons on MobileApi {
         if (transferBetweenWarehouses) 'transfer_between_warehouses': true,
       },
       storageKey: _paddonAttachmentKey,
-      validateResult: (result) {
-        final saved = result['receipt_names'];
-        if (result['paddon_code'] != code ||
-            saved is! List ||
-            saved.length != receipts.length ||
-            !setEquals(receipts.toSet(), saved.toSet())) {
-          throw const FormatException('Rulonlar biriktirilgani tasdiqlanmadi');
-        }
-      },
+      validateResult: (result) => _validatePaddonAttachment(
+        result, code, 'receipt_names', receipts,
+      ),
     );
+  }
+
+  void _validatePaddonAttachment(
+    Map<String, dynamic> result,
+    String code,
+    String idField,
+    List<String> ids,
+  ) {
+    final saved = result[idField];
+    if (result['paddon_code'] != code ||
+        saved is! List ||
+        saved.length != ids.length ||
+        !setEquals(ids.toSet(), saved.toSet())) {
+      throw const FormatException('Rulonlar biriktirilgani tasdiqlanmadi');
+    }
   }
 
   String _paddonIssueKey() => '${_paddonStorageKey(write: true)}:issue';

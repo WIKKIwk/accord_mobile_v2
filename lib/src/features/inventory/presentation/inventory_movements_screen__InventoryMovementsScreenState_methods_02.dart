@@ -23,6 +23,56 @@ extension __InventoryMovementsScreenStateAstPart02
     await _relocateSelectedAssets();
   }
 
+  Future<void> _loadPendingPaddonAttachment() async {
+    final api = MobileApi.instance;
+    if (!api.canPackInventoryPaddon) return;
+    final pending =
+        await api.pendingInventoryPaddonAttachment().onError((_, __) => null);
+    if (mounted && _inventoryReadScope == currentSessionReadScope()) {
+      _updateInventory(() => _pendingPaddonAttachment = pending != null);
+    }
+  }
+
+  Future<void> _attachSelectedInventoryRolls() async {
+    bool currentAccount() => mounted &&
+        _inventoryReadScope == currentSessionReadScope() &&
+        MobileApi.instance.canPackInventoryPaddon;
+    if (!_inventoryFabOpen || !currentAccount() || _selectionActionBusy) return;
+    if (!_pendingPaddonAttachment && _tabs.index != 0 && !_qrLookupOpen) return;
+    final assets = _selectedAssets;
+    _updateInventory(() => _inventoryFabOpen = false);
+    if (!_pendingPaddonAttachment &&
+        (assets.isEmpty ||
+            assets.length > 100 ||
+            assets.any((asset) =>
+                asset.kind != InventoryAssetKind.rawMaterial ||
+                asset.custodyWarehouseId != _selectedWarehouseId ||
+                !asset.isAvailable ||
+                asset.physicalLocation.kind != InventoryLocationKind.warehouse))) {
+      _showMessage('Bitta ombordagi 1–100 ta bo‘sh tayyorlov rulonini tanlang');
+      return;
+    }
+    final result = await showInventoryPaddonPicker(
+      context,
+      currentAccount: currentAccount,
+      assetRefs: assets.map((asset) => asset.assetRef).toList(growable: false),
+    );
+    if (!currentAccount()) return;
+    unawaited(_loadPendingPaddonAttachment());
+    if (result == null) return;
+    final packed = result.rollIds.toSet();
+    _updateInventory(() {
+      _selectedAssetKeys.removeAll(packed.map(
+        (id) => '${InventoryAssetKind.rawMaterial.apiValue}:${id.toLowerCase()}',
+      ));
+      _qrScannedAssets = _qrScannedAssets
+          .where((asset) => asset.kind != InventoryAssetKind.rawMaterial ||
+              !packed.contains(asset.assetRef))
+          .toList(growable: false);
+    });
+    await _loadAssets(force: true);
+  }
+
   Future<void> _unlinkSelectedRawMaterials() async {
     final assets = _selectedLinkedRawMaterialAssets;
     if (!_materialScoped || _stateSelectionMode || assets.isEmpty) {

@@ -1,31 +1,69 @@
-part of 'preparation_production_screen.dart';
+import 'dart:async';
 
-typedef _AttachedRolls = ({
+import 'package:flutter/material.dart';
+
+import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/urdu_aware_text.dart';
+import '../../../core/session/session.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
+import '../../../core/widgets/shell/app_loading_indicator.dart';
+import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
+import '../../admin/presentation/widgets/admin_top_notice.dart';
+import '../../werka/presentation/widgets/m3_picker_sheet.dart';
+import '../models/preparation_models.dart';
+import 'material_paddon_details_sheet.dart';
+import 'material_paddon_receipt_dialog.dart';
+
+typedef PaddonAttachment = ({
   String code,
-  List<String> receiptNames,
+  List<String> rollIds,
   List<String> batchIds,
 });
 
-Future<_AttachedRolls?> _pickProductionPaddon(
+Future<PaddonAttachment?> showProductionPaddonPicker(
   BuildContext context, {
   required bool Function() currentAccount,
   List<String> receiptNames = const [],
   List<String> batchIds = const [],
-}) async {
-  final result = await showDialog<_AttachedRolls>(
+}) =>
+    _showPaddonPicker(
+      context,
+      _ProductionPaddonPicker(
+        receiptNames: receiptNames,
+        batchIds: batchIds,
+        currentAccount: currentAccount,
+      ),
+    );
+
+Future<PaddonAttachment?> showInventoryPaddonPicker(
+  BuildContext context, {
+  required bool Function() currentAccount,
+  required List<String> assetRefs,
+}) =>
+    _showPaddonPicker(
+      context,
+      _ProductionPaddonPicker(
+        inventoryAssetRefs: assetRefs,
+        currentAccount: currentAccount,
+      ),
+    );
+
+Future<PaddonAttachment?> _showPaddonPicker(
+  BuildContext context,
+  _ProductionPaddonPicker picker,
+) async {
+  final result = await showDialog<PaddonAttachment>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => _ProductionPaddonPicker(
-      receiptNames: receiptNames,
-      batchIds: batchIds,
-      currentAccount: currentAccount,
-    ),
+    builder: (_) => picker,
   );
-  if (result != null && context.mounted && currentAccount()) {
+  if (result != null && context.mounted && picker.currentAccount()) {
     showAdminTopNotice(
       context,
       AppLocalizations.of(context).uiText(
-        '${result.receiptNames.length} ta rulon ${result.code} paddoniga biriktirildi',
+        '${result.rollIds.length} ta rulon ${result.code} paddoniga biriktirildi',
       ),
       tone: AdminTopNoticeTone.success,
     );
@@ -35,13 +73,15 @@ Future<_AttachedRolls?> _pickProductionPaddon(
 
 class _ProductionPaddonPicker extends StatefulWidget {
   const _ProductionPaddonPicker({
-    required this.receiptNames,
-    required this.batchIds,
+    this.receiptNames = const [],
+    this.batchIds = const [],
+    this.inventoryAssetRefs,
     required this.currentAccount,
   });
 
   final List<String> receiptNames;
   final List<String> batchIds;
+  final List<String>? inventoryAssetRefs;
   final bool Function() currentAccount;
 
   @override
@@ -60,6 +100,14 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
 
   bool get _current => mounted && widget.currentAccount();
   bool get _fromBatches => widget.batchIds.isNotEmpty;
+  bool get _fromInventory => widget.inventoryAssetRefs != null;
+  List<String> get _requestedRolls =>
+      widget.inventoryAssetRefs ?? widget.receiptNames;
+
+  Future<PreparationPendingCommand?> _pendingAttachment() => _fromInventory
+      ? _api.pendingInventoryPaddonAttachment()
+      : _api.pendingPreparationPaddonAttachment();
+
   PreparationMaterialPaddon? get _selectedPaddon =>
       _paddons.where((paddon) => paddon.code == _selectedCode).firstOrNull;
   bool get _transfersToSelected {
@@ -69,11 +117,11 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
         (selection.transferReceiptNamesByWarehouse.containsKey(warehouse) ||
             selection.transferWarehouses.contains(warehouse));
   }
-  List<String> get _selectedReceipts {
+  List<String> get _selectedRolls {
     if (_selection case final selection?) {
       return selection.receiptsFor(_selectedPaddon?.warehouse);
     }
-    return _fromBatches ? const [] : widget.receiptNames;
+    return _fromBatches ? const [] : _requestedRolls;
   }
 
   @override
@@ -103,14 +151,20 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     });
     try {
       if (offset == 0) {
-        final pending = await _api.pendingPreparationPaddonAttachment();
+        final pending = await _pendingAttachment();
         if (!_current) return;
         if (pending != null) {
           setState(() => _pending = pending);
           return;
         }
       }
-      final (page, selection) = _fromBatches
+      if (_fromInventory && _requestedRolls.isEmpty) {
+        setState(() => _error = 'Tanlangan rulonlar yo‘q');
+        return;
+      }
+      final (page, selection) = _fromInventory
+          ? (await _api.inventoryPaddonOptions(_requestedRolls, offset: offset), null)
+          : _fromBatches
           ? await _api.preparationBatchPaddonOptions(widget.batchIds, offset: offset)
           : await _api.preparationPaddonOptions(widget.receiptNames, offset: offset);
       if (!_current) return;
@@ -140,6 +194,11 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     } catch (error) {
       if (_current) {
         setState(() {
+          if (_fromInventory) {
+            _paddons.clear();
+            _selectedCode = null;
+            _nextOffset = null;
+          }
           _error = error is MobileApiException
               ? error.message
               : 'Mos paddonlar yuklanmadi';
@@ -156,7 +215,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
         materialPaddonBalance(paddon),
       ].join(' • ');
 
-  Future<void> _findExistingPaddon(PreparationPaddonSelection selection) async {
+  Future<void> _findExistingPaddon(PreparationPaddonSelection? selection) async {
     if (!_current || _loading || _saving || _paddonDialogOpen) return;
     setState(() => _paddonDialogOpen = true);
     try {
@@ -174,7 +233,11 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
           itemSubtitle: _paddonSubtitle,
           loadPage: (query, offset, _) async {
             if (!_current) throw StateError('Akkaunt o‘zgargan');
-            final page = await _api.materialPaddons(query: query, offset: offset);
+            final page = _fromInventory
+                ? await _api.inventoryPaddonOptions(
+                    _requestedRolls, query: query, offset: offset,
+                  )
+                : await _api.materialPaddons(query: query, offset: offset);
             if (!_current) throw StateError('Akkaunt o‘zgargan');
             return page.paddons;
           },
@@ -194,7 +257,8 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                 );
               }
               final paddon = paddons[index];
-              final count = selection.receiptsFor(paddon.warehouse).length;
+              final count = selection?.receiptsFor(paddon.warehouse).length ??
+                  _requestedRolls.length;
               final compatible = count > 0;
               final availability = compatible
                   ? '$count ta rulon biriktiriladi'
@@ -254,10 +318,10 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     final pending = _pending;
     final code = pending?.payload['code'] as String? ?? _selectedCode;
     if (code == null) return;
-    final names =
-        (pending?.payload['receipt_names'] as List?)?.cast<String>() ??
-            _selectedReceipts;
-    if (names.isEmpty) return;
+    final idField = _fromInventory ? 'asset_refs' : 'receipt_names';
+    final ids = (pending?.payload[idField] as List?)?.cast<String>() ??
+        _selectedRolls;
+    if (ids.isEmpty) return;
     final batchIds = switch (pending?.payload) {
       null => widget.batchIds,
       {'batch_ids': final List ids} => ids.cast<String>(),
@@ -269,24 +333,26 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
       _error = null;
     });
     try {
-      await _api.attachPreparationRollsToPaddon(
-        code,
-        names,
-        batchIds: batchIds,
-        transferBetweenWarehouses: pending == null
-            ? _transfersToSelected
-            : pending.payload['transfer_between_warehouses'] == true,
-      );
-      if (_current) {
+      if (_fromInventory) {
+        await _api.attachInventoryRollsToPaddon(code, ids);
+      } else {
+        await _api.attachPreparationRollsToPaddon(
+          code,
+          ids,
+          batchIds: batchIds,
+          transferBetweenWarehouses: pending == null
+              ? _transfersToSelected
+              : pending.payload['transfer_between_warehouses'] == true,
+        );
+      }
+      if (mounted && widget.currentAccount()) {
         Navigator.of(context).pop(
-          (code: code, receiptNames: names, batchIds: batchIds),
+          (code: code, rollIds: ids, batchIds: batchIds),
         );
       }
     } catch (error) {
       if (!_current) return;
-      final retry = await _api
-          .pendingPreparationPaddonAttachment()
-          .onError((_, __) => null);
+      final retry = await _pendingAttachment().onError((_, __) => null);
       if (_current) {
         setState(() {
           _pending = retry;
@@ -330,7 +396,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
       return const UrduAwareText('Hali rulon kirim qilinmagan.');
     }
     final selected = _selectedPaddon;
-    final receipts = _selectedReceipts.toSet();
+    final receipts = _selectedRolls.toSet();
     final count = selected == null ? selection.eligibleCount : receipts.length;
     final elsewhere = selection.eligibleCount - count;
     return Column(
@@ -375,7 +441,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     final nextOffset = _nextOffset;
     final partial = selection != null &&
         _selectedPaddon != null &&
-        _selectedReceipts.length < selection.totalRolls;
+        _selectedRolls.length < selection.totalRolls;
     return PopScope(
       canPop: !_saving && !_paddonDialogOpen,
       child: AlertDialog(
@@ -398,10 +464,11 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   _selectionSummary(selection)
                 else if (!_fromBatches)
                   UrduAwareText(
-                    '${widget.receiptNames.length} ta tanlangan rulon',
+                    '${_requestedRolls.length} ta tanlangan rulon',
                   ),
                 const SizedBox(height: 8),
-                if (selection != null && selection.eligibleCount > 0)
+                if ((_fromInventory && _paddons.isNotEmpty) ||
+                    (selection != null && selection.eligibleCount > 0))
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: OutlinedButton.icon(
@@ -493,7 +560,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                     _saving ||
                     _paddonDialogOpen ||
                     (pending == null &&
-                        (_selectedCode == null || _selectedReceipts.isEmpty))
+                        (_selectedCode == null || _selectedRolls.isEmpty))
                 ? null
                 : _save,
             child: UrduAwareText(

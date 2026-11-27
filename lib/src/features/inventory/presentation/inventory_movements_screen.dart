@@ -33,6 +33,7 @@ import '../../material_taminotchi/presentation/widgets/material_taminotchi_navig
 import '../../material_taminotchi/presentation/widgets/raw_material_list_assignment.dart';
 import '../../material_taminotchi/presentation/widgets/raw_material_order_assignment_section.dart';
 import '../../preparation/presentation/preparation_navigation.dart';
+import '../../preparation/presentation/preparation_production_paddon_picker.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
@@ -83,6 +84,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   final Set<String> _enteringTransferIds = {};
   int _selectedStateAssetCount = 0;
   bool _inventoryFabOpen = false;
+  bool _pendingPaddonAttachment = false;
   bool _qrLookupOpen = false;
   String _qrLookupStatus = 'QR kodni ramkaga keltiring';
   List<InventoryAsset> _qrScannedAssets = const [];
@@ -99,6 +101,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     _tabs = TabController(length: _materialScoped ? 4 : 3, vsync: this)
       ..addListener(_handleInventoryTabChanged);
     unawaited(_restoreWarehouseFilterAndLoad());
+    unawaited(_loadPendingPaddonAttachment());
   }
 
   @override
@@ -178,6 +181,10 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   Widget build(BuildContext context) {
     final selectedLinkedRawMaterials = _selectedLinkedRawMaterialAssets;
     final selectionActionBusy = _selectionActionBusy;
+    final showPaddonAttachment = MobileApi.instance.canPackInventoryPaddon &&
+        !_stateSelectionMode &&
+        (_pendingPaddonAttachment ||
+            ((_tabs.index == 0 || _qrLookupOpen) && _selectedAssetKeys.isNotEmpty));
     final tabs = <Tab>[
       const Tab(text: 'Mahsulotlar'),
       if (_materialScoped) const Tab(text: 'State’lar'),
@@ -325,6 +332,14 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
               key: const ValueKey('inventory-movements-fab'),
               open: _inventoryFabOpen,
               actions: [
+                if (showPaddonAttachment)
+                  AdminFabMenuAction(
+                    title: _pendingPaddonAttachment
+                        ? 'Biriktirish natijasini tekshirish'
+                        : 'Paddonga biriktirish',
+                    icon: Icons.inventory_2_outlined,
+                    onTap: _attachSelectedInventoryRolls,
+                  ),
                 AdminFabMenuAction(
                   title: 'QR orqali izlash',
                   icon: Icons.qr_code_scanner_rounded,

@@ -111,14 +111,14 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
 
   Future<void> _attachRollsToPaddon() async {
     if (!mounted || !currentAccount || _selectedRolls.isEmpty) return;
-    final result = await _pickProductionPaddon(
+    final result = await showProductionPaddonPicker(
       context,
       receiptNames: _selectedRolls.keys.toList(growable: false),
       currentAccount: () => mounted && currentAccount,
     );
     if (!mounted || !currentAccount || result == null) return;
     setState(() {
-      for (final name in result.receiptNames) {
+      for (final name in result.rollIds) {
         _selectedRolls.remove(name);
       }
     });

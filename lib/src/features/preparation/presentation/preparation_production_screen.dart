@@ -14,7 +14,6 @@ import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
-import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
@@ -31,14 +30,13 @@ import '../../admin/presentation/widgets/admin_top_notice.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
 import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart' show UserRole;
-import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'material_paddon_details_sheet.dart';
 import 'material_paddon_receipt_dialog.dart';
 import 'preparation_navigation.dart';
+import 'preparation_production_paddon_picker.dart';
 
 part 'preparation_production_notes.dart';
-part 'preparation_production_paddon_picker.dart';
 part 'preparation_production_sync.dart';
 
 class PreparationProductionScreen extends StatefulWidget {
@@ -548,7 +546,7 @@ class _ProductionOrdersState
   Future<void> _attachSelectedBatches() async {
     if (!currentAccount || _selectedBatches.isEmpty) return;
     final ids = _selectedBatches.keys.toList(growable: false);
-    final result = await _pickProductionPaddon(
+    final result = await showProductionPaddonPicker(
       context,
       batchIds: ids,
       currentAccount: () => _isCurrentBatchSelection(ids),
@@ -976,7 +974,7 @@ class _ProductionBatchState extends _JournalState<
                   AdminFabMenuAction(
                     title: 'Paddonga biriktirish',
                     icon: Icons.inventory_2_outlined,
-                    onTap: () => _pickProductionPaddon(
+                    onTap: () => showProductionPaddonPicker(
                       context,
                       batchIds: [batch.id],
                       currentAccount: () =>

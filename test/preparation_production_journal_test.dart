@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:accord_mobile_v2/src/app/app_router.dart';
+import 'package:accord_mobile_v2/src/core/inventory/inventory_view_store.dart';
 import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/native_bluetooth_printer.dart';
 import 'package:accord_mobile_v2/src/core/printing/session_bluetooth_printer.dart';
@@ -16,12 +17,14 @@ import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_c
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_summary_card.dart';
+import 'package:accord_mobile_v2/src/features/inventory/presentation/inventory_movements_screen.dart';
 import 'package:accord_mobile_v2/src/features/preparation/models/preparation_production_models.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/material_paddon_details_sheet.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/material_paddon_issue_dialog.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_production_screen.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
+import 'package:accord_mobile_v2/src/features/shared/models/inventory_movement_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -216,6 +219,139 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.preparationProduction), isFalse);
     AppSession.instance.profile = _profile(capabilities: const []);
     expect(AppRouter.canOpenRoute(AppRoutes.preparationProduction), isFalse);
+  });
+
+  testWidgets('material inventory FAB packs eligible rolls and retries once',
+      (tester) async {
+    AppSession.instance.profile = _profile(
+      ref: 'material-pack',
+      role: UserRole.materialTaminotchi,
+      capabilities: [
+        'inventory.movement.manage',
+        'gscale.catalog.read',
+        'material.paddon.pack',
+      ],
+    ).copyWith(assignedWarehouses: ['Shared']);
+    const location = InventoryLocation(
+      id: 'warehouse-location',
+      kind: InventoryLocationKind.warehouse,
+      name: 'Shared',
+      warehouseId: 'shared',
+    );
+    InventoryAsset roll(String id) => InventoryAsset.fromJson({
+          'kind': 'raw_material',
+          'asset_ref': id,
+          'custody_warehouse_id': 'shared',
+          'custody_warehouse': 'Shared',
+          'item_code': 'PE',
+          'item_name': 'PE $id',
+          'identifier': id.toUpperCase(),
+          'qty': 10,
+          'uom': 'kg',
+          'status': 'available',
+          'physical_location': {
+            'id': location.id,
+            'name': location.name,
+            'kind': 'warehouse',
+          },
+        });
+    var packed = false;
+    final free = roll('free');
+    final linked = roll('linked');
+    InventoryViewStore.debugOverride = InventoryViewStore(
+      liveEnabled: () => false,
+      snapshotLoader: (query) async => switch (query.kind) {
+        'locations' => [location],
+        'assets' => [if (!packed) free, linked],
+        _ => [],
+      },
+    );
+    addTearDown(() => InventoryViewStore.debugOverride = null);
+
+    const code = 'XP-ABCDEF0123456789';
+    const conflict = 'Buyurtmaga ulangan rulonni biriktirib bo‘lmaydi';
+    final writes = <Map<String, dynamic>>[];
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const InventoryMovementsScreen()));
+      await tester.pumpAndSettle();
+      final fab = find.bySemanticsLabel('Amallar');
+      final pack = find.text('Paddonga biriktirish');
+      final freeRow = find.byKey(const ValueKey('inventory-asset-free'));
+      final linkedRow = find.byKey(const ValueKey('inventory-asset-linked'));
+      final save = find.byKey(const ValueKey('production-attach-paddon-save'));
+
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      expect(pack, findsNothing);
+      await tester.tap(find.bySemanticsLabel('Yopish'));
+      await tester.pumpAndSettle();
+      await tester.longPress(freeRow);
+      await tester.pumpAndSettle();
+      await tester.tap(linkedRow);
+      await tester.pumpAndSettle();
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      await tester.tap(pack);
+      await tester.pumpAndSettle();
+      expect(find.text(conflict), findsOneWidget);
+      expect(tester.widget<FilledButton>(save).onPressed, isNull);
+      expect(writes, isEmpty);
+
+      await tester.tap(find.text('Bekor qilish'));
+      await tester.pumpAndSettle();
+      await tester.tap(linkedRow);
+      await tester.pumpAndSettle();
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      await tester.tap(pack);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-$code')));
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('Natijani tekshirish'), findsOneWidget);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+
+      expect(writes, hasLength(2));
+      expect(writes.first, writes.last);
+      expect(writes.first['request_id'], isNotEmpty);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(freeRow, findsNothing);
+      expect(linkedRow, findsOneWidget);
+    }, (request) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(request.method, 'POST');
+      switch (request.url.path) {
+        case '/v1/mobile/raw-material-paddons/roll-options':
+          if ((body['asset_refs'] as List).contains('linked')) {
+            return _json({'code': 'preparation_conflict', 'error': conflict},
+                status: 409);
+          }
+          expect(body['asset_refs'], ['free']);
+          return _json({
+            'paddons': [
+              {
+                'paddon_id': 'p1',
+                'paddon_code': code,
+                'warehouse': 'Shared',
+                'remaining_kg': '0',
+                'contents': [],
+              },
+            ],
+            'has_more': false,
+          });
+        case '/v1/mobile/raw-material-paddons/roll-attach':
+          expect(body['asset_refs'], ['free']);
+          expect(body['code'], code);
+          writes.add(body);
+          if (writes.length == 1) return _json({'error': 'Temporary'}, status: 503);
+          packed = true;
+          return _json({'paddon_code': code, 'asset_refs': ['free']});
+        default:
+          throw StateError('Unexpected request: ${request.url.path}');
+      }
+    });
   });
 
   testWidgets('master home opens the production journal', (tester) async {
