@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_action_button_styles.dart';
+import '../../../core/widgets/display/app_metric_tile.dart';
+import '../../../core/widgets/display/app_status_chip.dart';
+import '../../../core/widgets/lists/app_segment_surface_card.dart';
+import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
 import 'waste_bin_details.dart';
 
@@ -269,53 +275,90 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final secondaryText = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     final bin = _snapshot?.bin;
     final cycle = bin?.cycle;
     final pending = _snapshot?.pending ?? const <WasteEntry>[];
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chiqindi qutisi'),
-        actions: [
-          IconButton(
-            tooltip: 'Yangilash',
-            onPressed: _busy ? null : () => _run(_refresh),
-            icon: const Icon(Icons.refresh),
+    return AppShell(
+      title: 'Chiqindi qutisi',
+      subtitle: '',
+      nativeTopBar: true,
+      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
+      showProfileAction: false,
+      contentPadding: EdgeInsets.zero,
+      appBarBottomLoading: _busy,
+      actions: [
+        IconButton(
+          tooltip: 'Yangilash',
+          onPressed: _busy ? null : () => _run(_refresh),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          10,
+          14,
+          10,
+          16 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        children: [
+          Text(
+            widget.apparatusName,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(widget.apparatusName,
-                style: Theme.of(context).textTheme.titleLarge),
-            if (widget.orderId != null) Text('Buyurtma: ${widget.orderId}'),
-            const Text(
-                'Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.'),
-            const SizedBox(height: 12),
-            if (_busy) const LinearProgressIndicator(),
-            if (_error != null)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.error_outline,
-                    color: Theme.of(context).colorScheme.error),
-                title: Text(_error!),
+          if (widget.orderId case final orderId?) ...[
+            const SizedBox(height: 4),
+            Text('Buyurtma: $orderId', style: secondaryText),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            'Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.',
+            style: secondaryText,
+          ),
+          if (_error case final message?) ...[
+            const SizedBox(height: 14),
+            AppSegmentSurfaceCard(
+              padding: EdgeInsets.zero,
+              child: ListTile(
+                leading:
+                    Icon(Icons.error_outline, color: theme.colorScheme.error),
+                title: Text(message),
               ),
-            if (_snapshot != null && bin == null)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Faol quti yo‘q'),
-                subtitle:
-                    const Text('Bo‘sh qutini tanlang yoki QR’ni skan qiling.'),
-                trailing: IconButton.filled(
-                  tooltip: 'Quti tanlash',
-                  onPressed: _busy ? null : _assign,
-                  icon: const Icon(Icons.add),
-                ),
+            ),
+          ],
+          if (_snapshot != null && bin == null) ...[
+            const SizedBox(height: 14),
+            AppSegmentSurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Faol quti yo‘q', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Bo‘sh qutini tanlang yoki QR’ni skan qiling.',
+                    style: secondaryText,
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _assign,
+                    style: appFilledActionButtonStyle(),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Quti tanlash'),
+                  ),
+                ],
               ),
-            if (pending.isNotEmpty)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+            ),
+          ],
+          if (pending.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            AppSegmentSurfaceCard(
+              padding: EdgeInsets.zero,
+              child: ListTile(
                 title: Text('Qutiga biriktirilmagan: ${pending.length} ta'),
                 trailing: bin != null
                     ? TextButton(
@@ -325,32 +368,63 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
                       )
                     : null,
               ),
-            if (bin != null && cycle != null) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text('Faol quti ${bin.label}'),
-                subtitle: Text(
-                    'Qayd etilgan chiqindi: ${wasteKgLabel(cycle.expectedKg)}'),
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: _busy ? null : () => _submit(bin, replace: true),
-                    child: const Text('Qutini almashtirish'),
-                  ),
-                  OutlinedButton(
-                    onPressed:
-                        _busy ? null : () => _submit(bin, replace: false),
-                    child: const Text('Qutini topshirish'),
-                  ),
-                ],
-              ),
-              WasteCycleDetails(cycle: cycle),
-            ],
+            ),
           ],
-        ),
+          if (bin != null && cycle != null) ...[
+            const SizedBox(height: 14),
+            _activeBinCard(bin, cycle),
+            const SizedBox(height: 14),
+            AppSegmentSurfaceCard(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: WasteCycleDetails(cycle: cycle, showSummary: false),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _activeBinCard(WasteBin bin, WasteCycle cycle) {
+    final theme = Theme.of(context);
+    return AppSegmentSurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              Text(
+                bin.label,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              AppStatusChip(label: wasteStatusLabel(cycle.status)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          AppMetricTile(
+            label: 'Qayd etilgan chiqindi',
+            value: wasteKgLabel(cycle.expectedKg),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _busy ? null : () => _submit(bin, replace: true),
+            style: appFilledActionButtonStyle(),
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const Text('Qutini almashtirish'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => _submit(bin, replace: false),
+            style: appOutlinedActionButtonStyle(),
+            icon: const Icon(Icons.outbox_outlined),
+            label: const Text('Qutini topshirish'),
+          ),
+        ],
       ),
     );
   }

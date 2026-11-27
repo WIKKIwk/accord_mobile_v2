@@ -4,6 +4,10 @@ import 'package:accord_mobile_v2/src/app/app_router.dart';
 import 'package:accord_mobile_v2/src/core/api/mobile_api.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
+import 'package:accord_mobile_v2/src/core/theme/app_theme.dart';
+import 'package:accord_mobile_v2/src/core/widgets/display/app_metric_tile.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/app_segment_surface_card.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_shell.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/waste/presentation/waste_operator_screen.dart';
 import 'package:accord_mobile_v2/src/features/waste/presentation/waste_weigh_dialog.dart';
@@ -305,6 +309,11 @@ void main() {
 
   testWidgets('operator attaches reported waste and swaps the bin',
       (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     AppSession.instance.profile = AppSession.instance.profile!.copyWith(
       role: UserRole.aparatchi,
       assignedApparatus: [_apparatusId],
@@ -382,15 +391,17 @@ void main() {
       return _json(bin('CQ-A', 'sealed'));
     });
     await http.runWithClient(() async {
-      await tester.pumpWidget(const MaterialApp(
-        home: WasteOperatorScreen(
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        home: const WasteOperatorScreen(
           apparatusId: _apparatusId,
           apparatusName: 'Rezka',
           orderId: 'current-order',
         ),
       ));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Quti tanlash'));
+      expect(find.byType(AppShell), findsOneWidget);
+      await tester.tap(find.text('Quti tanlash'));
       await tester.pumpAndSettle();
       expect(find.text('Eski quti'), findsNothing);
       await tester.tap(find.text('Asosiy quti'));
@@ -400,11 +411,33 @@ void main() {
             'Quti band yoki apparatda boshqa faol quti bor. Ro‘yxatni qayta oching.'),
         findsOneWidget,
       );
-      await tester.tap(find.byTooltip('Quti tanlash'));
+      await tester.tap(find.text('Quti tanlash'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Asosiy quti'));
       await tester.pumpAndSettle();
-      expect(find.text('Faol quti Asosiy quti · CQ-A'), findsOneWidget);
+      final activeCard = find.ancestor(
+        of: find.text('Asosiy quti · CQ-A'),
+        matching: find.byType(AppSegmentSurfaceCard),
+      );
+      expect(tester.getSize(activeCard).width, greaterThan(350));
+      expect(find.text('Rezka'), findsOneWidget);
+      expect(find.text('Yig‘ilmoqda'), findsOneWidget);
+      final weightTile = find.descendant(
+        of: activeCard,
+        matching: find.byType(AppMetricTile),
+      );
+      expect(tester.widget<AppMetricTile>(weightTile).value, '0 kg');
+      expect(find.text('0 kg'), findsOneWidget);
+      expect(
+        find.descendant(
+            of: activeCard, matching: find.text('Qutini almashtirish')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+            of: activeCard, matching: find.text('Qutini topshirish')),
+        findsOneWidget,
+      );
       expect(find.text('Chiqindi qo‘shish'), findsNothing);
       expect(
           find.text('Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.'),
@@ -415,7 +448,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Biriktirish'));
       await tester.pumpAndSettle();
-      expect(find.text('Qayd etilgan chiqindi: 2.5 kg'), findsOneWidget);
+      expect(tester.widget<AppMetricTile>(weightTile).value, '2.5 kg');
       expect(find.textContaining('Astatka hisoboti · Buyurtma: current-order'),
           findsOneWidget);
       await tester.tap(find.text('Qutini almashtirish'));
@@ -424,7 +457,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Topshirish'));
       await tester.pumpAndSettle();
-      expect(find.text('Faol quti Zaxira quti · CQ-B'), findsOneWidget);
+      expect(find.text('Zaxira quti · CQ-B'), findsOneWidget);
       expect(find.text('Qutini bo‘shatish'), findsNothing);
       expect(tester.takeException(), isNull);
     }, () => client);

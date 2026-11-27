@@ -40,9 +40,14 @@ String wasteWhen(BuildContext context, DateTime? date) {
 }
 
 class WasteCycleDetails extends StatelessWidget {
-  const WasteCycleDetails({super.key, required this.cycle});
+  const WasteCycleDetails({
+    super.key,
+    required this.cycle,
+    this.showSummary = true,
+  });
 
   final WasteCycle cycle;
+  final bool showSummary;
 
   @override
   Widget build(BuildContext context) {
@@ -56,14 +61,15 @@ class WasteCycleDetails extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListTile(
-          leading: const Icon(Icons.factory_outlined),
-          title: Text(cycle.apparatusName.isEmpty
-              ? cycle.apparatusId
-              : cycle.apparatusName),
-          subtitle: Text(wasteStatusLabel(cycle.status)),
-          trailing: Text(wasteKgLabel(cycle.expectedKg)),
-        ),
+        if (showSummary)
+          ListTile(
+            leading: const Icon(Icons.factory_outlined),
+            title: Text(cycle.apparatusName.isEmpty
+                ? cycle.apparatusId
+                : cycle.apparatusName),
+            subtitle: Text(wasteStatusLabel(cycle.status)),
+            trailing: Text(wasteKgLabel(cycle.expectedKg)),
+          ),
         if (cycle.openedAt != null)
           _movement(context, 'Biriktirildi', cycle.openedBy, cycle.openedAt),
         if (cycle.sealedAt != null)
