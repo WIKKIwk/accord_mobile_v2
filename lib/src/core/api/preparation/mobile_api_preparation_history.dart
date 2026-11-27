@@ -3,7 +3,6 @@ part of '../mobile_api.dart';
 extension MobileApiPreparationHistory on MobileApi {
   Future<PreparationHistoryPage> preparationHistory({
     required String warehouseId,
-    required PreparationHistoryFilter filter,
     PreparationHistoryCursor? cursor,
   }) async {
     final scope = currentSessionReadScope();
@@ -20,7 +19,7 @@ extension MobileApiPreparationHistory on MobileApi {
     final uri =
         Uri.parse('${MobileApi.baseUrl}/v1/mobile/preparation/history').replace(
       queryParameters: {
-        'kind': filter.name,
+        'kind': 'all',
         if (warehouseId.isNotEmpty) 'warehouse_id': warehouseId,
         if (cursor != null) ...{
           'before_time': cursor.time,

@@ -173,13 +173,9 @@ extension __InventoryMovementsScreenStateAstPart02
   }
 
   void _refreshTransferFilters() {
-    final selected = _warehouseLocations.where(
-      (item) => item.warehouseId == _selectedWarehouseId,
-    );
-    if (selected.isEmpty || !mounted) {
-      return;
-    }
-    final warehouseName = selected.first.name;
+    final selected = _warehouseLocationFor(_selectedWarehouseId);
+    if (!mounted || (!_preparationScoped && selected == null)) return;
+    final warehouseName = selected?.name ?? '';
     _updateInventory(() {
       _incoming = _filterTransfersByWarehouse(
         _allIncoming,
@@ -318,6 +314,9 @@ extension __InventoryMovementsScreenStateAstPart02
               transferId: transfer.id,
             );
       await _applyAssetMutations([updatedAsset]);
+      if (_preparationScoped && _isPreparationTransferInHistory(transfer)) {
+        await _preparationHistoryTabKey.currentState?._load();
+      }
     });
   }
 
@@ -510,7 +509,7 @@ extension __InventoryMovementsScreenStateAstPart02
         if (!mounted) return;
         final history = _preparationHistoryTabKey.currentState;
         await Future.wait([
-          _loadTransfers('incoming', force: true),
+          _loadPendingPreparationTransfers(force: true),
           _loadAssets(force: true),
           if (history != null) history._load(),
         ]);

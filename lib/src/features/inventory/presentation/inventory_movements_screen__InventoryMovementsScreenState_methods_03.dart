@@ -99,27 +99,66 @@ extension __InventoryMovementsScreenStateAstPart03
     final incoming = direction == 'incoming';
     final transfers = incoming ? _incoming : _outgoing;
     return _TransferList(
-      transfers: _preparationScoped
-          ? transfers
-              .where((transfer) => !_isPreparationTransferInHistory(transfer))
-              .toList(growable: false)
-          : transfers,
+      transfers: transfers,
       emptyMessage:
           incoming ? 'Kiruvchi transfer yo‘q' : 'Chiquvchi transfer yo‘q',
       header: _warehouseFilter(),
       busyKeys: _busyKeys,
       enteringTransferIds: _enteringTransferIds,
+      onTransferTap: (transfer) => _showTransferDetails(transfer, const []),
+      onRefresh: () => _loadTransfers(direction, force: true),
+    );
+  }
+
+  Widget _buildPendingPreparationTransfersTab() {
+    final byId = <String, InventoryTransfer>{};
+    for (final transfer in [..._incoming, ..._outgoing]) {
+      final previous = byId[transfer.id];
+      if (previous == null ||
+          _preparationTransferStage(transfer) >
+              _preparationTransferStage(previous)) {
+        byId[transfer.id] = transfer;
+      }
+    }
+    final transfers = byId.values
+        .where((transfer) => !_isPreparationTransferInHistory(transfer))
+        .toList()
+      ..sort((a, b) {
+        final byTime = b.createdAtUnix.compareTo(a.createdAtUnix);
+        return byTime != 0 ? byTime : b.id.compareTo(a.id);
+      });
+    final loading = _loadingTransferDirections.isNotEmpty;
+    final error = _transferErrors['incoming'] ?? _transferErrors['outgoing'];
+
+    Future<void> refresh() => _loadPendingPreparationTransfers(force: true);
+
+    if (transfers.isEmpty) {
+      if (loading) return const Center(child: AppLoadingIndicator());
+      if (error != null) {
+        return _InventoryErrorState(message: error, onRetry: refresh);
+      }
+    }
+
+    return _TransferList(
+      transfers: transfers,
+      emptyMessage: localizeUrduUiText('Kutilayotgan transfer yo‘q'),
+      header: _warehouseFilter(),
+      busyKeys: _busyKeys,
+      enteringTransferIds: _enteringTransferIds,
+      pendingDescription: _pendingPreparationTransferDescription,
+      footer: error == null || loading
+          ? null
+          : _InventoryErrorState(message: error, onRetry: refresh),
       onTransferTap: (transfer) => _showTransferDetails(
         transfer,
         [
-          if (_preparationScoped &&
-              incoming &&
-              transfer.status == InventoryTransferStatus.received &&
-              transfer.pendingPreparationLots > 0)
+          if (transfer.status == InventoryTransferStatus.received &&
+              transfer.pendingPreparationLots > 0 &&
+              _incoming.any((incoming) => incoming.id == transfer.id))
             'accept_preparation',
         ],
       ),
-      onRefresh: () => _loadTransfers(direction, force: true),
+      onRefresh: refresh,
     );
   }
 

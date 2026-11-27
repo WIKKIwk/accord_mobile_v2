@@ -37,7 +37,6 @@ class _PreparationHistoryTab extends StatefulWidget {
 
 class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
     with AutomaticKeepAliveClientMixin<_PreparationHistoryTab> {
-  PreparationHistoryFilter _filter = PreparationHistoryFilter.all;
   List<PreparationHistoryEntry> _entries = const [];
   PreparationHistoryCursor? _nextCursor;
   InventoryViewLease<InventoryTransfer>? _transferView;
@@ -106,7 +105,6 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
     if (!_current || (append && (_loading || _nextCursor == null))) return;
     _transferRefresh?.cancel();
     final request = ++_request;
-    final filter = _filter;
     final warehouseId = widget.visibleWarehouseId;
     final preserveCount = !append && !reset ? _entries.length : 0;
     final entries = <String, PreparationHistoryEntry>{
@@ -128,7 +126,6 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
       do {
         final page = await MobileApi.instance.preparationHistory(
           warehouseId: warehouseId,
-          filter: filter,
           cursor: cursor,
         );
         if (!_current || request != _request) return;
@@ -167,60 +164,31 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
     ]);
   }
 
-  Widget _buildFilters() {
+  Widget _buildWarehouseFilter() {
     final warehouseId = widget.visibleWarehouseId;
     final warehouses = widget.warehouses.toList(growable: false);
-    return Column(
-      children: [
-        if (warehouses.isNotEmpty)
-          AdminExpandableFilterChip<String>(
-            chipKey: const ValueKey('preparation-transfer-history-warehouse'),
-            label: 'Ombor',
-            emptyLabel: 'Barcha omborlar',
-            icon: Icons.warehouse_outlined,
-            selectedValue: warehouseId.isEmpty ? null : warehouseId,
-            expanded: _warehouseFilterExpanded,
-            onToggle: () => setState(() {
-              _warehouseFilterExpanded = !_warehouseFilterExpanded;
-            }),
-            onSelect: (value) {
-              setState(() => _warehouseFilterExpanded = false);
-              widget.onWarehouseSelected(value);
-            },
-            options: [
-              const AdminFilterChipOption(
-                value: '',
-                label: 'Barcha omborlar',
-              ),
-              for (final warehouse in warehouses)
-                AdminFilterChipOption(
-                  value: warehouse.warehouseId,
-                  label: warehouse.name,
-                ),
-            ],
+    if (warehouses.isEmpty) return const SizedBox.shrink();
+    return AdminExpandableFilterChip<String>(
+      chipKey: const ValueKey('preparation-transfer-history-warehouse'),
+      label: 'Ombor',
+      emptyLabel: 'Barcha omborlar',
+      icon: Icons.warehouse_outlined,
+      selectedValue: warehouseId.isEmpty ? null : warehouseId,
+      expanded: _warehouseFilterExpanded,
+      onToggle: () => setState(() {
+        _warehouseFilterExpanded = !_warehouseFilterExpanded;
+      }),
+      onSelect: (value) {
+        setState(() => _warehouseFilterExpanded = false);
+        widget.onWarehouseSelected(value);
+      },
+      options: [
+        const AdminFilterChipOption(value: '', label: 'Barcha omborlar'),
+        for (final warehouse in warehouses)
+          AdminFilterChipOption(
+            value: warehouse.warehouseId,
+            label: warehouse.name,
           ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 6,
-            children: [
-              for (final filter in PreparationHistoryFilter.values)
-                ChoiceChip(
-                  key: ValueKey('preparation-history-kind-${filter.name}'),
-                  label: UrduAwareText(filter.label),
-                  showCheckmark: false,
-                  selected: _filter == filter,
-                  onSelected: (selected) {
-                    if (selected && _filter != filter) {
-                      setState(() => _filter = filter);
-                      unawaited(_load(reset: true));
-                    }
-                  },
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -274,7 +242,7 @@ class _PreparationHistoryTabState extends State<_PreparationHistoryTab>
           height: index == 0 ? 8 : M3SegmentedListGeometry.gap,
         ),
         itemBuilder: (context, index) {
-          if (index == 0) return _buildFilters();
+          if (index == 0) return _buildWarehouseFilter();
           if (index == _entries.length + 1) return _buildFooter();
           final entry = _entries[index - 1];
           final slot = M3SegmentedListGeometry.standaloneListSlotForIndex(

@@ -197,7 +197,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    await tester.longPress(find.text('Kirim — Kley'));
+    await tester.longPress(find.text('Kley kirim qilindi'));
     await tester.pumpAndSettle();
     expect(find.text('Kirimni bekor qilish'), findsOneWidget);
     expect(find.text('Ishlatilmagan va orderga ulanmagan kirim'), findsOneWidget);

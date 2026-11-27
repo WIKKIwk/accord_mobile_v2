@@ -91,6 +91,53 @@ bool _isPreparationTransferInHistory(InventoryTransfer transfer) =>
       _ => false,
     };
 
+// Both transfer windows can publish the same row at different stages.
+int _preparationTransferStage(InventoryTransfer transfer) =>
+    switch (transfer.status) {
+      InventoryTransferStatus.requested => 0,
+      InventoryTransferStatus.approved => 1,
+      InventoryTransferStatus.inTransit => 2,
+      InventoryTransferStatus.received when transfer.pendingPreparationLots > 0 => 3,
+      _ => 4,
+    };
+
+String _pendingPreparationTransferDescription(InventoryTransfer transfer) {
+  final (message, warehouse) = switch (transfer.status) {
+    InventoryTransferStatus.requested =>
+      ('Tasdiqlash kutilmoqda', transfer.destinationWarehouse),
+    InventoryTransferStatus.approved =>
+      ('Jo‘natish kutilmoqda', transfer.sourceWarehouse),
+    InventoryTransferStatus.inTransit =>
+      ('Qabul qilish kutilmoqda', transfer.destinationWarehouse),
+    _ => ('Tayyorlovga qabul qilish kutilmoqda', transfer.destinationWarehouse),
+  };
+  return [localizeUrduUiText(message), if (warehouse.isNotEmpty) warehouse]
+      .join(' · ');
+}
+
+String _preparationHistoryTransferTitle(InventoryTransfer transfer) {
+  switch (transfer.status) {
+    case InventoryTransferStatus.cancelled:
+      return localizeUrduUiText('Transfer bekor qilindi');
+    case InventoryTransferStatus.rejected:
+      return localizeUrduUiText('Transfer rad etildi');
+    case InventoryTransferStatus.received:
+      final label = localizeUrduUiText('Ko‘chirildi');
+      final unit = transfer.lines.firstOrNull?.uom.trim() ?? '';
+      if (unit.isEmpty ||
+          transfer.lines.any(
+            (line) => line.uom.trim().toLowerCase() != unit.toLowerCase(),
+          )) {
+        return label;
+      }
+      final qty = transfer.lines.fold(0.0, (sum, line) => sum + line.qty);
+      final amount = preparationDisplay(qty.toStringAsFixed(6));
+      return '$amount $unit ${label.toLowerCase()}';
+    default:
+      return _statusLabel(transfer.status.apiValue);
+  }
+}
+
 bool _matchesTransferSearch(InventoryTransfer transfer, String query) =>
     query.isEmpty ||
     [
@@ -137,16 +184,20 @@ String _rawMaterialAssetBarcode(InventoryAsset asset) {
   return separator < 0 ? assetRef : assetRef.substring(separator + 1).trim();
 }
 
-String _transferSummary(InventoryTransfer transfer, {String? date}) {
-  final timestamp = date ?? _transferTimestamp(transfer);
-  if (transfer.lines.isEmpty) {
-    return timestamp;
-  }
-  final line = transfer.lines.first;
+String _transferMaterialLabel(InventoryTransfer transfer) {
+  final line = transfer.lines.firstOrNull;
+  if (line == null) return '';
   final item = line.itemName.trim().isEmpty ? line.itemCode : line.itemName;
   final extra =
       transfer.lines.length > 1 ? ' +${transfer.lines.length - 1} ta' : '';
-  return '$item$extra • ${_qty(line.qty)} ${line.uom} • '
+  return '$item$extra';
+}
+
+String _transferSummary(InventoryTransfer transfer) {
+  final timestamp = _transferTimestamp(transfer);
+  final line = transfer.lines.firstOrNull;
+  if (line == null) return timestamp;
+  return '${_transferMaterialLabel(transfer)} • ${_qty(line.qty)} ${line.uom} • '
       '$timestamp';
 }
 

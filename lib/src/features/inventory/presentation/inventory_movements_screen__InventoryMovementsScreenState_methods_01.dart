@@ -349,10 +349,20 @@ extension __InventoryMovementsScreenStateAstPart01
 
   void _loadCurrentTransferTab() {
     final index = _tabs.index;
-    if (index == _incomingTabIndex || index == _incomingTabIndex + 1) {
-      unawaited(
-          _loadTransfers(index == _incomingTabIndex ? 'incoming' : 'outgoing'));
+    if (index == _transferTabIndex) {
+      unawaited(_preparationScoped
+          ? _loadPendingPreparationTransfers()
+          : _loadTransfers('incoming'));
+    } else if (!_preparationScoped && index == _transferTabIndex + 1) {
+      unawaited(_loadTransfers('outgoing'));
     }
+  }
+
+  Future<void> _loadPendingPreparationTransfers({bool force = false}) async {
+    await Future.wait([
+      _loadTransfers('incoming', force: force),
+      _loadTransfers('outgoing', force: force),
+    ]);
   }
 
   void _handleTransferViewChanged(String direction) {
@@ -636,18 +646,18 @@ extension __InventoryMovementsScreenStateAstPart01
     _updateInventory(() {
       _allIncoming = incoming;
       _allOutgoing = outgoing;
-      _incoming = selected == null
+      _incoming = selected == null && !_preparationScoped
           ? const []
           : _filterTransfersByWarehouse(
               incoming,
-              warehouseName: selected.name,
+              warehouseName: selected?.name ?? '',
               incoming: true,
             );
-      _outgoing = selected == null
+      _outgoing = selected == null && !_preparationScoped
           ? const []
           : _filterTransfersByWarehouse(
               outgoing,
-              warehouseName: selected.name,
+              warehouseName: selected?.name ?? '',
               incoming: false,
             );
       if (!wasKnown) {

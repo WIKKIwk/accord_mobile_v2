@@ -257,14 +257,27 @@ void main() {
     }));
   });
 
-  testWidgets('master opens inventory, sees the order product and transfers a roll',
+  testWidgets('master sees the order product and moves an internal transfer straight to history',
       (tester) async {
     tester.view.physicalSize = const Size(430, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+      assignedWarehouses: ['Tayyorlov ombori', 'Ikkinchi ombor'],
+    );
     Map<String, dynamic>? sentTransfer;
-    var reserved = false;
+    const completedTransfer = {
+      'id': 'transfer:1',
+      'source_warehouse_id': 'warehouse:a',
+      'source_warehouse': 'Tayyorlov ombori',
+      'destination_warehouse_id': 'warehouse:c',
+      'destination_warehouse': 'Ikkinchi ombor',
+      'status': 'received',
+      'lines': [
+        {'asset_kind': 'raw_material', 'asset_ref': 'raw:roll-1', 'item_code': 'PE-1', 'item_name': 'PE PR', 'identifier': 'QR-1', 'qty': 10, 'uom': 'kg', 'source_physical_location_id': 'loc:a'},
+      ],
+    };
     await http.runWithClient(() async {
       await tester.pumpWidget(MaterialApp(
         locale: const Locale('uz'),
@@ -288,11 +301,15 @@ void main() {
       expect(find.text('State’lar'), findsNothing);
       expect(find.text('Qoldiqlar'), findsOneWidget);
       final tabBar = tester.widget<TabBar>(find.byType(TabBar));
-      expect((tabBar.tabs[tabBar.controller!.index] as Tab).text, 'Kiruvchi');
+      expect((tabBar.tabs[tabBar.controller!.index] as Tab).text, 'Kutilayotgan');
+      await tester.tap(find.text('Tarix'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tarixda yozuv topilmadi'), findsOneWidget);
       await tester.tap(find.text('Qoldiqlar'));
       await tester.pumpAndSettle();
-      expect(find.text('Kiruvchi'), findsOneWidget);
-      expect(find.text('Chiquvchi'), findsOneWidget);
+      expect(find.text('Kutilayotgan'), findsOneWidget);
+      expect(find.text('Kiruvchi'), findsNothing);
+      expect(find.text('Chiquvchi'), findsNothing);
       expect(find.text('0086 · Avella 72 sht'), findsOneWidget);
       expect(find.text('0087 · Boshqa mahsulot'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('inventory-asset-raw:roll-2')));
@@ -320,23 +337,30 @@ void main() {
       expect(find.text('Transfer'), findsOneWidget);
       await tester.tap(find.text('Transfer'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('inventory-location-loc:b')));
+      await tester.tap(find.byKey(const ValueKey('inventory-location-loc:c')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('So‘rov yuborish'));
+      await tester.tap(find.text('Ko‘chirish'));
       await tester.pumpAndSettle();
       expect(sentTransfer?['source_warehouse_id'], 'warehouse:a');
-      expect(sentTransfer?['destination_warehouse_id'], 'warehouse:b');
+      expect(sentTransfer?['destination_warehouse_id'], 'warehouse:c');
       expect(sentTransfer?['assets'], [
         {'asset_kind': 'raw_material', 'asset_ref': 'raw:roll-1'}
       ]);
+      await tester.tap(find.text('Tarix'));
+      await tester.pumpAndSettle();
+      expect(find.text('10 kg ko‘chirildi'), findsOneWidget);
+      expect(find.textContaining('Tayyorlov ombori → Ikkinchi ombor'), findsOneWidget);
+      await tester.tap(find.text('Kutilayotgan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kutilayotgan transfer yo‘q'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     }, () => MockClient((request) async {
           if (request.url.path.endsWith('/preparation/snapshot')) {
             return _json({
-              'warehouses': ['Tayyorlov ombori'],
-              'assigned_warehouses': ['Tayyorlov ombori'],
+              'warehouses': ['Tayyorlov ombori', 'Ikkinchi ombor'],
+              'assigned_warehouses': ['Tayyorlov ombori', 'Ikkinchi ombor'],
               'material_warehouses': ['Tayyorlov ombori'],
               'materials': [], 'orders': [], 'history': [],
             });
@@ -345,6 +369,7 @@ void main() {
             return _json([
               {'id': 'loc:a', 'kind': 'warehouse', 'name': 'Tayyorlov ombori', 'warehouse_id': 'warehouse:a', 'active': true},
               {'id': 'loc:b', 'kind': 'warehouse', 'name': 'Boshqa ombor', 'warehouse_id': 'warehouse:b', 'active': true},
+              {'id': 'loc:c', 'kind': 'warehouse', 'name': 'Ikkinchi ombor', 'warehouse_id': 'warehouse:c', 'active': true},
             ]);
           }
           if (request.url.path.endsWith('/inventory/assets')) {
@@ -354,10 +379,15 @@ void main() {
             final rows = [
               {
                 'kind': 'raw_material', 'asset_ref': 'raw:roll-1',
-                'custody_warehouse_id': 'warehouse:a', 'custody_warehouse': 'Tayyorlov ombori',
+                'custody_warehouse_id': sentTransfer == null ? 'warehouse:a' : 'warehouse:c',
+                'custody_warehouse': sentTransfer == null ? 'Tayyorlov ombori' : 'Ikkinchi ombor',
                 'item_code': 'PE-1', 'item_name': 'PE PR', 'identifier': 'QR-1',
-                'qty': 10, 'uom': 'kg', 'status': reserved ? 'transfer_reserved' : 'available',
-                'physical_location': {'id': 'loc:a', 'kind': 'warehouse', 'name': 'Tayyorlov ombori'},
+                'qty': 10, 'uom': 'kg', 'status': 'available',
+                'physical_location': {
+                  'id': sentTransfer == null ? 'loc:a' : 'loc:c',
+                  'kind': 'warehouse',
+                  'name': sentTransfer == null ? 'Tayyorlov ombori' : 'Ikkinchi ombor',
+                },
                 'order_assignment': {'order_id': 'zakaz-86', 'order_label': '0086 · Avella 72 sht', 'order_control': 'active'},
               },
               {
@@ -372,30 +402,44 @@ void main() {
             return _json(rows.where((row) =>
                 warehouse == null || row['custody_warehouse_id'] == warehouse).toList());
           }
-          if (request.url.path.endsWith('/inventory/transfers')) {
-            if (request.method == 'GET') return _json([]);
-            sentTransfer = jsonDecode(request.body) as Map<String, dynamic>;
-            reserved = true;
+          if (request.url.path.endsWith('/preparation/history')) {
             return _json({
-              'id': 'transfer:1', 'source_warehouse_id': 'warehouse:a',
-              'source_warehouse': 'Tayyorlov ombori', 'destination_warehouse_id': 'warehouse:b',
-              'destination_warehouse': 'Boshqa ombor', 'status': 'requested',
-              'lines': [{'asset_kind': 'raw_material', 'asset_ref': 'raw:roll-1', 'item_code': 'PE-1', 'item_name': 'PE PR', 'identifier': 'QR-1', 'qty': 10, 'uom': 'kg', 'source_physical_location_id': 'loc:a'}],
+              'entries': [
+                if (sentTransfer != null)
+                  {
+                    'key': 'transfer:transfer:1',
+                    'occurred_at': '2026-11-25T11:00:00Z',
+                    'transfer': completedTransfer,
+                  },
+              ],
             });
+          }
+          if (request.url.path.endsWith('/inventory/transfers')) {
+            if (request.method == 'GET') {
+              return _json([if (sentTransfer != null) completedTransfer]);
+            }
+            sentTransfer = jsonDecode(request.body) as Map<String, dynamic>;
+            return _json(completedTransfer);
           }
           fail('Unexpected request: ${request.method} ${request.url}');
         }));
   });
 
-  testWidgets('Seriyo stays incoming until accepted into preparation',
+  testWidgets('one waiting tab merges both directions and keeps the Seriyo acceptance',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    AppSession.instance.profile = AppSession.instance.profile!.copyWith(
+      assignedWarehouses: ['Tayyorlov ombori', 'Ikkinchi ombor'],
+    );
     var accepted = 0;
     const transferPath = '/v1/mobile/preparation/transfers/seriyo-transfer/accept';
-    final source = find.text('Ta’minot → Tayyorlov ombori');
+    final seriyo = find.byKey(const ValueKey('inventory-transfer-seriyo-transfer'));
+    final sent = find.byKey(const ValueKey('inventory-transfer-sent'));
+    final both = find.byKey(const ValueKey('inventory-transfer-both'));
+    final finished = find.byKey(const ValueKey('inventory-transfer-finished'));
     final rejected = find.byKey(const ValueKey('inventory-transfer-rejected'));
     final accept = find.widgetWithText(FilledButton, 'Tayyorlovga qabul qilish');
     final transfersCard = find.text('Transfer va tarix');
@@ -420,16 +464,21 @@ void main() {
       final tabBar = tester.widget<TabBar>(find.byType(TabBar));
       expect(
         tabBar.tabs.cast<Tab>().map((tab) => tab.text),
-        ['Tarix', 'Qoldiqlar', 'Kiruvchi', 'Chiquvchi'],
+        ['Tarix', 'Qoldiqlar', 'Kutilayotgan'],
       );
       expect(tabBar.controller!.index, 0);
-      expect(source, findsNothing);
+      expect(seriyo, findsNothing);
       expect(rejected, findsOneWidget);
-      await tester.tap(find.text('Kiruvchi'));
+      await tester.tap(find.text('Kutilayotgan'));
       await tester.pumpAndSettle();
       expect(rejected, findsNothing);
-      expect(find.text('Tayyorlovga qabul qilish · 1 ta'), findsOneWidget);
-      await tester.tap(source);
+      expect(sent, findsOneWidget);
+      expect(both, findsOneWidget);
+      expect(finished, findsNothing);
+      expect(find.textContaining('Jo‘natish kutilmoqda · Tayyorlov ombori'), findsOneWidget);
+      expect(find.textContaining('Qabul qilish kutilmoqda · Ikkinchi ombor'), findsOneWidget);
+      expect(find.textContaining('Tayyorlovga qabul qilish kutilmoqda · Tayyorlov ombori'), findsOneWidget);
+      await tester.tap(seriyo);
       await tester.pumpAndSettle();
       await tester.tap(accept);
       await tester.pumpAndSettle();
@@ -437,17 +486,17 @@ void main() {
       await tester.tap(find.text('Ha'));
       await tester.pumpAndSettle();
       expect(accepted, 1);
-      expect(source, findsNothing);
+      expect(seriyo, findsNothing);
       await tester.tap(find.text('Tarix'));
       await tester.pumpAndSettle();
-      expect(source, findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('preparation-history-kind-receipt')));
-      await tester.pumpAndSettle();
-      expect(source, findsOneWidget);
-      expect(rejected, findsNothing);
-      await tester.tap(source);
+      expect(seriyo, findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(rejected, findsOneWidget);
+      await tester.tap(seriyo);
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('Ko‘chirildi'), findsWidgets);
+      expect(find.text('Qabul qilingan'), findsNothing);
       expect(find.text('Tayyorlovga qabul qilingan'), findsOneWidget);
       expect(find.text('PE seriyo'), findsOneWidget);
       expect(find.text('12.5 kg'), findsOneWidget);
@@ -461,7 +510,7 @@ void main() {
         return _json({'transfer_id': 'seriyo-transfer', 'warehouse': 'Tayyorlov ombori'});
       }
       if (request.url.path.endsWith('/preparation/history')) {
-        final kind = request.url.queryParameters['kind'];
+        expect(request.url.queryParameters['kind'], 'all');
         return _json({
           'entries': [
             if (accepted > 0)
@@ -485,8 +534,7 @@ void main() {
                   'created_at_unix': 2,
                 },
               },
-            if (kind == 'all')
-              {
+            {
                 'key': 'transfer:rejected',
                 'kind': 'transfer',
                 'occurred_at': '2026-11-25T10:00:00Z',
@@ -497,25 +545,50 @@ void main() {
       }
       if (request.url.path.endsWith('/inventory/transfers')) {
         expect(request.method, 'GET');
-        expect(request.url.queryParameters['direction'], anyOf('all', 'incoming'));
+        final direction = request.url.queryParameters['direction'];
+        expect(direction, anyOf('all', 'incoming', 'outgoing'));
         return _json([
+          if (direction != 'outgoing') ...[
+            {
+              'id': 'seriyo-transfer',
+              'source_warehouse_id': 'supply',
+              'source_warehouse': 'Ta’minot',
+              'destination_warehouse_id': 'prep',
+              'destination_warehouse': 'Tayyorlov ombori',
+              'status': 'received',
+              'created_at_unix': 4,
+              'pending_preparation_lots': accepted == 0 ? 1 : 0,
+            },
+            {
+              'id': 'rejected',
+              'source_warehouse_id': 'other',
+              'source_warehouse': 'Tarqatish ombori',
+              'destination_warehouse_id': 'prep',
+              'destination_warehouse': 'Tayyorlov ombori',
+              'status': 'rejected',
+              'created_at_unix': 1,
+            },
+          ],
+          if (direction != 'incoming')
+            {
+              'id': 'sent',
+              'source_warehouse': 'Tayyorlov ombori',
+              'destination_warehouse': 'Ta’minot',
+              'status': 'approved',
+              'created_at_unix': 3,
+            },
           {
-            'id': 'seriyo-transfer',
-            'source_warehouse_id': 'supply',
-            'source_warehouse': 'Ta’minot',
-            'destination_warehouse_id': 'prep',
-            'destination_warehouse': 'Tayyorlov ombori',
-            'status': 'received',
+            'id': 'both',
+            'source_warehouse': 'Tayyorlov ombori',
+            'destination_warehouse': 'Ikkinchi ombor',
+            'status': direction == 'outgoing' ? 'requested' : 'in_transit',
             'created_at_unix': 2,
-            'pending_preparation_lots': accepted == 0 ? 1 : 0,
           },
           {
-            'id': 'rejected',
-            'source_warehouse_id': 'other',
-            'source_warehouse': 'Tarqatish ombori',
-            'destination_warehouse_id': 'prep',
-            'destination_warehouse': 'Tayyorlov ombori',
-            'status': 'rejected',
+            'id': 'finished',
+            'source_warehouse': 'Tayyorlov ombori',
+            'destination_warehouse': 'Ikkinchi ombor',
+            'status': direction == 'outgoing' ? 'requested' : 'received',
             'created_at_unix': 1,
           },
         ]);
@@ -577,7 +650,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(newer, findsOneWidget);
       expect(receipt, findsOneWidget);
+      expect(find.text('PE kirim qilindi'), findsOneWidget);
       expect(find.text('+12 kg'), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNothing);
       expect(older, findsNothing);
       expect(find.byType(EditableText), findsNothing);
       expect(find.byKey(const ValueKey('inventory-movements-fab')), findsNothing);
@@ -587,6 +662,7 @@ void main() {
       expect(queries[1]['before_key'], 'operation:direct');
       expect(queries[1]['before_time'], '2026-11-24T11:00:00Z');
       expect(older, findsOneWidget);
+      expect(find.text('111 kg ko‘chirildi'), findsOneWidget);
       expect(tester.getTopLeft(newer).dy, lessThan(tester.getTopLeft(receipt).dy));
       expect(tester.getTopLeft(older).dy - tester.getBottomLeft(receipt).dy,
           M3SegmentedListGeometry.gap);
@@ -612,13 +688,9 @@ void main() {
       expect(older, findsOneWidget);
       expect(queries, hasLength(3));
 
-      await tester.tap(find.byKey(const ValueKey('preparation-history-kind-consumption')));
-      await tester.pumpAndSettle();
-      expect(queries.last['warehouse_id'], 'prep');
-      expect(queries.last['kind'], 'consumption');
-      expect(older, findsNothing);
-      expect(receipt, findsNothing);
+      expect(queries.last['kind'], 'all');
       expect(usage, findsOneWidget);
+      expect(find.text('Ishlatildi · 0317 Choy'), findsOneWidget);
       expect(find.text('−13 kg'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, () => MockClient((request) async {
@@ -654,9 +726,16 @@ void main() {
           'source_warehouse': 'Tayyorlov ombori',
           'destination_warehouse': 'Ta’minot',
           'status': 'received',
+          'lines': [
+            {'asset_kind': 'raw_material', 'item_name': 'PE', 'qty': 50, 'uom': 'kg'},
+            {'asset_kind': 'raw_material', 'item_name': 'EVA', 'qty': 61, 'uom': 'kg'},
+          ],
         },
       };
-      if (params['kind'] == 'consumption') {
+      if (params['before_key'] != null) {
+        return _json({'entries': [olderTransfer]});
+      }
+      if (params['warehouse_id'] == 'prep') {
         return _json({
           'entries': [
             {
@@ -676,11 +755,9 @@ void main() {
                 ],
               },
             },
+            olderTransfer,
           ],
         });
-      }
-      if (params['before_key'] != null || params['warehouse_id'] == 'prep') {
-        return _json({'entries': [olderTransfer]});
       }
       return _json({
         'entries': [

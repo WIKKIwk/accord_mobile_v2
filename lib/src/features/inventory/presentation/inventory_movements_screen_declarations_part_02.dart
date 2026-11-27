@@ -12,6 +12,7 @@ class _TransferList extends StatelessWidget {
     this.enteringTransferIds = const {},
     this.footer,
     this.rowGap = 8,
+    this.pendingDescription,
   });
 
   final List<InventoryTransfer> transfers;
@@ -19,6 +20,7 @@ class _TransferList extends StatelessWidget {
   final Widget header;
   final Widget? footer;
   final double rowGap;
+  final String Function(InventoryTransfer)? pendingDescription;
   final Set<String> busyKeys;
   final Set<String> enteringTransferIds;
   final Future<void> Function(InventoryTransfer) onTransferTap;
@@ -81,6 +83,7 @@ class _TransferList extends StatelessWidget {
               transfer: transfer,
               busy: busyKeys.any((key) => key.startsWith(transfer.id)),
               onTap: () => unawaited(onTransferTap(transfer)),
+              pendingDescription: pendingDescription?.call(transfer),
             ),
           );
         },
@@ -97,6 +100,7 @@ class _InventoryTransferListRow extends StatelessWidget {
     required this.busy,
     required this.onTap,
     this.historyTime,
+    this.pendingDescription,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -104,16 +108,30 @@ class _InventoryTransferListRow extends StatelessWidget {
   final bool busy;
   final VoidCallback onTap;
   final String? historyTime;
+  final String? pendingDescription;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final route = '${transfer.sourceWarehouse} → ${transfer.destinationWarehouse}';
+    final time = historyTime;
+    final pending = pendingDescription;
+    final showPreparationDetails = time != null || pending != null;
+    final material = _transferMaterialLabel(transfer);
+    final subtitle = switch ((time, pending)) {
+      (final String date, _) =>
+        '$route\n${[if (material.isNotEmpty) material, date].join(' · ')}',
+      (_, final String description) =>
+        '$description\n${_transferSummary(transfer)}',
+      _ => _transferSummary(transfer),
+    };
     return AdminSummaryCard(
       slot: slot,
       cornerRadius: M3SegmentedListGeometry.cornerRadiusForSlot(slot),
       onTap: onTap,
       backgroundColor: scheme.surfaceContainerLowest,
-      fixedHeight: 61,
+      fixedHeight: showPreparationDetails ? null : 61,
+      minHeight: showPreparationDetails ? 61 : null,
       padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 8),
       value: '',
       showChevron: false,
@@ -133,13 +151,13 @@ class _InventoryTransferListRow extends StatelessWidget {
       ),
       trailing: busy
           ? const AppLoadingIndicator(size: 30, glyphSize: 18)
-          : _StatusBadge(status: transfer.status.apiValue),
-      title: '${transfer.sourceWarehouse} → ${transfer.destinationWarehouse}',
-      subtitle: transfer.pendingPreparationLots > 0
-          ? 'Tayyorlovga qabul qilish · ${transfer.pendingPreparationLots} ta'
-          : _transferSummary(transfer, date: historyTime),
-      titleMaxLines: 1,
-      subtitleMaxLines: 1,
+          : showPreparationDetails
+              ? null
+              : _StatusBadge(status: transfer.status.apiValue),
+      title: time == null ? route : _preparationHistoryTransferTitle(transfer),
+      subtitle: subtitle,
+      titleMaxLines: showPreparationDetails ? 2 : 1,
+      subtitleMaxLines: showPreparationDetails ? 3 : 1,
       titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -358,6 +376,8 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final runAction = onAction;
+    final moved = showHistoryDates &&
+        transfer.status == InventoryTransferStatus.received;
     return Material(
       color: scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
@@ -411,7 +431,10 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-                _StatusBadge(status: transfer.status.apiValue),
+                _StatusBadge(
+                  status: transfer.status.apiValue,
+                  label: moved ? 'Ko‘chirildi' : null,
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -437,7 +460,7 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
             if (_transferCompletionTime(transfer) case final completed? when showHistoryDates)
               _AssetSheetDetail(
                 icon: Icons.schedule_rounded,
-                label: _statusLabel(transfer.status.apiValue),
+                label: moved ? 'Ko‘chirilgan vaqt' : _statusLabel(transfer.status.apiValue),
                 value: _inventoryTimestamp(completed),
               ),
             if (preparationReceivedAt case final receivedAt?)
@@ -500,9 +523,10 @@ class _InventoryTransferDetailsSheet extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
+  const _StatusBadge({required this.status, this.label});
 
   final String status;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -520,7 +544,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        _statusLabel(normalized),
+        label == null ? _statusLabel(normalized) : localizeUrduUiText(label!),
         style: Theme.of(context).textTheme.labelSmall,
       ),
     );

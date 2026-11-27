@@ -1,15 +1,5 @@
 import '../../shared/models/inventory_movement_models.dart';
 
-enum PreparationHistoryFilter {
-  all('Barchasi'),
-  transfer('Transfer'),
-  receipt('Kirim'),
-  consumption('Sarf');
-
-  const PreparationHistoryFilter(this.label);
-  final String label;
-}
-
 class PreparationHistoryCursor {
   const PreparationHistoryCursor({required this.time, required this.key});
 

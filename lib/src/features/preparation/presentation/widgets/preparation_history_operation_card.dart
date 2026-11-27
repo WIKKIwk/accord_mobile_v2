@@ -102,9 +102,12 @@ class PreparationHistoryOperationCard extends StatelessWidget {
     final isReversal = operation['kind'] == 'receipt_reversal';
     final reversed = operation['reversed'] == true;
     final title = switch (operation['kind']) {
-      'receipt' => 'Kirim — ${operation['name']}',
-      'receipt_reversal' => 'Kirimni bekor qilish — ${operation['name']}',
-      _ => 'Sarf — ${operation['order_code']} ${operation['order_title']}',
+      'receipt' =>
+        '${operation['name']} ${localizeUrduUiText('kirim qilindi')}',
+      'receipt_reversal' =>
+        '${operation['name']} ${localizeUrduUiText('kirimi bekor qilindi')}',
+      _ =>
+        '${localizeUrduUiText('Ishlatildi')} · ${operation['order_code']} ${operation['order_title']}',
     };
     final lines = (operation['lines'] as List? ?? const []).whereType<Map>();
     final details = [

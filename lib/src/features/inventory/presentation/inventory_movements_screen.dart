@@ -111,12 +111,12 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     _inventoryReadScope = currentSessionReadScope();
     final preparationTransfers = widget.preparationTransfers;
     _tabs = TabController(
-      length: _materialScoped || _preparationScoped ? 4 : 3,
+      length: _materialScoped ? 4 : 3,
       vsync: this,
       initialIndex: _preparationScoped && preparationTransfers != null
           ? preparationTransfers.openHistory
               ? _preparationHistoryTabIndex
-              : _incomingTabIndex
+              : _transferTabIndex
           : _assetsTabIndex,
     );
     _shownTabIndex = _tabs.index;
@@ -166,7 +166,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
       AppSession.instance.profile?.role == UserRole.tayyorlovMasteri;
 
   int get _assetsTabIndex => _preparationScoped ? 1 : 0;
-  int get _incomingTabIndex => _assetsTabIndex + (_materialScoped ? 2 : 1);
+  int get _transferTabIndex => _assetsTabIndex + (_materialScoped ? 2 : 1);
   bool get _showPreparationHistory =>
       _preparationScoped && _tabs.index == _preparationHistoryTabIndex;
 
@@ -217,8 +217,12 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
       if (_preparationScoped) Tab(text: localizeUrduUiText('Tarix')),
       Tab(text: _preparationScoped ? 'Qoldiqlar' : 'Mahsulotlar'),
       if (_materialScoped) const Tab(text: 'State’lar'),
-      const Tab(text: 'Kiruvchi'),
-      const Tab(text: 'Chiquvchi'),
+      if (_preparationScoped)
+        Tab(text: localizeUrduUiText('Kutilayotgan'))
+      else ...[
+        const Tab(text: 'Kiruvchi'),
+        const Tab(text: 'Chiquvchi'),
+      ],
     ];
     final tabViews = <Widget>[
       if (_preparationScoped)
@@ -247,8 +251,12 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
           onOrderAssignmentChanged: _reloadOrderAssignments,
           onSelectionChanged: _handleStateSelectionChanged,
         ),
-      _buildTransferTab('incoming'),
-      _buildTransferTab('outgoing'),
+      if (_preparationScoped)
+        _buildPendingPreparationTransfersTab()
+      else ...[
+        _buildTransferTab('incoming'),
+        _buildTransferTab('outgoing'),
+      ],
     ];
     return AppShell(
       animateOnEnter: false,
