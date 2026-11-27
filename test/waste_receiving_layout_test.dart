@@ -75,7 +75,7 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('receiver scans and accepts an open bin with the current weight',
+  testWidgets('receiver weighs a selected or scanned bin directly',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -165,6 +165,13 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(_receiver());
       await tester.pumpAndSettle();
+      final gross = find.widgetWithText(TextField, 'Quti bilan vazn (kg)');
+      await tap('CQ-001');
+      await tap('Tortish va qabul qilish');
+      expect(find.byType(MobileScanner), findsNothing);
+      expect(gross, findsOneWidget);
+      await tap('Bekor qilish');
+
       await tester.tap(find.text('Qutini skan qilish'));
       await tester.pump();
       tester.widget<MobileScanner>(find.byType(MobileScanner)).onDetect!(
@@ -175,7 +182,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Yig‘ilmoqda · Tara 5 kg'), findsOneWidget);
 
-      final gross = find.widgetWithText(TextField, 'Quti bilan vazn (kg)');
       await tap('Tortish va qabul qilish');
       expect(find.byType(MobileScanner), findsNothing);
       await tester.enterText(gross, '25');

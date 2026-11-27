@@ -319,21 +319,19 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
   }
 
   Future<void> _receive(WasteBin bin) async {
-    if (_scannedCycleId != bin.cycle?.id && !await _scanMatching(bin)) return;
-    final scanned = _selected;
-    if (!_current || scanned == null || !scanned.canBeReceived) return;
+    if (!_current || !bin.canBeReceived) return;
     final warehouses = await _loadWarehouses();
     if (!mounted || !_current || warehouses == null) return;
     final result = await showDialog<WasteMeasurement>(
       context: context,
-      builder: (_) => WasteWeighDialog(bin: scanned, warehouses: warehouses),
+      builder: (_) => WasteWeighDialog(bin: bin, warehouses: warehouses),
     );
     if (!_current || result == null) return;
     await _run(() async {
       final WasteBin updated;
       try {
         updated = await _api.receiveWasteBin(
-          bin: scanned,
+          bin: bin,
           warehouseId: result.warehouseId,
           grossKg: result.grossKg,
           source: result.source,
@@ -341,7 +339,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
         );
       } on MobileApiException catch (error) {
         if (_current && error.code == 'waste_expected_weight_changed') {
-          final current = await _api.wasteBinDetail(scanned.code);
+          final current = await _api.wasteBinDetail(bin.code);
           if (_current) setState(() => _selected = current);
         }
         rethrow;
