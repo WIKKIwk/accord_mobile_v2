@@ -12,8 +12,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_action_button_styles.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/app_segment_surface_card.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_shell.dart';
 import '../../admin/presentation/raw_material_scan_dialog.dart';
+import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
 import '../../gscale/gscale_mobile_app.dart' show showPrintDevicePicker;
 import 'waste_bin_configuration_dialog.dart';
 import 'waste_bin_details.dart';
@@ -572,27 +574,42 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
               child: ListTile(title: Text('Chiqindi qutilari yo‘q')),
             ),
           ],
-          for (final bin in visible) ...[
+          if (visible.isNotEmpty) ...[
             const SizedBox(height: 8),
-            AppSegmentSurfaceCard(
-              padding: EdgeInsets.zero,
-              onTap: _busy ? null : () => _open(bin.code),
-              child: ListTile(
-                selected: bin.code == _selected?.code,
-                leading: const Icon(Icons.inventory_2_outlined),
-                title: Text(bin.label),
-                subtitle: Text([
-                  wasteStatusLabel(bin.status),
-                  if (!bin.configured && bin.status == WasteBinStatus.empty)
-                    'Biriktirilmagan',
-                  if (bin.cycle?.apparatusName case final name?
-                      when name.isNotEmpty)
-                    name,
-                ].join(' · ')),
-                trailing: bin.cycle == null
-                    ? null
-                    : Text(wasteKgLabel(bin.cycle!.expectedKg)),
-              ),
+            M3SegmentSpacedColumn(
+              children: [
+                for (final (index, item) in visible.indexed)
+                  Semantics(
+                    key: ValueKey(item.code),
+                    selected: item.code == bin?.code,
+                    child: AdminCatalogListRow(
+                      slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                        index,
+                        visible.length,
+                      ),
+                      icon: Icons.inventory_2_outlined,
+                      title: item.label,
+                      titleMaxLines: 2,
+                      subtitle: [
+                        wasteStatusLabel(item.status),
+                        if (!item.configured &&
+                            item.status == WasteBinStatus.empty)
+                          'Biriktirilmagan',
+                        if (item.cycle?.apparatusName case final name?
+                            when name.isNotEmpty)
+                          name,
+                      ].join(' · '),
+                      subtitleMaxLines: 2,
+                      value: item.cycle == null
+                          ? ''
+                          : wasteKgLabel(item.cycle!.expectedKg),
+                      backgroundColor: item.code == bin?.code
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
+                      onTap: _busy ? null : () => _open(item.code),
+                    ),
+                  ),
+              ],
             ),
           ],
         ],

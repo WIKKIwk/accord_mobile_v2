@@ -5,9 +5,11 @@ import 'package:accord_mobile_v2/src/core/localization/app_localizations.dart';
 import 'package:accord_mobile_v2/src/core/session/session.dart';
 import 'package:accord_mobile_v2/src/core/test_mode/test_mode_controller.dart';
 import 'package:accord_mobile_v2/src/core/widgets/lists/app_segment_surface_card.dart';
+import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
 import 'package:accord_mobile_v2/src/core/widgets/navigation/app_navigation_bar.dart';
 import 'package:accord_mobile_v2/src/core/widgets/navigation/role_dock.dart';
 import 'package:accord_mobile_v2/src/core/widgets/printing/bluetooth_printer_list.dart';
+import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_list_row.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
 import 'package:accord_mobile_v2/src/features/waste/presentation/waste_receiving_screen.dart';
 import 'package:accord_mobile_v2/src/features/waste/presentation/waste_warehouses_screen.dart';
@@ -72,13 +74,26 @@ void main() {
     AppSession.instance.profile = null;
   });
 
-  testWidgets('receiver uses the shared dock and a wide spaced form on a phone',
+  testWidgets('receiver uses the shared list, dock and wide form on a phone',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    final bins = [
+      for (var index = 1; index <= 3; index++)
+        {
+          'code': 'CQ-00$index',
+          'name': 'Quti $index',
+          'qr_payload': 'ACCORD-WASTE:CQ-00$index',
+          'tare_kg': index,
+          'tolerance_kg': 0.5,
+          'status': 'empty',
+          'configured': true,
+          'apparatus_ids': [_rezka],
+        },
+    ];
     final paths = <String>[];
     await http.runWithClient(() async {
       await tester.pumpWidget(_receiver());
@@ -89,6 +104,21 @@ void main() {
           tester.widget<AppNavigationBar>(find.byType(AppNavigationBar));
       expect(navigation.destinations.map((item) => item.label),
           ['Qabul', 'Omborlar', 'Profil', 'Chat']);
+
+      final rows = find.descendant(
+        of: find.byType(M3SegmentSpacedColumn),
+        matching: find.byType(AdminCatalogListRow),
+      );
+      expect(
+          tester.widgetList<AdminCatalogListRow>(rows).map((row) => row.slot), [
+        M3SegmentVerticalSlot.top,
+        M3SegmentVerticalSlot.middle,
+        M3SegmentVerticalSlot.bottom,
+      ]);
+      expect(
+        tester.getRect(rows.at(1)).top - tester.getRect(rows.first).bottom,
+        M3SegmentedListGeometry.gap,
+      );
 
       final newBin = find.text('Yangi quti');
       final actionCard = find.ancestor(
@@ -114,6 +144,14 @@ void main() {
       await tester.ensureVisible(find.text('Bekor qilish'));
       await tester.tap(find.text('Bekor qilish'));
       await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Quti 2 · CQ-002'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bo‘sh · Tara 2 kg'), findsOneWidget);
+      expect(find.text('Qutini sozlash'), findsOneWidget);
+      expect(tester.widget<AdminCatalogListRow>(rows.at(1)).backgroundColor,
+          isNotNull);
+
       navigation.onDestinationSelected(1);
       // RoleDock uses AppRootNavigation, which schedules the route after a frame.
       await tester.pump();
@@ -136,12 +174,15 @@ void main() {
                     ],
                   },
                 '/v1/mobile/waste/bins/options' => _options,
-                _ => {'bins': []},
+                '/v1/mobile/waste/bins/detail' => bins.singleWhere((bin) =>
+                    bin['code'] == request.url.queryParameters['code']),
+                _ => {'bins': bins},
               });
             }));
     expect(paths, [
       '/v1/mobile/waste/bins',
       '/v1/mobile/waste/bins/options',
+      '/v1/mobile/waste/bins/detail',
       '/v1/mobile/waste/warehouses',
     ]);
   });
