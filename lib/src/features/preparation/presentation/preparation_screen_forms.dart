@@ -58,16 +58,6 @@ extension _PreparationForms on _PreparationScreenState {
           builder: (_) => PreparationInputDialog(
               title: title, label: label, quantity: quantity));
 
-  Future<void> _createMaterial(String warehouse) async {
-    if (_locked) return;
-    final name = await _input(title: 'Yangi homashyo', label: 'Homashyo nomi');
-    if (name != null &&
-        !_locked &&
-        _syncedAssignedWarehouses().contains(warehouse)) {
-      await _submit('materials', {'name': name, 'warehouse': warehouse});
-    }
-  }
-
   Future<void> _receive(PreparationMaterial material) async {
     final warehouse = _warehouse;
     if (_locked ||
@@ -110,7 +100,6 @@ class PreparationWarehouseScreen extends StatefulWidget {
     required this.locked,
     required this.onWarehouseSelected,
     required this.onReceive,
-    required this.onCreateMaterial,
     required this.onReload,
     required this.freshMaterials,
     required this.freshHistory,
@@ -130,7 +119,6 @@ class PreparationWarehouseScreen extends StatefulWidget {
   final bool locked;
   final void Function(String warehouse) onWarehouseSelected;
   final Future<void> Function(PreparationMaterial material) onReceive;
-  final Future<void> Function(String warehouse) onCreateMaterial;
   final Future<void> Function() onReload;
   final List<PreparationMaterial> Function() freshMaterials;
   final List<dynamic> Function() freshHistory;
@@ -180,10 +168,8 @@ class _PreparationWarehouseScreenState
       widget.freshAssignedWarehouseIds?.call() ?? const {};
   bool get _hasStockViews => _warehouseIds.isNotEmpty;
 
-  bool get _canCreateMaterial =>
-      _warehouse != null &&
-      (_hasStockViews ? _warehouses.contains(_warehouse)
-          : _materialWarehouses.contains(_warehouse));
+  bool get _canReceiveSeriyo =>
+      _hasStockViews || _materialWarehouses.contains(_warehouse);
 
   @override
   void initState() {
@@ -230,7 +216,7 @@ class _PreparationWarehouseScreenState
         (_hasStockViews && !_warehouses.contains(warehouse))) {
       return;
     }
-    if (!_hasStockViews && !_canCreateMaterial) {
+    if (!_canReceiveSeriyo) {
       await _openPreparationScaleReceipt(context, _warehouse);
       await widget.onReload();
       if (mounted) setState(() => _materials = widget.freshMaterials());
@@ -241,13 +227,6 @@ class _PreparationWarehouseScreenState
       await widget.onReceive(material);
       if (mounted) setState(() => _materials = widget.freshMaterials());
     }
-  }
-
-  Future<void> _doCreateMaterial() async {
-    final warehouse = _warehouse;
-    if (widget.locked || warehouse == null || !_canCreateMaterial) return;
-    await widget.onCreateMaterial(warehouse);
-    if (mounted) setState(() => _materials = widget.freshMaterials());
   }
 
   Future<void> _createWarehouse() async {
@@ -444,23 +423,14 @@ class _PreparationWarehouseScreenState
                 if (!showPreparedRolls &&
                     _warehouse != null &&
                     !widget.locked &&
-                    !_managingWarehouse) ...[
+                    !_managingWarehouse)
                   AdminFabMenuAction(
-                    title: _hasStockViews || _canCreateMaterial
-                        ? 'Seriyo kirimi'
-                        : 'Rulonni tortish',
-                    icon: _hasStockViews || _canCreateMaterial
+                    title: _canReceiveSeriyo ? 'Seriyo kirimi' : 'Rulonni tortish',
+                    icon: _canReceiveSeriyo
                         ? Icons.add_circle_outline_rounded
                         : Icons.scale_outlined,
                     onTap: _doKirim,
                   ),
-                  if (_canCreateMaterial)
-                    AdminFabMenuAction(
-                      title: 'Homashyo qo‘shish',
-                      icon: Icons.add_rounded,
-                      onTap: _doCreateMaterial,
-                    ),
-                ],
                 if (!showPreparedRolls &&
                     !widget.locked &&
                     !_managingWarehouse &&
@@ -474,48 +444,6 @@ class _PreparationWarehouseScreenState
       ),
       child: Column(
         children: [
-          Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              if (AppRouter.canOpenRoute(AppRoutes.preparationTransfers))
-                TextButton.icon(
-                  onPressed: () async {
-                    await Navigator.of(context).pushNamed(
-                      AppRoutes.preparationTransfers,
-                      arguments: PreparationTransfersArgs(warehouseId: warehouseId),
-                    );
-                    if (mounted) await widget.onReload();
-                    if (mounted) setState(() => _materials = widget.freshMaterials());
-                  },
-                  icon: const Icon(Icons.swap_horiz_rounded),
-                  label: const UrduAwareText('Transferlar'),
-                ),
-              TextButton(
-                onPressed: () async {
-                  await Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const PreparationMaterialsScreen()));
-                  if (mounted) await widget.onReload();
-                  if (mounted) setState(() => _materials = widget.freshMaterials());
-                },
-                child: const UrduAwareText('Katalog'),
-              ),
-              if (AppRouter.canOpenRoute(AppRoutes.preparationTransfers))
-                TextButton(
-                  onPressed: () async {
-                    await Navigator.of(context).pushNamed(
-                      AppRoutes.preparationTransfers,
-                      arguments: PreparationTransfersArgs(
-                        warehouseId: warehouseId,
-                        openHistory: true,
-                      ),
-                    );
-                    if (mounted) await widget.onReload();
-                    if (mounted) setState(() => _materials = widget.freshMaterials());
-                  },
-                  child: const UrduAwareText('Tarix'),
-                ),
-            ],
-          ),
           if (_warehouses.isNotEmpty)
             AdminExpandableFilterChip<String>(
               key: const ValueKey('preparation-warehouse-filter'),

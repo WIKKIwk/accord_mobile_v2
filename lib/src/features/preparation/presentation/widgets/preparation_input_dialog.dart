@@ -11,11 +11,13 @@ class PreparationInputDialog extends StatefulWidget {
       this.quantity = false,
       this.emptyError = 'Nom kiriting',
       this.initialValue = '',
+      this.additionalField,
       this.maxLength = 160});
   final String title, label;
   final bool quantity;
   final String emptyError;
   final String initialValue;
+  final Widget? additionalField;
   final int maxLength;
   @override
   State<PreparationInputDialog> createState() => _PreparationInputDialogState();
@@ -52,7 +54,7 @@ class _PreparationInputDialogState extends State<PreparationInputDialog> {
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -62,35 +64,45 @@ class _PreparationInputDialogState extends State<PreparationInputDialog> {
               const SizedBox(height: 10),
               Form(
                 key: _form,
-                child: TextFormField(
-                    controller: _controller,
-                    autofocus: true,
-                    keyboardType: widget.quantity
-                        ? const TextInputType.numberWithOptions(decimal: true)
-                        : TextInputType.text,
-                    inputFormatters: widget.quantity
-                        ? [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.,]'),
-                            ),
-                          ]
-                        : null,
-                    decoration: InputDecoration(labelText: widget.label),
-                    validator: (text) {
-                      if (!widget.quantity) {
-                        return (text ?? '').trim().isEmpty
-                            ? widget.emptyError
-                            : (text!.trim().length > widget.maxLength
-                                ? 'Matn juda uzun'
-                                : null);
-                      }
-                      try {
-                        preparationDecimal(text ?? '');
-                        return null;
-                      } on FormatException catch (e) {
-                        return e.message;
-                      }
-                    }),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                        controller: _controller,
+                        autofocus: true,
+                        keyboardType: widget.quantity
+                            ? const TextInputType.numberWithOptions(
+                                decimal: true)
+                            : TextInputType.text,
+                        inputFormatters: widget.quantity
+                            ? [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.,]'),
+                                ),
+                              ]
+                            : null,
+                        decoration: InputDecoration(labelText: widget.label),
+                        validator: (text) {
+                          if (!widget.quantity) {
+                            return (text ?? '').trim().isEmpty
+                                ? widget.emptyError
+                                : (text!.trim().length > widget.maxLength
+                                    ? 'Matn juda uzun'
+                                    : null);
+                          }
+                          try {
+                            preparationDecimal(text ?? '');
+                            return null;
+                          } on FormatException catch (e) {
+                            return e.message;
+                          }
+                        }),
+                    if (widget.additionalField case final field?) ...[
+                      const SizedBox(height: 12),
+                      field,
+                    ],
+                  ],
+                ),
               ),
               const SizedBox(height: 22),
               SizedBox(

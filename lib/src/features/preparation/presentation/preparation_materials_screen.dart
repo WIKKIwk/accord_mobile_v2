@@ -11,10 +11,13 @@ class _PreparationMaterialsScreenState
     extends State<PreparationMaterialsScreen> {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
+  final _scope = currentSessionReadScope();
   List<PreparationOwnedMaterial> _items = [];
   String? _error;
   bool _loading = true, _saving = false, _refreshing = false;
   String _query = '';
+
+  bool get _current => mounted && _scope == currentSessionReadScope();
 
   @override
   void initState() {
@@ -55,6 +58,64 @@ class _PreparationMaterialsScreenState
         });
       }
     }
+  }
+
+  Future<void> _createMaterial() async {
+    if (!_current || _saving || _loading || _refreshing) return;
+    setState(() => _saving = true);
+    try {
+      final snapshot = await MobileApi.instance.preparationSnapshot();
+      if (!_current) return;
+      final warehouses = snapshot.assignedWarehouses;
+      if (warehouses.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: UrduAwareText('Sizga biriktirilgan ombor topilmadi')));
+        return;
+      }
+
+      String? warehouse = warehouses.length == 1 ? warehouses.single : null;
+      setState(() => _saving = false);
+      final name = await showDialog<String>(
+        context: context,
+        builder: (_) => PreparationInputDialog(
+          title: localizeUrduUiText('Seriyo qo‘shish'),
+          label: localizeUrduUiText('Seriyo nomi'),
+          additionalField: DropdownButtonFormField<String>(
+            isExpanded: true,
+            initialValue: warehouse,
+            decoration: InputDecoration(labelText: localizeUrduUiText('Ombor')),
+            items: [
+              for (final option in warehouses)
+                DropdownMenuItem(value: option, child: Text(option)),
+            ],
+            onChanged: warehouses.length == 1
+                ? null
+                : (value) => warehouse = value,
+            validator: (value) =>
+                value == null ? localizeUrduUiText('Ombor tanlang') : null,
+          ),
+        ),
+      );
+      if (!_current || name == null || warehouse == null) return;
+
+      setState(() => _saving = true);
+      await MobileApi.instance.preparationSubmit(
+        'materials',
+        {'name': name, 'warehouse': warehouse},
+      );
+      if (!_current) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: UrduAwareText('Saqlandi')));
+    } catch (error) {
+      if (_current) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_message(error))));
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+    await _load(refresh: true);
   }
 
   Future<void> _actions(PreparationOwnedMaterial material) async {
@@ -261,7 +322,7 @@ class _PreparationMaterialsScreenState
                 .contains(_query.trim().toLowerCase()))
         .toList();
     return AppShell(
-      title: 'Xomashyo katalogi',
+      title: 'Seriyolarim',
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -271,7 +332,7 @@ class _PreparationMaterialsScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _search,
         focusNode: _searchFocus,
-        hintText: 'Katalogdan xomashyo qidirish',
+        hintText: 'Seriyo qidirish',
         onChanged: (query) => setState(() => _query = query),
         onClear: () {
           _search.clear();
@@ -279,7 +340,16 @@ class _PreparationMaterialsScreenState
         },
       ),
       contentPadding: EdgeInsets.zero,
-      bottom: const PreparationDock(showPrimaryFab: false),
+      bottom: PreparationDock(
+        primaryFabActions: [
+          if (_current && !_saving && !_loading && !_refreshing)
+            AdminFabMenuAction(
+              title: 'Seriyo qo‘shish',
+              icon: Icons.add_rounded,
+              onTap: _createMaterial,
+            ),
+        ],
+      ),
       child: Column(children: [
         if (_saving) const LinearProgressIndicator(),
         Expanded(

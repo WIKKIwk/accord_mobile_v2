@@ -93,9 +93,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(home: const PreparationScreen()));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Ombor'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Katalog'));
+      await tester.tap(find.text('Seriyolarim'));
       await tester.pumpAndSettle();
       expect(find.text('Kley'), findsOneWidget);
       expect(find.text('Shared catalog item'), findsNothing);
@@ -127,6 +125,86 @@ void main() {
               return response(ownMaterials);
             }));
   });
+
+  for (final assigned in [
+    ['Own'],
+    ['Own', 'Child'],
+  ]) {
+    testWidgets('new seriyo is created in an assigned warehouse $assigned',
+        (tester) async {
+      final warehouse = assigned.last;
+      var saves = 0;
+      await http.runWithClient(() async {
+        await tester.pumpWidget(app());
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('app-primary-navigation-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Seriyo qo‘shish'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField), 'Test seriyo');
+        final picker = find.byType(DropdownButtonFormField<String>);
+        if (assigned.length == 1) {
+          expect(tester.state<FormFieldState<String>>(picker).value, warehouse);
+        } else {
+          await tester.tap(find.text('Saqlash'));
+          await tester.pumpAndSettle();
+          expect(find.text('Ombor tanlang'), findsOneWidget);
+          expect(saves, 0);
+          await tester.tap(picker);
+          await tester.pumpAndSettle();
+          expect(find.text('Other'), findsNothing);
+          await tester.tap(find.text(warehouse).last);
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('Saqlash'));
+        await tester.pumpAndSettle();
+        expect(saves, 1);
+        expect(find.text('Test seriyo'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('preparation-material-PREP-3')),
+            matching: find.text(warehouse),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      }, () => MockClient((request) async {
+            if (request.url.path.endsWith('/snapshot')) {
+              return response({
+                'warehouses': [...assigned, 'Other'],
+                'assigned_warehouses': assigned,
+                'materials': [],
+                'orders': [],
+                'history': [],
+              });
+            }
+            expect(request.url.path, '/v1/mobile/preparation/materials');
+            if (request.method == 'GET') {
+              return response({
+                'materials': [
+                  ...ownMaterials['materials']!,
+                  if (saves > 0)
+                    {
+                      'item_code': 'PREP-3',
+                      'name': 'Test seriyo',
+                      'warehouses': [warehouse],
+                    },
+                ],
+              });
+            }
+            expect(request.method, 'POST');
+            expect(jsonDecode(request.body), {
+              'name': 'Test seriyo',
+              'warehouse': warehouse,
+              'request_id': isA<String>(),
+            });
+            saves++;
+            return response({'item_code': 'PREP-3'});
+          }));
+    });
+  }
 
   for (final duplicate in [false, true]) {
     testWidgets('rename prefilled own material, duplicate=$duplicate',

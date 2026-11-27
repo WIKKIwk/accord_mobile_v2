@@ -63,9 +63,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AdminSummaryCard), findsNWidgets(5));
+      expect(find.byType(AdminSummaryCard), findsNWidgets(6));
       for (final title in [
         'Ombor',
+        'Seriyolarim',
         'Transfer va tarix',
         'Buyurtmalar',
         'Ishlab chiqarish',
@@ -225,13 +226,19 @@ void main() {
               lessThanOrEqualTo(textScale == 1 ? 1 : 2));
           expect(label.didExceedMaxLines, isFalse);
 
-          await tester.tap(find.text('Buyurtmalar'));
+          final orders = find.text('Buyurtmalar');
+          await tester.ensureVisible(orders);
+          await tester.pumpAndSettle();
+          await tester.tap(orders);
           await tester.pumpAndSettle();
           expect(find.text('Ketma-ketlik'), findsOneWidget);
           expect(find.text('Order tanlang'), findsNothing);
           await tester.tap(find.byType(BackButton));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Ombor'));
+          final transfers = find.text('Transfer va tarix');
+          await tester.ensureVisible(transfers);
+          await tester.pumpAndSettle();
+          await tester.tap(transfers);
           await tester.pumpAndSettle();
           final history = find.text('Tarix');
           await tester.ensureVisible(history);
@@ -244,8 +251,6 @@ void main() {
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
 
-          await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
-          await tester.pumpAndSettle();
           warehouses = ['Tayyorlov ombori'];
           expect(find.byIcon(Icons.refresh), findsNothing);
           final homeList = find.byType(ListView).first;
@@ -262,14 +267,16 @@ void main() {
           expect(tester.takeException(), isNull);
           expect(find.text('Ombordan seriyo qidirish'), findsOneWidget);
           expect(find.text('Bu omborda hali kirim yo‘q.'), findsOneWidget);
+          for (final shortcut in ['Transferlar', 'Katalog', 'Tarix']) {
+            expect(find.text(shortcut), findsNothing);
+          }
           await tester.tap(
             find.byKey(const ValueKey('app-primary-navigation-button')),
           );
           await tester.pumpAndSettle();
           expect(find.text('Seriyo kirimi'), findsOneWidget);
-          expect(find.text('Homashyo qo‘shish'), findsOneWidget);
+          expect(find.text('Homashyo qo‘shish'), findsNothing);
           expect(find.text('Ishlab chiqarish'), findsNothing);
-          expect(find.text('Tarix'), findsOneWidget);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpAndSettle();
         },
@@ -347,7 +354,6 @@ void main() {
           onReceive: (_) async {
             manualReceipts++;
           },
-          onCreateMaterial: (_) async {},
           onReload: () async {},
           freshMaterials: () => materials,
           freshHistory: () => const [],
@@ -390,7 +396,7 @@ void main() {
           .tap(find.byKey(const ValueKey('app-primary-navigation-button')));
       await tester.pumpAndSettle();
       expect(find.text('Seriyo kirimi'), findsOneWidget);
-      expect(find.text('Homashyo qo‘shish'), findsOneWidget);
+      expect(find.text('Homashyo qo‘shish'), findsNothing);
       expect(find.text('Rulonni tortish'), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -438,7 +444,6 @@ void main() {
         locked: false,
         onWarehouseSelected: (_) {},
         onReceive: (_) async {},
-        onCreateMaterial: (_) async {},
         onReload: () async {},
         freshMaterials: () => materials,
         freshHistory: () => const [],

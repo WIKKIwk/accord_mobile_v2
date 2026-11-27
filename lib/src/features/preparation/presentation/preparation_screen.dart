@@ -22,11 +22,8 @@ import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../shared/models/inventory_movement_models.dart';
 import '../../shared/models/app_models.dart' show UserRole;
-import '../../inventory/presentation/inventory_movements_screen.dart'
-    show PreparationTransfersArgs;
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
-import '../state/preparation_formula_library_store.dart';
 import 'preparation_navigation.dart';
 import 'widgets/preparation_input_dialog.dart';
 import 'preparation_production_paddon_picker.dart';
@@ -191,7 +188,6 @@ class _PreparationScreenState extends State<PreparationScreen> {
         locked: _locked,
         onWarehouseSelected: (w) => _update(() => _warehouse = w),
         onReceive: _receive,
-        onCreateMaterial: _createMaterial,
         onReload: _reload,
         freshMaterials: _syncedMaterials,
         freshHistory: _syncedHistory,
@@ -389,8 +385,15 @@ class _PreparationScreenState extends State<PreparationScreen> {
                           (
                             M3SegmentVerticalSlot.top,
                             'Ombor',
-                            'Seriyo, tayyor rulonlar va transferlar',
+                            'Seriyo va tayyor rulonlar',
                             () => _openWarehouse(data)
+                          ),
+                          (
+                            M3SegmentVerticalSlot.middle,
+                            'Seriyolarim',
+                            'Seriyo qo‘shish va omborga biriktirish',
+                            () => _openAndReload(
+                                const PreparationMaterialsScreen())
                           ),
                           if (AppRouter.canOpenRoute(
                               AppRoutes.preparationTransfers))

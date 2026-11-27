@@ -512,6 +512,12 @@ class UrduUiTextTranslations {
     'Chiqimlar': 'اخراج',
     'Ishlab chiqarish': 'پیداوار',
     'Seriyo, tayyor rulonlar va transferlar': 'خام مال، تیار رول اور منتقلیاں',
+    'Seriyo va tayyor rulonlar': 'خام مال اور تیار رول',
+    'Seriyolarim': 'میرا خام مال',
+    'Seriyo qo‘shish va omborga biriktirish':
+        'خام مال شامل کریں اور گودام مختص کریں',
+    'Seriyo qidirish': 'خام مال تلاش کریں',
+    'Seriyo nomi': 'خام مال کا نام',
     'Faol buyurtmalar navbati': 'فعال آرڈروں کی قطار',
     'Partiyalar, rulonlar va paddonlar': 'بیچ، رول اور پیلیٹ',
     'Mahsulot bo‘yicha va saqlangan formulalar': 'مصنوعات کے حساب سے اور محفوظ شدہ فارمولے',
