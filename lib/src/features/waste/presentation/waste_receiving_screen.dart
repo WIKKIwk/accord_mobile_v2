@@ -254,12 +254,7 @@ class _WasteReceivingScreenState extends State<WasteReceivingScreen> {
           printMode: printer.printMode,
           grossQty: 1,
           unit: 'dona',
-          labelKind: 'paddon_code',
-          paddonLabelLines: [
-            'Chiqindi qutisi',
-            if (bin.name != bin.code) bin.name,
-            bin.code,
-          ],
+          labelKind: 'waste_bin',
         ),
         bluetoothPrinter: printer,
         transport: selection.transport,

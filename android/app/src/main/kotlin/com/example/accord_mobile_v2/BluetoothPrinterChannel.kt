@@ -376,6 +376,16 @@ class BluetoothPrinterChannel(
         when {
             label.isQolipCell -> printQolipCell(printer, label)
             label.labelKind == "paddon_code" -> printPaddonLabel(printer, label)
+            label.isWasteBin -> printCompactFieldsLabel(
+                printer,
+                label,
+                buildList {
+                    add("CHIQINDI QUTISI" to label.itemCode)
+                    if (label.itemName.isNotBlank() && label.itemName != label.itemCode) {
+                        add("QUTI NOMI" to label.itemName)
+                    }
+                },
+            )
             label.isMaterialSplit -> printMaterialSplitLabel(printer, label)
             label.isQolipCode || label.isMaterialProduct -> printLargeQr(printer, label)
             else -> printPackLabel(printer, label)
@@ -490,9 +500,10 @@ class BluetoothPrinterChannel(
         largeText: Boolean = false,
     ) {
         val payload = requiredPayload(label.epc)
-        val footer = if (label.isQolipProductCode) "EPC: $payload" else payload
+        val footer = if (label.isQolipProductCode || label.isWasteBin) "EPC: $payload" else payload
         val footerIsLarge = footer.length <= 32
-        val footerCharWidth = if (footerIsLarge) 12 else 8
+        val largeFooterCharWidth = if (label.isWasteBin) QOLIP_FIELD_CHAR_WIDTH_DOTS else 12
+        val footerCharWidth = if (footerIsLarge) largeFooterCharWidth else 8
         val footerLineHeight = if (footerIsLarge) 24 else 16
         val footerFont = if (footerIsLarge) TSPLConst.FNT_12_20 else TSPLConst.FNT_8_12
         val footerLines = wrapLabelText(
@@ -541,8 +552,9 @@ class BluetoothPrinterChannel(
             y += lines.size * lineHeight +
                 if (fieldIndex == fields.lastIndex) 0 else PROGRESS_FIELD_GAP_DOTS
         }
-        val codeY = maxOf(y + QOLIP_FIELD_QR_GAP_DOTS, latestCodeY - 16)
-            .coerceAtMost(latestCodeY)
+        val codeY = if (label.isWasteBin) latestCodeY else {
+            maxOf(y + QOLIP_FIELD_QR_GAP_DOTS, latestCodeY - 16).coerceAtMost(latestCodeY)
+        }
         if (useDataMatrix) {
             sdkMaterialDataMatrixRow(
                 printer,
@@ -1408,7 +1420,10 @@ private data class BluetoothLabelRequest(
         get() = (grossQty - tareKg).coerceAtLeast(0.0)
 
     val usesCompactLabel: Boolean
-        get() = isProgress || isMaterialProduct || isQolipProductCode || isQolipCell
+        get() = isProgress || isMaterialProduct || isQolipProductCode || isQolipCell || isWasteBin
+
+    val isWasteBin: Boolean
+        get() = labelKind == "waste_bin"
 
     val isProgress: Boolean
         get() = labelKind == "progress" || labelKind == "opening_wip"

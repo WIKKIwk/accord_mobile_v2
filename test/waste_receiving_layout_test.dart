@@ -295,10 +295,10 @@ void main() {
         expect(job['mac_address'], '00:11:22:33:44:66');
         expect(job['epc'], 'ACCORD-WASTE:CQ-001');
         expect(job['print_count'], 1);
-        expect(job['label_kind'], 'paddon_code');
+        expect(job['label_kind'], 'waste_bin');
+        expect(job['item_code'], 'CQ-001');
+        expect(job['item_name'], "BO'SH QUTI A");
         expect(job, isNot(contains('material_data_matrix')));
-        expect(job['paddon_label_lines'],
-            ['CHIQINDI QUTISI', "BO'SH QUTI A", 'CQ-001']);
       }
       expect(writes, hasLength(1));
       await tap(find.text('Yopish'));
@@ -333,8 +333,9 @@ void main() {
       expect(printJobs, hasLength(3));
       expect(printJobs.last['mac_address'], '00:11:22:33:44:55');
       expect(printJobs.last['epc'], 'ACCORD-WASTE:CQ-001');
-      expect(printJobs.last['paddon_label_lines'],
-          ['CHIQINDI QUTISI', 'UMUMIY QUTI', 'CQ-001']);
+      expect(printJobs.last['label_kind'], 'waste_bin');
+      expect(printJobs.last['item_code'], 'CQ-001');
+      expect(printJobs.last['item_name'], 'UMUMIY QUTI');
       expect(writes, hasLength(2));
       expect(tester.takeException(), isNull);
     }, () => client);

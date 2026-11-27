@@ -496,6 +496,12 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       command = appendQolipCell(command, label: label)
     case "paddon_code":
       command = appendPaddonLabel(command, label: label)
+    case "waste_bin":
+      var fields = [("CHIQINDI QUTISI", label.itemCode)]
+      if !label.itemName.isEmpty && label.itemName != label.itemCode {
+        fields.append(("QUTI NOMI", label.itemName))
+      }
+      command = try appendCompactFieldsLabel(command, label: label, fields: fields)
     case "qolip_code", "material_product":
       // Homashyo rezkachisi split chiqishi WIP uslubida (kichik o'ng-past
       // QR). Uzunliksiz generic material_product eski katta markaziy QR da.
@@ -578,9 +584,10 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
     largeText: Bool = false
   ) throws -> XTSPLCommand? {
     let payload = requiredPayload(label.epc)
-    let footer = label.labelKind == "qolip_code" ? "EPC: \(payload)" : payload
+    let footer = label.labelKind == "qolip_code" || label.isWasteBin ? "EPC: \(payload)" : payload
     let footerIsLarge = footer.count <= 32
-    let footerCharWidth = footerIsLarge ? 12 : 8
+    let largeFooterCharWidth = label.isWasteBin ? Self.qolipFieldCharWidthDots : 12
+    let footerCharWidth = footerIsLarge ? largeFooterCharWidth : 8
     let footerLineHeight = footerIsLarge ? 24 : 16
     let footerFont = footerIsLarge ? kFNT_12_20 : kFNT_8_12
     let footerLines = wrapLabelText(
@@ -628,7 +635,8 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       y += lines.count * selected.style.lineHeight +
         (fieldIndex == fields.count - 1 ? 0 : Self.progressFieldGapDots)
     }
-    let codeY = min(latestCodeY, max(y + Self.qolipFieldQrGapDots, latestCodeY - 16))
+    let codeY = label.isWasteBin ? latestCodeY
+      : min(latestCodeY, max(y + Self.qolipFieldQrGapDots, latestCodeY - 16))
     if useDataMatrix {
       result = materialDataMatrixRow(
         result, y: codeY, bars: label.materialDataMatrixBars,
@@ -1652,7 +1660,12 @@ private struct BluetoothLabelRequest {
   }
 
   var usesCompactLabel: Bool {
-    isProgress || ["material_product", "qolip_code", "qolip_cell", "qr_center"].contains(labelKind)
+    isProgress || isWasteBin ||
+      ["material_product", "qolip_code", "qolip_cell", "qr_center"].contains(labelKind)
+  }
+
+  var isWasteBin: Bool {
+    labelKind == "waste_bin"
   }
 
   var isProgress: Bool {
