@@ -416,9 +416,15 @@ void main() {
     await _withApp(tester, () async {
       await tester.pumpWidget(_app(const PreparationScreen()));
       await tester.pumpAndSettle();
-      final entry = find.text('Tayyorlov hisobi');
+      final entry = find.text('Ishlab chiqarish');
       await tester.ensureVisible(entry);
       await tester.tap(entry);
+      for (var i = 0; i < 12 && find.text('Jurnal').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('Jurnal'), findsOneWidget,
+        reason: tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(' | '));
+      await tester.tap(find.text('Jurnal'));
       await tester.pumpAndSettle();
       expect(find.byType(PreparationProductionScreen), findsOneWidget);
       expect(find.byKey(const ValueKey('production-batch:batch-lg')),
@@ -434,7 +440,9 @@ void main() {
                 'orders': [],
                 'history': []
               })
-            : _route(request));
+            : request.url.path.contains('/preparation/production/')
+                ? _route(request)
+                : _json({}));
   });
 
   testWidgets('paddons show incoming stock and use their own balance filter',
@@ -2111,14 +2119,14 @@ void main() {
       await tester.tap(fab);
       await tester.pumpAndSettle();
       expect(find.text('Paddonga biriktirish'), findsOneWidget);
-      await tester.tap(find.text('2 ta batchga eslatma'));
+      await tester.tap(find.text('2 ta partiyaga eslatma'));
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(input).controller!.text, isEmpty);
       expect(find.text('Turli rollar tanlangan'), findsOneWidget);
       await tester.enterText(input, 'Enini 120 mm qilib kesish');
       await tester.pumpAndSettle();
       final warning = find.byKey(const ValueKey('production-note-overwrite-warning'));
-      expect(find.text('2 ta batchdan 1 tasining eslatmasi almashtiriladi.'),
+      expect(find.text('2 ta partiyadan 1 tasining eslatmasi almashtiriladi.'),
           findsOneWidget);
       expect(find.text('Faqat eslatmasi yo‘qlariga yozish'), findsOneWidget);
       expect(notes[batchId]!['revision'], 1);
@@ -2213,7 +2221,7 @@ void main() {
       await tester.tap(find.text('Paddonga biriktirish'));
       await tester.pumpAndSettle();
 
-      expect(find.text('2 ta batch tanlandi'), findsOneWidget);
+      expect(find.text('2 ta partiya tanlandi'), findsOneWidget);
       expect(find.text('5 ta rulondan 3 tasi biriktirishga yaroqli'),
           findsOneWidget);
       await tester.tap(find.text('1 ta rulon allaqachon paddonda'));

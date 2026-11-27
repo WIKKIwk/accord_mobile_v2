@@ -248,15 +248,15 @@ void main() {
           }));
       await tester.pumpAndSettle();
       expect(find.text('Ombor'), findsOneWidget);
-      expect(find.text('Kirim'), findsNothing);
+      expect(find.text('Seriyo kirimi'), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('app-primary-navigation-button')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Kirim'), findsWidgets);
-      expect(find.text('Buyurtmalar'), findsWidgets);
-      expect(find.text('Tarix'), findsWidgets);
-      await tester.tap(find.text('Kirim').last);
+      expect(find.text('Seriyo kirimi'), findsWidgets);
+      expect(find.text('Buyurtmalar'), findsNothing);
+      expect(find.text('Tarix'), findsNothing);
+      await tester.tap(find.text('Seriyo kirimi').last);
       await tester.pumpAndSettle();
       expect(find.text('Kley'), findsOneWidget);
       expect(find.text('Mavjud: 60 kg'), findsOneWidget);
@@ -281,9 +281,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
       await tester.pumpAndSettle();
       expect(requests.single['kg'], '12.500000');
-      // Tayyorlov masteri uchun eski generate qilingan Buyurtmalar sahifasi
-      // olib tashlandi — Buyurtmalar bosilganda mavjud Ketma-ketlik ochiladi.
-      await tester.tap(find.text('Buyurtmalar'));
+      await tester.tap(find.text('Ishlab chiqarish'));
       await tester.pumpAndSettle();
       expect(find.text('Ketma-ketlik'), findsOneWidget);
       expect(find.text('Order tanlang'), findsNothing);

@@ -93,7 +93,9 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app(home: const PreparationScreen()));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Homashyolar'));
+      await tester.tap(find.text('Ombor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Katalog'));
       await tester.pumpAndSettle();
       expect(find.text('Kley'), findsOneWidget);
       expect(find.text('Shared catalog item'), findsNothing);

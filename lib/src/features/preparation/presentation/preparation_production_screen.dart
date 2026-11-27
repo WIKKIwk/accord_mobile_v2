@@ -564,8 +564,8 @@ class _ProductionOrdersState
     return [
       AdminFabMenuAction(
         title: selectedCount == 1
-            ? 'Batchga eslatma'
-            : '$selectedCount ta batchga eslatma',
+            ? 'Partiyaga eslatma'
+            : '$selectedCount ta partiyaga eslatma',
         icon: Icons.edit_note_rounded,
         onTap: _editSelectedBatchNotes,
       ),
@@ -670,7 +670,7 @@ class _ProductionOrdersState
   Widget build(BuildContext context) => AppShell(
         title: widget.materialPaddonsOnly
             ? 'Xomashyo paddonlari'
-            : 'Tayyorlov hisobi',
+            : 'Ishlab chiqarish jurnali',
         subtitle: '',
         nativeTopBar: true,
         actions: const [WasteOperatorAction()],
@@ -719,6 +719,8 @@ class _ProductionOrdersState
             : PreparationDock(primaryFabActions: _journalFabActions),
         child: Column(
           children: [
+            if (!widget.materialPaddonsOnly && AppRouter.canOpenRoute(AppRoutes.supplySequence))
+              const PreparationProductionSections(journal: true),
             if (!widget.materialPaddonsOnly)
               IgnorePointer(
                 ignoring: !currentAccount,
@@ -727,10 +729,11 @@ class _ProductionOrdersState
                   controller: _tabs,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 10),
                   tabs: [
                     for (final (key, label) in const [
                       ('orders', 'Buyurtmalar'),
-                      ('batches', 'Batchlar'),
+                      ('batches', 'Partiyalar'),
                       ('rolls', 'Rulonlar'),
                       ('paddons', 'Paddonlar'),
                     ])
@@ -958,7 +961,7 @@ class _ProductionBatchState extends _JournalState<
     M3SegmentVerticalSlot slot(int index) =>
         M3SegmentedListGeometry.standaloneListSlotForIndex(index, rowCount);
     return AppShell(
-      title: _batch?.displayItem ?? 'Tayyorlov hisobi',
+      title: _batch?.displayItem ?? 'Ishlab chiqarish jurnali',
       subtitle: '',
       nativeTopBar: true,
       contentPadding: EdgeInsets.zero,
@@ -1013,8 +1016,8 @@ class _ProductionBatchState extends _JournalState<
                   slot: slot(2),
                   icon: Icons.edit_note_rounded,
                   title: note?.text.isNotEmpty == true
-                      ? 'Batch eslatmasi'
-                      : 'Batchga eslatma',
+                      ? 'Partiya eslatmasi'
+                      : 'Partiyaga eslatma',
                   subtitle: note?.text ?? '',
                   metrics: note != null && note.text.isNotEmpty
                       ? _noteAudienceLabel(context, note.audience)
@@ -1286,7 +1289,7 @@ Future<void> _showRoll(
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.sticky_note_2_outlined),
-              title: const UrduAwareText('Batch eslatmasi'),
+              title: const UrduAwareText('Partiya eslatmasi'),
               subtitle: _rollNoteDetails(context, batchNote),
             ),
           if (rollNote != null && rollNote.text.isNotEmpty)

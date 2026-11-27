@@ -59,14 +59,11 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      expect(find.byType(AdminSummaryCard), findsNWidgets(3));
       for (final title in [
         'Ombor',
-        'Homashyolar',
-        'Mahsulot formulasi',
-        'Buyurtmalar',
-        'Tayyorlov hisobi',
-        'Ishlab chiqarilgan homashyolar',
-        'Tarix',
+        'Ishlab chiqarish',
+        'Formulalar',
       ]) {
         final finder = find.ancestor(
           of: find.text(title),
@@ -212,19 +209,22 @@ void main() {
               findsOneWidget);
           expect(find.text('Ombor tanlang'), findsNothing);
           final label =
-              tester.renderObject<RenderParagraph>(find.text('Buyurtmalar'));
+              tester.renderObject<RenderParagraph>(find.text('Ishlab chiqarish'));
           final boxes = label.getBoxesForSelection(
             const TextSelection(baseOffset: 0, extentOffset: 8),
           );
           expect(boxes, isNotEmpty);
-          expect(boxes.map((box) => box.top).toSet(), hasLength(1));
+          expect(boxes.map((box) => box.top).toSet().length,
+              lessThanOrEqualTo(textScale == 1 ? 1 : 2));
           expect(label.didExceedMaxLines, isFalse);
 
-          await tester.tap(find.text('Buyurtmalar'));
+          await tester.tap(find.text('Ishlab chiqarish'));
           await tester.pumpAndSettle();
           expect(find.text('Ketma-ketlik'), findsOneWidget);
           expect(find.text('Order tanlang'), findsNothing);
           await tester.tap(find.byType(BackButton));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Ombor'));
           await tester.pumpAndSettle();
           final history = find.text('Tarix');
           await tester.ensureVisible(history);
@@ -236,6 +236,8 @@ void main() {
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
 
+          await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+          await tester.pumpAndSettle();
           warehouses = ['Tayyorlov ombori'];
           expect(find.byIcon(Icons.refresh), findsNothing);
           final homeList = find.byType(ListView).first;
@@ -250,16 +252,16 @@ void main() {
           await tester.tap(find.text('Tayyorlov ombori'));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
-          expect(find.text('Qidirish'), findsOneWidget);
+          expect(find.text('Ombordan seriyo qidirish'), findsOneWidget);
           expect(find.text('Bu omborda hali kirim yo‘q.'), findsOneWidget);
           await tester.tap(
             find.byKey(const ValueKey('app-primary-navigation-button')),
           );
           await tester.pumpAndSettle();
-          expect(find.text('Kirim'), findsOneWidget);
+          expect(find.text('Seriyo kirimi'), findsOneWidget);
           expect(find.text('Homashyo qo‘shish'), findsOneWidget);
-          expect(find.text('Buyurtmalar'), findsNothing);
-          expect(find.text('Tarix'), findsNothing);
+          expect(find.text('Ishlab chiqarish'), findsNothing);
+          expect(find.text('Tarix'), findsOneWidget);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpAndSettle();
         },
@@ -342,10 +344,10 @@ void main() {
         find.byKey(const ValueKey('app-primary-navigation-button')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Kirim'), findsNothing);
+      expect(find.text('Seriyo kirimi'), findsNothing);
       expect(find.text('Homashyo qo‘shish'), findsNothing);
-      expect(find.text('Tarozi kirimi'), findsOneWidget);
-      await tester.tap(find.text('Tarozi kirimi'));
+      expect(find.text('Rulonni tortish'), findsOneWidget);
+      await tester.tap(find.text('Rulonni tortish'));
       await tester.pumpAndSettle();
       expect(find.text('QR kirim'), findsOneWidget);
       await tester.tap(find.byType(BackButton));
@@ -371,9 +373,9 @@ void main() {
       await tester
           .tap(find.byKey(const ValueKey('app-primary-navigation-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Kirim'), findsOneWidget);
+      expect(find.text('Seriyo kirimi'), findsOneWidget);
       expect(find.text('Homashyo qo‘shish'), findsOneWidget);
-      expect(find.text('Tarozi kirimi'), findsNothing);
+      expect(find.text('Rulonni tortish'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

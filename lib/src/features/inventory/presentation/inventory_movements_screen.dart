@@ -101,7 +101,8 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   void initState() {
     super.initState();
     _inventoryReadScope = currentSessionReadScope();
-    _tabs = TabController(length: _materialScoped ? 4 : 3, vsync: this)
+    _tabs = TabController(length: _materialScoped ? 4 : 3, vsync: this,
+        initialIndex: _preparationScoped && widget.preparationTransfers != null ? 1 : 0)
       ..addListener(_handleInventoryTabChanged);
     unawaited(_restoreWarehouseFilterAndLoad());
     unawaited(_loadPendingPaddonAttachment());
@@ -188,7 +189,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
                 selectedAssets.isNotEmpty &&
                 selectedAssets.every((asset) => asset.canSelectForPaddon)));
     final tabs = <Tab>[
-      const Tab(text: 'Mahsulotlar'),
+      Tab(text: _preparationScoped ? 'Qoldiqlar' : 'Mahsulotlar'),
       if (_materialScoped) const Tab(text: 'State’lar'),
       const Tab(text: 'Kiruvchi'),
       const Tab(text: 'Chiquvchi'),
@@ -214,7 +215,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     ];
     return AppShell(
       animateOnEnter: false,
-      title: '',
+      title: _preparationScoped ? 'Ombor transferlari' : '',
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -292,7 +293,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
             ),
       drawer: _preparationScoped
           ? const PreparationDrawer(
-              selectedRouteName: AppRoutes.inventoryMovements)
+              selectedRouteName: AppRoutes.preparationWarehouse)
           : _materialScoped
               ? MaterialTaminotchiNavigationDrawer(
                   selectedRouteName: AppRoutes.inventoryMovements,

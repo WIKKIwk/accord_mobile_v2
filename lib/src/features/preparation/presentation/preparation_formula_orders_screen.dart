@@ -6,14 +6,23 @@ const _sharedFormulaWarning =
     'Katalogdagi o‘zgarishlar formula keyingi safar buyurtmaga biriktirilganda olinadi.';
 
 class PreparationFormulaOrdersScreen extends StatefulWidget {
-  const PreparationFormulaOrdersScreen({super.key});
+  const PreparationFormulaOrdersScreen({super.key, this.initialSaved = false});
+  final bool initialSaved;
   @override
   State<PreparationFormulaOrdersScreen> createState() =>
       _PreparationFormulaOrdersScreenState();
 }
 
 class _PreparationFormulaOrdersScreenState
-    extends State<PreparationFormulaOrdersScreen> {
+    extends State<PreparationFormulaOrdersScreen>
+    with SingleTickerProviderStateMixin {
+  late final _tabs = TabController(
+      length: 2, initialIndex: widget.initialSaved ? 1 : 0, vsync: this);
+  final _scope = currentSessionReadScope();
+  bool get _sameScope => _scope == currentSessionReadScope();
+  bool get _saved => _tabs.index == 1;
+  int _loadVersion = 0;
+  late bool _loadedSaved = widget.initialSaved;
   List<PreparationFormulaSet> _sets = [];
   List<PreparationFormulaCatalogEntry> _recipes = [];
   final _search = TextEditingController();
@@ -25,40 +34,67 @@ class _PreparationFormulaOrdersScreenState
   @override
   void initState() {
     super.initState();
+    AppSession.instance.revision.addListener(_sessionChanged);
+    _tabs.addListener(_tabChanged);
+    _load();
+  }
+
+  void _sessionChanged() {
+    if (!mounted || _sameScope) return;
+    setState(() {
+      _sets = [];
+      _recipes = [];
+      _loading = false;
+      _error = 'Akkaunt o‘zgargan. Sahifani qayta oching';
+    });
+  }
+
+  void _tabChanged() {
+    if (_loadedSaved == _saved) return;
+    _loadedSaved = _saved;
+    _search.clear();
+    _query = '';
     _load();
   }
 
   @override
   void dispose() {
+    AppSession.instance.revision.removeListener(_sessionChanged);
+    _tabs.dispose();
     _search.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    if (_renaming) return;
+    if (_renaming || !_sameScope) return;
+    final version = ++_loadVersion;
+    bool current() => mounted && _sameScope && version == _loadVersion;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final sets = await MobileApi.instance.preparationFormulaSets();
+      final sets = _saved
+          ? const <PreparationFormulaSet>[]
+          : await MobileApi.instance.preparationFormulaSets();
+      if (!current()) return;
       final recipes = await MobileApi.instance.preparationFormulaCatalog();
-      if (mounted) {
+      if (current()) {
         setState(() {
           _sets = sets;
           _recipes = recipes;
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = _formulaPageError(error));
+      if (current()) setState(() => _error = _formulaPageError(error));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (current()) setState(() => _loading = false);
     }
   }
 
   Future<void> _open(PreparationFormulaSet formulaSet) async {
-    if (_renaming) return;
+    if (_renaming || !_sameScope) return;
     await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => _PreparationFormulaSetDetails(
               formulaSet: formulaSet,
@@ -76,7 +112,7 @@ class _PreparationFormulaOrdersScreenState
       formulaSet.formulas.where((entry) => entry.variantId.isEmpty).length;
 
   Future<void> _actions(PreparationFormulaSet formulaSet) async {
-    if (_loading || _renaming) return;
+    if (_loading || _renaming || !_sameScope) return;
     final action = await showSpringBottomSheet<String>(
       context: context,
       builder: (_) => AppActionSheet<String>(
@@ -90,7 +126,7 @@ class _PreparationFormulaOrdersScreenState
         ],
       ),
     );
-    if (!mounted || action != 'rename') return;
+    if (!mounted || !_sameScope || action != 'rename') return;
     final name = await showDialog<String>(
       context: context,
       builder: (_) => _PreparationInputDialog(
@@ -99,14 +135,18 @@ class _PreparationFormulaOrdersScreenState
         initialValue: formulaSet.name,
       ),
     );
-    if (!mounted || name == null || name == formulaSet.name || _renaming) return;
+    if (!mounted ||
+        !_sameScope ||
+        name == null ||
+        name == formulaSet.name ||
+        _renaming) return;
     setState(() => _renaming = true);
     try {
       final savedName = await MobileApi.instance.preparationRenameFormulaSet(
         setId: formulaSet.id,
         name: name,
       );
-      if (!mounted) return;
+      if (!mounted || !_sameScope) return;
       setState(() => _sets = [
             for (final item in _sets)
               if (item.id == formulaSet.id) item.renamed(savedName) else item,
@@ -125,12 +165,47 @@ class _PreparationFormulaOrdersScreenState
     }
   }
 
+  Future<void> _openRecipe(PreparationFormulaCatalogEntry entry) async {
+    if (_renaming || _loading || !_sameScope) return;
+    setState(() => _renaming = true);
+    try {
+      await Navigator.of(context).push(PreparationOrderFormulaScreen.route(
+        orderId: '',
+        orderCode: '',
+        productCode: entry.productCode,
+        productTitle: entry.productTitle,
+        materialId: entry.materialId,
+        materialName: entry.materialName,
+        manageSavedFormula: true,
+        variantId: entry.id,
+        variantName: entry.name,
+        variantCode: entry.code,
+        allowAddingFormula: entry.canCreate,
+      ));
+    } finally {
+      if (mounted) {
+        setState(() => _renaming = false);
+        if (_sameScope) await _load();
+      }
+    }
+  }
+
+  Future<void> _rename(PreparationFormulaCatalogEntry entry) async {
+    if (_renaming || _loading || !_sameScope) return;
+    setState(() => _renaming = true);
+    final renamed = await _renameCatalogRecipe(context, entry);
+    if (!mounted) return;
+    setState(() => _renaming = false);
+    if (renamed && _sameScope) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final sets = _sets
-        .where((item) => '${item.id} ${item.name} ${item.productTitle} ${item.productCode} ${item.orderCodes.join(' ')}'
-            .toLowerCase()
-            .contains(_query.trim().toLowerCase()))
+        .where((item) =>
+            '${item.id} ${item.name} ${item.productTitle} ${item.productCode} ${item.orderCodes.join(' ')}'
+                .toLowerCase()
+                .contains(_query.trim().toLowerCase()))
         .toList();
     return AppShell(
       title: 'Formulalar',
@@ -143,7 +218,17 @@ class _PreparationFormulaOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _search,
         focusNode: _searchFocus,
-        hintText: 'Kod, nom yoki buyurtmani qidirish',
+        hintText: _saved
+            ? 'Formula nomi, kodi yoki buyurtmani qidirish'
+            : 'Mahsulot yoki buyurtmani qidirish',
+        onBack: () {
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            navigator.pushReplacementNamed(AppRoutes.preparation);
+          }
+        },
         onChanged: (query) => setState(() => _query = query),
         onClear: () {
           _search.clear();
@@ -153,55 +238,139 @@ class _PreparationFormulaOrdersScreenState
       contentPadding: EdgeInsets.zero,
       bottom: const PreparationDock(showPrimaryFab: false),
       child: Column(children: [
-        if (_renaming) const LinearProgressIndicator(),
+        IgnorePointer(
+          ignoring: _renaming || !_sameScope,
+          child: AdminSurfaceTabBar(controller: _tabs, tabs: const [
+            Tab(child: UrduAwareText('Mahsulot bo‘yicha')),
+            Tab(child: UrduAwareText('Saqlangan formulalar')),
+          ]),
+        ),
+        if (_renaming && !_saved) const LinearProgressIndicator(),
         Expanded(
             child: _loading
                 ? const Center(child: AppLoadingIndicator())
-                : AppRefreshIndicator(
-                    onRefresh: _load,
-                    allowRefreshOnShortContent: true,
-                    child: ListView(
-                        physics: const TopRefreshScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
-                        children: [
-                          if (_error != null)
-                            Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(children: [
-                                  Text(_error!),
-                                  TextButton(
-                                      onPressed: _load,
-                                      child:
-                                          const UrduAwareText('Qayta urinish')),
-                                ])),
-                          if (_error == null && sets.isEmpty)
-                            Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: UrduAwareText(_query.trim().isEmpty
-                                    ? 'Saqlangan formulalar yo‘q.'
-                                    : 'Formula komplekti topilmadi.')),
-                          M3SegmentSpacedColumn(children: [
-                            for (var i = 0; i < sets.length; i++)
-                              AdminCatalogListRow(
-                                key: ValueKey(
-                                    'preparation-formula-set-${sets[i].id}'),
-                                slot: M3SegmentedListGeometry
-                                    .standaloneListSlotForIndex(i, sets.length),
-                                icon: Icons.functions_rounded,
-                                title: sets[i].name,
-                                subtitle: sets[i].orderCodes.isEmpty
-                                    ? '${sets[i].id}\nMos buyurtma yo‘q'
-                                    : sets[i].id,
-                                subtitleMaxLines:
-                                    sets[i].orderCodes.isEmpty ? 2 : 1,
-                                value: '${_recipeCount(sets[i])} ta formula',
-                                onTap: _renaming ? null : () => _open(sets[i]),
-                                onLongPress: _renaming ? null : () => _actions(sets[i]),
-                              ),
-                          ]),
-                        ]),
-                  )),
+                : _saved
+                    ? _savedRecipeList()
+                    : AppRefreshIndicator(
+                        onRefresh: _load,
+                        allowRefreshOnShortContent: true,
+                        child: ListView(
+                            physics: const TopRefreshScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
+                            children: [
+                              if (_error != null)
+                                Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(children: [
+                                      Text(_error!),
+                                      TextButton(
+                                          onPressed: _load,
+                                          child: const UrduAwareText(
+                                              'Qayta urinish')),
+                                    ])),
+                              if (_error == null && sets.isEmpty)
+                                Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: UrduAwareText(_query.trim().isEmpty
+                                        ? 'Saqlangan formulalar yo‘q.'
+                                        : 'Formula komplekti topilmadi.')),
+                              M3SegmentSpacedColumn(children: [
+                                for (var i = 0; i < sets.length; i++)
+                                  AdminCatalogListRow(
+                                    key: ValueKey(
+                                        'preparation-formula-set-${sets[i].id}'),
+                                    slot: M3SegmentedListGeometry
+                                        .standaloneListSlotForIndex(
+                                            i, sets.length),
+                                    icon: Icons.functions_rounded,
+                                    title: sets[i].name,
+                                    subtitle: sets[i].orderCodes.isEmpty
+                                        ? '${sets[i].id}\nMos buyurtma yo‘q'
+                                        : sets[i].id,
+                                    subtitleMaxLines:
+                                        sets[i].orderCodes.isEmpty ? 2 : 1,
+                                    value:
+                                        '${_recipeCount(sets[i])} ta formula',
+                                    onTap:
+                                        _renaming ? null : () => _open(sets[i]),
+                                    onLongPress: _renaming
+                                        ? null
+                                        : () => _actions(sets[i]),
+                                  ),
+                              ]),
+                            ]),
+                      )),
       ]),
+    );
+  }
+
+  Widget _savedRecipeList() {
+    final query = _search.text.trim().toLowerCase();
+    final entries = [
+      for (final entry in _recipes)
+        if ([
+          entry.name,
+          entry.code,
+          entry.materialName,
+          entry.setName,
+          entry.productTitle,
+          entry.productCode,
+          ...entry.orderCodes
+        ].join(' ').toLowerCase().contains(query))
+          entry,
+    ];
+    return AppRefreshIndicator(
+      onRefresh: _load,
+      allowRefreshOnShortContent: true,
+      child: ListView.builder(
+        physics: const TopRefreshScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 136),
+        itemCount: entries.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    UrduAwareText(
+                        'Barcha buyurtmalarning formulalari: ${entries.length} ta'),
+                    if (_error != null) ...[
+                      Text(_error!),
+                      TextButton(
+                          onPressed: _load,
+                          child: const UrduAwareText('Qayta urinish')),
+                    ] else if (entries.isEmpty)
+                      UrduAwareText(query.isEmpty
+                          ? 'Saqlangan formulalar yo‘q.'
+                          : 'Formula topilmadi.'),
+                  ]),
+            );
+          }
+          final entry = entries[index - 1];
+          return Padding(
+            padding: EdgeInsets.only(
+              top: index == 1 ? 0 : M3SegmentedListGeometry.gap,
+            ),
+            child: AdminCatalogListRow(
+              key: ValueKey('preparation-catalog-formula-${entry.id}'),
+              slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                  index - 1, entries.length),
+              icon: Icons.functions_rounded,
+              title: entry.name,
+              subtitle: [
+                if (entry.code.isNotEmpty) entry.code,
+                entry.productTitle,
+                if (entry.materialName.isNotEmpty) entry.materialName,
+                if (entry.orderCodes.isNotEmpty)
+                  'Buyurtmalar: ${entry.orderCodes.join(', ')}',
+              ].join(' • '),
+              onTap: _renaming ? null : () => _openRecipe(entry),
+              onLongPress: _renaming ? null : () => _rename(entry),
+            ),
+          );
+        },
+      ),
     );
   }
 }

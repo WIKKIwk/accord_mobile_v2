@@ -496,7 +496,7 @@ class _AdminProductionMapOrdersScreenState
                   selectedRouteName: AppRoutes.adminProductionMapOrders,
                   onNavigate: _openDrawerRoute,
                 ),
-      title: '',
+      title: isTayyorlovMasteri && widget.supplyViewerMode ? 'Ishlab chiqarish' : '',
       subtitle: '',
       nativeTopBar: true,
       actions: [
@@ -524,7 +524,9 @@ class _AdminProductionMapOrdersScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: widget.materialTasksMode
+        hintText: isTayyorlovMasteri && widget.supplyViewerMode
+            ? 'Buyurtmalar navbatidan qidirish'
+            : widget.materialTasksMode
             ? 'Material vazifalari'
             : widget.qolipTasksMode
                 ? context.l10n.qolipText('nav.tasks')
@@ -574,7 +576,10 @@ class _AdminProductionMapOrdersScreenState
                 ),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: !_hasRezkaOrdersTab &&
+      child: Column(children: [
+        if (isTayyorlovMasteri && widget.supplyViewerMode)
+          const PreparationProductionSections(journal: false),
+        Expanded(child: !_hasRezkaOrdersTab &&
               ((_loading && !_adminPaging) ||
               (_loadError != null &&
                   _reconnectingOrderReads.contains(_OrdersReadSection.initial)))
@@ -878,7 +883,9 @@ class _AdminProductionMapOrdersScreenState
                                 ),
                     ),
                   ],
-                ),
+                )),
+      ]),
+
     );
   }
 

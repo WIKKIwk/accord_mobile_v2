@@ -67,6 +67,35 @@ class PreparationDock extends StatelessWidget {
   }
 }
 
+class PreparationProductionSections extends StatelessWidget {
+  const PreparationProductionSections({super.key, required this.journal});
+  final bool journal;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+        child: SegmentedButton<bool>(
+          expandedInsets: EdgeInsets.zero,
+          showSelectedIcon: false,
+          segments: [
+            ButtonSegment(
+                value: false, label: Text(context.l10n.uiText('Navbat'))),
+            ButtonSegment(
+                value: true, label: Text(context.l10n.uiText('Jurnal'))),
+          ],
+          selected: {journal},
+          onSelectionChanged: (value) {
+            if (value.single == journal) return;
+            Navigator.of(context).pushReplacementNamed(
+              value.single
+                  ? AppRoutes.preparationProduction
+                  : AppRoutes.supplySequence,
+            );
+          },
+        ),
+      );
+}
+
 class PreparationDrawer extends StatelessWidget {
   const PreparationDrawer({
     super.key,
@@ -84,8 +113,11 @@ class PreparationDrawer extends StatelessWidget {
     final l10n = context.l10n;
     return RoleNavigationDrawer(
       selectedIndex: profile ? 2 : 0,
-      selectedRouteName: selectedRouteName ??
-          (profile ? AppRoutes.profile : AppRoutes.preparation),
+      selectedRouteName: selectedRouteName == AppRoutes.preparationProduction &&
+              AppRouter.canOpenRoute(AppRoutes.supplySequence)
+          ? AppRoutes.supplySequence
+          : selectedRouteName ??
+              (profile ? AppRoutes.profile : AppRoutes.preparation),
       headerLabel: 'Tayyorlov bo‘limlari',
       onNavigate: onNavigate ??
           (route) => AppRootNavigation.replaceRootRoute(context, route),
@@ -97,46 +129,31 @@ class PreparationDrawer extends StatelessWidget {
           routeName: AppRoutes.preparation,
         ),
         const RoleNavigationDrawerDestination(
+          label: 'Ombor',
+          icon: Icons.warehouse_outlined,
+          selectedIcon: Icons.warehouse,
+          routeName: AppRoutes.preparationWarehouse,
+        ),
+        RoleNavigationDrawerDestination(
+          label: 'Ishlab chiqarish',
+          icon: Icons.precision_manufacturing_outlined,
+          selectedIcon: Icons.precision_manufacturing,
+          routeName: AppRouter.canOpenRoute(AppRoutes.supplySequence)
+              ? AppRoutes.supplySequence
+              : AppRoutes.preparationProduction,
+        ),
+        const RoleNavigationDrawerDestination(
           label: 'Formulalar',
           icon: Icons.functions_outlined,
           selectedIcon: Icons.functions_rounded,
           routeName: AppRoutes.preparationFormulas,
         ),
         const RoleNavigationDrawerDestination(
-          label: 'Tayyorlov hisobi',
-          icon: Icons.precision_manufacturing_outlined,
-          selectedIcon: Icons.precision_manufacturing,
-          routeName: AppRoutes.preparationProduction,
-        ),
-        const RoleNavigationDrawerDestination(
-          icon: Icons.format_list_numbered_outlined,
-          selectedIcon: Icons.format_list_numbered_rounded,
-          label: 'Ketma-ketlik',
-          routeName: AppRoutes.supplySequence,
-          push: true,
-        ),
-        if (AppRouter.canOpenRoute(AppRoutes.gscaleMode))
-          const RoleNavigationDrawerDestination(
-            icon: Icons.scale_outlined,
-            selectedIcon: Icons.scale_rounded,
-            label: 'Kirim',
-            routeName: AppRoutes.gscaleMode,
-            push: true,
-          ),
-        const RoleNavigationDrawerDestination(
           icon: Icons.chat_bubble_outline_rounded,
           selectedIcon: Icons.chat_bubble_rounded,
           label: 'Chat',
           routeName: AppRoutes.chat,
         ),
-        if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
-          const RoleNavigationDrawerDestination(
-            icon: Icons.swap_horiz_outlined,
-            selectedIcon: Icons.swap_horiz_rounded,
-            label: 'Joylashtirish va transfer',
-            routeName: AppRoutes.inventoryMovements,
-            push: true,
-          ),
         RoleNavigationDrawerDestination(
           label: l10n.profileTitle,
           icon: Icons.person_outline_rounded,

@@ -508,6 +508,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Full master product 1'), findsOneWidget);
       expect(find.text('120 kg'), findsOneWidget);
+      expect(find.text('Sarf yozish'), findsOneWidget);
       expect(api.detailReads, ['zakaz-1']);
       expect(
           api.requests.where((request) =>

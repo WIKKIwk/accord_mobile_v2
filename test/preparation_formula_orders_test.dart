@@ -229,14 +229,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('O‘zim yaratgan homashyolar'), findsNothing);
       final materialCard = find.ancestor(
-          of: find.text('Homashyolar'),
+          of: find.text('Ombor'),
           matching: find.byType(AdminSummaryCard));
       final orderCard = find.ancestor(
-          of: find.text('Buyurtmalar'),
+          of: find.text('Ishlab chiqarish'),
           matching: find.byType(AdminSummaryCard));
       expect(tester.getSize(materialCard).height,
           lessThanOrEqualTo(tester.getSize(orderCard).height));
-      await tester.tap(find.text('Mahsulot formulasi'));
+      await tester.tap(find.text('Formulalar'));
       await tester.pumpAndSettle();
       expect(find.text('950200000001'), findsOneWidget);
       expect(find.text('Test product'), findsOneWidget);

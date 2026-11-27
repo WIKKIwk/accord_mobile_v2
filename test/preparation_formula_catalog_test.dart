@@ -81,7 +81,9 @@ void main() {
           of: find.byType(NavigationDrawer),
           matching: find.text('Formulalar')));
       await tester.pumpAndSettle();
-      expect(find.byType(PreparationFormulaCatalogScreen), findsOneWidget);
+      expect(find.byType(PreparationFormulaOrdersScreen), findsOneWidget);
+      await tester.tap(find.text('Saqlangan formulalar'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('Barcha buyurtmalarning formulalari: 3 ta'),
           findsOneWidget);
       expect(find.text('LG'), findsOneWidget);
@@ -104,6 +106,7 @@ void main() {
       expect(tester.takeException(), isNull);
     },
         () => MockClient((request) async {
+              if (request.url.path.endsWith('/formula-sets')) return fixtures.response({'sets': []});
               if (request.url.path.endsWith('/snapshot')) {
                 return fixtures.response({
                   'warehouses': [],

@@ -11,7 +11,7 @@ extension __InventoryMovementsScreenStateAstPart01
   Future<void> _restoreWarehouseFilterAndLoad() async {
     try {
       final preferences = await SharedPreferences.getInstance();
-      _selectedWarehouseId =
+      _selectedWarehouseId = (_preparationScoped ? widget.preparationTransfers?.warehouseId : null) ??
           preferences.getString(_warehouseFilterPreferenceKey)?.trim() ?? '';
     } catch (_) {
       _selectedWarehouseId = '';

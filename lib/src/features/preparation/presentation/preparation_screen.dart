@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/inventory/inventory_view_store.dart';
-import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
 import '../../../core/theme/app_theme.dart';
@@ -23,15 +22,23 @@ import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_summary_card.dart';
 import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../shared/models/inventory_movement_models.dart';
+import '../../shared/models/app_models.dart' show UserRole;
+import '../../inventory/presentation/inventory_movements_screen.dart'
+    show PreparationTransfersArgs;
 import '../../werka/presentation/widgets/m3_picker_sheet.dart';
 import '../models/preparation_models.dart';
 import 'preparation_navigation.dart';
+import 'preparation_production_paddon_picker.dart';
+import '../../../core/models/preparation_output_note.dart'
+    show preparationNoteSelectionLimit;
 import 'preparation_order_formula_screen.dart';
-import 'preparation_formula_variants_screen.dart' show showPreparationFormulaRenameDialog;
+import 'preparation_formula_variants_screen.dart'
+    show showPreparationFormulaRenameDialog;
 import 'preparation_formula_shares_sheet.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 
 part 'preparation_screen_forms.dart';
+part 'preparation_order_consumption.dart';
 part 'preparation_warehouse_rolls.dart';
 part 'preparation_warehouse_management.dart';
 part 'preparation_materials_screen.dart';
@@ -62,37 +69,57 @@ M3SegmentVerticalSlot _slotFor(int index, int length) {
 }
 
 class PreparationScreen extends StatefulWidget {
-  const PreparationScreen({super.key});
+  const PreparationScreen({super.key, this.warehouseOnly = false});
+  final bool warehouseOnly;
   @override
   State<PreparationScreen> createState() => _PreparationScreenState();
 }
 
 class _PreparationScreenState extends State<PreparationScreen> {
+  final _scope = currentSessionReadScope();
+  bool get _current => mounted && _scope == currentSessionReadScope();
   PreparationSnapshot? _snapshot;
   PreparationPendingCommand? _pending;
   String? _warehouse, _error;
   bool _loading = true, _saving = false;
-  bool get _locked => _loading || _saving || _pending != null;
+  bool get _locked => !_current || _loading || _saving || _pending != null;
   void _update(VoidCallback action) => setState(action);
 
   @override
   void initState() {
     super.initState();
+    AppSession.instance.revision.addListener(_sessionChanged);
     _reload();
   }
 
+  void _sessionChanged() {
+    if (_current || !mounted) return;
+    setState(() {
+      _snapshot = null;
+      _pending = null;
+      _warehouse = null;
+      _loading = false;
+      _error = 'Akkaunt o‘zgargan. Sahifani qayta oching';
+    });
+  }
+
+  @override
+  void dispose() {
+    AppSession.instance.revision.removeListener(_sessionChanged);
+    super.dispose();
+  }
+
   Future<void> _reload() async {
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+    if (!_current) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final pending = await MobileApi.instance.preparationPendingCommand();
-      if (mounted) setState(() => _pending = pending);
+      if (_current) setState(() => _pending = pending);
       final snapshot = await MobileApi.instance.preparationSnapshot();
-      if (!mounted) return;
+      if (!_current) return;
       setState(() {
         _snapshot = snapshot;
         if (!snapshot.assignedWarehouses.contains(_warehouse)) {
@@ -102,9 +129,9 @@ class _PreparationScreenState extends State<PreparationScreen> {
         }
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (_current) setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (_current) setState(() => _loading = false);
     }
   }
 
@@ -123,20 +150,20 @@ class _PreparationScreenState extends State<PreparationScreen> {
   List<dynamic> _syncedHistory() => _snapshot?.history ?? const [];
 
   Future<void> _submit(String kind, Map<String, dynamic> payload) async {
-    if (_saving) return;
+    if (_saving || !_current) return;
     setState(() => _saving = true);
     try {
       await MobileApi.instance.preparationSubmit(kind, payload);
-      if (!mounted) return;
+      if (!_current) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: UrduAwareText('Saqlandi')));
     } catch (e) {
-      if (mounted) {
+      if (_current) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
-      if (mounted) {
+      if (_current) {
         setState(() => _saving = false);
         await _reload();
       }
@@ -147,123 +174,83 @@ class _PreparationScreenState extends State<PreparationScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
     );
-    if (mounted) {
+    if (_current) {
       await _reload();
     }
   }
 
-  void _openWarehouse(
-    PreparationSnapshot data, {
-    bool showPreparedRolls = false,
-  }) {
-    _openAndReload(PreparationWarehouseScreen(
-      warehouses: data.assignedWarehouses,
-      assignedWarehouses: data.assignedWarehouses,
-      materialWarehouses: data.materialWarehouses,
-      initialWarehouse: _warehouse,
-      materials: data.materials,
-      history: data.history,
-      locked: _locked,
-      onWarehouseSelected: (w) => _update(() => _warehouse = w),
-      onReceive: _receive,
-      onCreateMaterial: _createMaterial,
-      onReload: _reload,
-      freshMaterials: _syncedMaterials,
-      freshHistory: _syncedHistory,
-      freshAssignedWarehouses: _syncedAssignedWarehouses,
-      freshMaterialWarehouses: _syncedMaterialWarehouses,
-      freshManagedWarehouses: () => _snapshot?.managedWarehouses ?? const [],
-      freshAssignedWarehouseIds: () =>
-          _snapshot?.assignedWarehouseIds ?? const {},
-      showPreparedRolls: showPreparedRolls,
-    ));
-  }
+  PreparationWarehouseScreen _warehouseScreen(PreparationSnapshot data) =>
+      PreparationWarehouseScreen(
+        warehouses: data.assignedWarehouses,
+        assignedWarehouses: data.assignedWarehouses,
+        materialWarehouses: data.materialWarehouses,
+        initialWarehouse: _warehouse,
+        materials: data.materials,
+        history: data.history,
+        locked: _locked,
+        onWarehouseSelected: (w) => _update(() => _warehouse = w),
+        onReceive: _receive,
+        onCreateMaterial: _createMaterial,
+        onReload: _reload,
+        freshMaterials: _syncedMaterials,
+        freshHistory: _syncedHistory,
+        freshAssignedWarehouses: _syncedAssignedWarehouses,
+        freshMaterialWarehouses: _syncedMaterialWarehouses,
+        freshManagedWarehouses: () => _snapshot?.managedWarehouses ?? const [],
+        freshAssignedWarehouseIds: () =>
+            _snapshot?.assignedWarehouseIds ?? const {},
+      );
 
-  Future<void> _startKirim(PreparationSnapshot data) async {
-    final warehouse = _warehouse;
-    if (warehouse == null) {
-      _openWarehouse(data);
-      return;
-    }
-    if (data.assignedWarehouseIds.isEmpty &&
-        !data.materialWarehouses.contains(warehouse)) {
-      await _openPreparationScaleReceipt(context, warehouse);
-      if (mounted) await _reload();
-      return;
-    }
-    final material = await _pick<PreparationMaterial>(
-      title: 'Homashyo tanlang',
-      items: data.materials
-          .where((m) => m.canReceiveIn(warehouse, data.materialWarehouses))
-          .toList(),
-      label: (m) => m.name,
-      subtitle: (m) =>
-          'Mavjud: ${preparationDisplay(m.available(warehouse))} kg',
-    );
+  Future<void> _openWarehouse(PreparationSnapshot data) =>
+      _openAndReload(_warehouseScreen(data));
+
+  Future<void> _startSeriyoReceipt(PreparationSnapshot data) async {
+    final warehouses = data.assignedWarehouses
+        .where((w) =>
+            _receivableSeriyo(data.materials, w, data.materialWarehouses)
+                .isNotEmpty)
+        .toList();
+    if (warehouses.isEmpty || _locked) return;
+    final warehouse = warehouses.contains(_warehouse)
+        ? _warehouse
+        : warehouses.length == 1
+            ? warehouses.single
+            : await _pickPreparationItem<String>(
+                context,
+                title: 'Seriyo kirimi uchun ombor tanlang',
+                items: warehouses,
+                label: (w) => w,
+                subtitle: (_) => '',
+              );
+    if (!mounted || warehouse == null || _locked) return;
+    setState(() => _warehouse = warehouse);
+    final material = await _pickSeriyo(
+        context, warehouse, data.materials, data.materialWarehouses);
     if (material != null && mounted && _warehouse == warehouse) {
       await _receive(material);
     }
   }
 
   List<AdminFabMenuAction> _fabActions(PreparationSnapshot data) => [
-        if (!_locked)
+        if (!_locked &&
+            data.assignedWarehouses.any((w) =>
+                _receivableSeriyo(data.materials, w, data.materialWarehouses)
+                    .isNotEmpty))
           AdminFabMenuAction(
-            title: 'Mahsulot formulasi',
-            icon: Icons.functions_rounded,
-            onTap: () => _openAndReload(const PreparationFormulaOrdersScreen()),
+            title: 'Seriyo kirimi',
+            icon: Icons.add_circle_outline_rounded,
+            onTap: () => _startSeriyoReceipt(data),
           ),
-        if (!_locked)
+        if (!_locked && AppRouter.canOpenRoute(AppRoutes.gscaleMode))
           AdminFabMenuAction(
-            title: 'Homashyolar',
-            icon: Icons.inventory_2_outlined,
-            onTap: () => _openAndReload(const PreparationMaterialsScreen()),
-          ),
-        AdminFabMenuAction(
-          title: 'Ombor',
-          icon: Icons.warehouse_outlined,
-          onTap: () => _openWarehouse(data),
-        ),
-        if (AppRouter.canOpenRoute(AppRoutes.gscaleMode))
-          AdminFabMenuAction(
-            title: 'Tarozi kirimi',
+            title: 'Rulonni tortish',
             icon: Icons.scale_outlined,
             onTap: () async {
               await _openPreparationScaleReceipt(context, _warehouse);
-              if (mounted) await _reload();
+              if (_current) await _reload();
             },
           ),
-        if (_warehouse == null ||
-            data.assignedWarehouseIds.isNotEmpty ||
-            data.materialWarehouses.contains(_warehouse))
-          AdminFabMenuAction(
-            title: 'Kirim',
-            icon: Icons.add_circle_outline_rounded,
-            onTap: () => _startKirim(data),
-          ),
-        AdminFabMenuAction(
-          title: 'Buyurtmalar',
-          icon: Icons.list_alt_rounded,
-          onTap: () => _openOrders(),
-        ),
-        AdminFabMenuAction(
-          title: 'Tarix',
-          icon: Icons.history_outlined,
-          onTap: () => _openHistory(data),
-        ),
       ];
-
-  void _openOrders() {
-    // Tayyorlov masteri uchun alohida generate qilingan Buyurtmalar
-    // sahifasi olib tashlandi — o'rniga mavjud Ketma-ketlik sahifasi ochiladi.
-    AppRootNavigation.replaceRootRoute(context, AppRoutes.supplySequence);
-  }
-
-  void _openHistory(PreparationSnapshot data) {
-    _openAndReload(PreparationHistoryScreen(
-      history: data.history,
-      onReload: _reload,
-    ));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +259,7 @@ class _PreparationScreenState extends State<PreparationScreen> {
     final data = _snapshot;
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
 
+    if (widget.warehouseOnly && data != null) return _warehouseScreen(data);
     return AppShell(
       title: 'Tayyorlov masteri',
       subtitle: 'Ichki homashyo ta’minoti',
@@ -396,110 +384,46 @@ class _PreparationScreenState extends State<PreparationScreen> {
                         horizontal: _adminHomePanelCardGap,
                       ),
                       children: [
-                        if (data.assignedWarehouses.isNotEmpty)
+                        for (final (slot, title, description, open) in [
+                          (
+                            M3SegmentVerticalSlot.top,
+                            'Ombor',
+                            'Seriyo, tayyor rulonlar va transferlar',
+                            () => _openWarehouse(data)
+                          ),
+                          (
+                            M3SegmentVerticalSlot.middle,
+                            'Ishlab chiqarish',
+                            'Buyurtmalar navbati va ishlab chiqarish jurnali',
+                            () => Navigator.of(context).pushNamed(
+                                AppRouter.canOpenRoute(AppRoutes.supplySequence)
+                                    ? AppRoutes.supplySequence
+                                    : AppRoutes.preparationProduction)
+                          ),
+                          (
+                            M3SegmentVerticalSlot.bottom,
+                            'Formulalar',
+                            'Mahsulot bo‘yicha va saqlangan formulalar',
+                            () => _openAndReload(
+                                const PreparationFormulaOrdersScreen())
+                          ),
+                        ])
                           AdminSummaryCard(
-                            slot: M3SegmentVerticalSlot.top,
-                            cornerRadius: M3SegmentedListGeometry.cornerLarge,
+                            slot: slot,
+                            cornerRadius: slot == M3SegmentVerticalSlot.middle
+                                ? M3SegmentedListGeometry.cornerMiddle
+                                : M3SegmentedListGeometry.cornerLarge,
                             backgroundColor: scheme.surfaceContainerLowest,
-                            title: 'Ombor',
+                            title: localizeUrduUiText(title),
+                            subtitle: localizeUrduUiText(description),
                             titleStyle: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
-                            value: _warehouse ?? '',
+                            value: title == 'Ombor' ? (_warehouse ?? '') : '',
                             showChevron: false,
-                            onTap: _locked ? null : () => _openWarehouse(data),
+                            onTap: open,
                             elevation: 4,
                           ),
-                        AdminSummaryCard(
-                          slot: M3SegmentVerticalSlot.middle,
-                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Homashyolar',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '',
-                          showChevron: false,
-                          onTap: _locked
-                              ? null
-                              : () => _openAndReload(
-                                  const PreparationMaterialsScreen()),
-                          elevation: 4,
-                        ),
-                        AdminSummaryCard(
-                          slot: M3SegmentVerticalSlot.middle,
-                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Mahsulot formulasi',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '',
-                          showChevron: false,
-                          onTap: _locked
-                              ? null
-                              : () => _openAndReload(
-                                  const PreparationFormulaOrdersScreen()),
-                          elevation: 4,
-                        ),
-                        AdminSummaryCard(
-                          slot: M3SegmentVerticalSlot.middle,
-                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Buyurtmalar',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '',
-                          showChevron: false,
-                          onTap: () => _openOrders(),
-                          elevation: 4,
-                        ),
-                        AdminSummaryCard(
-                          slot: M3SegmentVerticalSlot.middle,
-                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Tayyorlov hisobi',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '',
-                          showChevron: false,
-                          onTap: () => AppRootNavigation.replaceRootRoute(
-                              context, AppRoutes.preparationProduction),
-                          elevation: 4,
-                        ),
-                        AdminSummaryCard(
-                          slot: M3SegmentVerticalSlot.middle,
-                          cornerRadius: M3SegmentedListGeometry.cornerMiddle,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: data.assignedWarehouseIds.isEmpty
-                              ? 'Ishlab chiqarilgan homashyolar'
-                              : 'Tayyor rulonlar',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '',
-                          showChevron: false,
-                          onTap: data.assignedWarehouseIds.isEmpty
-                              ? () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.inventoryMovements)
-                              : () => _openWarehouse(data, showPreparedRolls: true),
-                          elevation: 4,
-                        ),
-                        AdminSummaryCard(
-                          slot: M3SegmentVerticalSlot.bottom,
-                          cornerRadius: M3SegmentedListGeometry.cornerLarge,
-                          backgroundColor: scheme.surfaceContainerLowest,
-                          title: 'Tarix',
-                          titleStyle: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          value: '',
-                          showChevron: false,
-                          onTap: () => _openHistory(data),
-                          elevation: 4,
-                        ),
                       ],
                     ),
                   ],

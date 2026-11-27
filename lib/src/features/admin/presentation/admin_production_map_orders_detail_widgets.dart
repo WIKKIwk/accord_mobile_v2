@@ -649,6 +649,27 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                       customerName: customerName,
                       noticeAnchorKey: noticeAnchorKey,
                     ),
+                  if (summaryOnlyMode && map.id.trim().isNotEmpty &&
+                      AppSession.instance.profile?.role == UserRole.tayyorlovMasteri &&
+                      AppSession.instance.can('preparation.access'))
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => PreparationOrderConsumptionScreen(orderId: map.id),
+                          )),
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          label: const UrduAwareText('Sarf yozish'),
+                        ),
+                        if (AppRouter.canOpenRoute(AppRoutes.gscaleMode))
+                          OutlinedButton.icon(
+                            onPressed: () => _openMaterialOrderReceipt(context, order),
+                            icon: const Icon(Icons.scale_outlined),
+                            label: const UrduAwareText('Rulonni tortish'),
+                          ),
+                      ],
+                    ),
                   if (!summaryOnlyMode && (!workerMode || summaryExpanded))
                     const SizedBox(height: 4),
                   if (!summaryOnlyMode)

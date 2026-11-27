@@ -488,7 +488,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
         onNavigate: (route) =>
             Navigator.of(context).pushReplacementNamed(route),
       ),
-      title: '',
+      title: 'Ishlab chiqarish',
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -498,7 +498,7 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocus,
-        hintText: context.l10n.productionText('worker.queue.search.sequence'),
+        hintText: 'Buyurtmalar navbatidan qidirish',
         onChanged: _searchChanged,
         onClear: () {
           _searchController.clear();
@@ -512,7 +512,9 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
       bottom: const PreparationDock(),
       bottomDockFadeStrength: null,
       contentPadding: EdgeInsets.zero,
-      child: _loading && _rows.isEmpty
+      child: Column(children: [
+        const PreparationProductionSections(journal: false),
+        Expanded(child: _loading && _rows.isEmpty
           ? const Align(
               alignment: Alignment.topCenter,
               child: _OrdersConnectionProgress())
@@ -581,7 +583,8 @@ class _PreparationOrdersListState extends State<AdminProductionMapOrdersScreen>
                               MediaQuery.viewPaddingOf(context).bottom + 136)),
                 ],
               ),
-            ),
+            )),
+      ]),
     );
   }
 

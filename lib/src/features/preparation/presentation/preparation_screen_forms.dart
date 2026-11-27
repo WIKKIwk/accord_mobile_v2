@@ -1,32 +1,54 @@
 part of 'preparation_screen.dart';
 
-extension _PreparationForms on _PreparationScreenState {
-  Future<T?> _pick<T>(
-          {required String title,
-          required List<T> items,
-          required String Function(T) label,
-          required String Function(T) subtitle}) =>
-      showModalBottomSheet<T>(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          backgroundColor: Colors.transparent,
-          sheetAnimationStyle: kM3PickerSheetAnimation,
-          builder: (sheetContext) => M3AsyncPickerSheet<T>(
-              title: title,
-              hintText: 'Qidirish',
-              pageSize: 50,
-              loadPage: (query, offset, limit) async => items
-                  .where((item) => '${label(item)} ${subtitle(item)}'
-                      .toLowerCase()
-                      .contains(query.trim().toLowerCase()))
-                  .skip(offset)
-                  .take(limit)
-                  .toList(),
-              itemTitle: label,
-              itemSubtitle: subtitle,
-              onSelected: (item) => Navigator.of(sheetContext).pop(item)));
+Future<T?> _pickPreparationItem<T>(BuildContext context,
+        {required String title,
+        required List<T> items,
+        required String Function(T) label,
+        required String Function(T) subtitle,
+        String Function(T)? searchText}) =>
+    showModalBottomSheet<T>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        sheetAnimationStyle: kM3PickerSheetAnimation,
+        builder: (sheetContext) => M3AsyncPickerSheet<T>(
+            title: title,
+            hintText: 'Qidirish',
+            pageSize: 50,
+            loadPage: (query, offset, limit) async => items
+                .where((item) => (searchText?.call(item) ??
+                        '${label(item)} ${subtitle(item)}')
+                    .toLowerCase()
+                    .contains(query.trim().toLowerCase()))
+                .skip(offset)
+                .take(limit)
+                .toList(),
+            itemTitle: label,
+            itemSubtitle: subtitle,
+            onSelected: (item) => Navigator.of(sheetContext).pop(item)));
 
+List<PreparationMaterial> _receivableSeriyo(List<PreparationMaterial> materials,
+        String warehouse, List<String> materialWarehouses) =>
+    materials
+        .where((m) =>
+            m.isSeriyo != false &&
+            m.canReceiveIn(warehouse, materialWarehouses))
+        .toList();
+
+Future<PreparationMaterial?> _pickSeriyo(BuildContext context, String warehouse,
+        List<PreparationMaterial> materials, List<String> materialWarehouses) =>
+    _pickPreparationItem<PreparationMaterial>(
+      context,
+      title: 'Homashyo tanlang',
+      items: _receivableSeriyo(materials, warehouse, materialWarehouses),
+      label: (m) => m.name,
+      subtitle: (m) =>
+          'Mavjud: ${preparationDisplay(m.available(warehouse))} kg',
+      searchText: (m) => '${m.name} ${m.code}',
+    );
+
+extension _PreparationForms on _PreparationScreenState {
   Future<String?> _input(
           {required String title,
           required String label,
@@ -37,22 +59,29 @@ extension _PreparationForms on _PreparationScreenState {
               title: title, label: label, quantity: quantity));
 
   Future<void> _createMaterial(String warehouse) async {
+    if (_locked) return;
     final name = await _input(title: 'Yangi homashyo', label: 'Homashyo nomi');
-    if (name != null && mounted) {
+    if (name != null &&
+        !_locked &&
+        _syncedAssignedWarehouses().contains(warehouse)) {
       await _submit('materials', {'name': name, 'warehouse': warehouse});
     }
   }
 
   Future<void> _receive(PreparationMaterial material) async {
     final warehouse = _warehouse;
-    if (warehouse == null ||
+    if (_locked ||
+        warehouse == null ||
         !_syncedAssignedWarehouses().contains(warehouse) ||
         !material.canReceiveIn(warehouse, _syncedMaterialWarehouses())) {
       return;
     }
     final kg = await _input(
         title: '${material.name} — kirim', label: 'Kirim (kg)', quantity: true);
-    if (kg != null && mounted) {
+    if (kg != null &&
+        !_locked &&
+        _warehouse == warehouse &&
+        _syncedAssignedWarehouses().contains(warehouse)) {
       await _submit('receipts', {
         'item_code': material.code,
         'warehouse': warehouse,
@@ -60,7 +89,6 @@ extension _PreparationForms on _PreparationScreenState {
       });
     }
   }
-
 }
 
 String _formatDateTime(dynamic raw) {
@@ -137,6 +165,18 @@ class _PreparationWarehouseScreenState
   bool _filterExpanded = false;
   bool _managingWarehouse = false;
   late final TabController _stockTabs;
+  final _scope = currentSessionReadScope();
+  final _selectedReceipts = <String, String>{};
+  int _selectionGeneration = 0;
+  int _rollRefresh = 0;
+  bool _resolvingRoll = false;
+
+  void _clearRollSelection() {
+    _selectionGeneration++;
+    _selectedReceipts.clear();
+    _resolvingRoll = false;
+  }
+
   void _updateWarehouse(VoidCallback action) => setState(action);
 
   /// Faqat shu userga ulangan omborlar, jumladan yangi bola omborlar.
@@ -186,7 +226,10 @@ class _PreparationWarehouseScreenState
   }
 
   void _selectWarehouse(String w) {
-    setState(() => _warehouse = w);
+    setState(() {
+      if (w != _warehouse) _clearRollSelection();
+      _warehouse = w;
+    });
     widget.onWarehouseSelected(w);
   }
 
@@ -203,30 +246,7 @@ class _PreparationWarehouseScreenState
       if (mounted) setState(() => _materials = widget.freshMaterials());
       return;
     }
-    final material = await showModalBottomSheet<PreparationMaterial>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      sheetAnimationStyle: kM3PickerSheetAnimation,
-      builder: (sheetContext) => M3AsyncPickerSheet<PreparationMaterial>(
-        title: 'Homashyo tanlang',
-        hintText: 'Qidirish',
-        pageSize: 50,
-        loadPage: (query, offset, limit) async => _materials
-            .where((m) => m.canReceiveIn(warehouse, _materialWarehouses))
-            .where((m) => '${m.name} ${m.code}'
-                .toLowerCase()
-                .contains(query.trim().toLowerCase()))
-            .skip(offset)
-            .take(limit)
-            .toList(),
-        itemTitle: (m) => m.name,
-        itemSubtitle: (m) =>
-            'Mavjud: ${preparationDisplay(m.available(warehouse))} kg',
-        onSelected: (m) => Navigator.of(sheetContext).pop(m),
-      ),
-    );
+    final material = await _pickSeriyo(context, warehouse, _materials, _materialWarehouses);
     if (material != null && mounted && _warehouse == warehouse) {
       await widget.onReceive(material);
       if (mounted) setState(() => _materials = widget.freshMaterials());
@@ -369,11 +389,15 @@ class _PreparationWarehouseScreenState
             key: ValueKey(warehouseId),
             warehouseId: warehouseId,
             query: _query.trim(),
+            selected: _selectedReceipts.keys.toSet(),
+            refreshRevision: _rollRefresh,
+            onToggle: _toggleWarehouseRoll,
+
           )
         : null;
 
     return AppShell(
-      title: '',
+      title: 'Ombor',
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -383,7 +407,15 @@ class _PreparationWarehouseScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        hintText: 'Qidirish',
+        hintText: showPreparedRolls ? 'Ombordan rulon qidirish' : 'Ombordan seriyo qidirish',
+        onBack: () {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+          } else {
+            nav.pushReplacementNamed(AppRoutes.preparation);
+          }
+        },
         onChanged: (v) => setState(() => _query = v),
         onClear: () {
           _searchController.clear();
@@ -395,14 +427,38 @@ class _PreparationWarehouseScreenState
         primaryFabActions: _warehouses.isEmpty
             ? null
             : [
+                if (showPreparedRolls && _warehouse != null &&
+                    _selectedReceipts.isEmpty && !widget.locked &&
+                    AppRouter.canOpenRoute(AppRoutes.gscaleMode))
+                  AdminFabMenuAction(
+                    title: 'Rulonni tortish',
+                    icon: Icons.scale_outlined,
+                    onTap: () async {
+                      await _openPreparationScaleReceipt(context, _warehouse);
+                      if (mounted) setState(() => _rollRefresh++);
+                    },
+                  ),
+                if (showPreparedRolls && _selectedReceipts.isNotEmpty &&
+                    !widget.locked && _scope == currentSessionReadScope()) ...[
+                  AdminFabMenuAction(
+                    title: 'Paddonga biriktirish',
+                    icon: Icons.inventory_2_outlined,
+                    onTap: _attachWarehouseRolls,
+                  ),
+                  AdminFabMenuAction(
+                    title: 'Tanlovni bekor qilish',
+                    icon: Icons.close_rounded,
+                    onTap: () => setState(_clearRollSelection),
+                  ),
+                ],
                 if (!showPreparedRolls &&
                     _warehouse != null &&
                     !widget.locked &&
                     !_managingWarehouse) ...[
                   AdminFabMenuAction(
                     title: _hasStockViews || _canCreateMaterial
-                        ? 'Kirim'
-                        : 'Tarozi kirimi',
+                        ? 'Seriyo kirimi'
+                        : 'Rulonni tortish',
                     icon: _hasStockViews || _canCreateMaterial
                         ? Icons.add_circle_outline_rounded
                         : Icons.scale_outlined,
@@ -428,6 +484,45 @@ class _PreparationWarehouseScreenState
       ),
       child: Column(
         children: [
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
+                TextButton.icon(
+                  onPressed: () async {
+                    await Navigator.of(context).pushNamed(
+                      AppRoutes.inventoryMovements,
+                      arguments: PreparationTransfersArgs(warehouseId: warehouseId),
+                    );
+                    if (mounted) await widget.onReload();
+                    if (mounted) setState(() => _materials = widget.freshMaterials());
+                  },
+                  icon: const Icon(Icons.swap_horiz_rounded),
+                  label: const UrduAwareText('Transferlar'),
+                ),
+              TextButton(
+                onPressed: () async {
+                  await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const PreparationMaterialsScreen()));
+                  if (mounted) await widget.onReload();
+                  if (mounted) setState(() => _materials = widget.freshMaterials());
+                },
+                child: const UrduAwareText('Katalog'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => PreparationHistoryScreen(
+                      history: widget.freshHistory(),
+                      onReload: widget.onReload,
+                      freshHistory: widget.freshHistory,
+                    )));
+                  if (mounted) setState(() => _materials = widget.freshMaterials());
+                },
+                child: const UrduAwareText('Tarix'),
+              ),
+            ],
+          ),
           if (_warehouses.isNotEmpty)
             AdminExpandableFilterChip<String>(
               key: const ValueKey('preparation-warehouse-filter'),
@@ -461,12 +556,12 @@ class _PreparationWarehouseScreenState
           if (_hasStockViews)
             AdminSurfaceTabBar(
               controller: _stockTabs,
-              onTap: (_) => setState(() {}),
+              onTap: (index) => setState(() { if (index == 0) _clearRollSelection(); }),
               tabs: const [
                 Tab(
                   height: 52,
                   child: UrduAwareText(
-                    'Tayyorlov uchun xomashyo',
+                    'Seriyo',
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -789,7 +884,7 @@ class _PreparationMaterialDetailScreenState
                       ? Icons.add_circle_outline_rounded
                       : Icons.scale_outlined),
                   label: UrduAwareText(
-                      _canReceiveManually ? 'Kirim qilish' : 'Tarozi kirimi'),
+                      _canReceiveManually ? 'Seriyo kirimi' : 'Rulonni tortish'),
                 ),
               ),
             if (receipts.isNotEmpty) ...[
@@ -914,277 +1009,16 @@ class _PreparationMaterialDetailScreenState
   }
 }
 
-class PreparationOrdersScreen extends StatefulWidget {
-  const PreparationOrdersScreen({
-    super.key,
-    required this.warehouse,
-    required this.order,
-    required this.orders,
-    required this.materials,
-    required this.percent,
-    required this.locked,
-    required this.saving,
-    required this.onPickOrder,
-    required this.onAddMaterial,
-    required this.onRemoveMaterial,
-    required this.onSaveRecipe,
-    required this.onReload,
-    required this.update,
-    required this.lineError,
-  });
-
-  final String? warehouse;
-  final PreparationOrder? order;
-  final List<PreparationOrder> orders;
-  final List<PreparationMaterial> materials;
-  final Map<String, TextEditingController> percent;
-  final bool locked;
-  final bool saving;
-  final Future<PreparationOrder?> Function() onPickOrder;
-  final Future<void> Function() onAddMaterial;
-  final void Function(String itemCode) onRemoveMaterial;
-  final Future<void> Function() onSaveRecipe;
-  final Future<void> Function() onReload;
-  final void Function(VoidCallback) update;
-  final String? Function(PreparationMaterial, String) lineError;
-
-  @override
-  State<PreparationOrdersScreen> createState() =>
-      _PreparationOrdersScreenState();
-}
-
-class _PreparationOrdersScreenState extends State<PreparationOrdersScreen> {
-  late PreparationOrder? _order = widget.order;
-
-  bool get _valid {
-    final materials = {for (final m in widget.materials) m.code: m};
-    return _order != null &&
-        widget.warehouse != null &&
-        widget.percent.isNotEmpty &&
-        widget.percent.entries.every((e) =>
-            materials[e.key] != null &&
-            widget.lineError(materials[e.key]!, e.value.text) == null);
-  }
-
-  Future<void> _handlePickOrder() async {
-    final picked = await widget.onPickOrder();
-    if (picked != null && mounted) {
-      setState(() => _order = picked);
-    }
-  }
-
-  Future<void> _handleAddMaterial() async {
-    await widget.onAddMaterial();
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final materials = {for (final m in widget.materials) m.code: m};
-    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
-
-    return AppShell(
-      title: 'Buyurtmalar',
-      subtitle: widget.warehouse ?? '',
-      nativeTopBar: true,
-      nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
-      contentPadding: EdgeInsets.zero,
-      bottom: const PreparationDock(),
-      child: AppRefreshIndicator(
-        onRefresh: widget.onReload,
-        allowRefreshOnShortContent: true,
-        child: ListView(
-          physics: const TopRefreshScrollPhysics(),
-          padding: EdgeInsets.only(bottom: bottomPadding),
-          children: [
-            const SizedBox(height: _adminHomePanelCardGap),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _adminHomePanelCardGap,
-              ),
-              child: AdminSummaryCard(
-                slot: M3SegmentVerticalSlot.top,
-                cornerRadius: M3SegmentedListGeometry.cornerLarge,
-                borderRadiusOverride: BorderRadius.circular(
-                  M3SegmentedListGeometry.cornerLarge,
-                ),
-                backgroundColor: scheme.surfaceContainerLowest,
-                title: _order?.label ?? 'Order tanlang',
-                subtitle: _order == null
-                    ? 'Faqat KG miqdori bor faol orderlar'
-                    : 'Order: ${preparationDisplay(_order!.kg)} kg',
-                value: '',
-                leading: Icon(
-                  Icons.list_alt_rounded,
-                  size: 23,
-                  color: scheme.onSurfaceVariant,
-                ),
-                onTap: widget.locked ? null : _handlePickOrder,
-                elevation: 4,
-              ),
-            ),
-            if (_order != null) ...[
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: UrduAwareText(
-                  'Sarf (kg) = Order KG × foiz ÷ 100. Har bir homashyo foizi alohida hisoblanadi.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              for (final entry in widget.percent.entries)
-                if (materials[entry.key] != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: _adminHomePanelCardGap,
-                      vertical: 3,
-                    ),
-                    child: Card.filled(
-                      margin: EdgeInsets.zero,
-                      color: scheme.surfaceContainerLowest,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    materials[entry.key]!.name,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w700),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Olib tashlash',
-                                  onPressed: widget.locked
-                                      ? null
-                                      : () {
-                                          widget.onRemoveMaterial(entry.key);
-                                          setState(() {});
-                                        },
-                                  icon: const Icon(Icons.close),
-                                ),
-                              ],
-                            ),
-                            UrduAwareText(
-                              'Mavjud: ${preparationDisplay(materials[entry.key]!.available(widget.warehouse))} kg',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              key: Key('preparation-percent-${entry.key}'),
-                              controller: entry.value,
-                              enabled: !widget.locked,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              onChanged: (_) {
-                                setState(() {});
-                                widget.update(() {});
-                              },
-                              decoration: InputDecoration(
-                                labelText: 'Foiz (%)',
-                                errorText: entry.value.text.isEmpty
-                                    ? null
-                                    : widget.lineError(
-                                        materials[entry.key]!,
-                                        entry.value.text,
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Builder(
-                              builder: (_) {
-                                try {
-                                  return UrduAwareText(
-                                    'Sarf: ${preparationDisplay(preparationRequiredKg(_order!.kg, entry.value.text))} kg',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: scheme.primary,
-                                    ),
-                                  );
-                                } on FormatException {
-                                  return const UrduAwareText('Sarf: —');
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _adminHomePanelCardGap,
-                  vertical: 8,
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: widget.locked ? null : _handleAddMaterial,
-                  icon: const Icon(Icons.add),
-                  label: const UrduAwareText('Homashyo tanlash'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: UrduAwareText(
-                  'Saqlash bosilganda ko‘rsatilgan miqdor ombordan sarflanadi. Bu orderning saqlangan retsepti qayta sarflanmaydi.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _adminHomePanelCardGap,
-                ),
-                child: FilledButton(
-                  key: const Key('preparation-save-recipe'),
-                  onPressed: widget.locked || !_valid
-                      ? null
-                      : () async {
-                          await widget.onSaveRecipe();
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                  child: UrduAwareText(
-                    widget.saving ? 'Saqlanmoqda…' : 'Saqlash va sarflash',
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class PreparationHistoryScreen extends StatefulWidget {
   const PreparationHistoryScreen({
     super.key,
     required this.history,
     required this.onReload,
+    this.freshHistory,
   });
 
   final List<dynamic> history;
+  final List<dynamic> Function()? freshHistory;
   final Future<void> Function() onReload;
 
   @override
@@ -1298,14 +1132,23 @@ class _PreparationHistoryScreenState extends State<PreparationHistoryScreen> {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 136.0;
 
     return AppShell(
-      title: 'Tarix',
+      title: 'Kirim va sarf tarixi',
       subtitle: 'Oxirgi 100 ta kirim va sarf',
       nativeTopBar: true,
       nativeTitleTextStyle: AppTheme.werkaNativeAppBarTitleStyle(context),
       contentPadding: EdgeInsets.zero,
       bottom: const PreparationDock(),
       child: AppRefreshIndicator(
-        onRefresh: widget.onReload,
+        onRefresh: () async {
+          await widget.onReload();
+          final entries = widget.freshHistory?.call();
+          if (mounted && entries != null) {
+            setState(() => _history = [
+              for (final entry in entries)
+                if (entry is Map) Map<String, dynamic>.from(entry),
+            ]);
+          }
+        },
         allowRefreshOnShortContent: true,
         child: ListView(
           physics: const TopRefreshScrollPhysics(),

@@ -192,12 +192,12 @@ Future<Map<String, PreparationOutputNote>?> _editProductionBatchNotes(
 }) =>
     _editProductionNote(
       context,
-      title: 'Batch eslatmasi',
+      title: 'Partiya eslatmasi',
       description: targets.length == 1
-          ? 'Eslatma shu batchdagi har bir asl rulon kesilguncha amal qiladi.'
-          : '${targets.length} ta batch tanlandi. '
+          ? 'Eslatma shu partiyadagi har bir asl rulon kesilguncha amal qiladi.'
+          : '${targets.length} ta partiya tanlandi. '
               'Eslatma asl rulonlar kesilguncha amal qiladi.',
-      targetName: 'batch',
+      targetName: 'partiya',
       targets: targets,
       currentAccount: currentAccount,
       save: MobileApi.instance.savePreparationBatchNotes,

@@ -51,6 +51,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final receipts = <Map<String, dynamic>>[];
+    final rollLookups = <String>[];
     await http.runWithClient(() async {
       await tester.pumpWidget(MaterialApp(
         locale: const Locale('uz'),
@@ -67,15 +68,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Ombor'));
       await tester.pumpAndSettle();
-      expect(find.text('Tayyorlov uchun xomashyo'), findsOneWidget);
+      expect(find.text('Seriyo'), findsOneWidget);
       expect(find.text('Master granulasi'), findsOneWidget);
       expect(find.text('Katalog ruloni'), findsNothing);
       expect(find.text('Sarfga tayyor · 10 kg'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('app-primary-navigation-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Tarozi kirimi'), findsNothing);
-      await tester.tap(find.text('Kirim'));
+      expect(find.text('Rulonni tortish'), findsNothing);
+      await tester.tap(find.text('Seriyo kirimi'));
       await tester.pumpAndSettle();
       final picker = find.byType(BottomSheet);
       expect(find.descendant(of: picker, matching: find.text('Faqat ko‘rish uchun Seriyo')), findsNothing);
@@ -95,6 +96,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Rulon QR-01'), findsOneWidget);
       expect(find.text('Master granulasi'), findsNothing);
+      final fab = find.byKey(const ValueKey('app-primary-navigation-button'));
+      await tester.tap(find.text('QR kodisiz kirim'));
+      await tester.pumpAndSettle();
+      expect(fab, findsNothing);
+      await tester.tap(find.text('Boshqa master ruloni'));
+      await tester.pumpAndSettle();
+      expect(rollLookups, ['other']);
+      expect(fab, findsNothing);
+      await tester.tap(find.text('Rulon QR-01'));
+      await tester.pumpAndSettle();
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('production-attach-paddon-save')), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     }, () => MockClient((request) async {
@@ -152,15 +168,91 @@ void main() {
                   'kind': 'raw_material',
                   'stock_use': 'prepared_roll',
                   'asset_ref': 'roll-1',
+                  'custody_warehouse_id': 'shared',
+                  'status': 'available',
+                  'preparation_qr': true,
                   'item_name': 'Rulon QR-01',
                   'identifier': 'QR-01',
                   'qty': 12,
                   'uom': 'kg',
                 },
+                for (final (id, qr) in [('other', true), ('no-qr', false)])
+                  {
+                    'kind': 'raw_material', 'stock_use': 'prepared_roll',
+                    'asset_ref': id, 'identifier': id, 'custody_warehouse_id': 'shared',
+                    'item_name': qr ? 'Boshqa master ruloni' : 'Kodsiz rulon',
+                    'preparation_qr': qr, 'status': 'available', 'qty': 2, 'uom': 'kg',
+                  },
               ]);
+            case '/v1/mobile/preparation/production/rolls':
+              final search = request.url.queryParameters['q'];
+              expect(search, anyOf('qr-01', 'other'));
+              rollLookups.add(search!);
+              return _json({'has_more': false, 'rolls': [
+                if (search == 'qr-01') {
+                  'epc': 'QR-01', 'receipt_name': 'REC-1', 'net_kg': '12',
+                },
+              ]});
+            case '/v1/mobile/preparation/production/paddon-options':
+              expect(jsonDecode(request.body)['receipt_names'], ['REC-1']);
+              return _json({
+                'paddons': [], 'has_more': false, 'roll_selection': {
+                  'total_rolls': 1, 'batch_ids': [], 'skipped': {},
+                  'receipt_names_by_warehouse': {'Umumiy ombor': ['REC-1']},
+                },
+              });
           }
           return _json([]);
         }));
+  });
+
+  testWidgets('home Seriyo receipt continues from the selected warehouse to its materials', (tester) async {
+    final writes = <Map<String, dynamic>>[];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('uz'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate, GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate, GlobalWidgetsLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        initialRoute: AppRoutes.preparation,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('app-primary-navigation-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Seriyo kirimi'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ombor B'));
+      await tester.pumpAndSettle();
+      expect(find.text('Seriyo A'), findsNothing);
+      await tester.tap(find.text('Seriyo B'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), '4');
+      await tester.tap(find.widgetWithText(FilledButton, 'Saqlash'));
+      await tester.pumpAndSettle();
+      expect(writes.single, {
+        'warehouse': 'Ombor B', 'item_code': 'B', 'kg': '4.000000', 'request_id': isNotEmpty,
+      });
+    }, () => MockClient((request) async {
+      if (request.url.path.endsWith('/snapshot')) {
+        return _json({
+          'assigned_warehouses': ['Ombor A', 'Ombor B'],
+          'assigned_warehouse_ids': {'Ombor A': 'a', 'Ombor B': 'b'},
+          'history': [], 'orders': [],
+          'materials': [
+            for (final code in ['A', 'B']) {
+              'item_code': code, 'name': 'Seriyo $code', 'is_seriyo': true,
+              'receipt_warehouses': ['Ombor $code'], 'visible_warehouses': ['Ombor $code'],
+            },
+          ],
+        });
+      }
+      expect(request.url.path, '/v1/mobile/preparation/receipts');
+      writes.add(jsonDecode(request.body) as Map<String, dynamic>);
+      return _json({'id': 'receipt'});
+    }));
   });
 
   testWidgets('master opens inventory, sees the order product and transfers a roll',
@@ -186,11 +278,16 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(AppRouter.canOpenRoute(AppRoutes.inventoryMovements), isTrue);
-      await tester.tap(find.text('Ishlab chiqarilgan homashyolar'));
+      await tester.tap(find.text('Ombor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Transferlar'));
       await tester.pumpAndSettle();
       expect(find.byType(InventoryMovementsScreen), findsOneWidget);
       expect(find.text('State’lar'), findsNothing);
-      expect(find.text('Mahsulotlar'), findsOneWidget);
+      expect(find.text('Qoldiqlar'), findsOneWidget);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+      await tester.tap(find.text('Qoldiqlar'));
+      await tester.pumpAndSettle();
       expect(find.text('Kiruvchi'), findsOneWidget);
       expect(find.text('Chiquvchi'), findsOneWidget);
       expect(find.text('0086 · Avella 72 sht'), findsOneWidget);

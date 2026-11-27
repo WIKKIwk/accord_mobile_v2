@@ -7,6 +7,7 @@ class AdminSurfaceTabBar extends StatelessWidget {
     required this.tabs,
     this.isScrollable = false,
     this.tabAlignment,
+    this.labelPadding,
     this.onTap,
   });
 
@@ -14,6 +15,7 @@ class AdminSurfaceTabBar extends StatelessWidget {
   final List<Tab> tabs;
   final bool isScrollable;
   final TabAlignment? tabAlignment;
+  final EdgeInsetsGeometry? labelPadding;
   final ValueChanged<int>? onTap;
 
   @override
@@ -25,6 +27,7 @@ class AdminSurfaceTabBar extends StatelessWidget {
         controller: controller,
         isScrollable: isScrollable,
         tabAlignment: tabAlignment,
+        labelPadding: labelPadding,
         labelColor: theme.colorScheme.primary,
         unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
         labelStyle: theme.textTheme.bodyMedium?.copyWith(

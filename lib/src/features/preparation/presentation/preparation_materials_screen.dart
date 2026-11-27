@@ -261,7 +261,7 @@ class _PreparationMaterialsScreenState
                 .contains(_query.trim().toLowerCase()))
         .toList();
     return AppShell(
-      title: 'Homashyolar',
+      title: 'Xomashyo katalogi',
       subtitle: '',
       nativeTopBar: true,
       automaticallyImplyNativeLeading: false,
@@ -271,7 +271,7 @@ class _PreparationMaterialsScreenState
       titleWidget: AdminCatalogSearchField(
         controller: _search,
         focusNode: _searchFocus,
-        hintText: 'Homashyoni qidirish',
+        hintText: 'Katalogdan xomashyo qidirish',
         onChanged: (query) => setState(() => _query = query),
         onClear: () {
           _search.clear();

@@ -131,6 +131,7 @@ class AppRoutes {
   static const String qolipProductTransfer = '/qolip-product-transfer';
   static const String boyoqchiHome = '/boyoqchi-home';
   static const String preparation = '/preparation';
+  static const String preparationWarehouse = '/preparation-warehouse';
   static const String preparationFormulas = '/preparation-formulas';
   static const String preparationProduction = '/preparation-production';
   static const String rawMaterialSplit = '/raw-material-split';

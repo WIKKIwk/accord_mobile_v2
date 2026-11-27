@@ -233,7 +233,10 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(
           settings, const MaterialTaminotchiHistoryScreen());
     case AppRoutes.inventoryMovements:
-      return AppRouter._buildRoute(settings, const InventoryMovementsScreen());
+      final args = settings.arguments;
+      return AppRouter._buildRoute(settings, InventoryMovementsScreen(
+        preparationTransfers: args is PreparationTransfersArgs ? args : null,
+      ));
     case AppRoutes.pinSetupEntry:
       final purpose = settings.arguments is PinSetupPurpose
           ? settings.arguments! as PinSetupPurpose
@@ -635,9 +638,11 @@ Route<dynamic> _AppRouter_onGenerateRoute_resplit2AstPart(
       return AppRouter._buildRoute(settings, const BoyoqchiHomeScreen());
     case AppRoutes.preparation:
       return AppRouter._buildRoute(settings, const PreparationScreen());
+    case AppRoutes.preparationWarehouse:
+      return AppRouter._buildRoute(settings, const PreparationScreen(warehouseOnly: true));
     case AppRoutes.preparationFormulas:
       return AppRouter._buildRoute(
-          settings, const PreparationFormulaCatalogScreen());
+          settings, const PreparationFormulaOrdersScreen());
     case AppRoutes.preparationProduction:
       return AppRouter._buildRoute(settings, const PreparationProductionScreen());
     case AppRoutes.rawMaterialSplit:

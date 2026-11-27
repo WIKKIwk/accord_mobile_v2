@@ -403,7 +403,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (selection.batchIds.length > 1)
-          UrduAwareText('${selection.batchIds.length} ta batch tanlandi'),
+          UrduAwareText('${selection.batchIds.length} ta partiya tanlandi'),
         UrduAwareText(
           '${selection.totalRolls} ta rulondan $count tasi '
           '${selected == null ? 'biriktirishga yaroqli' : 'biriktiriladi'}',
