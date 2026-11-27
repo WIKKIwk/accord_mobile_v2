@@ -102,8 +102,6 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
   WasteActiveBins? _snapshot;
   String? _error;
   bool _busy = false;
-  (String, double, String)? _entryAttempt;
-  String? _entryRequestId;
 
   bool get _current => mounted && currentSessionReadScope() == _scope;
 
@@ -207,39 +205,6 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
     }, claimingBin: replace);
   }
 
-  Future<void> _record(WasteBin bin) async {
-    final entry = await showDialog<(double, String)>(
-      context: context,
-      builder: (_) => _WasteRecordDialog(
-        orderId: widget.orderId,
-        initialKg:
-            _entryAttempt?.$1 == bin.cycle!.id ? _entryAttempt?.$2 : null,
-        initialReason:
-            _entryAttempt?.$1 == bin.cycle!.id ? _entryAttempt?.$3 : null,
-      ),
-    );
-    if (!_current || entry == null) return;
-    final (kg, reason) = entry;
-    final attempt = (bin.cycle!.id, kg, reason);
-    if (_entryAttempt != attempt) {
-      _entryAttempt = attempt;
-      _entryRequestId = newWasteRequestId();
-    }
-    await _run(() async {
-      await _api.addWasteEntry(
-        bin: bin,
-        apparatusId: widget.apparatusId,
-        requestId: _entryRequestId!,
-        kg: kg,
-        reason: reason,
-        orderId: widget.orderId,
-      );
-      _entryAttempt = null;
-      _entryRequestId = null;
-      await _refresh();
-    });
-  }
-
   Future<void> _reconcile(WasteBin bin, List<WasteEntry> pending) async {
     final selected = <String>{};
     final confirmed = await showDialog<bool>(
@@ -324,10 +289,9 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
           children: [
             Text(widget.apparatusName,
                 style: Theme.of(context).textTheme.titleLarge),
-            if (widget.orderId != null)
-              Text('Buyurtma: ${widget.orderId}')
-            else
-              const Text('Buyurtmaga bog‘liq bo‘lmagan chiqindini kiriting.'),
+            if (widget.orderId != null) Text('Buyurtma: ${widget.orderId}'),
+            const Text(
+                'Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.'),
             const SizedBox(height: 12),
             if (_busy) const LinearProgressIndicator(),
             if (_error != null)
@@ -372,11 +336,6 @@ class _WasteOperatorScreenState extends State<WasteOperatorScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  FilledButton.icon(
-                    onPressed: _busy ? null : () => _record(bin),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Chiqindi qo‘shish'),
-                  ),
                   OutlinedButton(
                     onPressed: _busy ? null : () => _submit(bin, replace: true),
                     child: const Text('Qutini almashtirish'),
@@ -449,82 +408,5 @@ class _EmptyWasteBinPickerState extends State<_EmptyWasteBinPicker> {
             );
           },
         ),
-      );
-}
-
-class _WasteRecordDialog extends StatefulWidget {
-  const _WasteRecordDialog({this.orderId, this.initialKg, this.initialReason});
-
-  final String? orderId, initialReason;
-  final double? initialKg;
-
-  @override
-  State<_WasteRecordDialog> createState() => _WasteRecordDialogState();
-}
-
-class _WasteRecordDialogState extends State<_WasteRecordDialog> {
-  final _form = GlobalKey<FormState>();
-  late final _qty = TextEditingController(text: widget.initialKg?.toString());
-  late final _reason = TextEditingController(text: widget.initialReason);
-
-  @override
-  void dispose() {
-    _qty.dispose();
-    _reason.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Chiqindi qo‘shish'),
-        content: Form(
-          key: _form,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.orderId != null)
-                  Text('Buyurtma: ${widget.orderId}')
-                else
-                  const Text(
-                      'Buyurtmaga bog‘liq bo‘lmagan chiqindini kiriting.'),
-                TextFormField(
-                  controller: _qty,
-                  decoration:
-                      const InputDecoration(labelText: 'Yangi chiqindi (kg)'),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  validator: (value) => (wasteKgInput(value ?? '') ?? 0) <= 0
-                      ? 'Vazn 0 dan katta bo‘lishi kerak'
-                      : null,
-                ),
-                TextFormField(
-                  controller: _reason,
-                  maxLength: 200,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                      labelText: 'Chiqindi turi yoki sababi'),
-                  validator: (value) => (value ?? '').trim().isEmpty
-                      ? 'Chiqindi turi yoki sababini kiriting'
-                      : null,
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!_form.currentState!.validate()) return;
-              Navigator.pop(
-                  context, (wasteKgInput(_qty.text)!, _reason.text.trim()));
-            },
-            child: const Text('Saqlash'),
-          ),
-        ],
       );
 }

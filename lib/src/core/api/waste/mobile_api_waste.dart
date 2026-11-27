@@ -296,23 +296,6 @@ extension MobileApiWaste on MobileApi {
           'replacement_code': wasteBinCode(replacementCode),
       });
 
-  Future<WasteBin> addWasteEntry({
-    required WasteBin bin,
-    required String apparatusId,
-    required String requestId,
-    required double kg,
-    required String reason,
-    String? orderId,
-  }) =>
-      _wasteBinMutation('entry', {
-        ..._wasteIdentity(bin),
-        'apparatus_id': apparatusId,
-        'request_id': requestId,
-        'kg': kg,
-        'reason': reason,
-        if (orderId != null && orderId.isNotEmpty) 'order_id': orderId,
-      });
-
   Future<WasteBin> reconcileWasteEntries({
     required WasteBin bin,
     required String apparatusId,

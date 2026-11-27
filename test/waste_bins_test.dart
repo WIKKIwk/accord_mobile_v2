@@ -303,8 +303,7 @@ void main() {
     expect(result?.warehouseId, 'waste-b');
   });
 
-  testWidgets(
-      'operator binds, records for the open order, then swaps without reset',
+  testWidgets('operator attaches reported waste and swaps the bin',
       (tester) async {
     AppSession.instance.profile = AppSession.instance.profile!.copyWith(
       role: UserRole.aparatchi,
@@ -314,6 +313,13 @@ void main() {
     String? active;
     var hasWaste = false;
     var claimAttempts = 0;
+    const report = {
+      'id': 'astatka-entry',
+      'order_id': 'current-order',
+      'actor_display_name': 'Ali',
+      'kg': 2.5,
+      'reason': 'Astatka hisoboti',
+    };
     Map<String, dynamic> bin(String code, String status) => {
           ..._binJson(status),
           'code': code,
@@ -326,7 +332,7 @@ void main() {
                   ..._cycleJson(status),
                   'id': 'cycle-$code',
                   'expected_kg': hasWaste && code == 'CQ-A' ? 2.5 : 0,
-                  'entries': [],
+                  'entries': [if (hasWaste && code == 'CQ-A') report],
                 },
         };
     final client = MockClient((request) async {
@@ -335,7 +341,7 @@ void main() {
         expect(request.url.queryParameters['apparatus_id'], _apparatusId);
         return _json({
           'bin': active == null ? null : bin(active!, 'open'),
-          'pending': []
+          'pending': [if (!hasWaste) report],
         });
       }
       if (action == 'bins') {
@@ -365,11 +371,8 @@ void main() {
       }
       expect(body['code'], 'CQ-A');
       expect(body['cycle_id'], 'cycle-CQ-A');
-      if (action == 'entry') {
-        expect(body['order_id'], 'current-order');
-        expect(body['kg'], 2.5);
-        expect(body['reason'], 'Qirqim');
-        expect(body['request_id'], startsWith('waste-'));
+      if (action == 'reconcile') {
+        expect(body['entry_ids'], ['astatka-entry']);
         hasWaste = true;
         return _json(bin('CQ-A', 'open'));
       }
@@ -402,13 +405,19 @@ void main() {
       await tester.tap(find.text('Asosiy quti'));
       await tester.pumpAndSettle();
       expect(find.text('Faol quti Asosiy quti · CQ-A'), findsOneWidget);
-      await tester.tap(find.text('Chiqindi qo‘shish'));
+      expect(find.text('Chiqindi qo‘shish'), findsNothing);
+      expect(
+          find.text('Hisobotdagi chiqindi faol qutiga avtomatik qo‘shiladi.'),
+          findsOneWidget);
+      await tester.tap(find.text('Biriktirish'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, '2,5');
-      await tester.enterText(find.byType(TextField).last, 'Qirqim');
-      await tester.tap(find.text('Saqlash'));
+      await tester.tap(find.widgetWithText(CheckboxListTile, '2.5 kg · Ali'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Biriktirish'));
       await tester.pumpAndSettle();
       expect(find.text('Qayd etilgan chiqindi: 2.5 kg'), findsOneWidget);
+      expect(find.textContaining('Astatka hisoboti · Buyurtma: current-order'),
+          findsOneWidget);
       await tester.tap(find.text('Qutini almashtirish'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Zaxira quti'));
@@ -419,7 +428,7 @@ void main() {
       expect(find.text('Qutini bo‘shatish'), findsNothing);
       expect(tester.takeException(), isNull);
     }, () => client);
-    expect(operations, ['assign', 'assign', 'entry', 'submit']);
+    expect(operations, ['assign', 'assign', 'reconcile', 'submit']);
   });
 
   test('Bosma astatka keeps one request key across an uncertain retry',
