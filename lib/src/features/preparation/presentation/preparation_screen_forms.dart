@@ -444,6 +444,21 @@ class _PreparationWarehouseScreenState
       ),
       child: Column(
         children: [
+          if (_hasStockViews)
+            AdminSurfaceTabBar(
+              controller: _stockTabs,
+              onTap: (index) => setState(() { if (index == 0) _clearRollSelection(); }),
+              tabs: const [
+                Tab(
+                  height: 52,
+                  child: UrduAwareText(
+                    'Seriyo',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Tab(height: 52, child: UrduAwareText('Tayyor rulonlar')),
+              ],
+            ),
           if (_warehouses.isNotEmpty)
             AdminExpandableFilterChip<String>(
               key: const ValueKey('preparation-warehouse-filter'),
@@ -473,21 +488,6 @@ class _PreparationWarehouseScreenState
               },
               chipKey: const ValueKey('preparation-warehouse-filter-chip'),
               optionKeyPrefix: 'preparation-warehouse-filter-option',
-            ),
-          if (_hasStockViews)
-            AdminSurfaceTabBar(
-              controller: _stockTabs,
-              onTap: (index) => setState(() { if (index == 0) _clearRollSelection(); }),
-              tabs: const [
-                Tab(
-                  height: 52,
-                  child: UrduAwareText(
-                    'Seriyo',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Tab(height: 52, child: UrduAwareText('Tayyor rulonlar')),
-              ],
             ),
           Expanded(
             child: rollsView ?? AppRefreshIndicator(

@@ -71,6 +71,12 @@ void main() {
       await tester.tap(find.text('Ombor'));
       await tester.pumpAndSettle();
       expect(find.text('Seriyo'), findsOneWidget);
+      final warehouseFilter =
+          find.byKey(const ValueKey('preparation-warehouse-filter-chip'));
+      expect(
+        tester.getBottomLeft(find.byType(TabBar)).dy,
+        lessThanOrEqualTo(tester.getTopLeft(warehouseFilter).dy),
+      );
       expect(find.text('Master granulasi'), findsOneWidget);
       expect(find.text('Katalog ruloni'), findsNothing);
       expect(find.text('Sarfga tayyor · 10 kg'), findsOneWidget);
