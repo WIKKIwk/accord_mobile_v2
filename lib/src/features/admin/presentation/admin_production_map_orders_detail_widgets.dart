@@ -658,7 +658,7 @@ class _ReadOnlyOrderDetailContent extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => _openMaterialOrderReceipt(context, order),
                       icon: const Icon(Icons.scale_outlined),
-                      label: const UrduAwareText('Rulonni tortish'),
+                      label: const UrduAwareText('Homashyo kirimi'),
                     ),
                   if (!summaryOnlyMode && (!workerMode || summaryExpanded))
                     const SizedBox(height: 4),

@@ -524,6 +524,7 @@ class UrduUiTextTranslations {
     'Seriyo': 'تیاری کا خام مال',
     'Seriyo kirimi': 'خام مال کی وصولی',
     'Seriyo kirimi uchun ombor tanlang': 'خام مال وصول کرنے کے لیے گودام منتخب کریں',
+    'Homashyo kirimi': 'خام مال کی وصولی',
     'Rulonni tortish': 'رول کا وزن کریں',
     'Ombor transferlari': 'گودام کی منتقلیاں',
     'Transferlar': 'منتقلیاں',

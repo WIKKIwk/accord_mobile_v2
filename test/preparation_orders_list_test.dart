@@ -512,7 +512,7 @@ void main() {
       expect(find.textContaining('Full master product 1'), findsOneWidget);
       expect(find.text('120 kg'), findsOneWidget);
       expect(find.text('Shnek formulalar'), findsOneWidget);
-      expect(find.text('Rulonni tortish'), findsOneWidget);
+      expect(find.text('Homashyo kirimi'), findsOneWidget);
       expect(find.text('Sarf yozish'), findsNothing);
       expect(api.detailReads, ['zakaz-1']);
       expect(
