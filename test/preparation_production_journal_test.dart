@@ -2002,9 +2002,9 @@ void main() {
 
         expect(inline(count), findsOneWidget);
         expect(inline(count - 1), findsOneWidget);
-        expect(inline(count - 2), count == 3 ? findsOneWidget : findsNothing);
-        if (count == 3) return;
-        expect(inline(1), findsNothing);
+        for (var number = 1; number <= count - 2; number++) {
+          expect(inline(number), findsNothing);
+        }
 
         await tester.tap(
           find.byKey(const ValueKey('production-find-existing-paddon')),

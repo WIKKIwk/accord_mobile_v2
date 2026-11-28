@@ -111,9 +111,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
   PreparationMaterialPaddon? get _selectedPaddon =>
       _paddons.where((paddon) => paddon.code == _selectedCode).firstOrNull;
   Iterable<PreparationMaterialPaddon> get _inlinePaddons {
-    if (!_fromInventory || (_paddons.length <= 3 && _nextOffset == null)) {
-      return _paddons;
-    }
+    if (!_fromInventory) return _paddons;
     final recent = _paddons.take(2);
     final selected = _selectedPaddon;
     if (selected == null || recent.contains(selected)) return recent;
