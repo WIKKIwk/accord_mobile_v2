@@ -145,6 +145,7 @@ class PreparationProductionRoll extends PreparationProductionRow {
         widthMm = json['width_mm'] == null ? null : _amount(json, 'width_mm'),
         micron = json['micron'] == null ? null : _amount(json, 'micron'),
         printedAt = _text(json, 'printed_at'),
+        onPaddon = json['on_paddon'] == true,
         formula = _recipe(json),
         batchNote = PreparationOutputNote.fromJson(json['batch_note']),
         rollNote = PreparationOutputNote.fromJson(json['roll_note']);
@@ -160,6 +161,7 @@ class PreparationProductionRoll extends PreparationProductionRow {
       netKg,
       printedAt;
   final String? grossKg, lengthM, widthMm, micron;
+  final bool onPaddon;
   final Map<String, dynamic>? formula;
   final PreparationOutputNote? batchNote, rollNote;
   @override

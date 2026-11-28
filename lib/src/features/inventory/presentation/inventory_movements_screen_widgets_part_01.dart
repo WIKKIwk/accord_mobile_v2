@@ -72,19 +72,12 @@ class _InventoryAssetListRow extends StatelessWidget {
             : const Color(0xFF0288D1))
         : assignedGreen;
     final tint = highlightPaddon && asset.paddonCode != null
-        ? (theme.brightness == Brightness.dark
-            ? const Color(0xFFF48FB1)
-            : const Color(0xFFC2185B))
+        ? scheme.paddonMaterialTint
         : assigned
             ? assignedColor
             : null;
     final backgroundColor = tint != null
-        ? Color.alphaBlend(
-            tint.withValues(
-              alpha: theme.brightness == Brightness.dark ? 0.20 : 0.12,
-            ),
-            scheme.surfaceContainerLowest,
-          )
+        ? scheme.tintedMaterialRow(tint)
         : scheme.surfaceContainerLowest;
     return AdminSummaryCard(
       key: ValueKey('inventory-asset-card-${asset.assetRef}'),

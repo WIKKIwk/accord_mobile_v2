@@ -13,6 +13,7 @@ import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 import '../../../core/widgets/lists/m3_animated_list_entry.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';

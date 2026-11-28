@@ -14,6 +14,7 @@ import '../../../core/navigation/app_root_navigation.dart';
 import '../../../core/print_service.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/scroll/top_refresh_scroll_physics.dart';
@@ -1194,6 +1195,7 @@ class _JournalListRow extends StatelessWidget {
     required this.subtitle,
     required this.metrics,
     this.backgroundColor,
+    this.iconTint,
     this.titleMaxLines = 1,
     this.onTap,
     this.onLongPress,
@@ -1202,7 +1204,7 @@ class _JournalListRow extends StatelessWidget {
   final M3SegmentVerticalSlot slot;
   final IconData icon;
   final String title, subtitle, metrics;
-  final Color? backgroundColor;
+  final Color? backgroundColor, iconTint;
   final int titleMaxLines;
   final VoidCallback? onTap, onLongPress;
 
@@ -1220,6 +1222,7 @@ class _JournalListRow extends StatelessWidget {
       ].join('\n'),
       subtitleMaxLines: 8,
       backgroundColor: backgroundColor,
+      iconTint: iconTint,
       onTap: onTap,
       onLongPress: onLongPress,
     );

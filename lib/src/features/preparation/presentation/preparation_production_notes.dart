@@ -122,6 +122,7 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
         _selectedRolls.remove(name);
       }
     });
+    unawaited(load(silent: true));
   }
 
   Widget rollRow(
@@ -134,9 +135,13 @@ mixin _ProductionRollNotes<W extends StatefulWidget, T> on _JournalState<W, T> {
     final selecting = _selectedRolls.isNotEmpty;
     final selected = _selectedRolls.containsKey(roll.receiptName);
     final selectable = currentAccount && roll.receiptName.isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
+    final tint = roll.onPaddon ? scheme.paddonMaterialTint : null;
     return _JournalListRow(
       key: ValueKey('production-roll:${roll.epc}'),
       slot: slot,
+      backgroundColor: tint == null ? null : scheme.tintedMaterialRow(tint),
+      iconTint: tint,
       icon: selected
           ? Icons.check_circle_rounded
           : selecting

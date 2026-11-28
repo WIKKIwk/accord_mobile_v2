@@ -2135,9 +2135,27 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('production-view-rolls')));
       await tester.pumpAndSettle();
-      await tester.longPress(find.byKey(const ValueKey('production-roll:$_epc')));
+      final packedRoll = find.byKey(const ValueKey('production-roll:$_epc'));
+      final freeRoll = find.byKey(const ValueKey('production-roll:$freeEpc'));
+      final scheme = Theme.of(tester.element(packedRoll)).colorScheme;
+      final dark = scheme.brightness == Brightness.dark;
+      final tint = dark ? const Color(0xFFF48FB1) : const Color(0xFFC2185B);
+      final pink = Color.alphaBlend(
+        tint.withValues(alpha: dark ? 0.20 : 0.12),
+        scheme.surfaceContainerLowest,
+      );
+      AdminCatalogListRow row(Finder roll) => tester.widget(find.descendant(
+            of: roll,
+            matching: find.byType(AdminCatalogListRow),
+          ));
+      expect(row(packedRoll).backgroundColor, pink);
+      expect(row(packedRoll).iconTint, tint);
+      expect(row(freeRoll).backgroundColor, isNull);
+      expect(row(freeRoll).iconTint, isNull);
+
+      await tester.longPress(packedRoll);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('production-roll:$freeEpc')));
+      await tester.tap(freeRoll);
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.add_rounded));
       await tester.pumpAndSettle();
@@ -2158,6 +2176,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(writes, 1);
       expect(find.text('1 ta rulon $targetCode paddoniga biriktirildi'), findsOneWidget);
+      expect(row(freeRoll).backgroundColor, pink);
 
       await tester.tap(find.byIcon(Icons.add_rounded));
       await tester.pumpAndSettle();
@@ -2172,8 +2191,13 @@ void main() {
         case 'rolls':
           return _json({
             'rolls': [
-              _roll(),
-              {..._roll(), 'epc': freeEpc, 'receipt_name': freeReceipt},
+              {..._roll(), 'on_paddon': true},
+              {
+                ..._roll(),
+                'epc': freeEpc,
+                'receipt_name': freeReceipt,
+                if (writes > 0) 'on_paddon': true,
+              },
             ],
             'has_more': false,
           });

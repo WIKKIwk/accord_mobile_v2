@@ -12,6 +12,7 @@ class AdminCatalogListRow extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     this.backgroundColor,
+    this.iconTint,
     this.onTap,
     this.onLongPress,
     this.value = '',
@@ -24,6 +25,7 @@ class AdminCatalogListRow extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color? backgroundColor;
+  final Color? iconTint;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final String value;
@@ -52,10 +54,15 @@ class AdminCatalogListRow extends StatelessWidget {
         dimension: 30,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: scheme.secondaryContainer,
+            color:
+                iconTint?.withValues(alpha: 0.18) ?? scheme.secondaryContainer,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 16, color: scheme.onSecondaryContainer),
+          child: Icon(
+            icon,
+            size: 16,
+            color: iconTint ?? scheme.onSecondaryContainer,
+          ),
         ),
       ),
       title: title,
