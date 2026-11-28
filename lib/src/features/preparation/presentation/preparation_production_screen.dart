@@ -549,6 +549,7 @@ class PreparationProductionScreenState
         context,
         paddon,
         onChanged: _refreshPaddons,
+        refreshOnOpen: true,
       );
 
   void _refreshPaddons() {

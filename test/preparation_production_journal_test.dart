@@ -13,6 +13,7 @@ import 'package:accord_mobile_v2/src/core/widgets/feedback/m3_confirm_dialog.dar
 import 'package:accord_mobile_v2/src/core/widgets/feedback/rps_qr_reprint_sheet.dart';
 import 'package:accord_mobile_v2/src/core/widgets/lists/m3_segmented_list.dart';
 import 'package:accord_mobile_v2/src/core/widgets/navigation/role_navigation_drawer.dart';
+import 'package:accord_mobile_v2/src/core/widgets/shell/app_loading_indicator.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/raw_material_scan_dialog.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_list_row.dart';
 import 'package:accord_mobile_v2/src/features/admin/presentation/widgets/admin_catalog_search_field.dart';
@@ -786,6 +787,92 @@ void main() {
       });
     });
   });
+
+  for (final materialRole in [false, true]) {
+    testWidgets(
+      'paddon details read fresh contents over a stale row (material: $materialRole)',
+      (tester) async {
+        const code = 'XP-ABCDEF0123456789';
+        if (materialRole) {
+          AppSession.instance.profile = _profile(
+            role: UserRole.materialTaminotchi,
+            capabilities: ['gscale.catalog.read', 'gscale.print'],
+          );
+        }
+        final lookup = Completer<http.Response>();
+        final exactCodes = <String>[];
+        final emptyPaddon = {
+          'paddon_id': 'p1',
+          'paddon_code': code,
+          'name': 'Tayyor rulonlar paddoni',
+          'warehouse': 'Own W',
+          'remaining_kg': '0',
+          'contents': [],
+        };
+        http.Response page(Map<String, dynamic> paddon) =>
+            _json({'has_more': false, 'paddons': [paddon]});
+
+        await _withApp(tester, () async {
+          await tester.pumpWidget(_app(
+            materialRole
+                ? const InventoryMovementsScreen(openMaterialPaddons: true)
+                : const PreparationProductionScreen(),
+          ));
+          await tester.pumpAndSettle();
+          if (!materialRole) {
+            final tab = find.byKey(const ValueKey('production-view-paddons'));
+            await tester.ensureVisible(tab);
+            await tester.pumpAndSettle();
+            await tester.tap(tab);
+            await tester.pumpAndSettle();
+          }
+          final row = find.byKey(const ValueKey('preparation-paddon:p1'));
+          expect(find.descendant(of: row, matching: find.textContaining('0 kg')),
+              findsOneWidget);
+
+          await tester.tap(row);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 350));
+          expect(exactCodes, [code]);
+          final sheet = find.byType(BottomSheet);
+          Finder inSheet(Finder finder) =>
+              find.descendant(of: sheet, matching: finder);
+          expect(inSheet(find.byType(AppLoadingIndicator)), findsOneWidget);
+          expect(inSheet(find.textContaining('0 kg')), findsNothing);
+
+          lookup.complete(page({
+            ...emptyPaddon,
+            'remaining_kg': '23',
+            'contents': [
+              {
+                'line_no': 1,
+                'kind': 'roll',
+                'item_name': 'BOPP 120/12',
+                'prepared_barcode': _epc,
+                'remaining_count': 1,
+                'issuable_count': 1,
+                'remaining_kg': '23',
+              },
+            ],
+          }));
+          await tester.pumpAndSettle();
+          expect(inSheet(find.text('Qoldiq: 23 kg')), findsOneWidget);
+          expect(inSheet(find.text('BOPP 120/12')), findsOneWidget);
+          expect(inSheet(find.byKey(const ValueKey('paddon-open-issue'))),
+              findsOneWidget);
+        }, (request) {
+          if (!request.url.path.endsWith('/raw-material-paddons')) {
+            return _route(request);
+          }
+          final exactCode = request.url.queryParameters['code'];
+          if (exactCode == null) return page(emptyPaddon);
+          exactCodes.add(exactCode);
+          expect(request.url.queryParameters['status'], 'all');
+          return lookup.future;
+        });
+      },
+    );
+  }
 
   for (final (materialRole, plainRoll) in [(false, false), (true, false), (true, true)]) {
     testWidgets('paddon FAB receives stock for the active role ($materialRole, plain roll $plainRoll)',
@@ -1601,7 +1688,7 @@ void main() {
                 find.byKey(const ValueKey('preparation-paddon:p1')),
               );
               await tester.pumpAndSettle();
-              expect(lookedUp, isEmpty);
+              expect(lookedUp, [code]);
             }
             final row = tester.widget<AdminCatalogListRow>(find.descendant(
               of: find.byType(BottomSheet),
@@ -2068,7 +2155,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(released, isTrue);
       expect(find.text('Chiqim yorliqlari'), findsNothing);
-      expect(find.text(otherEpc), findsOneWidget);
+      final sheet = find.byType(BottomSheet);
+      expect(
+        find.descendant(of: sheet, matching: find.textContaining(otherEpc)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: sheet, matching: find.textContaining(_epc)),
+        findsNothing,
+      );
     }, (request) {
       switch (request.url.path.split('/').last) {
         case 'batch':

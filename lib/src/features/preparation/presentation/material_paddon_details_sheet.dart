@@ -40,6 +40,7 @@ Future<void> showMaterialPaddonDetails(
   BuildContext context,
   PreparationMaterialPaddon paddon, {
   required VoidCallback onChanged,
+  bool refreshOnOpen = false,
 }) =>
     showModalBottomSheet<void>(
       context: context,
@@ -47,14 +48,23 @@ Future<void> showMaterialPaddonDetails(
       showDragHandle: true,
       isScrollControlled: true,
       constraints: const BoxConstraints(maxWidth: 560),
-      builder: (_) => _MaterialPaddonDetailsSheet(paddon, onChanged),
+      builder: (_) => _MaterialPaddonDetailsSheet(
+        paddon.code,
+        onChanged,
+        initialPaddon: refreshOnOpen ? null : paddon,
+      ),
     );
 
 class _MaterialPaddonDetailsSheet extends StatefulWidget {
-  const _MaterialPaddonDetailsSheet(this.initialPaddon, this.onChanged);
+  const _MaterialPaddonDetailsSheet(
+    this.code,
+    this.onChanged, {
+    required this.initialPaddon,
+  });
 
-  final PreparationMaterialPaddon initialPaddon;
+  final String code;
   final VoidCallback onChanged;
+  final PreparationMaterialPaddon? initialPaddon;
 
   @override
   State<_MaterialPaddonDetailsSheet> createState() =>
@@ -65,6 +75,7 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
   final _api = MobileApi.instance;
   final _scope = currentSessionReadScope();
   late var _paddon = widget.initialPaddon;
+  String? _loadError;
   late var _pending = _canIssue
       ? _api.pendingMaterialPaddonIssue()
       : Future<PreparationPendingCommand?>.value(null);
@@ -77,12 +88,18 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
         : session.can('gscale.print');
   }
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialPaddon == null) unawaited(_refresh());
+  }
+
   void _message(String text) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: UrduAwareText(text)));
   }
 
-  Future<void> _printParent() async {
+  Future<void> _printParent(PreparationMaterialPaddon paddon) async {
     if (_busy || _scope != currentSessionReadScope()) return;
     setState(() => _busy = true);
     try {
@@ -91,7 +108,7 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
         return;
       }
       await printMaterialPaddonQr(
-          printer, materialPaddonPrintRequest(_paddon, printer));
+          printer, materialPaddonPrintRequest(paddon, printer));
       if (!mounted || _scope != currentSessionReadScope()) return;
       _message('Paddon yorlig‘i chop etildi');
     } catch (_) {
@@ -105,25 +122,38 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
 
   Future<void> _refresh() async {
     try {
-      final current = await _api.materialPaddonByCode(_paddon.code);
-      if (!mounted || _scope != currentSessionReadScope() || current == null) {
-        return;
-      }
-      setState(() => _paddon = current);
-    } catch (_) {
-      if (mounted && _scope == currentSessionReadScope()) {
-        _message('Paddon qoldig‘i yuklanmadi');
-      }
+      final current = await _api.materialPaddonByCode(widget.code);
+      if (!mounted || _scope != currentSessionReadScope()) return;
+      setState(() {
+        _paddon = current;
+        _loadError = current == null
+            ? 'Paddon topilmadi yoki sizga biriktirilmagan'
+            : null;
+      });
+    } catch (error) {
+      if (!mounted || _scope != currentSessionReadScope()) return;
+      setState(() {
+        _paddon = null;
+        _loadError = error is MobileApiException
+            ? error.message
+            : 'Paddon qoldig‘i yuklanmadi';
+      });
     }
   }
 
-  Future<void> _issue() async {
+  void _retry() {
+    if (_scope != currentSessionReadScope()) return;
+    setState(() => _loadError = null);
+    unawaited(_refresh());
+  }
+
+  Future<void> _issue(PreparationMaterialPaddon paddon) async {
     if (_busy || !_canIssue || _scope != currentSessionReadScope()) return;
     setState(() => _busy = true);
     try {
       final pending = await _api.pendingMaterialPaddonIssue();
       if (!mounted || _scope != currentSessionReadScope()) return;
-      final issue = await showMaterialPaddonIssue(context, _paddon, pending);
+      final issue = await showMaterialPaddonIssue(context, paddon, pending);
       if (!mounted || _scope != currentSessionReadScope()) return;
       final nextPending = _api.pendingMaterialPaddonIssue();
       setState(() {
@@ -134,12 +164,13 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
         return;
       }
       widget.onChanged();
-      unawaited(_refresh());
+      final refresh = _refresh();
       if (issue.existingQr) {
         _message('Rulon paddondan yechildi');
       } else {
         await _showIssueLabels(context, issue, printOnOpen: true);
       }
+      await refresh;
     } catch (error) {
       if (!mounted || _scope != currentSessionReadScope()) return;
       _message(error is MobileApiException
@@ -158,12 +189,34 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
       showDragHandle: true,
       isScrollControlled: true,
       constraints: const BoxConstraints(maxWidth: 560),
-      builder: (_) => _MaterialPaddonIssueHistory(_paddon.code),
+      builder: (_) => _MaterialPaddonIssueHistory(widget.code),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final paddon = _paddon;
+    if (paddon == null) {
+      final error = _loadError;
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          child: error == null
+              ? const AppLoadingIndicator()
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    UrduAwareText(error, textAlign: TextAlign.center),
+                    TextButton(
+                      onPressed: _retry,
+                      child: const UrduAwareText('Qayta urinish'),
+                    ),
+                  ],
+                ),
+        ),
+      );
+    }
     final textTheme = Theme.of(context).textTheme;
     return SafeArea(
       top: false,
@@ -171,16 +224,16 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
         children: [
-          UrduAwareText(_paddon.title, style: textTheme.titleLarge),
+          UrduAwareText(paddon.title, style: textTheme.titleLarge),
           const SizedBox(height: 12),
-          _PaddonOverview(_paddon),
+          _PaddonOverview(paddon),
           const SizedBox(height: 16),
           if (_canIssue)
             FutureBuilder<PreparationPendingCommand?>(
               future: _pending,
               builder: (context, snapshot) {
-                final recover = snapshot.data?.payload['code'] == _paddon.code;
-                final hasUnits = _paddon.contents.any(
+                final recover = snapshot.data?.payload['code'] == paddon.code;
+                final hasUnits = paddon.contents.any(
                   (item) => item.lineNo != null && item.availableCount > 0,
                 );
                 if (!hasUnits && !recover) return const SizedBox.shrink();
@@ -188,7 +241,7 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: FilledButton.icon(
                     key: const ValueKey('paddon-open-issue'),
-                    onPressed: _busy ? null : _issue,
+                    onPressed: _busy ? null : () => _issue(paddon),
                     icon: const Icon(Icons.outbox_outlined),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
@@ -208,22 +261,22 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
             ),
           OutlinedButton.icon(
             key: const ValueKey('paddon-print-qr'),
-            onPressed: _busy ? null : _printParent,
+            onPressed: _busy ? null : () => _printParent(paddon),
             icon: const Icon(Icons.print_outlined),
             label: const UrduAwareText('Paddon QR chiqarish'),
           ),
-          if (_paddon.contents.isNotEmpty) ...[
+          if (paddon.contents.isNotEmpty) ...[
             const SizedBox(height: 20),
             UrduAwareText('Xomashyo', style: textTheme.titleSmall),
             const SizedBox(height: 8),
-            for (final (index, item) in _paddon.contents.indexed) ...[
+            for (final (index, item) in paddon.contents.indexed) ...[
               if (index > 0)
                 const SizedBox(height: M3SegmentedListGeometry.gap),
               _PaddonContentRow(
                 item,
                 slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
                   index,
-                  _paddon.contents.length,
+                  paddon.contents.length,
                 ),
               ),
             ],
