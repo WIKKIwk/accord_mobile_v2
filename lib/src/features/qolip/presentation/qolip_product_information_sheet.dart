@@ -16,6 +16,39 @@ Future<QolipProductInformation?> showQolipProductInformationSheet(
   required String productName,
   required String productCode,
   required bool edit,
+}) =>
+    _showQolipInformationSheet(
+      context,
+      target: QolipInformationTarget.product,
+      id: catalogId,
+      name: productName,
+      code: productCode,
+      edit: edit,
+    );
+
+Future<QolipProductInformation?> showQolipPaddonInformationSheet(
+  BuildContext context, {
+  required String paddonCode,
+  String? archiveEntryId,
+}) =>
+    _showQolipInformationSheet(
+      context,
+      target: archiveEntryId == null
+          ? QolipInformationTarget.paddon
+          : QolipInformationTarget.archivePaddon,
+      id: archiveEntryId ?? paddonCode,
+      name: paddonCode,
+      code: '',
+      edit: false,
+    );
+
+Future<QolipProductInformation?> _showQolipInformationSheet(
+  BuildContext context, {
+  required QolipInformationTarget target,
+  required String id,
+  required String name,
+  required String code,
+  required bool edit,
 }) {
   return showModalBottomSheet<QolipProductInformation>(
     context: context,
@@ -23,34 +56,36 @@ Future<QolipProductInformation?> showQolipProductInformationSheet(
     isDismissible: false,
     enableDrag: false,
     useSafeArea: true,
-    builder: (_) => _ProductInformationSheet(
-      catalogId: catalogId,
-      productName: productName,
-      productCode: productCode,
+    builder: (_) => _InformationSheet(
+      target: target,
+      id: id,
+      name: name,
+      code: code,
       edit: edit,
     ),
   );
 }
 
-class _ProductInformationSheet extends StatefulWidget {
-  const _ProductInformationSheet({
-    required this.catalogId,
-    required this.productName,
-    required this.productCode,
+class _InformationSheet extends StatefulWidget {
+  const _InformationSheet({
+    required this.target,
+    required this.id,
+    required this.name,
+    required this.code,
     required this.edit,
   });
 
-  final String catalogId;
-  final String productName;
-  final String productCode;
+  final QolipInformationTarget target;
+  final String id;
+  final String name;
+  final String code;
   final bool edit;
 
   @override
-  State<_ProductInformationSheet> createState() =>
-      _ProductInformationSheetState();
+  State<_InformationSheet> createState() => _InformationSheetState();
 }
 
-class _ProductInformationSheetState extends State<_ProductInformationSheet> {
+class _InformationSheetState extends State<_InformationSheet> {
   final _details = TextEditingController();
   final _scope = currentSessionReadScope();
   QolipProductInformation? _information;
@@ -86,7 +121,7 @@ class _ProductInformationSheetState extends State<_ProductInformationSheet> {
     setState(() => _loading = true);
     try {
       final information =
-          await MobileApi.instance.qolipProductInformation(widget.catalogId);
+          await MobileApi.instance.qolipInformation(widget.target, widget.id);
       if (!_active) return;
       _details.text = information.details;
       setState(() => _information = information);
@@ -142,8 +177,9 @@ class _ProductInformationSheetState extends State<_ProductInformationSheet> {
     if (!_active || _busy || information == null || !_hasChanges) return;
     _startAction();
     try {
-      final saved = await MobileApi.instance.qolipSaveProductInformation(
-        widget.catalogId,
+      final saved = await MobileApi.instance.qolipSaveInformation(
+        widget.target,
+        widget.id,
         revision: information.revision,
         details: _details.text.trim(),
         removeAttachment: _removeAttachment,
@@ -164,8 +200,9 @@ class _ProductInformationSheetState extends State<_ProductInformationSheet> {
     if (!_active || _busy || information == null || filename == null) return;
     _startAction();
     try {
-      final bytes = await MobileApi.instance.qolipDownloadProductAttachment(
-        widget.catalogId,
+      final bytes = await MobileApi.instance.qolipDownloadInformationAttachment(
+        widget.target,
+        widget.id,
         information,
       );
       if (_active) {
@@ -238,10 +275,9 @@ class _ProductInformationSheetState extends State<_ProductInformationSheet> {
                   ),
                 ],
               ),
-              Text(widget.productName, style: theme.textTheme.titleMedium),
-              if (widget.productCode.isNotEmpty &&
-                  widget.productCode != widget.productName)
-                Text(widget.productCode, style: theme.textTheme.bodySmall),
+              Text(widget.name, style: theme.textTheme.titleMedium),
+              if (widget.code.isNotEmpty && widget.code != widget.name)
+                Text(widget.code, style: theme.textTheme.bodySmall),
               const SizedBox(height: 16),
               if (_loading)
                 const Center(child: AppLoadingIndicator())

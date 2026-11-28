@@ -3,6 +3,15 @@ part of '../mobile_api.dart';
 const qolipInformationMaxDetails = 4000;
 const qolipInformationMaxFileBytes = 20 * 1024 * 1024;
 
+enum QolipInformationTarget {
+  product('products'),
+  paddon('paddons'),
+  archivePaddon('archive/paddons');
+
+  const QolipInformationTarget(this.path);
+  final String path;
+}
+
 typedef QolipInformationStatus = ({int revision, bool hasContent});
 
 QolipInformationStatus? _qolipInformationStatus(Object? json) {
@@ -60,21 +69,25 @@ class QolipProductInformation {
 }
 
 extension MobileApiQolipProductInformation on MobileApi {
-  Future<QolipProductInformation> qolipProductInformation(String id) async {
-    final uri = _qolipInformationUri(id);
+  Future<QolipProductInformation> qolipInformation(
+    QolipInformationTarget target,
+    String id,
+  ) async {
+    final uri = _qolipInformationUri(target, id);
     final response = await _requestQolipInformation(
         (headers) => _get(uri, headers: headers));
     return _decodeQolipInformation(response);
   }
 
-  Future<QolipProductInformation> qolipSaveProductInformation(
+  Future<QolipProductInformation> qolipSaveInformation(
+    QolipInformationTarget target,
     String id, {
     required int revision,
     required String details,
     required bool removeAttachment,
     ({String name, Uint8List bytes})? attachment,
   }) async {
-    final uri = _qolipInformationUri(id);
+    final uri = _qolipInformationUri(target, id);
     final response = await _requestQolipInformation((headers) async {
       final request = http.MultipartRequest('PUT', uri)
         ..headers.addAll(headers)
@@ -95,11 +108,12 @@ extension MobileApiQolipProductInformation on MobileApi {
     return _decodeQolipInformation(response);
   }
 
-  Future<Uint8List> qolipDownloadProductAttachment(
+  Future<Uint8List> qolipDownloadInformationAttachment(
+    QolipInformationTarget target,
     String id,
     QolipProductInformation information,
   ) async {
-    final uri = _qolipInformationUri(id, revision: information.revision);
+    final uri = _qolipInformationUri(target, id, revision: information.revision);
     final response = await _requestQolipInformation(
       (headers) => _httpClient.get(uri, headers: headers),
     ).timeout(const Duration(seconds: 60));
@@ -112,9 +126,13 @@ extension MobileApiQolipProductInformation on MobileApi {
     return response.bodyBytes;
   }
 
-  Uri _qolipInformationUri(String id, {int? revision}) {
+  Uri _qolipInformationUri(
+    QolipInformationTarget target,
+    String id, {
+    int? revision,
+  }) {
     final path = revision == null ? 'information' : 'information/attachment';
-    return Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/products/$path')
+    return Uri.parse('${MobileApi.baseUrl}/v1/mobile/qolip/${target.path}/$path')
         .replace(queryParameters: {
       'id': id,
       if (revision != null) 'revision': '$revision',

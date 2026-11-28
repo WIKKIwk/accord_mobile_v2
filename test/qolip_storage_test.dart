@@ -101,6 +101,46 @@ void main() {
     QolipCatalogStore.instance.reset();
   });
 
+  testWidgets('a locked paddon can save and reopen its own information',
+      (tester) async {
+    const path = '/v1/mobile/qolip/paddons/information';
+    const notes = 'Keep this paddon at rack A1.';
+    var revision = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(const QolipPaddonScreen(code: 'QP-00012')));
+      await tester.pumpAndSettle();
+      final open = find.widgetWithText(OutlinedButton, 'View information');
+      await tapVisible(tester, open);
+      await tester.tap(find.text('Edit information'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), notes);
+      await tapVisible(tester, find.widgetWithText(FilledButton, 'Save'));
+      expect(revision, 1);
+
+      await tapVisible(tester, open);
+      expect(find.widgetWithText(SelectableText, notes), findsOneWidget);
+    }, () => MockClient((request) async {
+      if (request.url.path == '/v1/mobile/qolip/paddons/detail') {
+        return jsonResponse(detail());
+      }
+      expect(request.url.path, path);
+      expect(request.url.queryParameters, {'id': 'QP-00012'});
+      if (request.method == 'PUT') {
+        expect(utf8.decode(request.bodyBytes), contains(notes));
+        revision++;
+      } else {
+        expect(request.method, 'GET');
+      }
+      return jsonResponse({
+        'ok': true,
+        'information': {
+          'revision': revision,
+          'details': revision == 0 ? '' : notes,
+        },
+      });
+    }));
+  });
+
   testWidgets('pallet contents display the linked products catalog images',
       (tester) async {
     final png = await tester.runAsync(() => orderImageTestPng(48, 48));

@@ -28,6 +28,7 @@ import 'qolip_code_details_sheet.dart';
 import 'qolip_mileage_sheet.dart';
 import 'qolip_home_navigation.dart';
 import 'qolip_paddon_print.dart';
+import 'qolip_product_information_sheet.dart';
 import 'qolip_products_screen.dart'
     show QolipProductContainer, QolipProductContainerCard, QolipCodeRow;
 import 'widgets/qolip_dock.dart';

@@ -93,6 +93,17 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
     return false;
   }
 
+  Future<void> _openInformation(String code) async {
+    if (!_sameScope()) return;
+    final saved = await showQolipPaddonInformationSheet(
+      context,
+      paddonCode: code,
+    );
+    if (saved != null && mounted && _scope == currentSessionReadScope()) {
+      _message(context, context.l10n.qolipInformationText('saved'));
+    }
+  }
+
   Future<void> _add({bool scan = false}) async {
     if (_saving ||
         _loading ||
@@ -448,6 +459,12 @@ class _QolipPaddonScreenState extends State<QolipPaddonScreen>
         const Divider(height: 1),
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(
+            style: compactButton,
+            onPressed: enabled ? () => _openInformation(p.code) : null,
+            icon: const Icon(Icons.description_outlined, size: 18),
+            label: Text(context.l10n.qolipInformationText('view')),
+          ),
           if (!p.archived)
             OutlinedButton.icon(
               style: compactButton,
@@ -503,6 +520,19 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
   final _intent = QolipStorageIntent();
   bool _saving = false, _restored = false;
   Map<String, dynamic>? _restoreBody;
+
+  Future<void> _openPaddonInformation(QolipArchiveEntry entry) async {
+    if (_sessionExpired || _scope != currentSessionReadScope()) return;
+    final saved = await showQolipPaddonInformationSheet(
+      context,
+      paddonCode: entry.code,
+      archiveEntryId: entry.id,
+    );
+    if (saved != null && mounted && _scope == currentSessionReadScope()) {
+      _message(context, context.l10n.qolipInformationText('saved'));
+    }
+  }
+
   Future<void> _restore() async {
     if (_saving || _restored || widget.entry.kind == 'paddon_mold') return;
     if (_sessionExpired || _scope != currentSessionReadScope()) {
@@ -721,6 +751,14 @@ class QolipArchiveDetailScreenState extends State<QolipArchiveDetailScreen>
                       const Divider(height: 1),
                       const SizedBox(height: 12),
                       Wrap(spacing: 8, runSpacing: 8, children: [
+                        OutlinedButton.icon(
+                            onPressed: _saving
+                                ? null
+                                : () => _openPaddonInformation(entry),
+                            icon: const Icon(Icons.description_outlined,
+                                size: 18),
+                            label: Text(
+                                context.l10n.qolipInformationText('view'))),
                         if (isArchived)
                           OutlinedButton.icon(
                               onPressed: _saving ? null : _restore,

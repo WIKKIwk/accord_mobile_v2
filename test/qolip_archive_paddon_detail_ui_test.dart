@@ -100,6 +100,53 @@ void main() {
     QolipCatalogStore.instance.reset();
   });
 
+  testWidgets('paddon information saves and reopens by archive entry ID',
+      (tester) async {
+    const path = '/v1/mobile/qolip/archive/paddons/information';
+    const details = 'Check the blue mold before restoring.';
+    var revision = 0;
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(QolipArchiveEntry.fromJson(archivedPallet())));
+      final open = find.widgetWithText(OutlinedButton, 'View information');
+      await tester.ensureVisible(open);
+      await tester.tap(open);
+      await tester.pumpAndSettle();
+      expect(find.text('No information has been added yet.'), findsOneWidget);
+
+      await tester.tap(find.text('Edit information'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), details);
+      await tester.pumpAndSettle();
+      final save = find.widgetWithText(FilledButton, 'Save');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('Information saved'), findsOneWidget);
+
+      await tester.tap(open);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(SelectableText, details), findsOneWidget);
+    }, () => MockClient((request) async {
+      expect(request.url.path, path);
+      expect(request.url.queryParameters, {'id': 'visit-1'});
+      if (request.method == 'PUT') {
+        final body = utf8.decode(request.bodyBytes);
+        expect(body, contains('"revision":0'));
+        expect(body, contains(details));
+        revision++;
+      } else {
+        expect(request.method, 'GET');
+      }
+      return response({
+        'ok': true,
+        'information': {
+          'revision': revision,
+          'details': revision == 0 ? '' : details,
+        },
+      });
+    }));
+  });
+
   testWidgets('archive pallet uses the standard shell, dock and back button',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
