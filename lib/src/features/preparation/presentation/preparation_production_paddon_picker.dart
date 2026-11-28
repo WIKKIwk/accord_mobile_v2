@@ -110,6 +110,16 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
 
   PreparationMaterialPaddon? get _selectedPaddon =>
       _paddons.where((paddon) => paddon.code == _selectedCode).firstOrNull;
+  Iterable<PreparationMaterialPaddon> get _inlinePaddons {
+    if (!_fromInventory || (_paddons.length <= 3 && _nextOffset == null)) {
+      return _paddons;
+    }
+    final recent = _paddons.take(2);
+    final selected = _selectedPaddon;
+    if (selected == null || recent.contains(selected)) return recent;
+    return [_paddons.first, selected];
+  }
+
   bool get _transfersToSelected {
     final selection = _selection;
     final warehouse = _selectedPaddon?.warehouse;
@@ -480,7 +490,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                       label: const UrduAwareText('Mavjud paddonni topish'),
                     ),
                   ),
-                for (final paddon in _paddons)
+                for (final paddon in _inlinePaddons)
                   ListTile(
                     key: ValueKey('production-attach-paddon-${paddon.code}'),
                     contentPadding: EdgeInsets.zero,
@@ -498,7 +508,7 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   ),
                 if (_loading)
                   const Center(child: AppLoadingIndicator())
-                else if (nextOffset != null)
+                else if (!_fromInventory && nextOffset != null)
                   TextButton(
                     onPressed: _saving ? null : () => _load(offset: nextOffset),
                     child: const UrduAwareText('Yana yuklash'),

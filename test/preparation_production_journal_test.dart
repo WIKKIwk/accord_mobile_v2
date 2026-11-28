@@ -22,6 +22,7 @@ import 'package:accord_mobile_v2/src/features/inventory/presentation/inventory_m
 import 'package:accord_mobile_v2/src/features/preparation/models/preparation_production_models.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/material_paddon_details_sheet.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/material_paddon_issue_dialog.dart';
+import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_production_paddon_picker.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_production_screen.dart';
 import 'package:accord_mobile_v2/src/features/preparation/presentation/preparation_screen.dart';
 import 'package:accord_mobile_v2/src/features/shared/models/app_models.dart';
@@ -1957,6 +1958,99 @@ void main() {
       }
     });
   });
+
+  for (final count in [3, 4]) {
+    testWidgets('inventory picker shows recent paddons from $count options',
+        (tester) async {
+      AppSession.instance.profile = _profile(
+        role: UserRole.materialTaminotchi,
+        capabilities: [
+          'inventory.movement.manage',
+          'gscale.catalog.read',
+          'material.paddon.pack',
+        ],
+      );
+      String code(int number) => 'XP-${number.toString().padLeft(16, '0')}';
+      Finder inline(int number) =>
+          find.byKey(ValueKey('production-attach-paddon-${code(number)}'));
+      final paddons = [
+        for (var number = count; number > 0; number--)
+          {
+            'paddon_id': 'p-$number',
+            'paddon_code': code(number),
+            'warehouse': 'Shared',
+            'remaining_kg': '0',
+            'contents': [],
+          },
+      ];
+      final submitted = <String>[];
+      await _withApp(tester, () async {
+        await tester.pumpWidget(_app(Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showInventoryPaddonPicker(
+                context,
+                currentAccount: () => true,
+                assetRefs: const ['inventory-roll'],
+              ),
+              child: const Text('Open inventory picker'),
+            ),
+          ),
+        )));
+        await tester.tap(find.text('Open inventory picker'));
+        await tester.pumpAndSettle();
+
+        expect(inline(count), findsOneWidget);
+        expect(inline(count - 1), findsOneWidget);
+        expect(inline(count - 2), count == 3 ? findsOneWidget : findsNothing);
+        if (count == 3) return;
+        expect(inline(1), findsNothing);
+
+        await tester.tap(
+          find.byKey(const ValueKey('production-find-existing-paddon')),
+        );
+        await tester.pumpAndSettle();
+        final search = find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(TextField),
+        );
+        await tester.enterText(search, code(1));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(ValueKey('production-existing-paddon-${code(1)}')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<ListTile>(inline(1)).selected, isTrue);
+        expect(inline(count), findsOneWidget);
+        expect(inline(count - 1), findsNothing);
+        await tester.tap(
+          find.byKey(const ValueKey('production-attach-paddon-save')),
+        );
+        await tester.pumpAndSettle();
+        expect(submitted, [code(1)]);
+      }, (request) {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        switch (request.url.path.split('/').last) {
+          case 'roll-options':
+            final query = body['q'];
+            return _json({
+              'paddons': query == '' ? paddons : [paddons.last],
+              'has_more': false,
+            });
+          case 'roll-attach':
+            submitted.add(body['code'] as String);
+            return _json({
+              'paddon_code': body['code'],
+              'asset_refs': body['asset_refs'],
+            });
+          default:
+            fail('Unexpected request ${request.url}');
+        }
+      });
+    });
+  }
 
   testWidgets('existing paddon search can select a destination for a roll transfer',
       (tester) async {
