@@ -1027,8 +1027,22 @@ void main() {
       await tester.pumpAndSettle();
       final notes = find.byKey(const ValueKey('scanned-preparation-roll-notes'));
       expect(notes, findsOneWidget);
+      expect(find.text('Batch eslatmasi:'), findsOneWidget);
       expect(find.text('Batchni tekshiring'), findsOneWidget);
+      expect(find.text('Rulon eslatmasi:'), findsOneWidget);
       expect(find.text('Rulon chetini tekshiring'), findsOneWidget);
+      final card = find.descendant(
+        of: notes,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Material && widget.type == MaterialType.card,
+        ),
+      );
+      expect(tester.getSize(card).width, 420);
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(card).width, 342);
+      tester.view.physicalSize = const Size(800, 1800);
+      await tester.pumpAndSettle();
       await tester.tap(
           find.descendant(of: notes, matching: find.byType(TextButton)));
       await tester.pumpAndSettle();

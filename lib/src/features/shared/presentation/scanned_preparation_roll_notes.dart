@@ -4,6 +4,7 @@ import '../../../core/api/mobile_api.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/widgets/feedback/m3_confirm_dialog.dart';
 
 Future<bool> showScannedPreparationRollNotes(
   BuildContext context,
@@ -34,18 +35,20 @@ Future<bool> showScannedPreparationRollNotes(
     builder: (context) => AlertDialog(
       key: const ValueKey('scanned-preparation-roll-notes'),
       scrollable: true,
+      insetPadding: m3DialogInsetPadding,
+      constraints: const BoxConstraints.tightFor(width: m3DialogMaxWidth),
       title: const UrduAwareText('Eslatma'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (batchText.isNotEmpty) ...[
-            const UrduAwareText('Batch eslatmasi'),
+            Text('${context.l10n.uiText('Batch eslatmasi')}:'),
             Text(batchText),
           ],
           if (rollText.isNotEmpty) ...[
             if (batchText.isNotEmpty) const SizedBox(height: 12),
-            const UrduAwareText('Rulon eslatmasi'),
+            Text('${context.l10n.uiText('Rulon eslatmasi')}:'),
             Text(rollText),
           ],
         ],
