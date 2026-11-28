@@ -38,6 +38,7 @@ import '../../material_taminotchi/presentation/widgets/raw_material_order_assign
 import '../../preparation/models/preparation_history.dart';
 import '../../preparation/models/preparation_models.dart'
     show PreparationPackedRoll, preparationDisplay;
+import '../../preparation/presentation/material_paddon_details_sheet.dart';
 import '../../preparation/presentation/preparation_navigation.dart';
 import '../../preparation/presentation/widgets/preparation_history_operation_card.dart';
 import '../../preparation/presentation/preparation_production_paddon_picker.dart';
@@ -97,6 +98,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
   bool _loading = true;
   bool _assetsLoading = false;
   bool _warehouseFilterExpanded = false;
+  bool _stockUseFilterExpanded = false;
   String _error = '';
   final Set<String> _busyKeys = {};
   final Set<String> _selectedAssetKeys = {};

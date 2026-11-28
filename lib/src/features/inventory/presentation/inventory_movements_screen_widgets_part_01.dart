@@ -137,6 +137,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
     required this.allowOrderAssignment,
     required this.onOrderAssignmentChanged,
     required this.onQrRequested,
+    required this.onPaddonRequested,
     required this.onDelete,
     required this.onRelocate,
     required this.onTransfer,
@@ -152,6 +153,7 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
   final bool allowOrderAssignment;
   final Future<void> Function() onOrderAssignmentChanged;
   final Future<void> Function()? onQrRequested;
+  final Future<void> Function()? onPaddonRequested;
   final Future<void> Function()? onDelete;
   final Future<void> Function()? onRelocate;
   final Future<void> Function()? onTransfer;
@@ -272,11 +274,22 @@ class _InventoryAssetDetailsSheet extends StatelessWidget {
               value: asset.physicalLocation.name,
             ),
             if (asset.paddonCode case final code?)
-              _AssetSheetDetail(
-                icon: Icons.inventory_2_outlined,
-                label: 'Paddon',
-                value: code,
-              ),
+              if (onPaddonRequested case final open?)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    key: const ValueKey('inventory-asset-open-paddon'),
+                    icon: const Icon(Icons.inventory_2_outlined),
+                    label: UrduAwareText('Paddon · $code'),
+                    onPressed: () => unawaited(open()),
+                  ),
+                )
+              else
+                _AssetSheetDetail(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Paddon',
+                  value: code,
+                ),
             if (asset.kind == InventoryAssetKind.rawMaterial)
               _AssetSheetDetail(
                 icon: Icons.check_circle_outline,

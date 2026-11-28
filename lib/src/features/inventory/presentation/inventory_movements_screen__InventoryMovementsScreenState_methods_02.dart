@@ -138,6 +138,33 @@ extension __InventoryMovementsScreenStateAstPart02
     }
   }
 
+  Future<void> _openMaterialPaddon(String code) async {
+    bool canOpen() =>
+        mounted &&
+        _hasPaddonTab &&
+        _inventoryReadScope == currentSessionReadScope() &&
+        AppSession.instance.can('gscale.catalog.read');
+
+    if (!canOpen()) return;
+    await _runBusy('paddon:$code', () async {
+      final paddon = await MobileApi.instance.materialPaddonByCode(code);
+      if (!canOpen() || ModalRoute.isCurrentOf(context) == false) return;
+      if (paddon == null) {
+        _showMessage('Paddon topilmadi yoki sizga biriktirilmagan');
+        return;
+      }
+      await showMaterialPaddonDetails(
+        context,
+        paddon,
+        onChanged: () {
+          if (!canOpen()) return;
+          _updateInventory(() => _paddonsRevision++);
+          _refreshInventoryAfterPaddonChange();
+        },
+      );
+    });
+  }
+
   Future<void> _unlinkSelectedRawMaterials() async {
     final assets = _selectedLinkedRawMaterialAssets;
     if (!_materialScoped || _stateSelectionMode || assets.isEmpty) {
@@ -461,6 +488,12 @@ extension __InventoryMovementsScreenStateAstPart02
                   await _showAssetQr(asset);
                 }
               },
+        onPaddonRequested: _hasPaddonTab && isPacked
+            ? () async {
+                Navigator.of(sheetContext).pop();
+                await _openMaterialPaddon(asset.paddonCode!);
+              }
+            : null,
         onDelete: _materialScoped &&
                 asset.kind == InventoryAssetKind.rawMaterial &&
                 asset.isAvailable &&

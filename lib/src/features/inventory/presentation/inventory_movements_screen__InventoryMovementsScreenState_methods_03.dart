@@ -384,32 +384,43 @@ extension __InventoryMovementsScreenStateAstPart03
   }
 
   Widget _stockUseFilter() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Wrap(
-        spacing: 6,
-        children: [
-          for (final (value, label) in const [
-            (null, 'Barchasi'),
-            (InventoryStockUse.preparationInput, 'Tayyorlov uchun'),
-            (InventoryStockUse.preparedRoll, 'Tayyor rulonlar'),
-          ])
-            ChoiceChip(
-              label: UrduAwareText(label),
-              selected: _stockUse == value,
-              onSelected: (_) {
-                if (_stockUse == value) return;
-                _updateInventory(() {
-                  _stockUse = value;
-                  _assets = const [];
-                  _selectedAssetKeys.clear();
-                  _inventoryFabOpen = false;
-                });
-                unawaited(_loadAssets());
-              },
-            ),
-        ],
-      ),
+    return AdminExpandableFilterChip<String>(
+      chipKey: const ValueKey('inventory-stock-use-filter-chip'),
+      label: 'Turi',
+      emptyLabel: 'Barchasi',
+      icon: Icons.filter_list_rounded,
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      selectedValue: _stockUse?.apiValue ?? '',
+      expanded: _stockUseFilterExpanded,
+      onToggle: () {
+        _updateInventory(() {
+          _stockUseFilterExpanded = !_stockUseFilterExpanded;
+        });
+      },
+      onSelect: (key) {
+        final value = InventoryStockUse.fromJson(key);
+        final changed = value != _stockUse;
+        _updateInventory(() {
+          _stockUseFilterExpanded = false;
+          if (!changed) return;
+          _stockUse = value;
+          _assets = const [];
+          _selectedAssetKeys.clear();
+          _inventoryFabOpen = false;
+        });
+        if (changed) unawaited(_loadAssets());
+      },
+      options: [
+        const AdminFilterChipOption(value: '', label: 'Barchasi'),
+        AdminFilterChipOption(
+          value: InventoryStockUse.preparationInput.apiValue,
+          label: 'Tayyorlov uchun',
+        ),
+        AdminFilterChipOption(
+          value: InventoryStockUse.preparedRoll.apiValue,
+          label: 'Tayyor rulonlar',
+        ),
+      ],
     );
   }
 

@@ -282,7 +282,7 @@ void main() {
     });
   });
 
-  testWidgets('material inventory FAB packs eligible rolls and retries once',
+  testWidgets('material inventory packs linked and free rolls and retries once',
       (tester) async {
     AppSession.instance.profile = _profile(
       ref: 'material-pack',
@@ -310,6 +310,11 @@ void main() {
           'stock_use': stockUse,
           'preparation_qr': preparationQr,
           'paddon_code': paddonCode,
+          if (id == 'linked')
+            'order_assignment': {
+              'order_id': 'zakaz-linked',
+              'order_label': '0088 · Linked order',
+            },
           'asset_ref': id,
           'custody_warehouse_id': 'shared',
           'custody_warehouse': 'Shared',
@@ -332,6 +337,8 @@ void main() {
     final noQr = roll('no-qr', preparationQr: false);
     final seriyo = roll('seriyo', stockUse: 'preparation_input', preparationQr: false);
     final stockFilters = <String?>[];
+    final paddonLookups = <String>[];
+    final paddonSearches = <String>[];
     InventoryViewStore.debugOverride = InventoryViewStore(
       liveEnabled: () => false,
       snapshotLoader: (query) async {
@@ -342,7 +349,7 @@ void main() {
         return [
           for (final asset in [
             packed ? roll('free', paddonCode: code) : free,
-            linked,
+            packed ? roll('linked', paddonCode: code) : linked,
             noQr,
             seriyo,
           ])
@@ -352,7 +359,6 @@ void main() {
     );
     addTearDown(() => InventoryViewStore.debugOverride = null);
 
-    const conflict = 'Buyurtmaga ulangan rulonni biriktirib bo‘lmaydi';
     final writes = <Map<String, dynamic>>[];
     await _withApp(tester, () async {
       await tester.pumpWidget(_app(const InventoryMovementsScreen()));
@@ -364,15 +370,48 @@ void main() {
       final noQrRow = find.byKey(const ValueKey('inventory-asset-no-qr'));
       final seriyoRow = find.byKey(const ValueKey('inventory-asset-seriyo'));
       final save = find.byKey(const ValueKey('production-attach-paddon-save'));
+      final topBar = find.byType(AppBar);
+      final topBarSearch = find.descendant(
+        of: topBar,
+        matching: find.byType(EditableText),
+      );
+      expect(
+        find.descendant(
+          of: topBar,
+          matching: find.text('Mahsulot, kod yoki QR qidirish'),
+        ),
+        findsOneWidget,
+      );
 
+      final stockUseFilter =
+          find.byKey(const ValueKey('inventory-stock-use-filter-chip'));
       expect(seriyoRow, findsOneWidget);
+      expect(find.text('Turi: Barchasi'), findsOneWidget);
+      expect(find.text('Tayyorlov uchun'), findsNothing);
+
+      await tester.tap(stockUseFilter);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Tayyorlov uchun'));
       await tester.pumpAndSettle();
+      expect(find.text('Turi: Tayyorlov uchun'), findsOneWidget);
+      expect(find.text('Tayyor rulonlar'), findsNothing);
       expect(seriyoRow, findsOneWidget);
       expect(freeRow, findsNothing);
       expect(stockFilters.last, 'preparation_input');
+
+      await tester.tap(stockUseFilter);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Barchasi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Turi: Barchasi'), findsOneWidget);
+      expect(seriyoRow, findsOneWidget);
+      expect(freeRow, findsOneWidget);
+
+      await tester.tap(stockUseFilter);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Tayyor rulonlar'));
       await tester.pumpAndSettle();
+      expect(find.text('Turi: Tayyor rulonlar'), findsOneWidget);
       expect(seriyoRow, findsNothing);
       expect(freeRow, findsOneWidget);
       expect(stockFilters.last, 'prepared_roll');
@@ -408,18 +447,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(pack);
       await tester.pumpAndSettle();
-      expect(find.text(conflict), findsOneWidget);
-      expect(tester.widget<FilledButton>(save).onPressed, isNull);
-      expect(writes, isEmpty);
-
-      await tester.tap(find.text('Bekor qilish'));
-      await tester.pumpAndSettle();
-      await tester.tap(linkedRow);
-      await tester.pumpAndSettle();
-      await tester.tap(fab);
-      await tester.pumpAndSettle();
-      await tester.tap(pack);
-      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('production-attach-paddon-$code')));
       await tester.pumpAndSettle();
       await tester.tap(save);
@@ -433,21 +460,71 @@ void main() {
       expect(writes.first['request_id'], isNotEmpty);
       expect(find.byType(AlertDialog), findsNothing);
       expect(freeRow, findsOneWidget);
-      expect(find.textContaining('Paddonda · $code'), findsOneWidget);
-      expect(linkedRow, findsOneWidget);
+      expect(find.textContaining('Paddonda · $code'), findsNWidgets(2));
+      expect(find.descendant(of: linkedRow, matching: find.text('0088 · Linked order')),
+          findsOneWidget);
+      await tester.tap(freeRow);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('inventory-asset-open-paddon')));
+      await tester.pumpAndSettle();
+      expect(paddonLookups, [code]);
+      expect(find.byKey(const ValueKey('paddon-print-qr')), findsOneWidget);
+      Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Paddonlar'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('preparation-paddon:p1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('paddon-balance-filter')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: topBar,
+          matching: find.text('Paddon, partiya yoki xomashyo'),
+        ),
+        findsOneWidget,
+      );
+      await tester.enterText(topBarSearch, code);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(paddonSearches.last, code);
+      final productsTab = find.text('Mahsulotlar');
+      await tester.ensureVisible(productsTab);
+      await tester.pumpAndSettle();
+      await tester.tap(productsTab);
+      await tester.pumpAndSettle();
+      expect(tester.widget<EditableText>(topBarSearch).controller.text, isEmpty);
+      expect(find.textContaining('Paddonda · $code'), findsNWidgets(2));
       await tester.longPress(freeRow);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('inventory-asset-selected-free')), findsOneWidget);
     }, (request) {
+      if (request.method == 'GET' &&
+          request.url.path == '/v1/mobile/raw-material-paddons') {
+        final lookup = request.url.queryParameters['code'];
+        if (lookup != null) {
+          paddonLookups.add(lookup);
+        } else {
+          paddonSearches.add(request.url.queryParameters['q'] ?? '');
+        }
+        return _json({
+          'paddons': [
+            {
+              'paddon_id': 'p1',
+              'paddon_code': code,
+              'warehouse': 'Shared',
+              'remaining_kg': '20',
+              'remaining_count': 2,
+              'contents': [],
+            },
+          ],
+          'has_more': false,
+        });
+      }
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(request.method, 'POST');
       switch (request.url.path) {
         case '/v1/mobile/raw-material-paddons/roll-options':
-          if ((body['asset_refs'] as List).contains('linked')) {
-            return _json({'code': 'preparation_conflict', 'error': conflict},
-                status: 409);
-          }
-          expect(body['asset_refs'], ['free']);
+          expect(body['asset_refs'], unorderedEquals(['free', 'linked']));
           return _json({
             'paddons': [
               {
@@ -461,12 +538,12 @@ void main() {
             'has_more': false,
           });
         case '/v1/mobile/raw-material-paddons/roll-attach':
-          expect(body['asset_refs'], ['free']);
+          expect(body['asset_refs'], ['free', 'linked']);
           expect(body['code'], code);
           writes.add(body);
           if (writes.length == 1) return _json({'error': 'Temporary'}, status: 503);
           packed = true;
-          return _json({'paddon_code': code, 'asset_refs': ['free']});
+          return _json({'paddon_code': code, 'asset_refs': ['free', 'linked']});
         default:
           throw StateError('Unexpected request: ${request.url.path}');
       }
@@ -658,6 +735,50 @@ void main() {
             : request.url.path.contains('/preparation/production/')
                 ? _route(request)
                 : _json({}));
+  });
+
+  testWidgets('production tabs use the warehouse tab style on narrow screens',
+      (tester) async {
+    await _withApp(tester, () async {
+      tester.view.physicalSize = const Size(320, 800);
+      await tester.pumpWidget(_app(const PreparationProductionScreen()));
+      await tester.pumpAndSettle();
+
+      final tabs = tester.widget<TabBar>(find.descendant(
+        of: find.byKey(const ValueKey('production-view-tabs')),
+        matching: find.byType(TabBar),
+      ));
+      expect(tabs.isScrollable, isFalse);
+      final barRect = tester.getRect(find.byType(TabBar));
+      for (final (key, label) in const [
+        ('orders', 'Buyurtmalar'),
+        ('batches', 'Partiyalar'),
+        ('rolls', 'Rulonlar'),
+        ('paddons', 'Paddonlar'),
+      ]) {
+        final tab = find.byKey(ValueKey('production-view-$key'));
+        final tabRect = tester.getRect(tab);
+        final text = find.descendant(of: tab, matching: find.text(label));
+        expect(text, findsOneWidget);
+        final textRect = tester.getRect(text);
+        expect(textRect.left, greaterThanOrEqualTo(barRect.left));
+        expect(textRect.right, lessThanOrEqualTo(barRect.right));
+        expect(textRect.left, greaterThanOrEqualTo(tabRect.left));
+        expect(textRect.right, lessThanOrEqualTo(tabRect.right));
+        expect(tester.renderObject<RenderParagraph>(text).didExceedMaxLines, isFalse);
+        await tester.tap(tab);
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+    }, (request) {
+      if (request.url.path.endsWith('/production/rolls')) {
+        return _json({'rolls': [], 'has_more': false});
+      }
+      if (request.url.path.endsWith('/raw-material-paddons')) {
+        return _json({'paddons': [], 'has_more': false});
+      }
+      return _route(request);
+    });
   });
 
   testWidgets('paddons show incoming stock and use their own balance filter',

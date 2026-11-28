@@ -789,19 +789,24 @@ class PreparationProductionScreenState
           child: AdminSurfaceTabBar(
             key: const ValueKey('production-view-tabs'),
             controller: _tabs,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 10),
-            tabs: [
-              for (final (key, label) in const [
-                ('orders', 'Buyurtmalar'),
-                ('batches', 'Partiyalar'),
-                ('rolls', 'Rulonlar'),
-                ('paddons', 'Paddonlar'),
-              ])
-                Tab(
-                    key: ValueKey('production-view-$key'),
-                    text: AppLocalizations.of(context).uiText(label)),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+            tabs: const [
+              Tab(
+                key: ValueKey('production-view-orders'),
+                child: UrduAwareText('Buyurtmalar', textAlign: TextAlign.center),
+              ),
+              Tab(
+                key: ValueKey('production-view-batches'),
+                child: UrduAwareText('Partiyalar', textAlign: TextAlign.center),
+              ),
+              Tab(
+                key: ValueKey('production-view-rolls'),
+                child: UrduAwareText('Rulonlar', textAlign: TextAlign.center),
+              ),
+              Tab(
+                key: ValueKey('production-view-paddons'),
+                child: UrduAwareText('Paddonlar', textAlign: TextAlign.center),
+              ),
             ],
           ),
         ),
