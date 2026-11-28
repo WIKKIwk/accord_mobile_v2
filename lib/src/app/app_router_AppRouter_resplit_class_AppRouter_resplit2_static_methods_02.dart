@@ -37,9 +37,14 @@ bool _AppRouter_canOpenRoute_resplit2AstPart(String? routeName) {
     return profile.role == UserRole.materialTaminotchi &&
         profile.hasCapability('gscale.catalog.read');
   }
-  if (routeName == AppRoutes.inventoryMovements &&
-      profile.role == UserRole.tayyorlovMasteri) {
-    return profile.hasCapability('preparation.access');
+  if (routeName == AppRoutes.inventoryMovements) {
+    if (profile.role == UserRole.materialTaminotchi) {
+      return profile.hasCapability('inventory.movement.manage') ||
+          profile.hasCapability('gscale.catalog.read');
+    }
+    if (profile.role == UserRole.tayyorlovMasteri) {
+      return profile.hasCapability('preparation.access');
+    }
   }
   if (profile.role == UserRole.rezkaMaster) {
     return profile.hasCapability('rezka.master.access') && const {

@@ -27,8 +27,6 @@ import '../../admin/presentation/widgets/admin_create_hub_sheet.dart';
 import '../../admin/presentation/widgets/admin_expandable_filter_chip.dart';
 import '../../admin/presentation/widgets/admin_surface_tab_bar.dart';
 import '../../admin/presentation/widgets/admin_top_notice.dart';
-import '../../material_taminotchi/presentation/widgets/material_taminotchi_dock.dart';
-import '../../material_taminotchi/presentation/widgets/material_taminotchi_navigation_drawer.dart';
 import '../../shared/models/app_models.dart' show UserRole;
 import '../models/preparation_models.dart';
 import 'material_paddon_details_sheet.dart';
@@ -40,13 +38,29 @@ part 'preparation_production_notes.dart';
 part 'preparation_production_sync.dart';
 
 class PreparationProductionScreen extends StatefulWidget {
-  const PreparationProductionScreen({super.key}) : materialPaddonsOnly = false;
-  const PreparationProductionScreen.materialPaddons({super.key})
-      : materialPaddonsOnly = true;
+  const PreparationProductionScreen({super.key})
+      : materialPaddonsOnly = false,
+        paddonsTabActive = true,
+        paddonsRevision = 0,
+        paddonsSearchController = null,
+        onPaddonsChanged = null;
+
+  const PreparationProductionScreen.materialPaddonsTab({
+    super.key,
+    required this.paddonsTabActive,
+    required this.paddonsRevision,
+    required TextEditingController this.paddonsSearchController,
+    required this.onPaddonsChanged,
+  }) : materialPaddonsOnly = true;
 
   final bool materialPaddonsOnly;
+  final bool paddonsTabActive;
+  final int paddonsRevision;
+  final TextEditingController? paddonsSearchController;
+  final VoidCallback? onPaddonsChanged;
   @override
-  State<PreparationProductionScreen> createState() => _ProductionOrdersState();
+  State<PreparationProductionScreen> createState() =>
+      PreparationProductionScreenState();
 }
 
 class PreparationProductionOrderScreen extends StatefulWidget {
@@ -353,14 +367,16 @@ abstract class _JournalState<W extends StatefulWidget, T> extends State<W>
 
 enum _ProductionView { orders, batches, rolls, paddons }
 
-class _ProductionOrdersState
+class PreparationProductionScreenState
     extends _JournalState<PreparationProductionScreen, PreparationProductionRow>
     with
         SingleTickerProviderStateMixin,
+        AutomaticKeepAliveClientMixin<PreparationProductionScreen>,
         _ProductionRollNotes<PreparationProductionScreen,
             PreparationProductionRow>,
         _ProductionJournalSync {
-  final _search = TextEditingController();
+  late final _search =
+      widget.paddonsSearchController ?? TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _searchDebounce;
   String _query = '', _status = 'all';
@@ -424,7 +440,13 @@ class _ProductionOrdersState
     _selectedBatches.clear();
   }
 
-  void _searchChanged(String value) {
+  @override
+  void initState() {
+    super.initState();
+    widget.paddonsSearchController?.addListener(_scheduleSearch);
+  }
+
+  void _scheduleSearch() {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), _filter);
   }
@@ -466,9 +488,46 @@ class _ProductionOrdersState
     }
   }
 
+  @override
+  bool get wantKeepAlive => widget.materialPaddonsOnly;
+
+  @override
+  bool get canRefresh => widget.paddonsTabActive && super.canRefresh;
+
+  @override
+  void didUpdateWidget(covariant PreparationProductionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.materialPaddonsOnly) return;
+    if (widget.paddonsTabActive &&
+        (!oldWidget.paddonsTabActive ||
+            widget.paddonsRevision != oldWidget.paddonsRevision) &&
+        currentAccount) {
+      unawaited(load(silent: items.isNotEmpty));
+    }
+  }
+
+  void addMaterialPaddon() {
+    if (widget.materialPaddonsOnly &&
+        widget.paddonsTabActive &&
+        currentAccount &&
+        AppSession.instance.can('gscale.print')) {
+      unawaited(_receivePaddon());
+    }
+  }
+
+  void scanMaterialPaddon() {
+    if (widget.materialPaddonsOnly &&
+        widget.paddonsTabActive &&
+        currentAccount &&
+        AppSession.instance.can('gscale.catalog.read')) {
+      unawaited(_scanPaddon(onChanged: _refreshPaddons));
+    }
+  }
+
   Future<void> _receivePaddon() async {
     final result = await showMaterialPaddonReceipt(context);
     if (!mounted || !currentAccount || result == null || !_showPaddons) return;
+    widget.onPaddonsChanged?.call();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: UrduAwareText(
@@ -493,6 +552,7 @@ class _ProductionOrdersState
 
   void _refreshPaddons() {
     if (mounted && currentAccount && _showPaddons) {
+      widget.onPaddonsChanged?.call();
       unawaited(load(silent: true));
     }
   }
@@ -609,7 +669,11 @@ class _ProductionOrdersState
   @override
   void dispose() {
     _searchDebounce?.cancel();
-    _search.dispose();
+    if (widget.paddonsSearchController case final controller?) {
+      controller.removeListener(_scheduleSearch);
+    } else {
+      _search.dispose();
+    }
     _searchFocus.dispose();
     if (!widget.materialPaddonsOnly) {
       _tabs
@@ -667,145 +731,142 @@ class _ProductionOrdersState
   }
 
   @override
-  Widget build(BuildContext context) => AppShell(
-        title: widget.materialPaddonsOnly
-            ? 'Xomashyo paddonlari'
-            : 'Ishlab chiqarish jurnali',
-        subtitle: '',
-        nativeTopBar: true,
-        actions: const [WasteOperatorAction()],
-        automaticallyImplyNativeLeading: false,
-        profileActionListenable: _searchFocus,
-        showProfileActionResolver: () => !_searchFocus.hasFocus,
-        titleWidget: IgnorePointer(
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (widget.materialPaddonsOnly) {
+      return _buildJournalContent();
+    }
+    return AppShell(
+      title: 'Ishlab chiqarish jurnali',
+      subtitle: '',
+      nativeTopBar: true,
+      actions: const [WasteOperatorAction()],
+      automaticallyImplyNativeLeading: false,
+      profileActionListenable: _searchFocus,
+      showProfileActionResolver: () => !_searchFocus.hasFocus,
+      titleWidget: _buildJournalSearch(),
+      contentPadding: EdgeInsets.zero,
+      drawer: const PreparationDrawer(
+        selectedRouteName: AppRoutes.preparationProduction,
+      ),
+      bottom: PreparationDock(primaryFabActions: _journalFabActions),
+      child: _buildJournalContent(),
+    );
+  }
+
+  Widget _buildJournalSearch() => IgnorePointer(
+      ignoring: !currentAccount,
+      child: AdminCatalogSearchField(
+        key: const ValueKey('production-search'),
+        controller: _search,
+        focusNode: _searchFocus,
+        hintText: _showPaddons
+            ? 'Paddon, partiya yoki xomashyo'
+            : 'Nomi, buyurtma yoki QR',
+        onChanged: (_) => _scheduleSearch(),
+        onClear: () {
+          _search.clear();
+          _filter();
+        },
+        onBack: () {
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            AppRootNavigation.replaceRootRoute(context, AppRoutes.preparation);
+          }
+        },
+      ),
+    );
+
+  Widget _buildJournalContent() => Column(
+    children: [
+      if (!widget.materialPaddonsOnly)
+        IgnorePointer(
           ignoring: !currentAccount,
-          child: AdminCatalogSearchField(
-            key: const ValueKey('production-search'),
-            controller: _search,
-            focusNode: _searchFocus,
-            hintText: _showPaddons
-                ? 'Paddon, partiya yoki xomashyo'
-                : 'Nomi, buyurtma yoki QR',
-            onChanged: _searchChanged,
-            onClear: () {
-              _search.clear();
-              _filter();
-            },
-            onBack: () {
-              final navigator = Navigator.of(context);
-              if (navigator.canPop()) {
-                navigator.pop();
-              } else {
-                AppRootNavigation.replaceRootRoute(
-                    context,
-                    widget.materialPaddonsOnly
-                        ? AppRoutes.materialHome
-                        : AppRoutes.preparation);
-              }
-            },
+          child: AdminSurfaceTabBar(
+            key: const ValueKey('production-view-tabs'),
+            controller: _tabs,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+            tabs: [
+              for (final (key, label) in const [
+                ('orders', 'Buyurtmalar'),
+                ('batches', 'Partiyalar'),
+                ('rolls', 'Rulonlar'),
+                ('paddons', 'Paddonlar'),
+              ])
+                Tab(
+                    key: ValueKey('production-view-$key'),
+                    text: AppLocalizations.of(context).uiText(label)),
+            ],
           ),
         ),
-        contentPadding: EdgeInsets.zero,
-        drawer: widget.materialPaddonsOnly
-            ? MaterialTaminotchiNavigationDrawer(
-                selectedRouteName: AppRoutes.materialPaddons,
-                onNavigate: (route) =>
-                    AppRootNavigation.replaceRootRoute(context, route),
-              )
-            : const PreparationDrawer(
-                selectedRouteName: AppRoutes.preparationProduction),
-        bottom: widget.materialPaddonsOnly
-            ? MaterialTaminotchiDock(primaryFabActions: _paddonActions)
-            : PreparationDock(primaryFabActions: _journalFabActions),
-        child: Column(
-          children: [
-            if (!widget.materialPaddonsOnly)
-              IgnorePointer(
-                ignoring: !currentAccount,
-                child: AdminSurfaceTabBar(
-                  key: const ValueKey('production-view-tabs'),
-                  controller: _tabs,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 10),
-                  tabs: [
-                    for (final (key, label) in const [
-                      ('orders', 'Buyurtmalar'),
-                      ('batches', 'Partiyalar'),
-                      ('rolls', 'Rulonlar'),
-                      ('paddons', 'Paddonlar'),
-                    ])
-                      Tab(
-                          key: ValueKey('production-view-$key'),
-                          text: AppLocalizations.of(context).uiText(label)),
-                  ],
-                ),
-              ),
-            IgnorePointer(
-              ignoring: !currentAccount,
-              child: AdminExpandableFilterChip<String>(
-                chipKey: ValueKey(_showPaddons
-                    ? 'paddon-balance-filter'
-                    : 'production-status-filter'),
-                label: _showPaddons ? 'Qoldiq' : 'Holat',
-                emptyLabel: 'Barchasi',
-                icon: Icons.filter_list_rounded,
-                selectedValue: _showPaddons ? _paddonStatus : _status,
-                options: _showPaddons
-                    ? const [
-                        AdminFilterChipOption(
-                            key: ValueKey('paddon-balance-all'),
-                            value: 'all',
-                            label: 'Barchasi'),
-                        AdminFilterChipOption(
-                            key: ValueKey('paddon-balance-available'),
-                            value: 'available',
-                            label: 'Qoldig‘i bor'),
-                        AdminFilterChipOption(
-                            key: ValueKey('paddon-balance-empty'),
-                            value: 'empty',
-                            label: 'Bo‘sh'),
-                      ]
-                    : const [
-                        AdminFilterChipOption(
-                            key: ValueKey('production-status-all'),
-                            value: 'all',
-                            label: 'Barchasi'),
-                        AdminFilterChipOption(
-                            key: ValueKey('production-status-active'),
-                            value: 'active',
-                            label: 'Davom etmoqda'),
-                        AdminFilterChipOption(
-                            key: ValueKey('production-status-completed'),
-                            value: 'completed',
-                            label: 'Yakunlangan'),
-                      ],
-                expanded: _statusExpanded,
-                onToggle: () =>
-                    setState(() => _statusExpanded = !_statusExpanded),
-                onSelect: (status) {
-                  setState(() => _statusExpanded = false);
-                  _filter(status: status);
-                },
-              ),
-            ),
-            Expanded(
-              child: widget.materialPaddonsOnly
-                  ? _journalTab(_ProductionView.paddons)
-                  : TabBarView(
-                      key: const ValueKey('production-view-pages'),
-                      controller: _tabs,
-                      physics: currentAccount
-                          ? null
-                          : const NeverScrollableScrollPhysics(),
-                      children: [
-                        for (final view in _ProductionView.values) _journalTab(view),
-                      ],
-                    ),
-            ),
-          ],
+      IgnorePointer(
+        ignoring: !currentAccount,
+        child: AdminExpandableFilterChip<String>(
+          chipKey: ValueKey(_showPaddons
+              ? 'paddon-balance-filter'
+              : 'production-status-filter'),
+          label: _showPaddons ? 'Qoldiq' : 'Holat',
+          emptyLabel: 'Barchasi',
+          icon: Icons.filter_list_rounded,
+          selectedValue: _showPaddons ? _paddonStatus : _status,
+          options: _showPaddons
+              ? const [
+                  AdminFilterChipOption(
+                      key: ValueKey('paddon-balance-all'),
+                      value: 'all',
+                      label: 'Barchasi'),
+                  AdminFilterChipOption(
+                      key: ValueKey('paddon-balance-available'),
+                      value: 'available',
+                      label: 'Qoldig‘i bor'),
+                  AdminFilterChipOption(
+                      key: ValueKey('paddon-balance-empty'),
+                      value: 'empty',
+                      label: 'Bo‘sh'),
+                ]
+              : const [
+                  AdminFilterChipOption(
+                      key: ValueKey('production-status-all'),
+                      value: 'all',
+                      label: 'Barchasi'),
+                  AdminFilterChipOption(
+                      key: ValueKey('production-status-active'),
+                      value: 'active',
+                      label: 'Davom etmoqda'),
+                  AdminFilterChipOption(
+                      key: ValueKey('production-status-completed'),
+                      value: 'completed',
+                      label: 'Yakunlangan'),
+                ],
+          expanded: _statusExpanded,
+          onToggle: () =>
+              setState(() => _statusExpanded = !_statusExpanded),
+          onSelect: (status) {
+            setState(() => _statusExpanded = false);
+            _filter(status: status);
+          },
         ),
-      );
+      ),
+      Expanded(
+        child: widget.materialPaddonsOnly
+            ? _journalTab(_ProductionView.paddons)
+            : TabBarView(
+                key: const ValueKey('production-view-pages'),
+                controller: _tabs,
+                physics: currentAccount
+                    ? null
+                    : const NeverScrollableScrollPhysics(),
+                children: [
+                  for (final view in _ProductionView.values) _journalTab(view),
+                ],
+              ),
+      ),
+    ],
+  );
 }
 
 Color _productionHeaderColor(BuildContext context) {

@@ -218,8 +218,8 @@ class _MaterialTaminotchiHomeScreenState
     if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements)) {
       actions.add(
         AdminFabMenuAction(
-          title: 'Joylashtirish va transfer',
-          icon: Icons.swap_horiz_rounded,
+          title: 'Ombor boshqaruvi',
+          icon: Icons.warehouse_outlined,
           onTap: () {
             _setMaterialFabOpen(false);
             _openRoute(AppRoutes.inventoryMovements);

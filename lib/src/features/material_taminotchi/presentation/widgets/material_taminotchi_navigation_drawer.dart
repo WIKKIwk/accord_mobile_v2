@@ -49,13 +49,6 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
           routeName: AppRoutes.gscaleMode,
           push: true,
         ),
-        if (AppRouter.canOpenRoute(AppRoutes.materialPaddons))
-          const RoleNavigationDrawerDestination(
-            icon: Icons.inventory_2_outlined,
-            selectedIcon: Icons.inventory_2_rounded,
-            label: 'Xomashyo paddonlari',
-            routeName: AppRoutes.materialPaddons,
-          ),
         const RoleNavigationDrawerDestination(
           icon: Icons.history_outlined,
           selectedIcon: Icons.history_rounded,
@@ -73,9 +66,9 @@ class MaterialTaminotchiNavigationDrawer extends StatelessWidget {
           ),
         if (AppRouter.canOpenRoute(AppRoutes.inventoryMovements))
           const RoleNavigationDrawerDestination(
-            icon: Icons.swap_horiz_outlined,
-            selectedIcon: Icons.swap_horiz_rounded,
-            label: 'Joylashtirish va transfer',
+            icon: Icons.warehouse_outlined,
+            selectedIcon: Icons.warehouse_rounded,
+            label: 'Ombor boshqaruvi',
             routeName: AppRoutes.inventoryMovements,
             push: true,
           ),

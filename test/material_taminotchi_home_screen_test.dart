@@ -61,7 +61,8 @@ void main() {
     expect(find.text('Kirim'), findsWidgets);
     expect(find.text('Homashyo biriktirish').first, findsOneWidget);
     expect(find.text('Joylashuvlarim'), findsNothing);
-    expect(find.text('Joylashtirish va transfer').first, findsOneWidget);
+    expect(find.text('Ombor boshqaruvi').first, findsOneWidget);
+    expect(find.text('Xomashyo paddonlari'), findsNothing);
     expect(find.text('Profil'), findsNothing);
     expect(find.text('Materialchi'), findsNothing);
     expect(find.text('Rulon'), findsNothing);
@@ -86,9 +87,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(
-        const ValueKey('admin-fab-menu-Joylashtirish va transfer'),
-      ),
+      find.byKey(const ValueKey('admin-fab-menu-Ombor boshqaruvi')),
       findsOneWidget,
     );
   });

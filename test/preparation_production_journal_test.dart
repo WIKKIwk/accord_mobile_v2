@@ -202,6 +202,13 @@ Future<void> _withApp(WidgetTester tester, Future<void> Function() body,
   }, () => MockClient((request) async => respond(request)));
 }
 
+Finder _paddonsFabButton() => find
+    .descendant(
+      of: find.byKey(const ValueKey('inventory-movements-fab')),
+      matching: find.byType(InkWell),
+    )
+    .hitTestable();
+
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -221,6 +228,57 @@ void main() {
     expect(AppRouter.canOpenRoute(AppRoutes.preparationProduction), isFalse);
     AppSession.instance.profile = _profile(capabilities: const []);
     expect(AppRouter.canOpenRoute(AppRoutes.preparationProduction), isFalse);
+  });
+
+  testWidgets('warehouse FAB stays in place while switching the Paddonlar tab',
+      (tester) async {
+    AppSession.instance.profile = _profile(
+      ref: 'material-inventory',
+      role: UserRole.materialTaminotchi,
+      capabilities: ['inventory.movement.manage', 'gscale.catalog.read'],
+    );
+    InventoryViewStore.debugOverride = InventoryViewStore(
+      liveEnabled: () => false,
+      snapshotLoader: (_) async => [],
+    );
+    addTearDown(() => InventoryViewStore.debugOverride = null);
+
+    final paddonsResponse = Completer<http.Response>();
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const InventoryMovementsScreen()));
+      await tester.pumpAndSettle();
+      final fab = find.byKey(const ValueKey('inventory-movements-fab'));
+      final fabState = tester.state(fab);
+      final fabCenter = tester.getCenter(_paddonsFabButton());
+
+      await tester.tap(find.text('Paddonlar'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.state(fab), same(fabState));
+      expect(tester.getCenter(_paddonsFabButton()), fabCenter);
+
+      paddonsResponse.complete(_json({'paddons': [], 'has_more': false}));
+      await tester.pumpAndSettle();
+      expect(tester.state(fab), same(fabState));
+      expect(tester.getCenter(_paddonsFabButton()), fabCenter);
+
+      final productsTab = find.text('Mahsulotlar');
+      await tester.ensureVisible(productsTab);
+      await tester.pumpAndSettle();
+      await tester.tap(productsTab);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.state(fab), same(fabState));
+      expect(tester.getCenter(_paddonsFabButton()), fabCenter);
+      await tester.pumpAndSettle();
+      expect(tester.state(fab), same(fabState));
+      expect(tester.getCenter(_paddonsFabButton()), fabCenter);
+    }, (request) {
+      if (request.url.path == '/v1/mobile/raw-material-paddons') {
+        return paddonsResponse.future;
+      }
+      return _json({});
+    });
   });
 
   testWidgets('material inventory FAB packs eligible rolls and retries once',
@@ -562,14 +620,28 @@ void main() {
         ).copyWith(assignedWarehouses: ['Own W']);
       }
       expect(AppRouter.canOpenRoute(AppRoutes.materialPaddons), materialRole);
+      if (materialRole) {
+        expect(AppRouter.canOpenRoute(AppRoutes.inventoryMovements), isTrue);
+      }
       final submissions = <Object?>[];
       var created = false;
       await _withApp(tester, () async {
         await tester.pumpWidget(_app(materialRole
-            ? const PreparationProductionScreen.materialPaddons()
+            ? const InventoryMovementsScreen()
             : const PreparationProductionScreen()));
         await tester.pumpAndSettle();
-        if (!materialRole) {
+        if (materialRole) {
+          expect(
+            find.descendant(
+              of: find.byType(AppBar),
+              matching: find.text('Paddon, partiya yoki xomashyo'),
+            ),
+            findsOneWidget,
+          );
+          expect(find.text('Paddonlar'), findsOneWidget);
+          expect(find.text('Mahsulotlar'), findsNothing);
+          expect(find.text('Kiruvchi'), findsNothing);
+        } else {
           expect(find.byIcon(Icons.add_rounded), findsOneWidget);
           final paddons = find.byKey(const ValueKey('production-view-paddons'));
           await tester.ensureVisible(paddons);
@@ -577,12 +649,15 @@ void main() {
           await tester.tap(paddons);
           await tester.pumpAndSettle();
         }
-        final fab = find.byKey(const ValueKey('app-primary-navigation-button'));
-        await tester.tap(fab);
+        final primary = find.byKey(const ValueKey('app-primary-navigation-button'));
+        await tester.tap(materialRole ? _paddonsFabButton() : primary);
+        await tester.pump();
         await tester.pumpAndSettle();
-        expect(fab, findsNothing);
-        expect(find.byKey(const ValueKey('admin-hub-toggle-button')),
-            findsOneWidget);
+        if (!materialRole) {
+          expect(primary, findsNothing);
+          expect(find.byKey(const ValueKey('admin-hub-toggle-button')),
+              findsOneWidget);
+        }
         await tester.tap(find.text('Paddon qo‘shish'));
         await tester.pumpAndSettle();
         expect(
@@ -1319,15 +1394,14 @@ void main() {
             await tester.pumpWidget(
               _app(
                 viaScan
-                    ? const PreparationProductionScreen.materialPaddons()
+                    ? const InventoryMovementsScreen(openMaterialPaddons: true)
                     : const PreparationProductionScreen(),
               ),
             );
             await tester.pumpAndSettle();
             if (viaScan) {
-              await tester.tap(
-                find.byKey(const ValueKey('app-primary-navigation-button')),
-              );
+              await tester.tap(_paddonsFabButton());
+              await tester.pump();
               await tester.pumpAndSettle();
               await tester.tap(find.text('Paddon QR skaneri'));
               await tester.pumpAndSettle();

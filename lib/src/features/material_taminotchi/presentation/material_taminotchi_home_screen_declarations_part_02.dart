@@ -347,11 +347,6 @@ List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
       title: 'Kirim',
       routeName: AppRoutes.gscaleMode,
     ),
-    const _MaterialHomeAction(
-      icon: Icons.inventory_2_outlined,
-      title: 'Xomashyo paddonlari',
-      routeName: AppRoutes.materialPaddons,
-    ),
     _MaterialHomeAction(
       icon: Icons.inventory_2_outlined,
       title: 'Homashyo biriktirish',
@@ -359,8 +354,8 @@ List<_MaterialHomeAction> _materialHomeActions(bool hasMaterialGroupScope) {
       requiresMaterialGroupScope: !hasMaterialGroupScope,
     ),
     const _MaterialHomeAction(
-      icon: Icons.swap_horiz_rounded,
-      title: 'Joylashtirish va transfer',
+      icon: Icons.warehouse_outlined,
+      title: 'Ombor boshqaruvi',
       routeName: AppRoutes.inventoryMovements,
     ),
   ];

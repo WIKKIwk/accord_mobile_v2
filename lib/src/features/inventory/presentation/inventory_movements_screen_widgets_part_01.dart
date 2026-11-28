@@ -8,8 +8,13 @@ class PreparationTransfersArgs {
 }
 
 class InventoryMovementsScreen extends StatefulWidget {
-  const InventoryMovementsScreen({super.key, this.preparationTransfers});
+  const InventoryMovementsScreen({
+    super.key,
+    this.preparationTransfers,
+    this.openMaterialPaddons = false,
+  });
   final PreparationTransfersArgs? preparationTransfers;
+  final bool openMaterialPaddons;
 
   @override
   State<InventoryMovementsScreen> createState() =>

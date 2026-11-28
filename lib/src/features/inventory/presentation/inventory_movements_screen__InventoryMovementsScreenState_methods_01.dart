@@ -330,6 +330,18 @@ extension __InventoryMovementsScreenStateAstPart01
 
   void _handleInventoryTabChanged() {
     if (_shownTabIndex == _tabs.index) return;
+    if (_hasPaddonTab &&
+        (_showMaterialPaddons || _shownTabIndex == _paddonTabIndex)) {
+      _searchFocusNode.unfocus();
+      if (_showMaterialPaddons) {
+        if (_qrLookupOpen) _closeQrLookup();
+        if (_selectionMode) _clearSelection();
+      }
+      _updateInventory(() {
+        _paddonTabVisited = true;
+        _inventoryFabOpen = false;
+      });
+    }
     final wasHistory = _preparationScoped &&
         _shownTabIndex ==
             _InventoryMovementsScreenState._preparationHistoryTabIndex;
@@ -342,7 +354,9 @@ extension __InventoryMovementsScreenStateAstPart01
       if (_qrLookupOpen) _closeQrLookup();
       return;
     }
-    if (_loading) return;
+    if (_showMaterialPaddons) return;
+    _startInventoryReads();
+    if (!_hasMovementTabs || _loading) return;
     if (wasHistory) unawaited(_loadAssets());
     _loadCurrentTransferTab();
   }

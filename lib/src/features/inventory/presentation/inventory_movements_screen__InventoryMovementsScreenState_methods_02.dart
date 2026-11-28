@@ -74,7 +74,16 @@ extension __InventoryMovementsScreenStateAstPart02
               !packed.contains(asset.assetRef))
           .toList(growable: false);
     });
+    _updateInventory(() => _paddonsRevision++);
     await _loadAssets(force: true);
+  }
+
+  void _refreshInventoryAfterPaddonChange() {
+    if (mounted &&
+        _inventoryReadsStarted &&
+        _inventoryReadScope == currentSessionReadScope()) {
+      unawaited(_loadAssets(force: true));
+    }
   }
 
   Future<void> _unlinkSelectedRawMaterials() async {
