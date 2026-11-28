@@ -53,7 +53,7 @@ extension __InventoryMovementsScreenStateAstPart02
                 !asset.canSelectForPaddon ||
                 asset.custodyWarehouseId != warehouseId ||
                 asset.physicalLocation.kind != InventoryLocationKind.warehouse))) {
-      _showMessage('Bitta ombordagi 1–100 ta bo‘sh tayyorlov rulonini tanlang');
+      _showMessage('Bitta ombordagi 1–100 ta QR kodli tayyor rulonni tanlang');
       return;
     }
     final result = await showInventoryPaddonPicker(
