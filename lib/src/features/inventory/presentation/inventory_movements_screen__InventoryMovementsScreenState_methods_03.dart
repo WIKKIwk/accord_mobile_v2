@@ -215,7 +215,7 @@ extension __InventoryMovementsScreenStateAstPart03
                   final selected = _selectedAssetKeys.contains(
                     _selectionKey(asset),
                   );
-                  final selectable = _canBulkRelocate(asset) && !busy;
+                  final selectable = _canSelectWarehouseAsset(asset) && !busy;
                   final selectionKey = _selectionKey(asset);
                   final exiting = _exitingAssetKeys.contains(selectionKey);
                   return M3AnimatedListEntry(
@@ -245,6 +245,7 @@ extension __InventoryMovementsScreenStateAstPart03
                         ),
                         asset: asset,
                         orderAssignment: orderAssignment,
+                        highlightPaddon: _materialScoped,
                         busy: busy,
                         selected: selected,
                         onTap: _selectionMode

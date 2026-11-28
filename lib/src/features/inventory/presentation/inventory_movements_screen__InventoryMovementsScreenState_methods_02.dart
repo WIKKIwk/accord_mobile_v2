@@ -50,7 +50,7 @@ extension __InventoryMovementsScreenStateAstPart02
         (assets.isEmpty ||
             assets.length > 100 ||
             assets.any((asset) =>
-                !asset.canSelectForPaddon ||
+                !_canPreviewPaddonAttachment(asset) ||
                 asset.custodyWarehouseId != warehouseId ||
                 asset.physicalLocation.kind != InventoryLocationKind.warehouse))) {
       _showMessage('Bitta ombordagi 1–100 ta QR kodli tayyor rulonni tanlang');
@@ -59,7 +59,18 @@ extension __InventoryMovementsScreenStateAstPart02
     final result = await showInventoryPaddonPicker(
       context,
       currentAccount: currentAccount,
-      assetRefs: assets.map((asset) => asset.assetRef).toList(growable: false),
+      assetRefs: assets
+          .where((asset) => asset.canSelectForPaddon)
+          .map((asset) => asset.assetRef)
+          .toList(growable: false),
+      packedRolls: [
+        if (_warehouseRollActions)
+          for (final asset in assets.where(_isPackedWarehouseRoll))
+            PreparationPackedRoll(
+              barcode: asset.identifier,
+              paddonCode: asset.paddonCode!,
+            ),
+      ],
     );
     if (!currentAccount()) return;
     unawaited(_loadPendingPaddonAttachment());
@@ -75,6 +86,47 @@ extension __InventoryMovementsScreenStateAstPart02
           .toList(growable: false);
     });
     _updateInventory(() => _paddonsRevision++);
+    await _loadAssets(force: true);
+  }
+
+  Future<void> _editWarehouseRollNotes() async {
+    bool currentAccount() => mounted &&
+        _inventoryReadScope == currentSessionReadScope() &&
+        _warehouseRollActions &&
+        MobileApi.instance.canEditInventoryRollNotes;
+    final assets = _selectedAssets;
+    if (!currentAccount() ||
+        assets.isEmpty ||
+        !assets.every(_canEditWarehouseRoll)) return;
+    if (assets.length > preparationNoteSelectionLimit) {
+      _showMessage('1–100 ta QR kodli tayyor rulonni tanlang');
+      return;
+    }
+    _updateInventory(() => _inventoryFabOpen = false);
+    final saved = await showInventoryRollNotes(
+      context,
+      rolls: {
+        for (final asset in assets)
+          asset.assetRef: (
+            label: '${asset.itemName} • ${asset.identifier}',
+            note: asset.rollNote,
+          ),
+      },
+      currentAccount: currentAccount,
+      refresh: () => unawaited(_loadAssets(force: true)),
+    );
+    if (saved == null || !currentAccount()) return;
+    _updateInventory(() {
+      _assets = [
+        for (final asset in _assets)
+          if (saved[asset.assetRef] case final note?
+              when note.revision >= (asset.rollNote?.revision ?? 0))
+            asset.copyWith(rollNote: note)
+          else
+            asset,
+      ];
+      _selectedAssetKeys.clear();
+    });
     await _loadAssets(force: true);
   }
 
@@ -143,6 +195,8 @@ extension __InventoryMovementsScreenStateAstPart02
       _clearAssetSelection();
       return;
     }
+    if (!assets.every((asset) =>
+        _canBulkRelocate(asset, fromQrLookup: _qrLookupOpen))) return;
     final selected = await _pickLocation(
       title: 'Qaysi State’ga ko‘chirasiz?',
       locations: _stateLocations,

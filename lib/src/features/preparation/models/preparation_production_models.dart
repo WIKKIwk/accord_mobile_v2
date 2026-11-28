@@ -263,6 +263,12 @@ class PreparationPaddonSelection {
 }
 
 class PreparationPackedRoll {
+  const PreparationPackedRoll({
+    required this.barcode,
+    required this.paddonCode,
+    this.paddonName = '',
+  });
+
   PreparationPackedRoll.fromJson(Map<String, dynamic> json)
       : barcode = _identity(json, 'barcode'),
         paddonName = _text(json, 'paddon_name'),

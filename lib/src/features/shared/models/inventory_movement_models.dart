@@ -311,6 +311,7 @@ class InventoryAsset {
     int? placementVersion,
     InventoryOrderAssignment? orderAssignment,
     bool? orderAssignmentKnown,
+    PreparationOutputNote? rollNote,
   }) {
     return InventoryAsset(
       kind: kind,
@@ -335,7 +336,7 @@ class InventoryAsset {
       preparationQr: preparationQr,
       paddonCode: paddonCode,
       batchNote: batchNote,
-      rollNote: rollNote,
+      rollNote: rollNote ?? this.rollNote,
     );
   }
 }

@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import '../../../app/app_router.dart';
 import '../../../core/api/mobile_api.dart';
 import '../../../core/inventory/inventory_view_store.dart';
+import '../../../core/models/preparation_output_note.dart'
+    show preparationNoteSelectionLimit;
 import '../../../core/native_usb_printer.dart';
 import '../../../core/printing/session_bluetooth_printer.dart';
 import '../../../core/print_service.dart';
@@ -33,7 +35,8 @@ import '../../material_taminotchi/presentation/widgets/material_taminotchi_navig
 import '../../material_taminotchi/presentation/widgets/raw_material_list_assignment.dart';
 import '../../material_taminotchi/presentation/widgets/raw_material_order_assignment_section.dart';
 import '../../preparation/models/preparation_history.dart';
-import '../../preparation/models/preparation_models.dart' show preparationDisplay;
+import '../../preparation/models/preparation_models.dart'
+    show PreparationPackedRoll, preparationDisplay;
 import '../../preparation/presentation/preparation_navigation.dart';
 import '../../preparation/presentation/widgets/preparation_history_operation_card.dart';
 import '../../preparation/presentation/preparation_production_paddon_picker.dart';
@@ -220,11 +223,15 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
       .where(
         (asset) =>
             asset.kind == InventoryAssetKind.rawMaterial &&
+            asset.paddonCode == null &&
             _rawMaterialOrderAssignments.containsKey(
               rawMaterialAssetBarcode(asset),
             ),
       )
       .toList(growable: false);
+
+  bool get _warehouseRollActions =>
+      _materialScoped && !_qrLookupOpen && _tabs.index == _assetsTabIndex;
 
   bool get _selectionActionBusy =>
       _busyKeys.contains('relocate-batch') ||
@@ -239,12 +246,20 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
     final selectedLinkedRawMaterials = _selectedLinkedRawMaterialAssets;
     final selectionActionBusy = _selectionActionBusy;
     final selectedAssets = _selectedAssets;
+    final showRollNotes = _warehouseRollActions &&
+        MobileApi.instance.canEditInventoryRollNotes &&
+        selectedAssets.isNotEmpty &&
+        selectedAssets.every(_canEditWarehouseRoll);
+    final canRelocateSelection = _stateSelectionMode ||
+        selectedAssets.every(
+          (asset) => _canBulkRelocate(asset, fromQrLookup: _qrLookupOpen),
+        );
     final showPaddonAttachment = MobileApi.instance.canPackInventoryPaddon &&
         !_stateSelectionMode &&
         (_pendingPaddonAttachment ||
             ((_tabs.index == _assetsTabIndex || _qrLookupOpen) &&
                 selectedAssets.isNotEmpty &&
-                selectedAssets.every((asset) => asset.canSelectForPaddon)));
+                selectedAssets.every(_canPreviewPaddonAttachment)));
     final tabs = <Tab>[
       if (_hasMovementTabs)
         Tab(text: _preparationScoped ? 'Qoldiqlar' : 'Mahsulotlar'),
@@ -330,24 +345,25 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
                       ? const AppLoadingIndicator(size: 24, glyphSize: 16)
                       : const Icon(Icons.link_off_rounded),
                 ),
-              IconButton(
-                key: ValueKey(
-                  _stateSelectionMode
-                      ? 'material-state-selection-return'
-                      : 'inventory-selection-relocate',
+              if (canRelocateSelection)
+                IconButton(
+                  key: ValueKey(
+                    _stateSelectionMode
+                        ? 'material-state-selection-return'
+                        : 'inventory-selection-relocate',
+                  ),
+                  tooltip: _stateSelectionMode
+                      ? 'Omborga qaytarish'
+                      : 'State’ga ko‘chirish',
+                  onPressed: selectionActionBusy ? null : _runSelectionAction,
+                  icon: _busyKeys.contains('relocate-batch')
+                      ? const AppLoadingIndicator(size: 24, glyphSize: 16)
+                      : Icon(
+                          _stateSelectionMode
+                              ? Icons.keyboard_return_rounded
+                              : Icons.swap_horiz_rounded,
+                        ),
                 ),
-                tooltip: _stateSelectionMode
-                    ? 'Omborga qaytarish'
-                    : 'State’ga ko‘chirish',
-                onPressed: selectionActionBusy ? null : _runSelectionAction,
-                icon: _busyKeys.contains('relocate-batch')
-                    ? const AppLoadingIndicator(size: 24, glyphSize: 16)
-                    : Icon(
-                        _stateSelectionMode
-                            ? Icons.keyboard_return_rounded
-                            : Icons.swap_horiz_rounded,
-                      ),
-              ),
             ]
           : null,
       titleWidget: selectionMode
@@ -427,6 +443,12 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen>
                 actions: showPaddons
                     ? _materialPaddonActions()
                     : [
+                        if (showRollNotes)
+                          AdminFabMenuAction(
+                            title: 'Eslatma qo‘shish',
+                            icon: Icons.edit_note_rounded,
+                            onTap: _editWarehouseRollNotes,
+                          ),
                         if (showPaddonAttachment)
                           AdminFabMenuAction(
                             title: _pendingPaddonAttachment

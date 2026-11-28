@@ -204,6 +204,25 @@ Future<Map<String, PreparationOutputNote>?> _editProductionBatchNotes(
       refresh: refresh,
     );
 
+Future<Map<String, PreparationOutputNote>?> showInventoryRollNotes(
+  BuildContext context, {
+  required Map<String, ({String label, PreparationOutputNote? note})> rolls,
+  required bool Function() currentAccount,
+  required VoidCallback refresh,
+}) =>
+    _editProductionNote(
+      context,
+      title: 'Rulon eslatmasi',
+      description: '${rolls.length} ta rulon tanlandi.',
+      targetName: 'rulon',
+      targets: rolls,
+      currentAccount: currentAccount,
+      save: (revisions, text, {audience}) =>
+          MobileApi.instance.saveInventoryRollNotes(revisions, text!),
+      refresh: refresh,
+      showAudience: false,
+    );
+
 Future<Map<String, PreparationOutputNote>?> _editProductionNote(
   BuildContext context, {
   required String title,
@@ -213,6 +232,7 @@ Future<Map<String, PreparationOutputNote>?> _editProductionNote(
   required bool Function() currentAccount,
   required _SaveProductionNotes save,
   required VoidCallback refresh,
+  bool showAudience = true,
 }) async {
   final saved = await showDialog<Map<String, PreparationOutputNote>>(
     context: context,
@@ -225,6 +245,7 @@ Future<Map<String, PreparationOutputNote>?> _editProductionNote(
       currentAccount: currentAccount,
       save: save,
       refresh: refresh,
+      showAudience: showAudience,
     ),
   );
   if (saved != null && context.mounted && currentAccount()) {
@@ -246,6 +267,7 @@ class _ProductionNoteDialog extends StatefulWidget {
     required this.currentAccount,
     required this.save,
     required this.refresh,
+    required this.showAudience,
   });
 
   final String title, description, targetName;
@@ -253,6 +275,7 @@ class _ProductionNoteDialog extends StatefulWidget {
   final bool Function() currentAccount;
   final _SaveProductionNotes save;
   final VoidCallback refresh;
+  final bool showAudience;
 
   @override
   State<_ProductionNoteDialog> createState() => _ProductionNoteDialogState();
@@ -279,7 +302,9 @@ class _ProductionNoteDialogState extends State<_ProductionNoteDialog> {
           ? _text
           : null;
   PreparationNoteAudience? get _audienceUpdate =>
-      _existingAudiences.length == 1 && _existingAudiences.single == _audience
+      !widget.showAudience ||
+              (_existingAudiences.length == 1 &&
+                  _existingAudiences.single == _audience)
           ? null
           : _audience;
   bool get _canSave =>
@@ -442,19 +467,20 @@ class _ProductionNoteDialogState extends State<_ProductionNoteDialog> {
                 const SizedBox(height: 8),
                 _overwriteWarning(overwritten),
               ],
-              ListTile(
-                key: const ValueKey('production-note-audience'),
-                contentPadding: EdgeInsets.zero,
-                title: const UrduAwareText('Kimga ko‘rinadi?'),
-                subtitle: Text(_noteAudienceLabel(context, _audience)),
-                trailing: Icon(_audienceExpanded
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded),
-                onTap: _saving || _conflict ? null : () {
-                  FocusScope.of(context).unfocus();
-                  setState(() => _audienceExpanded = !_audienceExpanded);
-                },
-              ),
+              if (widget.showAudience)
+                ListTile(
+                  key: const ValueKey('production-note-audience'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const UrduAwareText('Kimga ko‘rinadi?'),
+                  subtitle: Text(_noteAudienceLabel(context, _audience)),
+                  trailing: Icon(_audienceExpanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded),
+                  onTap: _saving || _conflict ? null : () {
+                    FocusScope.of(context).unfocus();
+                    setState(() => _audienceExpanded = !_audienceExpanded);
+                  },
+                ),
               if (_audienceExpanded)
                 Wrap(
                   spacing: 8,

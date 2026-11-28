@@ -31,6 +31,7 @@ class _InventoryAssetListRow extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.onLongPress,
+    this.highlightPaddon = false,
   });
 
   final M3SegmentVerticalSlot slot;
@@ -38,6 +39,7 @@ class _InventoryAssetListRow extends StatelessWidget {
   final RawMaterialListAssignment? orderAssignment;
   final bool busy;
   final bool selected;
+  final bool highlightPaddon;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -69,9 +71,16 @@ class _InventoryAssetListRow extends StatelessWidget {
             ? const Color(0xFF81D4FA)
             : const Color(0xFF0288D1))
         : assignedGreen;
-    final backgroundColor = assigned
+    final tint = highlightPaddon && asset.paddonCode != null
+        ? (theme.brightness == Brightness.dark
+            ? const Color(0xFFF48FB1)
+            : const Color(0xFFC2185B))
+        : assigned
+            ? assignedColor
+            : null;
+    final backgroundColor = tint != null
         ? Color.alphaBlend(
-            assignedColor.withValues(
+            tint.withValues(
               alpha: theme.brightness == Brightness.dark ? 0.20 : 0.12,
             ),
             scheme.surfaceContainerLowest,
@@ -95,15 +104,13 @@ class _InventoryAssetListRow extends StatelessWidget {
         dimension: 30,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: assigned
-                ? assignedColor.withValues(alpha: 0.18)
-                : scheme.secondaryContainer,
+            color: tint?.withValues(alpha: 0.18) ?? scheme.secondaryContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             selected ? Icons.check_rounded : _assetIcon(asset.kind),
             size: 16,
-            color: assigned ? assignedColor : scheme.onSecondaryContainer,
+            color: tint ?? scheme.onSecondaryContainer,
           ),
         ),
       ),

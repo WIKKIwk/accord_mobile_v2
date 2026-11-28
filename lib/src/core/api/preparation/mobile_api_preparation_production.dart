@@ -204,12 +204,31 @@ extension MobileApiPreparationProduction on MobileApi {
     }, revisions, text, audience);
   }
 
+  bool get canEditInventoryRollNotes {
+    final profile = AppSession.instance.profile;
+    return profile?.role == UserRole.materialTaminotchi &&
+        profile!.hasCapability('inventory.movement.manage') &&
+        profile.hasCapability('gscale.catalog.read');
+  }
+
+  Future<Map<String, PreparationOutputNote>> saveInventoryRollNotes(
+    Map<String, int> revisions,
+    String text,
+  ) =>
+      _savePreparationOutputNotes({
+        'rolls': [
+          for (final entry in revisions.entries)
+            {'asset_ref': entry.key, 'expected_revision': entry.value},
+        ],
+      }, revisions, text, null, inventory: true);
+
   Future<Map<String, PreparationOutputNote>> _savePreparationOutputNotes(
     Map<String, Object> input,
     Map<String, int> revisions,
     String? draft,
-    PreparationNoteAudience? audience,
-  ) async {
+    PreparationNoteAudience? audience, {
+    bool inventory = false,
+  }) async {
     final expected = Map<String, int>.of(revisions);
     final text = draft?.trim();
     if ((text == null && audience == null) ||
@@ -226,20 +245,24 @@ extension MobileApiPreparationProduction on MobileApi {
             (text.runes.length > preparationNoteLimit || text.contains('\u0000')))) {
       throw ArgumentError('Eslatma yoki tanlangan rulonlar noto‘g‘ri');
     }
-    final key = _preparationStorageKey();
+    final key = inventory ? null : _preparationStorageKey();
     final scope = currentSessionReadScope();
     void requireCurrentAccount() {
-      if (_preparationStorageKey() != key ||
-          currentSessionReadScope() != scope) {
+      if (currentSessionReadScope() != scope ||
+          (inventory
+              ? !canEditInventoryRollNotes
+              : _preparationStorageKey() != key)) {
         throw StateError('Akkaunt o‘zgargan. Sahifani qayta oching');
       }
     }
 
+    final path = inventory
+        ? 'raw-material-paddons/roll-notes'
+        : 'preparation/production/notes';
     final response = await _sendAuthorized(() {
       requireCurrentAccount();
       return _patch(
-        Uri.parse(
-            '${MobileApi.baseUrl}/v1/mobile/preparation/production/notes'),
+        Uri.parse('${MobileApi.baseUrl}/v1/mobile/$path'),
         headers: _headers(requireToken())
           ..['Content-Type'] = 'application/json',
         body: jsonEncode({

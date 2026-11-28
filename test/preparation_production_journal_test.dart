@@ -436,7 +436,7 @@ void main() {
       expect(linkedRow, findsOneWidget);
       await tester.longPress(freeRow);
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('inventory-asset-selected-free')), findsNothing);
+      expect(find.byKey(const ValueKey('inventory-asset-selected-free')), findsOneWidget);
     }, (request) {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(request.method, 'POST');
@@ -468,6 +468,154 @@ void main() {
           return _json({'paddon_code': code, 'asset_refs': ['free']});
         default:
           throw StateError('Unexpected request: ${request.url.path}');
+      }
+    });
+  });
+
+  testWidgets('material warehouse warns about packed rolls and existing notes',
+      (tester) async {
+    AppSession.instance.profile = _profile(
+      ref: 'material-warehouse-notes',
+      role: UserRole.materialTaminotchi,
+      capabilities: ['inventory.movement.manage', 'gscale.catalog.read', 'material.paddon.pack'],
+    ).copyWith(assignedWarehouses: ['Shared']);
+    const location = InventoryLocation(
+      id: 'warehouse-location',
+      kind: InventoryLocationKind.warehouse,
+      name: 'Shared',
+      warehouseId: 'shared',
+    );
+    const oldPaddon = 'XP-ABCDEF0123456789';
+    const newPaddon = 'XP-ABCDEF012345678A';
+    const text = 'Yangi eslatma';
+    Map<String, dynamic>? freeNote;
+    final assetRequests = <List<dynamic>>[];
+    InventoryAsset roll(String id, {String? paddon, Map<String, dynamic>? note}) =>
+        InventoryAsset.fromJson({
+          'kind': 'raw_material',
+          'asset_ref': id,
+          'custody_warehouse_id': 'shared',
+          'custody_warehouse': 'Shared',
+          'item_code': 'PE',
+          'item_name': '$id roll',
+          'identifier': '$id-QR',
+          'qty': 25,
+          'uom': 'kg',
+          'stock_use': 'prepared_roll',
+          'preparation_qr': true,
+          'status': paddon == null ? 'available' : 'on_paddon',
+          'paddon_code': paddon,
+          'roll_note': note,
+          'physical_location': {'id': location.id, 'kind': 'warehouse'},
+        });
+    InventoryViewStore.debugOverride = InventoryViewStore(
+      liveEnabled: () => false,
+      snapshotLoader: (query) async => switch (query.kind) {
+        'locations' => [location],
+        'assets' => [
+            roll('packed', paddon: oldPaddon, note: {'text': 'Avvalgi eslatma', 'revision': 1}),
+            roll('free', note: freeNote),
+          ],
+        _ => [],
+      },
+    );
+    addTearDown(() => InventoryViewStore.debugOverride = null);
+
+    await _withApp(tester, () async {
+      await tester.pumpWidget(_app(const InventoryMovementsScreen()));
+      await tester.pumpAndSettle();
+      final fab = find.descendant(
+        of: find.byKey(const ValueKey('inventory-movements-fab')),
+        matching: find.byIcon(Icons.add_rounded),
+      );
+      final packed = find.byKey(const ValueKey('inventory-asset-packed'));
+      final free = find.byKey(const ValueKey('inventory-asset-free'));
+      final packedCard = tester.widget<AdminSummaryCard>(
+        find.byKey(const ValueKey('inventory-asset-card-packed')),
+      );
+      final theme = Theme.of(tester.element(packed));
+      final pink = theme.brightness == Brightness.dark
+          ? const Color(0xFFF48FB1).withValues(alpha: 0.20)
+          : const Color(0xFFC2185B).withValues(alpha: 0.12);
+      expect(packedCard.backgroundColor,
+          Color.alphaBlend(pink, theme.colorScheme.surfaceContainerLowest));
+
+      await tester.longPress(packed);
+      await tester.pumpAndSettle();
+      expect(find.text('1 ta tanlandi'), findsOneWidget);
+      expect(find.byKey(const ValueKey('inventory-selection-relocate')), findsNothing);
+      await tester.tapAt(tester.getCenter(fab));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+      final warning = find.byKey(const ValueKey('production-attach-packed-rolls'));
+      expect(warning, findsOneWidget);
+      expect(find.text('1 ta rulondan 0 tasi biriktirishga yaroqli'), findsOneWidget);
+      final save = find.byKey(const ValueKey('production-attach-paddon-save'));
+      expect(tester.widget<FilledButton>(save).onPressed, isNull);
+      expect(assetRequests, isEmpty);
+      await tester.tap(find.text('Bekor qilish'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(free);
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(fab));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Eslatma qo‘shish'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('production-note-input')), text);
+      await tester.pumpAndSettle();
+      expect(find.text('2 ta rulondan 1 tasining eslatmasi almashtiriladi.'), findsOneWidget);
+      expect(freeNote, isNull);
+      await tester.tap(find.text('Faqat eslatmasi yo‘qlariga yozish'));
+      await tester.pumpAndSettle();
+      expect(freeNote?['text'], text);
+
+      await tester.longPress(packed);
+      await tester.pumpAndSettle();
+      await tester.tap(free);
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(fab));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paddonga biriktirish'));
+      await tester.pumpAndSettle();
+      await tester.tap(warning);
+      await tester.pumpAndSettle();
+      expect(find.text(oldPaddon), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('production-attach-paddon-$newPaddon')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Yaroqli rulonlarni biriktirish'));
+      await tester.pumpAndSettle();
+      expect(assetRequests, [['free'], ['free']]);
+      expect(find.byKey(const ValueKey('inventory-asset-selected-packed')), findsOneWidget);
+      expect(find.byKey(const ValueKey('inventory-asset-selected-free')), findsNothing);
+    }, (request) {
+      switch (request.url.path.split('/').last) {
+        case 'roll-notes':
+          expect(request.method, 'PATCH');
+          expect(jsonDecode(request.body), {
+            'rolls': [{'asset_ref': 'free', 'expected_revision': 0}],
+            'text': text,
+          });
+          freeNote = {'text': text, 'revision': 1};
+          return _json({'notes': {'free': freeNote}});
+        case 'roll-options':
+          assetRequests.add((jsonDecode(request.body) as Map)['asset_refs'] as List);
+          return _json({
+            'paddons': [{
+              'paddon_id': 'new',
+              'paddon_code': newPaddon,
+              'warehouse': 'Shared',
+              'remaining_kg': '0',
+              'contents': [],
+            }],
+            'has_more': false,
+          });
+        case 'roll-attach':
+          assetRequests.add((jsonDecode(request.body) as Map)['asset_refs'] as List);
+          return _json({'paddon_code': newPaddon, 'asset_refs': ['free']});
+        default:
+          return _json({});
       }
     });
   });

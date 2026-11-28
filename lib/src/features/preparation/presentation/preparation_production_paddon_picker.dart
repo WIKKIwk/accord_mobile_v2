@@ -41,11 +41,13 @@ Future<PaddonAttachment?> showInventoryPaddonPicker(
   BuildContext context, {
   required bool Function() currentAccount,
   required List<String> assetRefs,
+  List<PreparationPackedRoll> packedRolls = const [],
 }) =>
     _showPaddonPicker(
       context,
       _ProductionPaddonPicker(
         inventoryAssetRefs: assetRefs,
+        inventoryPackedRolls: packedRolls,
         currentAccount: currentAccount,
       ),
     );
@@ -76,12 +78,14 @@ class _ProductionPaddonPicker extends StatefulWidget {
     this.receiptNames = const [],
     this.batchIds = const [],
     this.inventoryAssetRefs,
+    this.inventoryPackedRolls = const [],
     required this.currentAccount,
   });
 
   final List<String> receiptNames;
   final List<String> batchIds;
   final List<String>? inventoryAssetRefs;
+  final List<PreparationPackedRoll> inventoryPackedRolls;
   final bool Function() currentAccount;
 
   @override
@@ -167,7 +171,9 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
         }
       }
       if (_fromInventory && _requestedRolls.isEmpty) {
-        setState(() => _error = 'Tanlangan rulonlar yo‘q');
+        if (widget.inventoryPackedRolls.isEmpty) {
+          setState(() => _error = 'Tanlangan rulonlar yo‘q');
+        }
         return;
       }
       final (page, selection) = _fromInventory
@@ -447,9 +453,10 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
     final pending = _pending;
     final selection = _selection;
     final nextOffset = _nextOffset;
-    final partial = selection != null &&
-        _selectedPaddon != null &&
-        _selectedRolls.length < selection.totalRolls;
+    final partial = widget.inventoryPackedRolls.isNotEmpty ||
+        (selection != null &&
+            _selectedPaddon != null &&
+            _selectedRolls.length < selection.totalRolls);
     return PopScope(
       canPop: !_saving && !_paddonDialogOpen,
       child: AlertDialog(
@@ -470,7 +477,15 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
               else ...[
                 if (selection != null)
                   _selectionSummary(selection)
-                else if (!_fromBatches)
+                else if (widget.inventoryPackedRolls.isNotEmpty) ...[
+                  UrduAwareText(
+                    '${_requestedRolls.length + widget.inventoryPackedRolls.length} ta '
+                    'rulondan ${_requestedRolls.length} tasi '
+                    '${_selectedCode == null ? 'biriktirishga yaroqli' : 'biriktiriladi'}',
+                  ),
+                  _packedRolls(widget.inventoryPackedRolls.length,
+                      widget.inventoryPackedRolls),
+                ] else if (!_fromBatches)
                   UrduAwareText(
                     '${_requestedRolls.length} ta tanlangan rulon',
                   ),
@@ -513,7 +528,8 @@ class _ProductionPaddonPickerState extends State<_ProductionPaddonPicker> {
                   )
                 else if (_error == null &&
                     _paddons.isEmpty &&
-                    selection?.eligibleCount != 0)
+                    selection?.eligibleCount != 0 &&
+                    (!_fromInventory || _requestedRolls.isNotEmpty))
                   UrduAwareText(
                     selection == null
                         ? 'Shu omborda paddon topilmadi.'

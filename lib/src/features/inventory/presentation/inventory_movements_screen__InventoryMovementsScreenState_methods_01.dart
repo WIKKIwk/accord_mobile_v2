@@ -153,6 +153,31 @@ extension __InventoryMovementsScreenStateAstPart01
         );
   }
 
+  bool _isPackedWarehouseRoll(InventoryAsset asset) =>
+      asset.kind == InventoryAssetKind.rawMaterial &&
+      asset.paddonCode != null &&
+      asset.status.trim().toLowerCase() == 'on_paddon' &&
+      asset.transferId.trim().isEmpty &&
+      asset.stockUse == InventoryStockUse.preparedRoll &&
+      !asset.isPreparationReceiptWithoutQr &&
+      asset.identifier.trim().isNotEmpty;
+
+  bool _canPreviewPaddonAttachment(InventoryAsset asset) =>
+      asset.canSelectForPaddon ||
+      (_warehouseRollActions && _isPackedWarehouseRoll(asset));
+
+  bool _canEditWarehouseRoll(InventoryAsset asset) =>
+      asset.custodyWarehouseId == _selectedWarehouseId &&
+      asset.physicalLocation.kind == InventoryLocationKind.warehouse &&
+      (asset.canSelectForPaddon || _isPackedWarehouseRoll(asset));
+
+  bool _canSelectWarehouseAsset(InventoryAsset asset) =>
+      _canBulkRelocate(asset) ||
+      (_warehouseRollActions &&
+          _canEditWarehouseRoll(asset) &&
+          (MobileApi.instance.canPackInventoryPaddon ||
+              MobileApi.instance.canEditInventoryRollNotes));
+
   bool get _includeAssignmentSummary =>
       _preparationScoped ||
       (_materialScoped && AppSession.instance.can('raw_material.assign'));
@@ -783,7 +808,10 @@ extension __InventoryMovementsScreenStateAstPart01
   }
 
   void _toggleAssetSelection(InventoryAsset asset, {bool fromQrLookup = false}) {
-    if (!_canBulkRelocate(asset, fromQrLookup: fromQrLookup)) {
+    final selectable = fromQrLookup
+        ? _canBulkRelocate(asset, fromQrLookup: true)
+        : _canSelectWarehouseAsset(asset);
+    if (!selectable) {
       return;
     }
     if (_stateSelectionMode) {
