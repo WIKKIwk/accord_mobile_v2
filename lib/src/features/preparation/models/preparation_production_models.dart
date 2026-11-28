@@ -322,6 +322,7 @@ class PreparationPaddonIssue {
         destinationKind = _text(json, 'destination_kind'),
         labelWarehouse = _identity(json, 'label_warehouse'),
         awaitsTransfer = json['transfer_status'] == 'requested',
+        fromSplit = _text(json, 'raw_material_split_id').isNotEmpty,
         existingQr = json['existing_qr'] == true,
         tracksPrint = json['print_tracking'] == true,
         legacyPrint = json['legacy_print'] == true,
@@ -341,12 +342,14 @@ class PreparationPaddonIssue {
   }
 
   final String id, paddonCode, destination, destinationKind, labelWarehouse;
-  String get destinationTitle => switch (destinationKind) {
-        'warehouse' => '$destination • Ombor',
-        'state' => '$destination • State',
-        _ => destination,
-      };
-  final bool awaitsTransfer, tracksPrint, legacyPrint, existingQr;
+  String get destinationTitle => fromSplit
+      ? 'Rezka • $destination'
+      : switch (destinationKind) {
+          'warehouse' => '$destination • Ombor',
+          'state' => '$destination • State',
+          _ => destination,
+        };
+  final bool awaitsTransfer, fromSplit, tracksPrint, legacyPrint, existingQr;
   final String? remainderKg;
   final Map<String, PreparationPaddonPrintState> printStates;
   final List<PreparationPaddonLabel> labels;

@@ -1547,6 +1547,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('paddon-issue-history')));
       await tester.pumpAndSettle();
+      final cut = find.widgetWithText(ListTile, 'Rezka • Own W');
+      expect(cut, findsOneWidget);
+      expect(tester.widget<ListTile>(cut).onTap, isNull);
       Future<void> history() async {
         await tester.tap(find.textContaining('3 ta birlik').last);
         await tester.pumpAndSettle();
@@ -1585,6 +1588,18 @@ void main() {
       }
       return _json({
         'issues': [
+          {
+            'issue_id': 'raw-split:1',
+            'raw_material_split_id': '1',
+            'paddon_code': code,
+            'destination': 'Own W',
+            'destination_kind': 'warehouse',
+            'label_warehouse': 'Own W',
+            'existing_qr': true,
+            'labels': [
+              {'barcode': 'OLD-ROLL', 'item_code': 'M', 'item_name': 'Rulon', 'kg': '23'},
+            ],
+          },
           {
             'issue_id': 'i1',
             'paddon_code': code,

@@ -461,19 +461,24 @@ class _MaterialPaddonIssueHistoryState
                     title: UrduAwareText(issue.destinationTitle),
                     subtitle: UrduAwareText(
                         '${issue.labels.first.itemName} • ${_issueQuantity(issue)}'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () async {
-                      if (_scope != currentSessionReadScope()) return;
-                      await _showIssueLabels(context, issue);
-                      if (!mounted || _scope != currentSessionReadScope()) {
-                        return;
-                      }
-                      final next =
-                          MobileApi.instance.materialPaddonIssues(widget.code);
-                      setState(() {
-                        _history = next;
-                      });
-                    },
+                    trailing: issue.fromSplit
+                        ? null
+                        : const Icon(Icons.chevron_right_rounded),
+                    onTap: issue.fromSplit
+                        ? null
+                        : () async {
+                            if (_scope != currentSessionReadScope()) return;
+                            await _showIssueLabels(context, issue);
+                            if (!mounted ||
+                                _scope != currentSessionReadScope()) {
+                              return;
+                            }
+                            final next = MobileApi.instance
+                                .materialPaddonIssues(widget.code);
+                            setState(() {
+                              _history = next;
+                            });
+                          },
                   ),
             ],
           ),
