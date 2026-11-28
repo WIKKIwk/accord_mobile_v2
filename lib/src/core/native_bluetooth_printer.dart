@@ -106,6 +106,10 @@ Map<String, Object> _bluetoothLabelPayload(UsbRpsPrintRequest request) {
     payload['progress_code_x'] = layout.codeX;
   }
   if (request.isMaterialProductLabel) {
+    final lotNumber = bluetoothPrinterText(request.materialLotNumber);
+    if (lotNumber.isNotEmpty) {
+      payload['material_lot_number'] = lotNumber;
+    }
     final itemName = payload['item_name']?.toString() ?? '';
     final sourceName = itemName.isEmpty ? request.itemCode : itemName;
     // Faqat homashyo rezkachisi split chiqishlari (progressUnit='m')

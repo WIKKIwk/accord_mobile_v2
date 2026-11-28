@@ -1619,7 +1619,9 @@ void main() {
               'RAW-MATERIAL-PADDON:$code',
             );
             expect(labels.single['item_name'], 'GRANULA ZAXIRASI');
+            expect(labels.single['label_kind'], 'paddon_code');
             expect(labels.single['material_data_matrix'], isNull);
+            expect(labels.single['material_lot_number'], isNull);
             labels.clear();
 
             final openIssue = find.byKey(const ValueKey('paddon-open-issue'));
@@ -1677,14 +1679,17 @@ void main() {
               'PREP-PADDON-LEGACY',
             ]);
             expect(labels.map((label) => label['gross_qty']), [24.6, 26.1]);
-            expect(
-              labels.every(
-                (label) =>
-                    (label['item_name'] as String).contains('LOT-1') &&
-                    !label.containsKey('material_data_matrix'),
-              ),
-              isTrue,
-            );
+            expect(labels.map((label) => label['item_name']),
+                ['BOPP 123/123', 'BOPP 123/123']);
+            for (final label in labels) {
+              expect(label['label_kind'], 'material_product');
+              expect(label['item_code'], 'BOPP-1');
+              expect(label['material_lot_number'], '23');
+              expect(label['print_count'], 1);
+              expect(label['material_data_matrix'], isTrue);
+              expect(label['material_data_matrix_bars'], isNotEmpty);
+              expect(label, isNot(contains('paddon_label_lines')));
+            }
             final reprint = find.byKey(const ValueKey('paddon-print-unit:$_epc'));
             await tester.ensureVisible(reprint);
             await tester.tap(reprint);
@@ -1756,15 +1761,17 @@ void main() {
                   'destination_kind': viaScan ? 'state' : 'warehouse',
                   'label_warehouse': viaScan ? 'Own W' : 'Own Next',
                   'labels': [
-                    for (final (barcode, weight) in [
-                      (_epc, '24.6'),
-                      ('PREP-PADDON-LEGACY', '26.1'),
+                    for (final (barcode, name, weight) in [
+                      (_epc, 'BOPP', '24.6'),
+                      ('PREP-PADDON-LEGACY', 'BOPP 123/123', '26.1'),
                     ])
                       {
                         'barcode': barcode,
-                        'item_name': 'Granula',
-                        'item_code': 'G1',
-                        'lot_number': 'LOT-1',
+                        'item_name': name,
+                        'item_code': 'BOPP-1',
+                        'lot_number': '23',
+                        'width_mm': '123.000000',
+                        'micron': '123.000000',
                         'kg': weight,
                       },
                   ],

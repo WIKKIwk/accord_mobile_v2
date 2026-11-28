@@ -60,6 +60,7 @@ class PrintService {
         progressUnit: request.progressUnit,
         completedAtUnix: request.completedAtUnix,
         paddonLabelLines: request.paddonLabelLines,
+        materialLotNumber: request.materialLotNumber,
       );
       final Map<String, Object?> result;
       try {

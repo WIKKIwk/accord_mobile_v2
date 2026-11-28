@@ -488,6 +488,9 @@ class BluetoothPrinterChannel(
                 } else {
                     add("NET VAZNI" to "${compactLabelQty(label.netQty)} $unit")
                 }
+                if (label.materialLotNumber.isNotBlank()) {
+                    add("PARTIYA" to label.materialLotNumber)
+                }
             }
         }
         printCompactFieldsLabel(printer, label, fields)
@@ -1408,6 +1411,7 @@ private data class BluetoothLabelRequest(
     val materialDataMatrix: Boolean,
     val materialDataMatrixBars: List<List<Double>>,
     val materialNameLines: List<String>,
+    val materialLotNumber: String,
     val progressQty: Double?,
     val progressUnit: String,
     val completedAtLabel: String,
@@ -1511,6 +1515,7 @@ private data class BluetoothLabelRequest(
                     .mapNotNull { value ->
                         value?.toString()?.trim()?.takeIf { it.isNotEmpty() }
                     },
+                materialLotNumber = call.argument<String>("material_lot_number").orEmpty().trim(),
                 progressQty = call.argument<Number>("progress_qty")?.toDouble()
                     ?.takeIf { it.isFinite() },
                 progressUnit = call.argument<String>("progress_unit").orEmpty().trim(),

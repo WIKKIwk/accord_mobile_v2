@@ -573,6 +573,9 @@ final class XPrinterBluetoothChannel: NSObject, XBLEManagerDelegate, FlutterStre
       } else {
         fields.append(("NET VAZNI", "\(compactLabelQty(label.netQty)) \(unit)"))
       }
+      if !label.materialLotNumber.isEmpty {
+        fields.append(("PARTIYA", label.materialLotNumber))
+      }
     }
     return try appendCompactFieldsLabel(command, label: label, fields: fields)
   }
@@ -1579,6 +1582,7 @@ private struct BluetoothLabelRequest {
   let materialDataMatrix: Bool
   let materialDataMatrixBars: [[Double]]
   let materialNameLines: [String]
+  let materialLotNumber: String
   let progressQty: Double?
   let progressUnit: String
   let completedAtLabel: String
@@ -1629,6 +1633,8 @@ private struct BluetoothLabelRequest {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
       }
+    materialLotNumber = (arguments["material_lot_number"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let progressQty = (arguments["progress_qty"] as? NSNumber)?.doubleValue
     self.progressQty = progressQty?.isFinite == true ? progressQty : nil
     progressUnit = (arguments["progress_unit"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

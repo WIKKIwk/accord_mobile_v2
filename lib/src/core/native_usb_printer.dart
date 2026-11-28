@@ -173,6 +173,7 @@ class UsbRpsPrintRequest {
     this.progressUnit = '',
     this.completedAtUnix = 0,
     this.paddonLabelLines = const [],
+    this.materialLotNumber = '',
   });
 
   factory UsbRpsPrintRequest.test({required String epc}) {
@@ -268,6 +269,9 @@ class UsbRpsPrintRequest {
   /// Optional Bluetooth header from the server's current pallet print summary.
   /// Kept out of the USB/LAN printer JSON contract.
   final List<String> paddonLabelLines;
+
+  /// An optional partiya field for the compact Bluetooth material label.
+  final String materialLotNumber;
 
   double get netQty => (netIncludesBobina ? grossQty : grossQty - tareKg)
       .clamp(0, double.infinity).toDouble();

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/api/mobile_api.dart';
 import '../../../core/native_usb_printer.dart';
 import '../../../core/print_service.dart';
+import '../../../core/print_transport.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
 import '../models/preparation_models.dart';
 
@@ -24,8 +25,10 @@ UsbRpsPrintRequest materialPaddonUnitPrintRequest(
   PreparationPaddonIssue issue,
   PreparationPaddonLabel unit,
   ProgressPrinterOption printer,
-) =>
-    _qrLabel(
+) {
+  final kg = double.parse(unit.kg);
+  if (!printer.transport.isBluetooth) {
+    return _qrLabel(
       printer,
       payload: unit.barcode,
       code: unit.barcode,
@@ -34,13 +37,38 @@ UsbRpsPrintRequest materialPaddonUnitPrintRequest(
         '${preparationDisplay(unit.kg)} kg',
         [
           unit.itemName,
-          if (unit.widthMm != null) '${preparationDisplay(unit.widthMm!)} mm',
-          if (unit.micron != null) '${preparationDisplay(unit.micron!)} mkm'
-        ].join(' • '),
+          if (unit.widthMm case final width?) '${preparationDisplay(width)} mm',
+          if (unit.micron case final micron?) '${preparationDisplay(micron)} mkm',
+        ].join(' - '),
         if (unit.lotNumber.isNotEmpty) 'Partiya: ${unit.lotNumber}',
       ],
-      kg: double.parse(unit.kg),
+      kg: kg,
     );
+  }
+
+  final dimensions = switch ((unit.widthMm, unit.micron)) {
+    (final width?, final micron?) =>
+      '${preparationDisplay(width)}/${preparationDisplay(micron)}',
+    (final width?, null) => '${preparationDisplay(width)} mm',
+    (null, final micron?) => '${preparationDisplay(micron)} mkm',
+    (null, null) => '',
+  };
+  final name = unit.itemName.trim();
+  final itemName = dimensions.isEmpty || name.endsWith(' $dimensions')
+      ? name
+      : '$name $dimensions';
+  return UsbRpsPrintRequest(
+    epc: unit.barcode,
+    itemCode: unit.itemCode,
+    itemName: itemName,
+    warehouse: issue.labelWarehouse,
+    printer: printer.printer,
+    printMode: 'label',
+    grossQty: kg,
+    labelKind: 'material_product',
+    materialLotNumber: unit.lotNumber,
+  );
+}
 
 UsbRpsPrintRequest _qrLabel(
   ProgressPrinterOption printer, {
@@ -53,13 +81,12 @@ UsbRpsPrintRequest _qrLabel(
     UsbRpsPrintRequest(
       epc: payload,
       itemCode: code,
-      itemName: lines.join(' • '),
+      itemName: lines.join(' - '),
       warehouse: warehouse,
       printer: printer.printer,
       printMode: 'label',
       grossQty: kg,
-      // The QR-only layout supports both standard EPCs and the existing
-      // PREP-PADDON unit identifiers, as well as the typed parent payload.
+      // The pallet and non-Bluetooth issue labels accept textual identifiers.
       labelKind: 'paddon_code',
       paddonLabelLines: lines,
     );
@@ -74,7 +101,7 @@ Future<void> printMaterialPaddonQr(
       printerProfile: printer.offlinePrinter,
       bluetoothPrinter: printer.bluetoothPrinter,
       transport: printer.transport,
-      bluetoothQrCode: true,
+      bluetoothQrCode: request.isPaddonCodeLabel,
     );
     if (result.ok) return;
   } else {
