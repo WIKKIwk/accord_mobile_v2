@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/api/mobile_api.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/urdu_aware_text.dart';
 import '../../../core/session/session.dart';
 import '../../../core/session/session_read_scope.dart';
+import '../../../core/widgets/lists/m3_segmented_list.dart';
 import '../../../core/widgets/shell/app_loading_indicator.dart';
 import '../../admin/presentation/progress_printer_picker.dart';
+import '../../admin/presentation/widgets/admin_catalog_list_row.dart';
 import '../../shared/models/app_models.dart';
 import '../models/preparation_models.dart';
 import 'material_paddon_issue_dialog.dart';
@@ -214,8 +217,15 @@ class _MaterialPaddonDetailsState extends State<_MaterialPaddonDetailsSheet> {
             UrduAwareText('Xomashyo', style: textTheme.titleSmall),
             const SizedBox(height: 8),
             for (final (index, item) in _paddon.contents.indexed) ...[
-              if (index > 0) const SizedBox(height: 8),
-              _PaddonContentRow(item),
+              if (index > 0)
+                const SizedBox(height: M3SegmentedListGeometry.gap),
+              _PaddonContentRow(
+                item,
+                slot: M3SegmentedListGeometry.standaloneListSlotForIndex(
+                  index,
+                  _paddon.contents.length,
+                ),
+              ),
             ],
           ],
           const SizedBox(height: 12),
@@ -303,13 +313,14 @@ class _PaddonOverview extends StatelessWidget {
 }
 
 class _PaddonContentRow extends StatelessWidget {
-  const _PaddonContentRow(this.item);
+  const _PaddonContentRow(this.item, {required this.slot});
 
   final PreparationPaddonContent item;
+  final M3SegmentVerticalSlot slot;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final specifications = [
       if (item.preparedBarcode case final barcode?) barcode,
       if (item.lotNumber.isNotEmpty) 'Partiya: ${item.lotNumber}',
@@ -328,43 +339,17 @@ class _PaddonContentRow extends StatelessWidget {
     final balance = item.unweighedCount > 0
         ? 'Vazni tortilmagan'
         : 'Jami ${preparationDisplay(item.remainingKg)} kg';
-    return Card.filled(
-      color: theme.colorScheme.surfaceContainerLowest,
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 4,
-              children: [
-                UrduAwareText(item.itemName, style: theme.textTheme.titleMedium),
-                UrduAwareText(balance, style: theme.textTheme.labelLarge),
-              ],
-            ),
-            if (specifications.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              UrduAwareText(
-                specifications.join(' • '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (stock.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              UrduAwareText(
-                stock.join(' • '),
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
-          ],
-        ),
-      ),
+    return AdminCatalogListRow(
+      slot: slot,
+      icon: Icons.category_outlined,
+      title: l10n.uiText(item.itemName),
+      titleMaxLines: 2,
+      subtitle: [
+        if (specifications.isNotEmpty) l10n.uiText(specifications.join(' • ')),
+        if (stock.isNotEmpty) l10n.uiText(stock.join(' • ')),
+      ].join('\n'),
+      subtitleMaxLines: 8,
+      value: l10n.uiText(balance),
     );
   }
 }

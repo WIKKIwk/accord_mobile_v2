@@ -690,17 +690,28 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('Granula'), findsOneWidget);
-      expect(find.text('Partiya: LOT-1'), findsOneWidget);
-      expect(find.text('3 ta qop'), findsOneWidget);
-      expect(find.text('Jami 75 kg'), findsOneWidget);
+      final rows = tester.widgetList<AdminCatalogListRow>(find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(AdminCatalogListRow),
+      )).toList();
+      expect(rows.map((row) => row.slot), [
+        M3SegmentVerticalSlot.top,
+        M3SegmentVerticalSlot.middle,
+        M3SegmentVerticalSlot.bottom,
+      ]);
+      expect(rows.first.title, 'Granula');
+      expect(rows.first.subtitle, 'Partiya: LOT-1\n3 ta qop');
+      expect(rows.first.value, 'Jami 75 kg');
+      expect(rows[1].subtitle, '$_epc • 120 mm • 12 mkm\n1 ta rulon');
+      expect(rows[1].value, 'Jami 100 kg');
+      expect(rows.last.value, 'Vazni tortilmagan');
       final issue = find.byKey(const ValueKey('paddon-open-issue'));
       final print = find.byKey(const ValueKey('paddon-print-qr'));
       expect(
         tester.getRect(print).top - tester.getRect(issue).bottom,
         greaterThanOrEqualTo(8),
       );
-      await tester.tapAt(const Offset(12, 12));
+      Navigator.of(tester.element(print)).pop();
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('paddon-balance-filter')));
@@ -740,7 +751,8 @@ void main() {
               'paddon_code': 'P-001',
               'name': 'Granula zaxirasi',
               'warehouse': 'Own W',
-              'remaining_kg': '75.000000',
+              'remaining_kg': '175.000000',
+              'unweighed_count': 1,
               'contents': [
                 {
                   'item_name': 'Granula',
@@ -749,6 +761,24 @@ void main() {
                   'line_no': 1,
                   'remaining_count': 3,
                   'remaining_kg': '75.000000',
+                },
+                {
+                  'item_name': 'BOPP 120/12',
+                  'kind': 'roll',
+                  'line_no': 2,
+                  'prepared_barcode': _epc,
+                  'width_mm': '120',
+                  'micron': '12',
+                  'remaining_count': 1,
+                  'remaining_kg': '100',
+                },
+                {
+                  'item_name': 'BOPP',
+                  'kind': 'roll',
+                  'line_no': 3,
+                  'remaining_count': 1,
+                  'remaining_kg': '0',
+                  'unweighed_count': 1,
                 },
               ],
             },
@@ -1573,6 +1603,14 @@ void main() {
               await tester.pumpAndSettle();
               expect(lookedUp, isEmpty);
             }
+            final row = tester.widget<AdminCatalogListRow>(find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.byType(AdminCatalogListRow),
+            ));
+            expect(row.title, 'Granula');
+            expect(row.subtitle, 'Partiya: LOT-1\n3 ta qop');
+            expect(row.value, 'Vazni tortilmagan');
+
             await tester.tap(find.byKey(const ValueKey('paddon-print-qr')));
             await tester.pumpAndSettle();
             expect(labels, hasLength(1));
